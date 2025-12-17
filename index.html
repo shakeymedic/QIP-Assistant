@@ -7,92 +7,139 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        slate: { 850: '#1e293b', 900: '#0f172a' },
+                        rcem: { 
+                            purple: '#2d2e83', 
+                            orange: '#f36f21',
+                            light: '#f4f6f8'
+                        } 
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Merriweather', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
     
     <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Chart.js -->
+    <!-- Chart.js & Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <!-- Mermaid.js (For Vector Diagrams) -->
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
     <!-- Google Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Inter', sans-serif; }
-        .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
+        .fade-in { animation: fadeIn 0.4s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
         ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-        #toast-container {
-            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100;
+        /* Glassmorphism Classes */
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        .dark .glass {
+            background: rgba(30, 41, 59, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Matrix Grids */
+        #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
+
         .matrix-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
             grid-template-rows: 1fr 1fr;
             gap: 2px;
-            background-color: #cbd5e1; /* Grid line color */
+            background-color: #cbd5e1;
             border: 2px solid #64748b;
         }
-        .matrix-quadrant {
-            background-color: white;
-            padding: 1rem;
-            min-height: 200px;
-            position: relative;
+        .matrix-quadrant { background-color: white; padding: 1rem; min-height: 200px; position: relative; }
+
+        /* Poster Mode Grid */
+        .poster-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr auto;
+            gap: 1.5rem;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            background: white;
+            color: #1e293b;
         }
+        .poster-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        /* Dark Mode overrides */
+        .dark body { background-color: #0f172a; color: #e2e8f0; }
+        .dark .matrix-quadrant { background-color: #1e293b; }
+        .dark .matrix-grid { background-color: #475569; border-color: #64748b; }
+        .dark input, .dark textarea, .dark select { background-color: rgba(30, 41, 59, 0.5); border-color: #475569; color: white; }
     </style>
 </head>
-<body class="bg-slate-100 text-slate-900 h-screen overflow-hidden flex flex-col">
+<body class="bg-slate-100 text-slate-900 h-screen overflow-hidden flex flex-col bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
 
-    <!-- IG WARNING BANNER -->
-    <div id="ig-banner" class="bg-amber-100 border-b border-amber-200 text-amber-900 px-4 py-2 text-xs md:text-sm font-medium flex justify-between items-center z-50">
+    <!-- IG WARNING -->
+    <div id="ig-banner" class="bg-amber-100 dark:bg-amber-900 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 px-4 py-2 text-xs md:text-sm font-medium flex justify-between items-center z-50">
         <div class="flex items-center gap-2">
-            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i>
-            <span>INFORMATION GOVERNANCE: Do <strong>NOT</strong> enter patient names, DoBs, or MRNs. Use anonymized IDs only.</span>
+            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
+            <span>INFORMATION GOVERNANCE: Do <strong>NOT</strong> enter patient names, DoBs, or MRNs.</span>
         </div>
-        <button onclick="document.getElementById('ig-banner').remove()" class="text-amber-700 hover:text-amber-900">
-            <i data-lucide="x" class="w-4 h-4"></i>
-        </button>
+        <button onclick="document.getElementById('ig-banner').remove()" class="text-amber-700 hover:text-amber-900 dark:hover:text-amber-200"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
 
     <div class="flex flex-1 overflow-hidden relative">
-        <!-- LOGIN SCREEN -->
-        <div id="auth-screen" class="fixed inset-0 bg-slate-900 z-50 flex items-center justify-center p-4">
-            <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in">
-                <div class="bg-white p-8 text-center border-b border-slate-100">
-                    <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-16 mx-auto mb-4 object-contain">
+        
+        <!-- LOGIN -->
+        <div id="auth-screen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="glass bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in">
+                <div class="bg-white/50 p-8 text-center border-b border-slate-100/50">
+                    <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-20 mx-auto mb-4 object-contain">
                     <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
-                    <p class="text-slate-500 mt-1">Professional Portfolio Tool</p>
+                    <p class="text-slate-500 mt-1">Professional Portfolio & Audit Tool</p>
                 </div>
-                <div class="p-8 bg-slate-50">
+                <div class="p-8">
                     <h2 id="auth-title" class="text-lg font-semibold text-slate-800 mb-6 text-center">Sign In</h2>
                     <div id="auth-message" class="hidden mb-4 p-3 rounded text-sm text-center"></div>
-                    
                     <form id="auth-form" class="space-y-4">
-                        <div>
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                            <input type="email" id="email" required class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="doctor@nhs.net">
-                        </div>
-                        <div id="password-group">
-                            <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                            <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none" placeholder="••••••••">
-                        </div>
-                        <button type="submit" id="auth-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg transition-all">
-                            <span id="auth-btn-text">Sign In</span>
-                        </button>
+                        <input type="email" id="email" required class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="doctor@nhs.net">
+                        <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="••••••••">
+                        <button type="submit" id="auth-btn" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-xl"><span id="auth-btn-text">Sign In</span></button>
                     </form>
                     <div class="mt-4 flex justify-between text-sm">
-                        <button id="toggle-auth" class="text-indigo-600 hover:underline">Create Account</button>
+                        <button id="toggle-auth" class="text-rcem-purple hover:underline">Create Account</button>
                         <button id="forgot-password" class="text-slate-500 hover:text-slate-700">Forgot Password?</button>
                     </div>
                 </div>
@@ -100,201 +147,298 @@
         </div>
 
         <!-- SIDEBAR -->
-        <aside id="app-sidebar" class="hidden w-64 bg-slate-900 text-white flex-col h-full fixed left-0 top-0 z-10 shadow-xl lg:static lg:flex">
-            <div class="p-6 border-b border-slate-700 flex flex-col items-center">
-                <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-12 mb-3 object-contain bg-white rounded p-1 w-full">
+        <aside id="app-sidebar" class="hidden w-64 bg-slate-900/95 backdrop-blur-xl text-white flex-col h-full fixed left-0 top-0 z-10 shadow-2xl lg:static lg:flex border-r border-white/10">
+            <div class="p-6 border-b border-white/10 flex flex-col items-center">
+                <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-14 mb-3 object-contain bg-white rounded-lg p-2 w-full shadow-inner">
                 <div class="text-center">
-                    <h1 class="font-bold text-lg">RCEM QIP</h1>
+                    <h1 class="font-bold text-lg tracking-tight">RCEM QIP</h1>
                     <p class="text-xs text-slate-400">West Midlands EM</p>
                 </div>
             </div>
-            <nav class="flex-1 p-4 space-y-2">
-                <button onclick="router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-dashboard">
-                    <i data-lucide="layout-dashboard" class="w-5 h-5"></i> <span class="font-medium">Dashboard</span>
-                </button>
-                <button onclick="router('checklist')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-checklist">
-                    <i data-lucide="check-square" class="w-5 h-5"></i> <span class="font-medium">QIAT Checklist</span>
-                </button>
-                <button onclick="router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-data">
-                    <i data-lucide="bar-chart-2" class="w-5 h-5"></i> <span class="font-medium">Data & Charts</span>
-                </button>
-                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-tools">
-                    <i data-lucide="tool" class="w-5 h-5"></i> <span class="font-medium">QI Toolkit</span>
-                </button>
-                <button onclick="router('gantt')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-gantt">
-                    <i data-lucide="calendar" class="w-5 h-5"></i> <span class="font-medium">Gantt Chart</span>
-                </button>
-                <button onclick="router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition-all" id="nav-pdsa">
-                    <i data-lucide="refresh-cw" class="w-5 h-5"></i> <span class="font-medium">PDSA Cycles</span>
-                </button>
+            <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
+                <button onclick="router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> <span class="font-medium">Dashboard</span></button>
+                <button onclick="router('checklist')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-checklist"><i data-lucide="check-square" class="w-5 h-5"></i> <span class="font-medium">QIAT Checklist</span></button>
+                <button onclick="router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-data"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> <span class="font-medium">Data & Charts</span></button>
+                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-tools"><i data-lucide="tool" class="w-5 h-5"></i> <span class="font-medium">Change Tools</span></button>
+                <button onclick="router('gantt')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-gantt"><i data-lucide="calendar" class="w-5 h-5"></i> <span class="font-medium">Gantt Chart</span></button>
+                <button onclick="router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-5 h-5"></i> <span class="font-medium">PDSA Cycles</span></button>
+                <button onclick="router('green')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-green"><i data-lucide="leaf" class="w-5 h-5 text-emerald-400"></i> <span class="font-medium">Green ED</span></button>
             </nav>
-            <div class="p-4 border-t border-slate-700">
-                <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-slate-800 px-4 py-2 rounded-lg transition-all text-sm">
-                    <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out
-                </button>
+            <div class="p-4 border-t border-white/10 bg-slate-900/50">
+                <button onclick="toggleDarkMode()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm mb-2"><i data-lucide="moon" class="w-4 h-4"></i> Dark Mode</button>
+                <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm"><i data-lucide="log-out" class="w-4 h-4"></i> Sign Out</button>
             </div>
         </aside>
 
-        <!-- MAIN CONTENT -->
-        <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100 relative w-full">
-            <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded-md">
-                <i data-lucide="menu"></i>
-            </button>
+        <!-- MAIN -->
+        <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100/50 dark:bg-slate-900/50 relative w-full">
+            <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded-md shadow-lg"><i data-lucide="menu"></i></button>
 
-            <div class="bg-white border-b border-slate-200 px-8 py-3 flex justify-between items-center sticky top-0 z-20 shadow-sm">
-                <div class="flex items-center text-sm text-slate-500">
-                    <span class="font-semibold text-slate-700 mr-2">Status:</span>
-                    <span id="save-status" class="flex items-center gap-1 text-emerald-600"><i data-lucide="save" class="w-3 h-3"></i> Saved</span>
+            <!-- Status Bar -->
+            <div class="glass sticky top-0 z-20 px-8 py-3 flex justify-between items-center shadow-sm">
+                <div class="flex items-center text-sm text-slate-500 dark:text-slate-400">
+                    <span class="font-semibold text-slate-700 dark:text-slate-200 mr-2">Status:</span>
+                    <span id="save-status" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400"><i data-lucide="save" class="w-3 h-3"></i> Saved</span>
                 </div>
-                <div id="user-display" class="text-xs text-slate-400"></div>
+                <div id="user-display" class="text-xs text-slate-400 font-mono"></div>
             </div>
 
             <div id="toast-container"></div>
 
-            <div id="views-container" class="pb-20">
+            <div id="views-container" class="pb-20 p-4 md:p-8">
                 
-                <!-- 1. Dashboard -->
-                <div id="view-dashboard" class="view-section p-4 md:p-8 space-y-6 fade-in">
+                <!-- 1. DASHBOARD -->
+                <div id="view-dashboard" class="view-section space-y-6 fade-in">
                     <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800">Dashboard</h2>
-                            <p class="text-slate-500">Overview of your Quality Improvement Project</p>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Dashboard</h2>
+                            <p class="text-slate-500 dark:text-slate-400">QI Project Overview</p>
                         </div>
-                        <div class="flex gap-2">
-                             <button onclick="generateReport()" class="bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm">
-                                <i data-lucide="file-text" class="w-4 h-4"></i> Generate Report
-                            </button>
-                            <button onclick="resetProject()" class="text-slate-400 hover:text-red-600 flex items-center gap-2 text-sm border border-slate-200 px-3 py-2 rounded-lg hover:border-red-200">
-                                <i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset
-                            </button>
+                        <div class="flex flex-wrap gap-2">
+                             <button onclick="router('poster')" class="bg-rcem-purple hover:bg-indigo-900 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-md transition-all"><i data-lucide="layout" class="w-4 h-4"></i> Poster Mode</button>
+                             <button onclick="generateReport()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="file-text" class="w-4 h-4"></i> Report</button>
+                             <button onclick="downloadJSON()" class="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm"><i data-lucide="download-cloud" class="w-4 h-4"></i> Backup</button>
+                             <label class="bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm cursor-pointer"><i data-lucide="upload-cloud" class="w-4 h-4"></i> Restore<input type="file" id="restore-input" class="hidden" onchange="restoreJSON(this)"></label>
+                             <button onclick="resetProject()" class="text-slate-400 hover:text-red-600 flex items-center gap-2 text-sm border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-lg hover:border-red-200"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
                         </div>
                     </header>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="stats-grid"></div>
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="text-indigo-600"></i> Project Aim (SMART)</h3>
-                        <div id="dashboard-aim" class="p-4 bg-indigo-50 rounded-lg border border-indigo-100 text-indigo-900 italic">No aim defined.</div>
+                    
+                    <div class="glass rounded-xl p-6 shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="target" class="text-rcem-purple dark:text-indigo-400"></i> Project Aim</h3>
+                            <button onclick="openSmartWizard()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200">SMART Wizard</button>
+                        </div>
+                        <div id="dashboard-aim" class="p-4 bg-indigo-50/50 dark:bg-slate-900 rounded-lg border border-indigo-100 dark:border-slate-700 text-indigo-900 dark:text-indigo-100 italic font-serif">No aim defined.</div>
                     </div>
                 </div>
 
-                <!-- 2. Checklist -->
-                <div id="view-checklist" class="view-section hidden p-4 md:p-8 max-w-4xl mx-auto fade-in">
+                <!-- 2. CHECKLIST -->
+                <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto fade-in">
                     <div class="mb-8">
-                        <h2 class="text-3xl font-bold text-slate-800">QIAT Checklist</h2>
-                        <p class="text-slate-500">Aligned with RCEM 2025 Curriculum requirements.</p>
+                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white">QIAT Checklist</h2>
+                        <p class="text-slate-500 dark:text-slate-400">Aligned with RCEM Curriculum requirements.</p>
                     </div>
                     <div id="checklist-container" class="space-y-4"></div>
                 </div>
 
-                <!-- 3. Data & Charts -->
-                <div id="view-data" class="view-section hidden p-4 md:p-8 fade-in">
+                <!-- 3. DATA & CHARTS -->
+                <div id="view-data" class="view-section hidden fade-in">
                     <header class="mb-6 flex justify-between items-end">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800">Run Charts</h2>
-                            <p class="text-slate-500">Visualize improvement data (SPC).</p>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Data & Charts</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Run Charts (SPC) with Annotated Interventions.</p>
                         </div>
-                        <button onclick="exportCSV()" class="text-indigo-600 hover:text-indigo-800 text-sm font-medium flex items-center gap-2 border border-indigo-200 px-3 py-1.5 rounded bg-indigo-50">
-                            <i data-lucide="download" class="w-4 h-4"></i> Export CSV
-                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="setChartMode('run')" id="btn-chart-run" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm shadow">Run Chart</button>
+                            <button onclick="setChartMode('pareto')" id="btn-chart-pareto" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm">Pareto</button>
+                            <button onclick="exportCSV()" class="text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-slate-600 px-3 py-1.5 rounded bg-indigo-50 dark:bg-slate-800 text-sm"><i data-lucide="download" class="w-4 h-4"></i> CSV</button>
+                        </div>
                     </header>
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
-                            <h3 class="font-bold text-lg mb-4">Add Data Point</h3>
-                            <div class="space-y-4">
-                                <input type="date" id="chart-date" class="w-full rounded border-slate-300 border p-2 text-sm">
-                                <input type="number" id="chart-value" class="w-full rounded border-slate-300 border p-2 text-sm" placeholder="Measurement (Value/%)">
-                                <input type="text" id="chart-note" class="w-full rounded border-slate-300 border p-2 text-sm" placeholder="Notes (e.g., Intervention 1)">
-                                <button onclick="addDataPoint()" class="w-full bg-indigo-600 text-white py-2 rounded hover:bg-indigo-700">Add Entry</button>
+                        <div class="glass rounded-xl p-6 shadow-sm h-fit">
+                            <h3 id="chart-input-title" class="font-bold text-lg mb-4 text-slate-800 dark:text-white">Add Data Point</h3>
+                            <div id="input-run" class="space-y-4">
+                                <input type="date" id="chart-date" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                                <input type="number" id="chart-value" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Measurement (Value/%)">
+                                <select id="chart-type" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                                    <option value="data">Data Point</option>
+                                    <option value="intervention">Intervention Start (PDSA)</option>
+                                </select>
+                                <input type="text" id="chart-note" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Label (e.g. PDSA 1)">
+                                <button onclick="addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded hover:bg-indigo-900 shadow transition-all">Add Point</button>
+                                <div class="border-t pt-4 mt-4">
+                                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Target / Goal</label>
+                                    <input type="number" id="chart-goal" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="e.g. 95" onchange="updateGoal()">
+                                </div>
                             </div>
-                            <div class="mt-8">
-                                <h4 class="font-semibold text-sm text-slate-500 mb-2">History</h4>
-                                <div id="data-history-list" class="max-h-60 overflow-y-auto space-y-2 text-sm"></div>
+                            <div id="input-pareto" class="space-y-4 hidden">
+                                <input type="text" id="pareto-cat" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Category">
+                                <input type="number" id="pareto-count" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Count">
+                                <button onclick="addParetoData()" class="w-full bg-rcem-purple text-white py-2 rounded hover:bg-indigo-900 shadow">Add Data</button>
                             </div>
+                            <div class="mt-8 max-h-60 overflow-y-auto" id="data-history-list"></div>
                         </div>
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                        <div class="lg:col-span-2 glass rounded-xl p-6 shadow-sm">
                             <canvas id="mainChart"></canvas>
+                            <div id="chart-legend" class="mt-4 text-xs text-slate-500 text-center font-medium"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- 4. QI Toolkit (Merged Diagrams) -->
-                <div id="view-tools" class="view-section hidden p-4 md:p-8 h-full flex flex-col fade-in">
+                <!-- 4. CHANGE TOOLS -->
+                <div id="view-tools" class="view-section hidden h-full flex flex-col fade-in">
                     <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800">QI Toolkit</h2>
-                            <p class="text-slate-500">Strategic tools for analysis and planning.</p>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Change Tools</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Mermaid.js Vector Diagrams.</p>
                         </div>
-                        <div class="bg-slate-200 p-1 rounded-lg flex text-xs md:text-sm overflow-x-auto max-w-full">
-                            <button onclick="setToolMode('fishbone')" id="btn-fishbone" class="tool-tab px-3 py-1.5 rounded-md font-medium transition-all">Fishbone</button>
-                            <button onclick="setToolMode('driver')" id="btn-driver" class="tool-tab px-3 py-1.5 rounded-md transition-all">Driver Diagram</button>
-                            <button onclick="setToolMode('stakeholder')" id="btn-stakeholder" class="tool-tab px-3 py-1.5 rounded-md transition-all">Stakeholders</button>
-                            <button onclick="setToolMode('pick')" id="btn-pick" class="tool-tab px-3 py-1.5 rounded-md transition-all">PICK Chart</button>
+                        <div class="flex gap-2 items-center">
+                            <button onclick="downloadDiagram()" class="text-sm bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded shadow-sm hover:bg-slate-50"><i data-lucide="image" class="w-4 h-4 inline mr-1"></i> Download PNG</button>
+                            <div class="bg-slate-200 dark:bg-slate-700 p-1 rounded-lg flex text-xs md:text-sm">
+                                <button onclick="setToolMode('fishbone')" id="btn-fishbone" class="tool-tab px-3 py-1.5 rounded-md font-medium transition-all">Fishbone</button>
+                                <button onclick="setToolMode('driver')" id="btn-driver" class="tool-tab px-3 py-1.5 rounded-md transition-all">Driver Diagram</button>
+                                <button onclick="setToolMode('whys')" id="btn-whys" class="tool-tab px-3 py-1.5 rounded-md transition-all">5 Whys</button>
+                                <button onclick="setToolMode('force')" id="btn-force" class="tool-tab px-3 py-1.5 rounded-md transition-all">Force Field</button>
+                            </div>
                         </div>
                     </header>
-                    <div id="tool-canvas" class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-4 md:p-8 overflow-x-auto relative min-h-[500px]"></div>
+                    
+                    <!-- Diagram Inputs -->
+                    <div id="tool-controls" class="mb-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-end">
+                        <!-- Dynamic inputs injected by JS -->
+                    </div>
+
+                    <div id="tool-canvas" class="flex-1 glass rounded-xl shadow-sm p-4 md:p-8 overflow-auto relative min-h-[500px] flex items-center justify-center bg-white">
+                        <!-- Mermaid renders here -->
+                    </div>
                 </div>
 
-                <!-- 5. Gantt -->
-                <div id="view-gantt" class="view-section hidden p-4 md:p-8 fade-in">
-                    <header class="mb-6">
-                        <h2 class="text-3xl font-bold text-slate-800">Gantt Chart</h2>
-                        <p class="text-slate-500">Timeline and project milestones.</p>
-                    </header>
-                    <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-8 flex flex-wrap gap-4 items-end">
-                        <input type="text" id="gantt-name" class="flex-1 min-w-[200px] rounded border-slate-300 border p-2 text-sm" placeholder="Task Name">
-                        <input type="date" id="gantt-start" class="rounded border-slate-300 border p-2 text-sm">
-                        <input type="date" id="gantt-end" class="rounded border-slate-300 border p-2 text-sm">
-                        <select id="gantt-status" class="rounded border-slate-300 border p-2 text-sm bg-white">
-                            <option>Planned</option><option>In Progress</option><option>Complete</option>
-                        </select>
-                        <button onclick="addGanttTask()" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add</button>
+                <!-- 5. GANTT -->
+                <div id="view-gantt" class="view-section hidden fade-in">
+                    <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white">Gantt Chart</h2></header>
+                    <div class="glass p-4 rounded-xl shadow-sm mb-8 flex flex-wrap gap-4 items-end">
+                        <input type="text" id="gantt-name" class="flex-1 min-w-[200px] rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Task Name">
+                        <input type="date" id="gantt-start" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                        <input type="date" id="gantt-end" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                        <select id="gantt-status" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-white dark:bg-slate-700"><option>Planned</option><option>In Progress</option><option>Complete</option></select>
+                        <button onclick="addGanttTask()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add</button>
                     </div>
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div class="p-4 border-b border-slate-100 bg-slate-50 font-medium text-slate-500 flex justify-between"><span>Task List</span><span id="gantt-range">Timeline</span></div>
+                    <div class="glass rounded-xl shadow-sm overflow-hidden">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 font-medium text-slate-500 flex justify-between"><span>Task List</span><span id="gantt-range">Timeline</span></div>
                         <div id="gantt-chart-area" class="relative min-h-[300px] p-4"></div>
                     </div>
                 </div>
 
                 <!-- 6. PDSA -->
-                <div id="view-pdsa" class="view-section hidden p-4 md:p-8 fade-in">
+                <div id="view-pdsa" class="view-section hidden fade-in">
                      <header class="mb-6 flex justify-between items-center">
-                        <div>
-                            <h2 class="text-3xl font-bold text-slate-800">PDSA Cycles</h2>
-                            <p class="text-slate-500">Record your iterative improvements.</p>
-                        </div>
-                        <button onclick="addPDSACycle()" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
+                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white">PDSA Cycles</h2><p class="text-slate-500 dark:text-slate-400">Iterative improvement.</p></div>
+                        <button onclick="addPDSACycle()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
                     </header>
                     <div id="pdsa-list" class="space-y-4 max-w-4xl"></div>
                 </div>
+
+                <!-- 7. GREEN ED -->
+                <div id="view-green" class="view-section hidden fade-in">
+                    <div class="max-w-4xl mx-auto">
+                        <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="leaf" class="text-emerald-500"></i> Green ED Calculator</h2></header>
+                        <div class="glass border border-emerald-100 dark:border-emerald-800 p-6 rounded-xl mb-6">
+                            <h3 class="font-bold text-emerald-900 dark:text-emerald-100 mb-4">Calculate Savings</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <select id="green-item" class="w-full p-2 rounded border border-emerald-200 dark:border-emerald-700 dark:bg-slate-800"><option value="0.035">IV Cannula (Plastic) - 35g</option><option value="0.020">Blood Bottle - 20g</option><option value="0.005">Paper Sheet (A4) - 5g</option><option value="0.150">IV Fluid Bag (1L) - 150g</option><option value="0.170">Car Mile (Avg) - 170g</option></select>
+                                <input type="number" id="green-qty" class="w-full p-2 rounded border border-emerald-200 dark:border-emerald-700 dark:bg-slate-800" placeholder="Qty">
+                            </div>
+                            <button onclick="calcCarbon()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">Calculate</button>
+                            <div id="green-result" class="mt-4 font-bold text-lg text-emerald-800 dark:text-emerald-300 hidden"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 8. POSTER MODE -->
+                <div id="view-poster" class="view-section hidden h-screen fixed inset-0 z-[100] bg-gray-100 overflow-auto">
+                    <div class="bg-gray-800 text-white p-4 flex justify-between items-center no-print sticky top-0 z-50">
+                        <span>Poster Preview (A0 Landscape)</span>
+                        <div>
+                            <button onclick="window.print()" class="bg-white text-gray-900 px-4 py-2 rounded mr-2">Print / Save PDF</button>
+                            <button onclick="router('dashboard')" class="text-gray-300 hover:text-white">Close</button>
+                        </div>
+                    </div>
+                    <div class="poster-grid font-sans" id="poster-content">
+                        <!-- Header -->
+                        <div class="col-span-4 bg-rcem-purple text-white p-6 rounded-lg flex justify-between items-center">
+                            <div>
+                                <h1 class="text-4xl font-bold mb-2" id="poster-title">Project Title</h1>
+                                <p class="text-xl" id="poster-team">Team Names</p>
+                            </div>
+                            <img src="https://iili.io/KGQOvkl.md.png" class="h-24 bg-white p-2 rounded">
+                        </div>
+                        
+                        <!-- Col 1 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Background</h2>
+                            <p id="poster-problem" class="text-sm"></p>
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2 mt-4">Aim</h2>
+                            <p id="poster-aim" class="font-bold text-lg italic"></p>
+                        </div>
+
+                        <!-- Col 2 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Strategy</h2>
+                            <div id="poster-driver" class="flex-1 flex items-center justify-center overflow-hidden"></div>
+                        </div>
+
+                        <!-- Col 3 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Results</h2>
+                            <img id="poster-chart" class="w-full object-contain">
+                            <p id="poster-results" class="text-sm mt-2"></p>
+                        </div>
+
+                        <!-- Col 4 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Conclusion</h2>
+                            <p id="poster-learning" class="text-sm"></p>
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2 mt-4">PDSA Cycles</h2>
+                            <div id="poster-pdsa" class="text-xs space-y-1"></div>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </main>
     </div>
 
-    <!-- REPORT TEMPLATE -->
-    <div id="report-template" class="hidden bg-white p-8 max-w-4xl mx-auto">
-        <div class="flex justify-between items-center border-b-2 border-slate-800 pb-4 mb-6">
-            <div>
-                <h1 class="text-3xl font-bold text-slate-900">QI Project Report</h1>
-                <p class="text-slate-500" id="report-date"></p>
+    <!-- SMART WIZARD -->
+    <div id="smart-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6">
+            <h3 class="text-xl font-bold mb-4 dark:text-white">Build SMART Aim</h3>
+            <div class="space-y-3">
+                <input id="smart-s" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Specific: What? (e.g. Sepsis Abx)">
+                <input id="smart-m" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Measurable: Target %? (e.g. 95%)">
+                <input id="smart-p" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Population: Who? (e.g. Adult Patients)">
+                <input id="smart-t" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Time: By when? (e.g. Aug 2025)">
             </div>
-            <img src="https://iili.io/KGQOvkl.md.png" class="h-12 object-contain">
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
+                <button onclick="saveSmartAim()" class="px-4 py-2 bg-rcem-purple text-white rounded">Save Aim</button>
+            </div>
         </div>
-        <div class="mb-6 bg-slate-50 p-4 rounded border border-slate-200">
-            <h2 class="font-bold text-lg mb-2">Project Details</h2>
-            <p><strong>Title:</strong> <span id="rep-title"></span></p>
-            <p><strong>Lead:</strong> <span id="rep-lead"></span></p>
-            <p><strong>Aim:</strong> <span id="rep-aim"></span></p>
+    </div>
+
+    <!-- REPORT TEMPLATE (Journal Style) -->
+    <div id="report-template" class="hidden bg-white p-12 max-w-4xl mx-auto text-slate-900 font-serif leading-relaxed">
+        <div class="flex justify-between items-center border-b-4 border-rcem-purple pb-6 mb-8">
+            <div>
+                <h1 class="text-4xl font-bold mb-2 font-sans text-rcem-purple">QI Project Report</h1>
+                <p class="text-slate-600 italic">Generated via RCEM QIP Assistant</p>
+            </div>
+            <img src="https://iili.io/KGQOvkl.md.png" class="h-20 object-contain">
         </div>
-        <div class="mb-6">
-            <h2 class="font-bold text-lg border-b border-slate-200 mb-2 pb-1">Problem Analysis</h2>
-            <p id="rep-problem" class="text-sm whitespace-pre-wrap text-slate-700"></p>
+        <div class="mb-8 font-sans bg-slate-50 p-6 rounded-lg border border-slate-200">
+            <h2 class="text-2xl font-bold mb-2" id="rep-title"></h2>
+            <p><strong>Lead:</strong> <span id="rep-lead"></span> | <strong>Team:</strong> <span id="rep-team"></span></p>
         </div>
-        <div class="mb-6">
-            <h2 class="font-bold text-lg border-b border-slate-200 mb-2 pb-1">Results (Run Chart)</h2>
-            <img id="rep-chart-img" class="w-full h-auto border border-slate-200 mb-4" />
+        <div class="columns-2 gap-8 mb-8 text-justify text-sm">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">1. Problem</h3>
+            <p id="rep-problem" class="mb-4"></p>
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">2. Aim</h3>
+            <p id="rep-aim" class="mb-4 font-bold italic"></p>
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">3. Strategy</h3>
+            <p id="rep-driver-list" class="mb-4"></p>
         </div>
-        <div class="mb-6">
-            <h2 class="font-bold text-lg border-b border-slate-200 mb-2 pb-1">PDSA Cycles</h2>
-            <div id="rep-pdsa-list" class="space-y-4"></div>
+        <div class="mb-8 break-inside-avoid">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">4. Results (Run Chart)</h3>
+            <img id="rep-chart-img" class="w-full h-auto border border-slate-200 mb-2">
+            <p id="rep-results" class="text-sm italic"></p>
+        </div>
+        <div class="mb-8">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">5. PDSA Cycles</h3>
+            <div id="rep-pdsa-list" class="text-sm space-y-2"></div>
+        </div>
+        <div class="mb-8">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">6. Conclusion</h3>
+            <p id="rep-learning" class="text-sm"></p>
         </div>
     </div>
 
@@ -303,7 +447,6 @@
         import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-        // --- REPLACE WITH YOUR CONFIG ---
         const firebaseConfig = {
             apiKey: "YOUR_API_KEY",
             authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
@@ -312,7 +455,6 @@
             messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
             appId: "YOUR_APP_ID"
         };
-        // --------------------------------
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -323,28 +465,27 @@
             checklist: {},
             fishbone: { categories: [] },
             drivers: { primary: [], secondary: [], changes: [] },
-            stakeholders: { highPowerHighInterest: [], highPowerLowInterest: [], lowPowerHighInterest: [], lowPowerLowInterest: [] },
-            pick: { implement: [], challenge: [], possible: [], kill: [] },
+            forcefield: { driving: [], restraining: [] },
+            swot: { s: [], w: [], o: [], t: [] },
+            fiveWhys: ["","","","",""],
             gantt: [],
             pdsa: [],
-            chartData: []
+            chartData: [],
+            paretoData: [],
+            chartGoal: null
         };
+        let chartMode = 'run';
         let toolMode = 'fishbone'; 
         let authMode = 'signin';
         let chartInstance = null;
 
-        const escapeHtml = (unsafe) => {
-            if(!unsafe) return '';
-            return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        const escapeHtml = (unsafe) => { if(!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+        const showToast = (message) => {
+            const el = document.createElement('div'); el.className = `px-4 py-2 rounded shadow-lg text-white text-sm font-medium mb-2 fade-in bg-rcem-purple`; el.innerHTML = message;
+            document.getElementById('toast-container').appendChild(el); setTimeout(() => el.remove(), 3000);
         }
 
-        const showToast = (message, type = 'success') => {
-            const el = document.createElement('div');
-            el.className = `px-4 py-2 rounded shadow-lg text-white text-sm font-medium mb-2 fade-in ${type === 'success' ? 'bg-emerald-600' : 'bg-red-600'}`;
-            el.innerHTML = message;
-            document.getElementById('toast-container').appendChild(el);
-            setTimeout(() => el.remove(), 3000);
-        }
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
 
         // --- AUTH ---
         onAuthStateChanged(auth, (user) => {
@@ -365,313 +506,310 @@
 
         document.getElementById('auth-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            const email = document.getElementById('email').value;
-            const password = document.getElementById('password').value;
-            const msg = document.getElementById('auth-message');
-            msg.className = 'hidden mb-4 p-3 rounded text-sm text-center';
             try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
                 if (authMode === 'signup') await createUserWithEmailAndPassword(auth, email, password);
-                else if (authMode === 'signin') await signInWithEmailAndPassword(auth, email, password);
-                else if (authMode === 'reset') {
-                    await sendPasswordResetEmail(auth, email);
-                    msg.textContent = 'Link sent!'; msg.classList.remove('hidden', 'bg-red-100'); msg.classList.add('bg-green-100', 'text-green-700');
-                }
-            } catch (err) {
-                msg.textContent = err.message.replace('Firebase: ', ''); msg.classList.remove('hidden'); msg.classList.add('bg-red-100', 'text-red-700');
-            }
+                else await signInWithEmailAndPassword(auth, email, password);
+            } catch (err) { alert(err.message); }
         });
         
         document.getElementById('logout-btn').addEventListener('click', () => signOut(auth));
-        
-        const setAuthMode = (mode) => {
-            authMode = mode;
-            const title = document.getElementById('auth-title');
-            const btn = document.getElementById('auth-btn-text');
-            const passGrp = document.getElementById('password-group');
-            if(mode === 'signin') { title.textContent='Sign In'; btn.textContent='Sign In'; passGrp.classList.remove('hidden'); }
-            if(mode === 'signup') { title.textContent='Create Account'; btn.textContent='Sign Up'; passGrp.classList.remove('hidden'); }
-            if(mode === 'reset') { title.textContent='Reset Password'; btn.textContent='Send Link'; passGrp.classList.add('hidden'); }
-        }
-        document.getElementById('toggle-auth').onclick = (e) => { e.preventDefault(); setAuthMode(authMode === 'signin' ? 'signup' : 'signin'); };
-        document.getElementById('forgot-password').onclick = (e) => { e.preventDefault(); setAuthMode('reset'); };
+        document.getElementById('toggle-auth').onclick = (e) => { e.preventDefault(); authMode = authMode==='signin'?'signup':'signin'; document.getElementById('auth-btn-text').textContent = authMode==='signin'?'Sign In':'Sign Up'; document.getElementById('auth-title').textContent = authMode==='signin'?'Sign In':'Create Account'; };
 
-        // --- DATABASE ---
+        // --- DB ---
         function initRealtimeListener() {
             if (!currentUser) return;
-            const docRef = doc(db, 'projects', currentUser.uid);
-            
-            onSnapshot(docRef, (doc) => {
+            onSnapshot(doc(db, 'projects', currentUser.uid), (doc) => {
                 if (doc.exists()) {
                     projectData = { ...projectData, ...doc.data() };
                     // Default structures
-                    if(!projectData.checklist) projectData.checklist = {};
-                    if(!projectData.chartData) projectData.chartData = [];
+                    if(!projectData.fishbone || !projectData.fishbone.categories) projectData.fishbone = { categories: [{id:1, text:"People", causes:[]}, {id:2, text:"Methods", causes:[]}, {id:3, text:"Equipment", causes:[]}, {id:4, text:"Environment", causes:[]}] };
                     if(!projectData.drivers) projectData.drivers = { primary: [], secondary: [], changes: [] };
-                    if(!projectData.stakeholders) projectData.stakeholders = { highPowerHighInterest: [], highPowerLowInterest: [], lowPowerHighInterest: [], lowPowerLowInterest: [] };
-                    if(!projectData.pick) projectData.pick = { implement: [], challenge: [], possible: [], kill: [] };
-                    if(!projectData.fishbone || !projectData.fishbone.categories) {
-                         projectData.fishbone = {
-                            categories: [
-                                { id: 1, text: 'People', causes: ['Lack of training'] },
-                                { id: 2, text: 'Methods', causes: ['Outdated protocol'] },
-                                { id: 3, text: 'Equipment', causes: ['Broken scanner'] },
-                                { id: 4, text: 'Environment', causes: ['No quiet space'] }
-                            ]
-                        };
-                    }
+                    if(!projectData.fiveWhys) projectData.fiveWhys = ["","","","",""];
+                    if(!projectData.forcefield) projectData.forcefield = { driving: [], restraining: [] };
+                    document.getElementById('chart-goal').value = projectData.chartGoal || '';
                 }
                 renderAll();
             });
         }
-
-        async function saveData() {
-            if (!currentUser) return;
-            const statusEl = document.getElementById('save-status');
-            statusEl.innerHTML = `<i data-lucide="refresh-cw" class="w-3 h-3 animate-spin"></i> Saving...`;
-            lucide.createIcons();
-            try {
-                await setDoc(doc(db, 'projects', currentUser.uid), projectData, { merge: true });
-                statusEl.innerHTML = `<i data-lucide="save" class="w-3 h-3"></i> Saved`;
-                lucide.createIcons();
-            } catch (err) {
-                console.error(err);
-                statusEl.innerHTML = `<span class="text-red-500">Error Saving</span>`;
-            }
-        }
-
+        async function saveData() { if(currentUser) await setDoc(doc(db, 'projects', currentUser.uid), projectData, { merge: true }); document.getElementById('save-status').innerHTML = '<i data-lucide="save" class="w-3 h-3"></i> Saved'; lucide.createIcons(); }
         window.saveData = saveData;
 
         // --- ROUTER ---
         window.router = (viewId) => {
+            if(viewId === 'poster') {
+                updatePoster();
+                document.getElementById('view-poster').classList.remove('hidden');
+                return;
+            }
+            document.getElementById('view-poster').classList.add('hidden');
             document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
             document.getElementById(`view-${viewId}`).classList.remove('hidden');
-            document.querySelectorAll('.nav-btn').forEach(el => {
-                el.classList.remove('bg-indigo-600', 'text-white', 'shadow-md');
-                el.classList.add('text-slate-300', 'hover:bg-slate-800');
-            });
-            const activeBtn = document.getElementById(`nav-${viewId}`);
-            if(activeBtn) {
-                activeBtn.classList.remove('text-slate-300', 'hover:bg-slate-800');
-                activeBtn.classList.add('bg-indigo-600', 'text-white', 'shadow-md');
-            }
-            document.getElementById('app-sidebar').classList.add('hidden');
-            if(viewId === 'tools') renderTools(); // Trigger tool render
+            if(viewId === 'tools') renderTools();
+            if(viewId === 'data') renderChart();
         };
-
-        document.getElementById('mobile-menu-btn').onclick = () => {
-             const sb = document.getElementById('app-sidebar');
-             sb.classList.toggle('hidden'); sb.classList.toggle('absolute'); sb.classList.toggle('z-40'); sb.classList.toggle('w-full');
-        };
+        window.toggleDarkMode = () => document.documentElement.classList.toggle('dark');
+        document.getElementById('mobile-menu-btn').onclick = () => { const sb = document.getElementById('app-sidebar'); sb.classList.toggle('hidden'); sb.classList.toggle('absolute'); sb.classList.toggle('z-40'); sb.classList.toggle('w-full'); };
 
         function renderAll() {
-            renderDashboard();
-            renderChecklist();
-            if(!document.getElementById('view-tools').classList.contains('hidden')) renderTools();
-            renderGantt();
-            renderPDSA();
-            renderDataChart();
+            renderDashboard(); renderChecklist(); renderChart(); renderTools(); renderGantt(); renderPDSA();
             lucide.createIcons();
         }
 
-        // --- RENDERERS ---
-
-        function renderDashboard() {
-            const filled = Object.values(projectData.checklist || {}).filter(v => v).length;
-            const progress = Math.min(100, Math.round((filled / 15) * 100));
-            const stats = [
-                { label: 'Checklist', value: `${progress}%`, icon: 'check-square', color: 'text-emerald-500' },
-                { label: 'PDSA Cycles', value: projectData.pdsa?.length || 0, icon: 'refresh-cw', color: 'text-blue-500' },
-                { label: 'Data Points', value: projectData.chartData?.length || 0, icon: 'bar-chart-2', color: 'text-amber-500' },
-                { label: 'Tasks', value: projectData.gantt?.length || 0, icon: 'calendar', color: 'text-purple-500' }
-            ];
-            document.getElementById('stats-grid').innerHTML = stats.map(s => `
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <div class="flex items-center justify-between mb-4"><span class="text-slate-500 font-medium">${s.label}</span><i data-lucide="${s.icon}" class="${s.color} w-6 h-6"></i></div>
-                    <div class="text-3xl font-bold text-slate-800">${s.value}</div>
-                </div>
-            `).join('');
-            document.getElementById('dashboard-aim').textContent = projectData.checklist?.aim || "No aim defined yet. Go to the Checklist tab.";
+        // --- CHARTING ENGINE (Annotation Enhanced) ---
+        window.setChartMode = (m) => { chartMode = m; 
+            document.getElementById('input-run').classList.toggle('hidden', m!=='run');
+            document.getElementById('input-pareto').classList.toggle('hidden', m!=='pareto');
+            document.getElementById('chart-input-title').textContent = m==='run' ? 'Add Data / Intervention' : 'Add Pareto Category';
+            renderChart();
         }
+        
+        window.updateGoal = () => { projectData.chartGoal = document.getElementById('chart-goal').value; saveData(); renderChart(); }
 
-        const checklistConfig = [
-             { title: "1. Project Details & Team", icon: "users", fields: ["title", "lead", "team"] },
-             { title: "2. Analysis of the Problem", icon: "alert-circle", fields: ["problem_desc", "evidence"] },
-             { title: "3. Aim (SMART)", icon: "target", fields: ["aim"] },
-             { title: "4. Measurement", icon: "activity", fields: ["outcome_measures", "process_measures", "balance_measures"] },
-             { title: "5. Stakeholder & PPI", icon: "heart-handshake", fields: ["stakeholders_text", "patient_feedback"], desc: "Use the Toolkit to map stakeholders." },
-             { title: "6. Results & Reflection", icon: "file-text", fields: ["results_summary", "learning", "sustainability"] }
-        ];
-
-        function renderChecklist() {
-            const container = document.getElementById('checklist-container');
-            container.innerHTML = checklistConfig.map((section, idx) => `
-                <details class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden group" ${idx === 0 ? 'open' : ''}>
-                    <summary class="bg-slate-50 px-6 py-4 border-b border-slate-200 flex items-center gap-3 cursor-pointer hover:bg-slate-100 transition-colors">
-                        <i data-lucide="${section.icon}" class="text-indigo-600 w-5 h-5"></i>
-                        <h3 class="font-semibold text-slate-800 flex-1">${section.title}</h3>
-                        <i data-lucide="chevron-down" class="text-slate-400 w-5 h-5 group-open:rotate-180 transition-transform"></i>
-                    </summary>
-                    <div class="p-6 space-y-6">
-                        ${section.desc ? `<p class="text-sm text-slate-500 italic bg-indigo-50 p-2 rounded">${section.desc}</p>` : ''}
-                        ${section.fields.map(field => `
-                            <div>
-                                <label class="block text-sm font-medium text-slate-700 mb-2 capitalize">${field.replace(/_/g, ' ')}</label>
-                                <textarea onchange="updateChecklist('${field}', this.value)" rows="3" class="w-full rounded-md border-slate-300 shadow-sm border p-3 focus:border-indigo-500 outline-none transition-all">${escapeHtml(projectData.checklist[field] || '')}</textarea>
-                            </div>
-                        `).join('')}
-                    </div>
-                </details>
-            `).join('');
-        }
-        window.updateChecklist = (field, val) => { projectData.checklist[field] = val; saveData(); };
-
-        // --- CHARTS & DATA ---
-        function renderDataChart() {
-            const historyList = document.getElementById('data-history-list');
-            const data = projectData.chartData || [];
-            data.sort((a,b) => new Date(a.date) - new Date(b.date));
-            historyList.innerHTML = data.map((d, idx) => `
-                <div class="flex justify-between items-center bg-slate-50 p-2 rounded border border-slate-100">
-                    <div><div class="font-medium text-slate-800">${d.date}: ${d.value}</div><div class="text-xs text-slate-500">${escapeHtml(d.note)}</div></div>
-                    <button onclick="removeDataPoint(${idx})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                </div>
-            `).join('');
-
-            const values = data.map(d => parseFloat(d.value));
-            const mid = Math.floor(values.length / 2);
-            const sortedVals = [...values].sort((a,b) => a - b);
-            const median = values.length % 2 !== 0 ? sortedVals[mid] : (sortedVals[mid - 1] + sortedVals[mid]) / 2;
-
+        function renderChart() {
             const ctx = document.getElementById('mainChart').getContext('2d');
             if (chartInstance) chartInstance.destroy();
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: data.map(d => d.date),
-                    datasets: [
-                        { label: 'Value', data: values, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', tension: 0.1, fill: true },
-                        { label: 'Median', data: Array(values.length).fill(median), borderColor: '#f59e0b', borderDash: [5, 5], pointRadius: 0, borderWidth: 2 }
-                    ]
-                },
-                options: { responsive: true, scales: { y: { beginAtZero: true } } }
-            });
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            if (chartMode === 'run') {
+                const data = projectData.chartData || [];
+                data.sort((a,b) => new Date(a.date) - new Date(b.date));
+                const dataPoints = data.filter(d => d.type !== 'intervention');
+                
+                const values = dataPoints.map(d => parseFloat(d.value));
+                const sorted = [...values].sort((a,b)=>a-b);
+                const mid = Math.floor(sorted.length/2);
+                const median = sorted.length%2!==0 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+                
+                // SPC Logic
+                const pointColors = values.map((v, i) => {
+                    if (i < 5) return '#2d2e83'; 
+                    const subset = values.slice(i-5, i+1);
+                    const allAbove = subset.every(x => x > median);
+                    const allBelow = subset.every(x => x < median);
+                    return (allAbove || allBelow) ? '#ef4444' : '#2d2e83'; 
+                });
+
+                // Annotation Logic
+                const annotations = {};
+                
+                // Intervention Lines
+                data.filter(d => d.type === 'intervention').forEach((d, i) => {
+                    annotations[`line${i}`] = {
+                        type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, borderDash: [6, 6],
+                        label: { display: true, content: d.note || 'PDSA', position: 'start', backgroundColor: '#f36f21', color: 'white' }
+                    };
+                });
+
+                // Goal Zone
+                if(projectData.chartGoal) {
+                    annotations['goal'] = {
+                        type: 'box', yMin: projectData.chartGoal, yMax: Math.max(...values, parseFloat(projectData.chartGoal)) * 1.1,
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 0
+                    };
+                }
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: dataPoints.map(d => d.date),
+                        datasets: [
+                            { label: 'Measure', data: values, borderColor: '#2d2e83', pointBackgroundColor: pointColors, pointRadius: 5, tension: 0.1 },
+                            { label: 'Median', data: Array(values.length).fill(median), borderColor: '#94a3b8', borderDash: [5,5], pointRadius:0 }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        plugins: { annotation: { annotations } },
+                        scales: { y: { beginAtZero: true, grid:{color:gridColor} }, x: { grid:{color:gridColor} } } 
+                    }
+                });
+                
+                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`
+                    <div class="flex justify-between text-sm border-b border-slate-200 dark:border-slate-700 p-2">
+                        <span>
+                            <span class="font-bold ${d.type==='intervention'?'text-orange-500':'text-indigo-600'}">${d.type==='intervention'?'INT':'DAT'}</span> 
+                            ${d.date}: ${d.type==='intervention' ? d.note : d.value}
+                        </span>
+                        <button onclick="projectData.chartData.splice(${i},1);saveData()" class="text-red-500 hover:text-red-700">x</button>
+                    </div>`).join('');
+            
+            } else {
+                // Pareto (Unchanged mostly)
+                const data = projectData.paretoData || [];
+                data.sort((a,b) => b.count - a.count);
+                const total = data.reduce((a,b) => a + Number(b.count), 0);
+                let acc = 0;
+                const percentages = data.map(d => { acc += Number(d.count); return Math.round((acc/total)*100); });
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: data.map(d => d.cat),
+                        datasets: [
+                            { type: 'line', label: 'Cumulative %', data: percentages, borderColor: '#f36f21', yAxisID: 'y1' },
+                            { type: 'bar', label: 'Frequency', data: data.map(d => d.count), backgroundColor: '#2d2e83', yAxisID: 'y' }
+                        ]
+                    },
+                    options: { 
+                        responsive: true, 
+                        scales: { y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', max: 100 } } 
+                    }
+                });
+                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`<div class="flex justify-between text-sm border-b p-2"><span>${d.cat}: <b>${d.count}</b></span><button onclick="projectData.paretoData.splice(${i},1);saveData()" class="text-red-500">x</button></div>`).join('');
+            }
         }
-        window.addDataPoint = () => {
+        window.addDataPoint = () => { 
             const date = document.getElementById('chart-date').value;
+            const type = document.getElementById('chart-type').value;
             const value = document.getElementById('chart-value').value;
             const note = document.getElementById('chart-note').value;
-            if(date && value) {
-                if(!projectData.chartData) projectData.chartData = [];
-                projectData.chartData.push({ date, value, note });
-                document.getElementById('chart-value').value = '';
-                document.getElementById('chart-note').value = '';
-                saveData();
-                showToast("Data point added");
+            if(date && (value || type === 'intervention')) {
+                projectData.chartData.push({ date, value, type, note }); 
+                saveData(); 
             }
-        };
-        window.removeDataPoint = (idx) => { projectData.chartData.splice(idx, 1); saveData(); };
-        window.exportCSV = () => {
-            const data = projectData.chartData || [];
-            let csvContent = "data:text/csv;charset=utf-8,Date,Value,Note\n";
-            data.forEach(d => { csvContent += `${d.date},${d.value},${d.note}\n`; });
-            const encodedUri = encodeURI(csvContent);
-            const link = document.createElement("a");
-            link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "qip_data.csv");
-            document.body.appendChild(link);
-            link.click();
         }
+        window.addParetoData = () => { projectData.paretoData.push({ cat: document.getElementById('pareto-cat').value, count: document.getElementById('pareto-count').value }); saveData(); }
 
-        // --- QI TOOLS ---
-        window.setToolMode = (mode) => {
-            toolMode = mode;
-            document.querySelectorAll('.tool-tab').forEach(el => el.className = 'tool-tab px-3 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition-all');
-            document.getElementById(`btn-${mode}`).className = 'tool-tab px-3 py-1.5 rounded-md bg-white shadow-sm font-medium text-indigo-600 transition-all';
-            renderTools();
-        }
-
-        function renderTools() {
+        // --- MERMAID VECTOR TOOLS ---
+        window.setToolMode = (m) => { toolMode = m; renderTools(); }
+        async function renderTools() {
             const container = document.getElementById('tool-canvas');
-            const isMobile = window.innerWidth < 768;
+            const controls = document.getElementById('tool-controls');
+            let mermaidCode = '';
 
+            // 1. FISHBONE (Mermaid Mindmap)
             if (toolMode === 'fishbone') {
-                const cats = projectData.fishbone.categories || [];
-                if (isMobile) {
-                    container.innerHTML = `<div class="space-y-4"><div class="bg-indigo-900 text-white p-4 rounded text-center font-bold">PROBLEM</div>${cats.map(cat => `<div class="bg-slate-50 border border-slate-200 rounded p-4"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-indigo-900">${cat.text}</h4><button onclick="addFishboneCause(${cat.id})" class="text-indigo-600"><i data-lucide="plus-circle" class="w-5 h-5"></i></button></div><ul class="list-disc pl-5 space-y-1 text-sm text-slate-700">${cat.causes.map((c, idx) => `<li class="flex justify-between"><span>${escapeHtml(c)}</span><button onclick="removeFishboneCause(${cat.id}, ${idx})" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></li>`).join('')}</ul></div>`).join('')}</div>`;
-                } else {
-                    let html = `<div class="absolute top-1/2 left-10 right-32 h-1 bg-slate-800 z-0"></div><div class="absolute top-1/2 right-10 transform -translate-y-1/2 bg-indigo-900 text-white px-6 py-4 rounded-lg shadow-lg z-10 font-bold border-2 border-slate-800">PROBLEM</div><div class="grid grid-cols-2 gap-x-20 gap-y-32 h-full relative z-10 w-full max-w-5xl mx-auto pt-10">`;
-                    cats.forEach((cat, idx) => {
-                        const isTop = idx % 2 === 0;
-                        const boneClass = isTop ? 'bottom-[-20px] rotate-[-30deg] origin-bottom' : 'top-[-20px] rotate-[30deg] origin-top';
-                        html += `<div class="relative flex flex-col items-center ${isTop ? 'justify-end' : 'justify-start'}"><div class="absolute left-1/2 w-1 h-32 bg-slate-400 ${boneClass}"></div><div class="bg-indigo-100 text-indigo-900 px-4 py-2 rounded-md border border-indigo-200 font-bold mb-4 relative z-20 shadow-sm flex items-center gap-2">${cat.text}<button onclick="addFishboneCause(${cat.id})" class="text-indigo-600 hover:text-indigo-800"><i data-lucide="plus" class="w-4 h-4"></i></button></div><div class="space-y-2 text-sm w-48 ${isTop ? 'mb-8' : 'mt-8'}">${cat.causes.map((c, cIdx) => `<div class="bg-white p-2 border border-slate-200 rounded shadow-sm flex justify-between items-center group"><span>${escapeHtml(c)}</span><button onclick="removeFishboneCause(${cat.id}, ${cIdx})" class="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-3 h-3"></i></button></div>`).join('')}</div></div>`;
-                    });
-                    html += `</div>`;
-                    container.innerHTML = html;
-                }
+                const cats = projectData.fishbone.categories;
+                mermaidCode = `mindmap\n  root((PROBLEM))\n`;
+                cats.forEach(c => {
+                    mermaidCode += `    ${c.text}\n`;
+                    c.causes.forEach(cause => mermaidCode += `      ${cause}\n`);
+                });
+                controls.innerHTML = cats.map(c => `<button onclick="addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
+            
+            // 2. DRIVER DIAGRAM (Mermaid Flowchart)
             } else if (toolMode === 'driver') {
                 const d = projectData.drivers;
-                container.innerHTML = `<div class="grid grid-cols-1 md:grid-cols-3 gap-4 h-full"><div class="bg-emerald-50 p-4 rounded border border-emerald-100"><h3 class="font-bold text-emerald-900 mb-2 border-b border-emerald-200 pb-1">Primary Drivers</h3><button onclick="addDriver('primary')" class="w-full mb-2 bg-emerald-100 text-emerald-700 text-xs py-1 rounded hover:bg-emerald-200">+ Add</button><div class="space-y-2">${(d.primary||[]).map((txt, i) => `<div class="bg-white p-2 rounded shadow-sm text-sm flex justify-between group"><span>${escapeHtml(txt)}</span> <button onclick="removeDriver('primary', ${i})" class="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100">x</button></div>`).join('')}</div></div><div class="bg-blue-50 p-4 rounded border border-blue-100"><h3 class="font-bold text-blue-900 mb-2 border-b border-blue-200 pb-1">Secondary Drivers</h3><button onclick="addDriver('secondary')" class="w-full mb-2 bg-blue-100 text-blue-700 text-xs py-1 rounded hover:bg-blue-200">+ Add</button><div class="space-y-2">${(d.secondary||[]).map((txt, i) => `<div class="bg-white p-2 rounded shadow-sm text-sm flex justify-between group"><span>${escapeHtml(txt)}</span> <button onclick="removeDriver('secondary', ${i})" class="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100">x</button></div>`).join('')}</div></div><div class="bg-purple-50 p-4 rounded border border-purple-100"><h3 class="font-bold text-purple-900 mb-2 border-b border-purple-200 pb-1">Change Ideas</h3><button onclick="addDriver('changes')" class="w-full mb-2 bg-purple-100 text-purple-700 text-xs py-1 rounded hover:bg-purple-200">+ Add</button><div class="space-y-2">${(d.changes||[]).map((txt, i) => `<div class="bg-white p-2 rounded shadow-sm text-sm flex justify-between group"><span>${escapeHtml(txt)}</span> <button onclick="removeDriver('changes', ${i})" class="text-red-300 hover:text-red-500 opacity-0 group-hover:opacity-100">x</button></div>`).join('')}</div></div></div>`;
-            } else if (toolMode === 'stakeholder') {
-                const s = projectData.stakeholders;
-                container.innerHTML = createMatrixHTML('Power', 'Interest', 
-                    ['High Power, High Interest (Manage Closely)', s.highPowerHighInterest, 'highPowerHighInterest'],
-                    ['High Power, Low Interest (Keep Satisfied)', s.highPowerLowInterest, 'highPowerLowInterest'],
-                    ['Low Power, High Interest (Keep Informed)', s.lowPowerHighInterest, 'lowPowerHighInterest'],
-                    ['Low Power, Low Interest (Monitor)', s.lowPowerLowInterest, 'lowPowerLowInterest'],
-                    'stakeholders'
-                );
-            } else if (toolMode === 'pick') {
-                const p = projectData.pick;
-                container.innerHTML = createMatrixHTML('Impact', 'Effort', 
-                    ['Implement (High Impact, Low Effort)', p.implement, 'implement'],
-                    ['Challenge (High Impact, High Effort)', p.challenge, 'challenge'],
-                    ['Possible (Low Impact, Low Effort)', p.possible, 'possible'],
-                    ['Kill (Low Impact, High Effort)', p.kill, 'kill'],
-                    'pick'
-                );
+                mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
+                d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}[${p}]\n`);
+                d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}[${s}]\n`);
+                d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}[${c}]\n`);
+                
+                controls.innerHTML = `
+                    <button onclick="addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button>
+                    <button onclick="addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button>
+                    <button onclick="addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button>
+                    <button onclick="clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>
+                `;
+            } else {
+                container.innerHTML = `<div class="text-slate-400">Select Fishbone or Driver for Vector Diagrams. Others are text-based.</div>`;
+                controls.innerHTML = '';
+                return;
             }
-            lucide.createIcons();
+
+            // Render Mermaid
+            container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`;
+            try {
+                await mermaid.run();
+            } catch(e) { console.log("Mermaid Error", e); }
         }
 
-        function createMatrixHTML(yLabel, xLabel, q1, q2, q3, q4, type) {
-            const renderList = (items, key) => (items || []).map((t, i) => `<div class="bg-slate-100 p-1 mb-1 rounded text-xs flex justify-between group"><span>${escapeHtml(t)}</span><button onclick="removeMatrixItem('${type}', '${key}', ${i})" class="text-red-500 opacity-0 group-hover:opacity-100">x</button></div>`).join('');
-            
-            return `
-            <div class="h-full flex flex-col items-center justify-center">
-                <div class="grid grid-cols-[auto_1fr] grid-rows-[1fr_auto] gap-2 w-full h-[500px]">
-                    <div class="flex items-center justify-center font-bold -rotate-90 text-slate-500 text-sm tracking-widest">${yLabel}</div>
-                    <div class="matrix-grid bg-slate-200">
-                        <div class="matrix-quadrant" onclick="addMatrixItem('${type}', '${q1[2]}')"><h4 class="font-bold text-xs text-indigo-700 mb-2">${q1[0]}</h4>${renderList(q1[1], q1[2])}</div>
-                        <div class="matrix-quadrant" onclick="addMatrixItem('${type}', '${q2[2]}')"><h4 class="font-bold text-xs text-slate-700 mb-2">${q2[0]}</h4>${renderList(q2[1], q2[2])}</div>
-                        <div class="matrix-quadrant" onclick="addMatrixItem('${type}', '${q3[2]}')"><h4 class="font-bold text-xs text-slate-700 mb-2">${q3[0]}</h4>${renderList(q3[1], q3[2])}</div>
-                        <div class="matrix-quadrant" onclick="addMatrixItem('${type}', '${q4[2]}')"><h4 class="font-bold text-xs text-slate-500 mb-2">${q4[0]}</h4>${renderList(q4[1], q4[2])}</div>
-                    </div>
-                    <div></div>
-                    <div class="text-center font-bold text-slate-500 text-sm tracking-widest">${xLabel}</div>
-                </div>
-            </div>`;
-        }
-
-        window.addFishboneCause = (id) => { const txt = prompt("Enter Cause:"); if(txt){ projectData.fishbone.categories.find(c=>c.id===id).causes.push(txt); saveData(); }};
-        window.removeFishboneCause = (id, idx) => { projectData.fishbone.categories.find(c=>c.id===id).causes.splice(idx,1); saveData(); };
-        window.addDriver = (type) => { const txt = prompt("Enter Item:"); if(txt){ projectData.drivers[type].push(txt); saveData(); }};
-        window.removeDriver = (type, idx) => { projectData.drivers[type].splice(idx, 1); saveData(); };
+        window.addFish = (id) => { const t=prompt("Cause:"); if(t){projectData.fishbone.categories.find(c=>c.id===id).causes.push(t); saveData(); renderTools();} }
+        window.addDriver = (k) => { const t=prompt("Item:"); if(t){projectData.drivers[k].push(t); saveData(); renderTools();} }
+        window.clearDrivers = () => { if(confirm("Clear Diagram?")){ projectData.drivers={primary:[],secondary:[],changes:[]}; saveData(); renderTools(); } }
         
-        window.addMatrixItem = (type, key) => {
-            const txt = prompt("Enter Item:");
-            if(txt) {
-                if(!projectData[type][key]) projectData[type][key] = [];
-                projectData[type][key].push(txt);
-                saveData();
-            }
-        };
-        window.removeMatrixItem = (type, key, idx) => {
-            event.stopPropagation();
-            projectData[type][key].splice(idx, 1);
-            saveData();
+        window.downloadDiagram = async () => {
+            const svg = document.querySelector('#tool-canvas svg');
+            if(!svg) { alert("No diagram to download"); return; }
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement("canvas");
+            const ctx = canvas.getContext("2d");
+            const img = new Image();
+            img.onload = () => {
+                canvas.width = img.width; canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                const png = canvas.toDataURL("image/png");
+                const a = document.createElement('a'); a.download = "diagram.png"; a.href = png; a.click();
+            };
+            img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
         }
 
-        // --- GANTT & PDSA (Minimally Changed) ---
+        // --- DASHBOARD & CHECKLIST (Previous logic preserved) ---
+        function renderDashboard() {
+            const filled = Object.values(projectData.checklist || {}).filter(v => v).length;
+            const progress = Math.min(100, Math.round((filled / 10) * 100));
+            document.getElementById('stats-grid').innerHTML = `
+                <div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Checklist</span><i data-lucide="check-square" class="text-emerald-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${progress}%</div></div>
+                <div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Cycles</span><i data-lucide="refresh-cw" class="text-blue-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.pdsa.length}</div></div>
+                <div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Data</span><i data-lucide="bar-chart-2" class="text-amber-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.chartData.length}</div></div>
+            `;
+            document.getElementById('dashboard-aim').textContent = projectData.checklist?.aim || "No aim defined.";
+        }
+        window.openSmartWizard = () => document.getElementById('smart-modal').classList.remove('hidden');
+        window.saveSmartAim = () => {
+            const s = document.getElementById('smart-s').value; const m = document.getElementById('smart-m').value;
+            const p = document.getElementById('smart-p').value; const t = document.getElementById('smart-t').value;
+            projectData.checklist.aim = `To ${s || 'improve x'} for ${p || 'patients'} by ${m || 'a measurable amount'} by ${t || 'date'}.`;
+            saveData(); document.getElementById('smart-modal').classList.add('hidden');
+        }
+
+        // --- POSTER MODE UPDATE ---
+        window.updatePoster = () => {
+            document.getElementById('poster-title').textContent = projectData.checklist.title || 'Untitled QIP';
+            document.getElementById('poster-team').textContent = projectData.checklist.team || 'Team';
+            document.getElementById('poster-problem').textContent = projectData.checklist.problem_desc || 'No problem defined.';
+            document.getElementById('poster-aim').textContent = projectData.checklist.aim || 'No aim defined.';
+            document.getElementById('poster-results').textContent = projectData.checklist.results_summary || 'No results yet.';
+            document.getElementById('poster-learning').textContent = projectData.checklist.learning || 'No conclusion yet.';
+            document.getElementById('poster-pdsa').innerHTML = projectData.pdsa.slice(0,3).map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join('');
+            
+            // Clone Chart
+            const chartCanvas = document.getElementById('mainChart');
+            if(chartCanvas) document.getElementById('poster-chart').src = chartCanvas.toDataURL();
+            
+            // Render Driver Diagram for Poster (Static List for simplicity in poster view, or grab SVG)
+            const d = projectData.drivers;
+            document.getElementById('poster-driver').innerHTML = `<ul class="list-disc pl-5 text-sm"><li>Primary: ${d.primary.join(', ')}</li><li>Secondary: ${d.secondary.join(', ')}</li><li>Changes: ${d.changes.join(', ')}</li></ul>`;
+        }
+
+        // --- EXPORT ---
+        window.generateReport = () => {
+            const el = document.getElementById('report-template'); el.classList.remove('hidden');
+            document.getElementById('rep-title').textContent = projectData.checklist.title || 'Untitled';
+            document.getElementById('rep-lead').textContent = projectData.checklist.lead || '';
+            document.getElementById('rep-team').textContent = projectData.checklist.team || '';
+            document.getElementById('rep-problem').textContent = projectData.checklist.problem_desc || '';
+            document.getElementById('rep-aim').textContent = projectData.checklist.aim || '';
+            document.getElementById('rep-driver-list').textContent = `Primary: ${projectData.drivers.primary.join(', ')}. Interventions: ${projectData.drivers.changes.join(', ')}.`;
+            document.getElementById('rep-pdsa-list').innerHTML = projectData.pdsa.map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join('');
+            document.getElementById('rep-results').textContent = projectData.checklist.results_summary || '';
+            document.getElementById('rep-learning').textContent = projectData.checklist.learning || '';
+            
+            const canvas = document.getElementById('mainChart');
+            if(canvas) document.getElementById('rep-chart-img').src = canvas.toDataURL();
+
+            html2pdf().from(el).set({ margin: 0.5, filename: 'RCEM_QIP_Report.pdf' }).save().then(() => el.classList.add('hidden'));
+        }
+
+        // --- GANTT, PDSA, CHECKLIST RENDERERS (Standard) ---
+        // (Re-used from previous valid versions, ensuring functionality remains)
+        function renderChecklist() {
+            const checklistConfig = [
+             { title: "1. Problem & Evidence", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"] },
+             { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"] },
+             { title: "3. Strategy", icon: "git-branch", fields: ["strategy_summary"], desc:"Summarize driver diagram here" },
+             { title: "4. Results & Reflection", icon: "file-text", fields: ["results_summary", "learning", "sustainability"] }
+            ];
+            document.getElementById('checklist-container').innerHTML = checklistConfig.map((sec, i) => `
+                <details class="glass rounded-xl shadow-sm overflow-hidden group" ${i===0?'open':''}>
+                    <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer bg-slate-50/50 dark:bg-slate-800"><i data-lucide="${sec.icon}" class="text-rcem-purple dark:text-indigo-400 w-5 h-5"></i><h3 class="font-semibold text-slate-800 dark:text-white flex-1">${sec.title}</h3></summary>
+                    <div class="p-6 space-y-4">${sec.fields.map(f => `<div><label class="block text-sm font-medium dark:text-slate-300 capitalize mb-1">${f.replace(/_/g,' ')}</label><textarea onchange="projectData.checklist['${f}']=this.value;saveData()" class="w-full rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900 p-2 text-sm">${projectData.checklist[f]||''}</textarea></div>`).join('')}</div>
+                </details>`).join('');
+        }
+        
         function renderGantt() {
             const container = document.getElementById('gantt-chart-area');
             const tasks = projectData.gantt || [];
@@ -683,48 +821,34 @@
             container.innerHTML = tasks.map(t => {
                 const start = new Date(t.start); const end = new Date(t.end);
                 const left = ((start - min) / totalTime) * 100; const width = Math.max(2, ((end - start) / totalTime) * 100);
-                const color = t.status === 'Complete' ? 'bg-emerald-500' : t.status === 'In Progress' ? 'bg-blue-500' : 'bg-slate-400';
-                return `<div class="relative mb-4 flex items-center z-10"><div class="w-1/4 pr-4 flex items-center justify-between"><span class="text-sm font-medium text-slate-700 truncate">${escapeHtml(t.name)}</span><button onclick="removeGanttTask('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><div class="flex-1 relative h-8 bg-slate-100 rounded-full overflow-hidden"><div class="absolute top-0 h-full rounded-full shadow-sm flex items-center px-2 text-xs text-white ${color}" style="left: ${left}%; width: ${width}%">${t.status}</div></div></div>`;
+                return `<div class="relative mb-4 flex items-center z-10"><div class="w-1/4 pr-4 flex items-center justify-between"><span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">${escapeHtml(t.name)}</span><button onclick="removeGanttTask('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><div class="flex-1 relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="absolute top-0 h-full rounded-full shadow-sm flex items-center px-2 text-xs text-white bg-rcem-purple" style="left: ${left}%; width: ${width}%">${t.status}</div></div></div>`;
             }).join('');
         }
-        window.addGanttTask = () => {
-            const name = document.getElementById('gantt-name').value;
-            const start = document.getElementById('gantt-start').value;
-            const end = document.getElementById('gantt-end').value;
-            const status = document.getElementById('gantt-status').value;
-            if(name && start && end) { projectData.gantt.push({ id: Date.now().toString(), name, start, end, status }); document.getElementById('gantt-name').value = ''; saveData(); }
-        };
+        window.addGanttTask = () => { projectData.gantt.push({ id:Date.now(), name:document.getElementById('gantt-name').value, start:document.getElementById('gantt-start').value, end:document.getElementById('gantt-end').value, status:document.getElementById('gantt-status').value }); saveData(); }
         window.removeGanttTask = (id) => { projectData.gantt = projectData.gantt.filter(t => t.id !== id); saveData(); };
 
-        let expandedPDSA = null;
         function renderPDSA() {
-            const container = document.getElementById('pdsa-list');
-            const cycles = projectData.pdsa || [];
-            if(cycles.length === 0) { container.innerHTML = `<div class="bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl p-10 text-center text-slate-400">No cycles yet.</div>`; return; }
-            container.innerHTML = cycles.map(c => {
-                const isExpanded = expandedPDSA === c.id;
-                return `<div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden"><div onclick="togglePDSA('${c.id}')" class="px-6 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors"><div class="flex items-center gap-4"><div class="bg-indigo-100 text-indigo-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm">${c.title.charAt(0)}</div><div><h3 class="font-bold text-slate-800">${escapeHtml(c.title)}</h3><p class="text-xs text-slate-500">${c.date}</p></div></div><div class="flex items-center gap-2"><button onclick="deletePDSA('${c.id}', event)" class="p-2 text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button><i data-lucide="${isExpanded ? 'chevron-down' : 'chevron-right'}" class="text-slate-400 w-5 h-5"></i></div></div>${isExpanded ? `<div class="p-6 border-t border-slate-100 grid grid-cols-1 md:grid-cols-2 gap-6 bg-slate-50">${['Plan', 'Do', 'Study', 'Act'].map(stage => `<div class="space-y-2"><label class="flex items-center gap-2 font-semibold text-indigo-900"><span class="bg-indigo-200 w-6 h-6 rounded flex items-center justify-center text-xs">${stage[0]}</span> ${stage}</label><textarea onchange="updatePDSA('${c.id}', '${stage.toLowerCase()}', this.value)" class="w-full p-3 rounded border border-slate-200 focus:border-indigo-500 text-sm" rows="4">${escapeHtml(c[stage.toLowerCase()] || '')}</textarea></div>`).join('')}</div>` : ''}</div>`;
-            }).join('');
+            document.getElementById('pdsa-list').innerHTML = projectData.pdsa.map(c => `
+                <div class="glass rounded-xl shadow-sm overflow-hidden mb-4">
+                    <div class="px-6 py-4 bg-slate-50/50 dark:bg-slate-700 border-b dark:border-slate-600 flex justify-between">
+                        <h4 class="font-bold dark:text-white text-rcem-purple">${c.title} (${c.date})</h4>
+                        <button onclick="deletePDSA('${c.id}')" class="text-red-500 hover:text-red-700 text-xs">Delete</button>
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-4">
+                        ${['Plan','Do','Study','Act'].map(s=>`<div><label class="text-xs font-bold dark:text-slate-300 uppercase">${s}</label><textarea onchange="updatePDSA('${c.id}','${s.toLowerCase()}',this.value)" class="w-full text-sm p-2 border rounded dark:bg-slate-900 dark:border-slate-600 h-20">${c[s.toLowerCase()]||''}</textarea></div>`).join('')}
+                    </div>
+                </div>`).join('');
         }
-        window.addPDSACycle = () => { const id = Date.now().toString(); projectData.pdsa.unshift({ id, title: `Cycle ${projectData.pdsa.length + 1}`, date: new Date().toISOString().split('T')[0], plan: '', do: '', study: '', act: '' }); expandedPDSA = id; saveData(); };
-        window.togglePDSA = (id) => { expandedPDSA = expandedPDSA === id ? null : id; renderPDSA(); lucide.createIcons(); };
-        window.updatePDSA = (id, field, val) => { const c = projectData.pdsa.find(c => c.id === id); if(c) { c[field] = val; saveData(); } };
-        window.deletePDSA = (id, e) => { e.stopPropagation(); if(confirm('Delete?')) { projectData.pdsa = projectData.pdsa.filter(c => c.id !== id); saveData(); } };
-
-        window.generateReport = () => {
-            const el = document.getElementById('report-template');
-            el.classList.remove('hidden');
-            document.getElementById('report-date').textContent = new Date().toLocaleDateString();
-            document.getElementById('rep-title').textContent = projectData.checklist.title || 'Untitled';
-            document.getElementById('rep-lead').textContent = projectData.checklist.lead || 'Unknown';
-            document.getElementById('rep-aim').textContent = projectData.checklist.aim || 'No aim defined';
-            document.getElementById('rep-problem').textContent = projectData.checklist.problem_desc || 'No problem described';
-            document.getElementById('rep-chart-img').src = document.getElementById('mainChart').toDataURL();
-            document.getElementById('rep-pdsa-list').innerHTML = projectData.pdsa.map(c => `<div class="border border-slate-200 p-2 rounded text-sm"><span class="font-bold">${c.title} (${c.date})</span>: ${c.act || 'Ongoing'}</div>`).join('');
-            html2pdf().from(el).save('RCEM-QIP-Report.pdf').then(() => { el.classList.add('hidden'); showToast("Report downloaded"); });
-        }
+        window.addPDSACycle = () => { projectData.pdsa.unshift({ id: Date.now().toString(), title: `Cycle ${projectData.pdsa.length+1}`, date: new Date().toLocaleDateString() }); saveData(); }
+        window.updatePDSA = (id,f,v) => { projectData.pdsa.find(c=>c.id===id)[f]=v; saveData(); }
+        window.deletePDSA = (id) => { if(confirm('Delete?')) { projectData.pdsa=projectData.pdsa.filter(c=>c.id!==id); saveData(); } }
         
-        window.resetProject = async () => { if(!confirm("DELETE ALL DATA?")) return; projectData = { checklist: {}, fishbone: { categories: [] }, gantt: [], pdsa: [], chartData: [], drivers: { primary: [], secondary: [], changes: [] }, stakeholders: { highPowerHighInterest: [], highPowerLowInterest: [], lowPowerHighInterest: [], lowPowerLowInterest: [] }, pick: { implement: [], challenge: [], possible: [], kill: [] } }; await saveData(); location.reload(); }
+        // Green ED
+        window.calcCarbon = () => { document.getElementById('green-result').textContent = `Total: ${(document.getElementById('green-item').value * document.getElementById('green-qty').value).toFixed(2)} kg CO2e`; document.getElementById('green-result').classList.remove('hidden'); }
+        
+        window.resetProject = async () => { if(confirm("Delete all data?")) { projectData={checklist:{},fishbone:{categories:[]},drivers:{primary:[],secondary:[],changes:[]},forcefield:{driving:[],restraining:[]},swot:{s:[],w:[],o:[],t:[]},fiveWhys:["","","","",""],gantt:[],pdsa:[],chartData:[],paretoData:[],chartGoal:null}; await saveData(); location.reload(); } }
+        window.downloadJSON = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(projectData)); a.download = "qip_backup.json"; a.click(); }
+        window.restoreJSON = (i) => { const r = new FileReader(); r.onload = (e) => { projectData = JSON.parse(e.target.result); saveData(); location.reload(); }; r.readAsText(i.files[0]); }
 
         lucide.createIcons();
         router('dashboard');
