@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCEM QIP Assistant (QIAT v7)</title>
+    <title>RCEM QIP Assistant (WMEBEM)</title>
     
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -16,8 +17,7 @@
                         rcem: { 
                             purple: '#2d2e83', 
                             orange: '#f36f21',
-                            light: '#f4f6f8',
-                            green: '#10b981'
+                            light: '#f4f6f8'
                         } 
                     },
                     fontFamily: {
@@ -26,441 +26,506 @@
                     },
                     animation: {
                         'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'flash': 'flash 1s'
+                    },
+                    keyframes: {
+                        flash: {
+                            '0%, 100%': { opacity: '1' },
+                            '50%': { opacity: '0.5', color: '#10b981' }
+                        }
                     }
                 }
             }
         }
     </script>
     
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Chart.js & Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+
+    <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
+    <!-- SortableJS -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
+
+    <!-- Mermaid.js (For Vector Diagrams) -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
+    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
         .fade-in { animation: fadeIn 0.4s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Glassmorphism Classes */
         .glass {
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
         }
         .dark .glass {
-            background: rgba(30, 41, 59, 0.9);
+            background: rgba(30, 41, 59, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
-        /* Guide Sidebar Transition */
-        #guide-panel { transition: width 0.3s ease-in-out; }
-        
         #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
-        
+
+        .matrix-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: 1fr 1fr;
+            gap: 2px;
+            background-color: #cbd5e1;
+            border: 2px solid #64748b;
+        }
+        .matrix-quadrant { background-color: white; padding: 1rem; min-height: 200px; position: relative; }
+
+        /* Poster Mode Grid */
+        .poster-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            grid-template-rows: auto auto 1fr auto;
+            gap: 1.5rem;
+            width: 100%;
+            height: 100%;
+            padding: 2rem;
+            background: white;
+            color: #1e293b;
+        }
+        .poster-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+        }
+
+        /* Dark Mode overrides */
         .dark body { background-color: #0f172a; color: #e2e8f0; }
+        .dark .matrix-quadrant { background-color: #1e293b; }
+        .dark .matrix-grid { background-color: #475569; border-color: #64748b; }
         .dark input, .dark textarea, .dark select { background-color: rgba(30, 41, 59, 0.5); border-color: #475569; color: white; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-900 h-screen overflow-hidden flex flex-col bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
 
+    <!-- IG WARNING -->
     <div id="ig-banner" class="bg-amber-100 dark:bg-amber-900 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 px-4 py-2 text-xs md:text-sm font-medium flex justify-between items-center z-50">
         <div class="flex items-center gap-2">
             <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
-            <span>INFORMATION GOVERNANCE: Do <strong>NOT</strong> enter patient names, DoBs, or NHS Numbers.</span>
+            <span>INFORMATION GOVERNANCE: Do <strong>NOT</strong> enter patient names, DoBs, or MRNs.</span>
         </div>
-        <button onclick="document.getElementById('ig-banner').remove()" class="text-amber-700 hover:text-amber-900"><i data-lucide="x" class="w-4 h-4"></i></button>
+        <button onclick="document.getElementById('ig-banner').remove()" class="text-amber-700 hover:text-amber-900 dark:hover:text-amber-200"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
 
     <div class="flex flex-1 overflow-hidden relative">
         
-        <div id="auth-screen" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <!-- LOGIN -->
+        <div id="auth-screen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="glass bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in">
                 <div class="bg-white/50 p-8 text-center border-b border-slate-100/50">
-                    <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-16 mx-auto mb-4 object-contain">
+                    <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-20 mx-auto mb-4 object-contain">
                     <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
-                    <p class="text-slate-500 mt-1 text-sm">Updated for QIAT v7 (2025)</p>
+                    <p class="text-slate-500 mt-1">Professional Portfolio & Audit Tool</p>
                 </div>
                 <div class="p-8">
+                    <h2 id="auth-title" class="text-lg font-semibold text-slate-800 mb-6 text-center">Sign In</h2>
+                    <div id="auth-message" class="hidden mb-4 p-3 rounded text-sm text-center"></div>
                     <form id="auth-form" class="space-y-4">
-                        <input type="email" id="email" required class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple" placeholder="doctor@nhs.net">
-                        <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple" placeholder="••••••••">
-                        <button type="submit" id="auth-btn" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded-lg transition-all shadow-lg">Sign In</button>
+                        <input type="email" id="email" required class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="doctor@nhs.net">
+                        <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="••••••••">
+                        <button type="submit" id="auth-btn" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-xl"><span id="auth-btn-text">Sign In</span></button>
                     </form>
-                    <button onclick="loadDemoMode()" class="w-full mt-3 bg-white border border-slate-300 text-slate-600 font-bold py-3 rounded-lg hover:bg-slate-50 flex justify-center items-center gap-2">
-                        <i data-lucide="sparkles" class="w-4 h-4 text-amber-500"></i> See Example Project
-                    </button>
-                    <div class="mt-4 text-center text-sm">
+                    <button onclick="loadDemoMode()" class="w-full mt-3 bg-white border border-slate-300 text-slate-600 font-bold py-3 rounded-lg transition-all hover:bg-slate-50 flex justify-center items-center gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Try Demo Mode</button>
+                    <div class="mt-4 flex justify-between text-sm">
                         <button id="toggle-auth" class="text-rcem-purple hover:underline">Create Account</button>
+                        <button id="forgot-password" class="text-slate-500 hover:text-slate-700">Forgot Password?</button>
                     </div>
                 </div>
             </div>
         </div>
 
-        <aside id="app-sidebar" class="hidden w-64 bg-slate-900/95 backdrop-blur-xl text-white flex-col h-full border-r border-white/10 flex-shrink-0">
-            <div class="p-6 border-b border-white/10 text-center">
-                <img src="https://iili.io/KGQOvkl.md.png" class="h-12 mx-auto mb-2 bg-white rounded p-1">
-                <h1 class="font-bold tracking-tight">QIP Assistant</h1>
+        <!-- SIDEBAR -->
+        <aside id="app-sidebar" class="hidden w-64 bg-slate-900/95 backdrop-blur-xl text-white flex-col h-full fixed left-0 top-0 z-10 shadow-2xl lg:static lg:flex border-r border-white/10">
+            <div class="p-6 border-b border-white/10 flex flex-col items-center">
+                <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-14 mb-3 object-contain bg-white rounded-lg p-2 w-full shadow-inner">
+                <div class="text-center">
+                    <h1 class="font-bold text-lg tracking-tight">RCEM QIP</h1>
+                    <p class="text-xs text-slate-400">West Midlands EM</p>
+                </div>
             </div>
             <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-                <button onclick="router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> Dashboard</button>
-                <button onclick="router('qiat')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-qiat"><i data-lucide="clipboard-check" class="w-5 h-5"></i> QIAT Form (v7)</button>
-                <button onclick="router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-data"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> Data & SPC</button>
-                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-tools"><i data-lucide="tool" class="w-5 h-5"></i> Strategy Tools</button>
-                <button onclick="router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-5 h-5"></i> PDSA Cycles</button>
-                <button onclick="router('green')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10" id="nav-green"><i data-lucide="leaf" class="w-5 h-5"></i> Green ED</button>
+                <button onclick="router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> <span class="font-medium">Dashboard</span></button>
+                <button onclick="router('checklist')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-checklist"><i data-lucide="check-square" class="w-5 h-5"></i> <span class="font-medium">QIAT Checklist</span></button>
+                <button onclick="router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-data"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> <span class="font-medium">Data & Charts</span></button>
+                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-tools"><i data-lucide="tool" class="w-5 h-5"></i> <span class="font-medium">Change Tools</span></button>
+                <button onclick="router('gantt')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-gantt"><i data-lucide="calendar" class="w-5 h-5"></i> <span class="font-medium">Gantt Chart</span></button>
+                <button onclick="router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-5 h-5"></i> <span class="font-medium">PDSA Cycles</span></button>
+                <button onclick="router('green')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-green"><i data-lucide="leaf" class="w-5 h-5 text-emerald-400"></i> <span class="font-medium">Green ED</span></button>
+                <button onclick="openGuide()" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-amber-300 hover:bg-white/10 transition-all mt-4 border border-amber-500/30 bg-amber-500/10"><i data-lucide="help-circle" class="w-5 h-5"></i> <span class="font-medium">Guide</span></button>
             </nav>
-            <div class="p-4 border-t border-white/10">
-                <button onclick="toggleGuide()" class="w-full flex items-center justify-center gap-2 bg-amber-500 text-white px-4 py-2 rounded-lg font-bold shadow hover:bg-amber-600 mb-4"><i data-lucide="compass" class="w-4 h-4"></i> Toggle Guide</button>
-                <button onclick="signOutApp()" class="w-full text-slate-400 hover:text-white text-sm flex items-center gap-2"><i data-lucide="log-out" class="w-4 h-4"></i> Sign Out</button>
+            <div class="p-4 border-t border-white/10 bg-slate-900/50">
+                <button onclick="toggleDarkMode()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm mb-2"><i data-lucide="moon" class="w-4 h-4"></i> Dark Mode</button>
+                <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm"><i data-lucide="log-out" class="w-4 h-4"></i> Sign Out</button>
             </div>
         </aside>
 
-        <main class="flex-1 flex overflow-hidden relative bg-slate-100 dark:bg-slate-900">
-            
-            <div id="main-scroll" class="flex-1 overflow-y-auto p-4 md:p-8 relative">
-                
-                <div class="glass sticky top-0 z-20 px-6 py-3 flex justify-between items-center shadow-sm rounded-xl mb-6">
-                    <div class="flex items-center text-sm">
-                        <span id="save-status" class="flex items-center gap-1 text-emerald-600 font-medium"><i data-lucide="check-circle" class="w-4 h-4"></i> Saved</span>
-                    </div>
-                    <div class="flex gap-2">
-                        <button onclick="loadDemoMode()" class="text-xs bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded border border-indigo-200 hover:bg-indigo-100">View Demo</button>
-                        <button onclick="toggleDarkMode()" class="text-slate-500 hover:text-slate-800"><i data-lucide="moon" class="w-4 h-4"></i></button>
-                    </div>
+        <!-- MAIN -->
+        <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100/50 dark:bg-slate-900/50 relative w-full">
+            <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded-md shadow-lg"><i data-lucide="menu"></i></button>
+
+            <!-- Status Bar -->
+            <div class="glass sticky top-0 z-20 px-8 py-3 flex justify-between items-center shadow-sm">
+                <div class="flex items-center text-sm text-slate-500 dark:text-slate-400">
+                    <span class="font-semibold text-slate-700 dark:text-slate-200 mr-2">Status:</span>
+                    <span id="save-status" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 transition-all"><i data-lucide="save" class="w-3 h-3"></i> Saved</span>
                 </div>
+                <div id="user-display" class="text-xs text-slate-400 font-mono"></div>
+            </div>
 
-                <div id="toast-container"></div>
+            <div id="toast-container"></div>
 
+            <div id="views-container" class="pb-20 p-4 md:p-8">
+                
+                <!-- 1. DASHBOARD -->
                 <div id="view-dashboard" class="view-section space-y-6 fade-in">
                     <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Dashboard</h2>
-                            <p class="text-slate-500 dark:text-slate-400">Project Overview</p>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Dashboard</h2>
+                            <p class="text-slate-500 dark:text-slate-400">QI Project Overview</p>
                         </div>
-                        <div class="flex gap-2">
-                            <button onclick="generateReport()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-900 flex gap-2 items-center"><i data-lucide="file-text" class="w-4 h-4"></i> SQUIRE Report</button>
-                            <button onclick="router('poster')" class="bg-white text-slate-700 border px-4 py-2 rounded-lg shadow-sm hover:bg-slate-50 flex gap-2 items-center"><i data-lucide="layout" class="w-4 h-4"></i> Poster</button>
+                        <div class="flex flex-wrap gap-2">
+                             <button onclick="emailSupervisor()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="mail" class="w-4 h-4"></i> Email Supervisor</button>
+                             <button onclick="router('poster')" class="bg-rcem-purple hover:bg-indigo-900 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-md transition-all"><i data-lucide="layout" class="w-4 h-4"></i> Poster Mode</button>
+                             <button onclick="generateReport()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="file-text" class="w-4 h-4"></i> Report</button>
+                             <button onclick="downloadJSON()" class="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm"><i data-lucide="download-cloud" class="w-4 h-4"></i> Backup</button>
+                             <label class="bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm cursor-pointer"><i data-lucide="upload-cloud" class="w-4 h-4"></i> Restore<input type="file" id="restore-input" class="hidden" onchange="restoreJSON(this)"></label>
+                             <button onclick="resetProject()" class="text-slate-400 hover:text-red-600 flex items-center gap-2 text-sm border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-lg hover:border-red-200"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
                         </div>
                     </header>
-
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div class="glass p-4 rounded-xl border-l-4 border-rcem-purple">
-                            <span class="text-xs text-slate-500 uppercase font-bold">QIAT Status</span>
-                            <div class="text-2xl font-bold dark:text-white" id="stat-qiat">0%</div>
-                        </div>
-                        <div class="glass p-4 rounded-xl border-l-4 border-amber-500">
-                            <span class="text-xs text-slate-500 uppercase font-bold">Data Points</span>
-                            <div class="text-2xl font-bold dark:text-white" id="stat-data">0</div>
-                        </div>
-                        <div class="glass p-4 rounded-xl border-l-4 border-emerald-500">
-                            <span class="text-xs text-slate-500 uppercase font-bold">PDSA Cycles</span>
-                            <div class="text-2xl font-bold dark:text-white" id="stat-pdsa">0</div>
-                        </div>
-                         <div class="glass p-4 rounded-xl border-l-4 border-blue-500">
-                            <span class="text-xs text-slate-500 uppercase font-bold">Improvement</span>
-                            <div class="text-xl font-bold dark:text-white" id="stat-imp">None Yet</div>
-                        </div>
-                    </div>
-
-                    <div id="setup-card" class="glass rounded-xl p-8 text-center border-dashed border-2 border-slate-300 hidden">
-                        <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="rocket" class="w-8 h-8"></i></div>
-                        <h3 class="text-xl font-bold text-slate-800 dark:text-white">Start Your Project</h3>
-                        <p class="text-slate-500 mb-6 max-w-md mx-auto">Use the RCEM templates to get started quickly.</p>
-                        <button onclick="openWizard()" class="bg-rcem-purple text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-900">Launch Wizard</button>
-                    </div>
-
-                    <div id="aim-display" class="glass rounded-xl p-6 relative group">
-                        <h3 class="font-bold text-slate-800 dark:text-white mb-2">Current Aim</h3>
-                        <p id="dash-aim-text" class="text-indigo-800 dark:text-indigo-300 italic font-serif text-lg">No aim defined.</p>
-                        <button onclick="router('qiat')" class="absolute top-4 right-4 text-xs bg-slate-100 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity">Edit</button>
-                    </div>
-                </div>
-
-                <div id="view-qiat" class="view-section hidden fade-in max-w-5xl mx-auto">
-                    <header class="mb-6 border-b pb-4">
-                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white">QIAT Assessment (v7)</h2>
-                        <p class="text-slate-500 dark:text-slate-400">Aligned with RCEM ePortfolio 2025.</p>
-                    </header>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="stats-grid"></div>
                     
-                    <div class="space-y-6">
-                        <div class="glass p-6 rounded-xl">
-                            <h3 class="text-lg font-bold text-rcem-purple mb-4">Project Overview</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div><label class="label">Project Title</label><input class="input-field" id="qiat-title" onchange="saveQiat('title', this.value)"></div>
-                                <div><label class="label">Lead Trainee</label><input class="input-field" id="qiat-lead" onchange="saveQiat('lead', this.value)"></div>
-                                <div><label class="label">Supervisors</label><input class="input-field" id="qiat-supervisors" onchange="saveQiat('supervisors', this.value)"></div>
-                                <div><label class="label">Date Started</label><input type="date" class="input-field" id="qiat-date" onchange="saveQiat('date', this.value)"></div>
-                            </div>
+                    <div class="glass rounded-xl p-6 shadow-sm">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="target" class="text-rcem-purple dark:text-indigo-400"></i> Project Aim</h3>
+                            <button onclick="openSmartWizard()" class="text-xs bg-indigo-100 text-indigo-700 px-2 py-1 rounded hover:bg-indigo-200">SMART Wizard</button>
                         </div>
+                        <div id="dashboard-aim" class="p-4 bg-indigo-50/50 dark:bg-slate-900 rounded-lg border border-indigo-100 dark:border-slate-700 text-indigo-900 dark:text-indigo-100 italic font-serif">No aim defined.</div>
+                    </div>
 
-                        <div class="glass p-6 rounded-xl border-l-4 border-indigo-500">
-                            <h3 class="text-lg font-bold text-rcem-purple mb-1">Domain 1: Plan</h3>
-                            <p class="text-xs text-slate-500 mb-4">Problem definition, Aim, and Strategy.</p>
-                            
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="label">What is the problem? (Background & Rationale)</label>
-                                    <textarea class="input-area" rows="3" id="qiat-problem" onchange="saveQiat('problem', this.value)" placeholder="Describe the local problem and evidence..."></textarea>
-                                </div>
-                                <div>
-                                    <label class="label flex justify-between"><span>SMART Aim</span> <span class="text-xs font-normal text-amber-600 bg-amber-100 px-2 rounded">Tip: Increase X from Y% to Z% by [Date]</span></label>
-                                    <input class="input-field" id="qiat-aim" onchange="saveQiat('aim', this.value)" placeholder="Specific, Measurable, Achievable, Realistic, Time-bound">
-                                </div>
-                                <div>
-                                    <label class="label">Drivers & Change Ideas (Strategy)</label>
-                                    <textarea class="input-area" rows="3" id="qiat-strategy" onchange="saveQiat('strategy', this.value)" placeholder="Summarize your primary drivers and change ideas here..."></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass p-6 rounded-xl border-l-4 border-blue-500">
-                            <h3 class="text-lg font-bold text-rcem-purple mb-1">Domain 2: Do</h3>
-                            <p class="text-xs text-slate-500 mb-4">Implementation and Teamwork.</p>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="label">Interventions & Timeline</label>
-                                    <textarea class="input-area" rows="3" id="qiat-interventions" onchange="saveQiat('interventions', this.value)" placeholder="What did you do and when?"></textarea>
-                                </div>
-                                <div>
-                                    <label class="label">Team Engagement</label>
-                                    <textarea class="input-area" rows="2" id="qiat-team" onchange="saveQiat('team', this.value)" placeholder="Who was involved? How did you engage stakeholders?"></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass p-6 rounded-xl border-l-4 border-amber-500">
-                            <h3 class="text-lg font-bold text-rcem-purple mb-1">Domain 3: Study</h3>
-                            <p class="text-xs text-slate-500 mb-4">Data and Analysis.</p>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="label">Measures Used</label>
-                                    <textarea class="input-area" rows="2" id="qiat-measures" onchange="saveQiat('measures', this.value)" placeholder="Outcome, Process, and Balancing measures..."></textarea>
-                                </div>
-                                <div>
-                                    <label class="label">Data Analysis & Interpretation</label>
-                                    <textarea class="input-area" rows="3" id="qiat-analysis" onchange="saveQiat('analysis', this.value)" placeholder="What does the data show? Reference your charts."></textarea>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="glass p-6 rounded-xl border-l-4 border-emerald-500">
-                            <h3 class="text-lg font-bold text-rcem-purple mb-1">Domain 4: Act</h3>
-                            <p class="text-xs text-slate-500 mb-4">Future cycles and Sustainability.</p>
-                            <div class="space-y-4">
-                                <div>
-                                    <label class="label">Modifications & Next Steps</label>
-                                    <textarea class="input-area" rows="3" id="qiat-modifications" onchange="saveQiat('modifications', this.value)" placeholder="How did you adapt based on results?"></textarea>
-                                </div>
-                                <div>
-                                    <label class="label">Sustainability Plan</label>
-                                    <textarea class="input-area" rows="2" id="qiat-sustainability" onchange="saveQiat('sustainability', this.value)" placeholder="How will the change be maintained?"></textarea>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="glass p-6 rounded-xl border-t-4 border-rcem-purple bg-slate-50 dark:bg-slate-800">
-                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2">Assessment of QIAT</h3>
-                            <p class="text-xs text-slate-500 mb-4">Self-assessment or Supervisor validation.</p>
-                            <div class="flex gap-4 items-center mb-4">
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="assessment_val" value="Satisfactory" onclick="saveQiat('assessment_val', 'Satisfactory')" id="qiat-assessment-sat">
-                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold border border-green-200">Satisfactory</span>
-                                </label>
-                                <label class="flex items-center gap-2 cursor-pointer">
-                                    <input type="radio" name="assessment_val" value="Unsatisfactory" onclick="saveQiat('assessment_val', 'Unsatisfactory')" id="qiat-assessment-unsat">
-                                    <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-bold border border-red-200">Unsatisfactory</span>
-                                </label>
-                            </div>
-                            <div>
-                                <label class="label">Comments / Feedback</label>
-                                <textarea class="input-area bg-white" rows="2" id="qiat-assessment_comments" onchange="saveQiat('assessment_comments', this.value)" placeholder="Supervisor comments..."></textarea>
-                            </div>
-                        </div>
+                    <!-- Get Started Guide (Shows if no data) -->
+                    <div id="get-started-card" class="glass rounded-xl p-8 border border-dashed border-slate-300 dark:border-slate-600 text-center hidden">
+                        <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="rocket" class="w-8 h-8"></i></div>
+                        <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Ready to Improve Care?</h3>
+                        <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">Start by defining your project in the Checklist, then build a Driver Diagram to plan your strategy.</p>
+                        <button onclick="router('checklist')" class="bg-rcem-purple text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-900">Start Checklist</button>
                     </div>
                 </div>
 
+                <!-- 2. CHECKLIST -->
+                <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto fade-in">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white">QIAT Checklist</h2>
+                        <p class="text-slate-500 dark:text-slate-400">Aligned with RCEM Curriculum requirements.</p>
+                    </div>
+                    <div id="checklist-container" class="space-y-4"></div>
+                </div>
+
+                <!-- 3. DATA & CHARTS -->
                 <div id="view-data" class="view-section hidden fade-in">
                     <header class="mb-6 flex justify-between items-end">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Data & SPC</h2>
-                            <p class="text-slate-500 text-sm">Automated Statistical Process Control (Nelson Rules included)</p>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Data & Charts</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Run Charts (SPC) with Annotated Interventions.</p>
                         </div>
-                        <button onclick="document.getElementById('bulk-modal').classList.remove('hidden')" class="bg-white border px-3 py-1.5 rounded shadow-sm text-sm">Bulk Import</button>
+                        <div class="flex gap-2">
+                            <button onclick="openBulkImport()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded text-sm hover:bg-indigo-100"><i data-lucide="table" class="w-4 h-4 inline"></i> Bulk Import</button>
+                            <button onclick="setChartMode('run')" id="btn-chart-run" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm shadow">Run Chart</button>
+                            <button onclick="setChartMode('pareto')" id="btn-chart-pareto" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm">Pareto</button>
+                            <button onclick="exportCSV()" class="text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-slate-600 px-3 py-1.5 rounded bg-indigo-50 dark:bg-slate-800 text-sm"><i data-lucide="download" class="w-4 h-4"></i> CSV</button>
+                        </div>
                     </header>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="glass rounded-xl p-6 h-fit">
-                            <h3 class="font-bold mb-4">Add Data Point</h3>
-                            <div class="space-y-3">
-                                <input type="date" id="chart-date" class="input-field">
-                                <input type="number" id="chart-value" class="input-field" placeholder="Value (e.g. % or count)">
-                                <select id="chart-type" class="input-field">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                        <div class="glass rounded-xl p-6 shadow-sm h-fit">
+                            <h3 id="chart-input-title" class="font-bold text-lg mb-4 text-slate-800 dark:text-white">Add Data Point</h3>
+                            <div id="input-run" class="space-y-4">
+                                <input type="date" id="chart-date" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" onchange="validateDate(this)">
+                                <input type="number" id="chart-value" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Value (e.g., Time to Analgesia in mins)">
+                                <select id="chart-type" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
                                     <option value="data">Data Point</option>
-                                    <option value="intervention">Intervention Start</option>
+                                    <option value="intervention">Intervention Start (PDSA)</option>
                                 </select>
-                                <input type="text" id="chart-note" class="input-field hidden" placeholder="Intervention Name">
-                                <button onclick="addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded shadow">Add</button>
+                                <input type="text" id="chart-note" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Label (e.g. PDSA 1)">
+                                <button onclick="addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded hover:bg-indigo-900 shadow transition-all">Add Point</button>
+                                <div class="border-t pt-4 mt-4">
+                                    <label class="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Target / Goal</label>
+                                    <input type="number" id="chart-goal" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="e.g. 95" onchange="updateGoal()">
+                                </div>
                             </div>
-                            <div class="mt-4 pt-4 border-t">
-                                <label class="label">Target (Goal line)</label>
-                                <input type="number" id="chart-goal" class="input-field" onchange="updateGoal()" placeholder="e.g. 95">
+                            <div id="input-pareto" class="space-y-4 hidden">
+                                <input type="text" id="pareto-cat" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Category (e.g., Lack of Staff)">
+                                <input type="number" id="pareto-count" class="w-full rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Count">
+                                <button onclick="addParetoData()" class="w-full bg-rcem-purple text-white py-2 rounded hover:bg-indigo-900 shadow">Add Data</button>
                             </div>
+                            <div class="mt-8 max-h-60 overflow-y-auto" id="data-history-list"></div>
                         </div>
-                        <div class="lg:col-span-2 glass rounded-xl p-6 relative">
+                        <div class="lg:col-span-2 glass rounded-xl p-6 shadow-sm">
                             <canvas id="mainChart"></canvas>
-                            <div id="spc-alerts" class="mt-4 space-y-2"></div>
+                            <div id="chart-legend" class="mt-4 text-xs text-slate-500 text-center font-medium"></div>
                         </div>
                     </div>
                 </div>
 
-                <div id="view-tools" class="view-section hidden fade-in h-full flex flex-col">
-                    <header class="mb-4 flex justify-between items-center">
-                        <h2 class="text-3xl font-bold dark:text-white">Strategy Tools</h2>
-                        <div class="flex bg-slate-200 dark:bg-slate-700 rounded p-1">
-                            <button onclick="setTool('fishbone')" class="px-3 py-1 rounded text-sm font-medium transition-all" id="btn-fishbone">Fishbone</button>
-                            <button onclick="setTool('driver')" class="px-3 py-1 rounded text-sm font-medium transition-all" id="btn-driver">Driver Diagram</button>
+                <!-- 4. CHANGE TOOLS -->
+                <div id="view-tools" class="view-section hidden h-full flex flex-col fade-in">
+                    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Change Tools</h2>
+                            <p class="text-slate-500 dark:text-slate-400">Mermaid.js Vector Diagrams.</p>
+                        </div>
+                        <div class="flex gap-2 items-center">
+                            <button onclick="downloadDiagram()" class="text-sm bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded shadow-sm hover:bg-slate-50"><i data-lucide="image" class="w-4 h-4 inline mr-1"></i> Download PNG</button>
+                            <div class="bg-slate-200 dark:bg-slate-700 p-1 rounded-lg flex text-xs md:text-sm">
+                                <button onclick="setToolMode('fishbone')" id="btn-fishbone" class="tool-tab px-3 py-1.5 rounded-md font-medium transition-all">Fishbone</button>
+                                <button onclick="setToolMode('driver')" id="btn-driver" class="tool-tab px-3 py-1.5 rounded-md transition-all">Driver Diagram</button>
+                                <button onclick="setToolMode('whys')" id="btn-whys" class="tool-tab px-3 py-1.5 rounded-md transition-all">5 Whys</button>
+                                <button onclick="setToolMode('force')" id="btn-force" class="tool-tab px-3 py-1.5 rounded-md transition-all">Force Field</button>
+                            </div>
                         </div>
                     </header>
-                    <div id="tool-controls" class="mb-4 flex gap-2 flex-wrap"></div>
-                    <div id="tool-canvas" class="flex-1 glass rounded-xl flex items-center justify-center p-4 bg-white overflow-hidden"></div>
+                    
+                    <!-- Diagram Inputs -->
+                    <div id="tool-controls" class="mb-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-end">
+                        <!-- Dynamic inputs injected by JS -->
+                    </div>
+
+                    <div id="tool-canvas" class="flex-1 glass rounded-xl shadow-sm p-4 md:p-8 overflow-auto relative min-h-[500px] flex items-center justify-center bg-white">
+                        <!-- Mermaid renders here -->
+                    </div>
                 </div>
 
+                <!-- 5. GANTT -->
+                <div id="view-gantt" class="view-section hidden fade-in">
+                    <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white">Gantt Chart</h2></header>
+                    <div class="glass p-4 rounded-xl shadow-sm mb-8 flex flex-wrap gap-4 items-end">
+                        <input type="text" id="gantt-name" class="flex-1 min-w-[200px] rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Task Name (e.g., Literature Review)">
+                        <input type="date" id="gantt-start" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                        <input type="date" id="gantt-end" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
+                        <select id="gantt-status" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-white dark:bg-slate-700"><option>Planned</option><option>In Progress</option><option>Complete</option></select>
+                        <button onclick="addGanttTask()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add</button>
+                    </div>
+                    <div class="glass rounded-xl shadow-sm overflow-hidden">
+                        <div class="p-4 border-b border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800 font-medium text-slate-500 flex justify-between"><span>Task List</span><span id="gantt-range">Timeline</span></div>
+                        <div id="gantt-chart-area" class="relative min-h-[300px] p-4"></div>
+                    </div>
+                </div>
+
+                <!-- 6. PDSA -->
                 <div id="view-pdsa" class="view-section hidden fade-in">
-                    <header class="mb-6 flex justify-between items-center">
-                        <h2 class="text-3xl font-bold dark:text-white">PDSA Cycles</h2>
-                        <button onclick="addPdsa()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
+                     <header class="mb-6 flex justify-between items-center">
+                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white">PDSA Cycles</h2><p class="text-slate-500 dark:text-slate-400">Iterative improvement.</p></div>
+                        <button onclick="addPDSACycle()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
                     </header>
                     <div id="pdsa-list" class="space-y-4 max-w-4xl"></div>
                 </div>
 
-                 <div id="view-green" class="view-section hidden fade-in">
-                    <header class="mb-6"><h2 class="text-3xl font-bold flex items-center gap-2 text-emerald-700 dark:text-emerald-400"><i data-lucide="leaf"></i> Green ED Calculator</h2></header>
-                    <div class="glass p-8 max-w-2xl rounded-xl border border-emerald-100">
-                        <div class="grid grid-cols-2 gap-4 mb-4">
-                            <select id="green-item" class="input-field">
-                                <option value="0.035">IV Cannula (Plastic)</option>
-                                <option value="0.020">Blood Bottle</option>
-                                <option value="0.150">IV Fluid Bag (1L)</option>
-                                <option value="0.005">Paper Sheet (A4)</option>
-                                <option value="1.0">Custom (1kg)</option>
-                            </select>
-                            <input type="number" id="green-qty" class="input-field" placeholder="Quantity saved">
-                        </div>
-                        <button onclick="calcCarbon()" class="bg-emerald-600 text-white px-6 py-2 rounded hover:bg-emerald-700 w-full font-bold">Calculate Savings</button>
-                        <div id="green-result" class="mt-6 p-4 bg-emerald-50 dark:bg-emerald-900/30 rounded border border-emerald-200 hidden">
-                            <p class="text-lg font-bold text-emerald-800 dark:text-emerald-200" id="green-single"></p>
-                            <p class="text-sm text-emerald-600 dark:text-emerald-300 mt-2" id="green-annual"></p>
+                <!-- 7. GREEN ED -->
+                <div id="view-green" class="view-section hidden fade-in">
+                    <div class="max-w-4xl mx-auto">
+                        <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="leaf" class="text-emerald-500"></i> Green ED Calculator</h2></header>
+                        <div class="glass border border-emerald-100 dark:border-emerald-800 p-6 rounded-xl mb-6">
+                            <h3 class="font-bold text-emerald-900 dark:text-emerald-100 mb-4">Calculate Savings</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <select id="green-item" class="w-full p-2 rounded border border-emerald-200 dark:border-emerald-700 dark:bg-slate-800"><option value="0.035">IV Cannula (Plastic) - 35g</option><option value="0.020">Blood Bottle - 20g</option><option value="0.005">Paper Sheet (A4) - 5g</option><option value="0.150">IV Fluid Bag (1L) - 150g</option><option value="0.170">Car Mile (Avg) - 170g</option></select>
+                                <input type="number" id="green-qty" class="w-full p-2 rounded border border-emerald-200 dark:border-emerald-700 dark:bg-slate-800" placeholder="Qty">
+                            </div>
+                            <button onclick="calcCarbon()" class="bg-emerald-600 text-white px-4 py-2 rounded hover:bg-emerald-700">Calculate</button>
+                            <div id="green-result" class="mt-4 font-bold text-lg text-emerald-800 dark:text-emerald-300 hidden"></div>
                         </div>
                     </div>
                 </div>
-                
-                 <div id="view-poster" class="view-section hidden h-full fixed inset-0 z-50 bg-white overflow-auto p-4">
-                     <div class="max-w-[1200px] mx-auto bg-white shadow-2xl p-8 min-h-screen" id="poster-content">
-                         <div class="flex justify-between mb-8 border-b-4 border-rcem-purple pb-4">
-                             <div>
-                                 <h1 class="text-5xl font-bold text-rcem-purple mb-2" id="pos-title">Project Title</h1>
-                                 <p class="text-xl text-slate-600" id="pos-team">Team Names</p>
-                             </div>
-                             <img src="https://iili.io/KGQOvkl.md.png" class="h-24">
-                         </div>
-                         <div class="grid grid-cols-3 gap-8">
-                             <div class="space-y-8">
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">Background</h2><p id="pos-prob" class="text-sm"></p></div>
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">Aim</h2><p id="pos-aim" class="text-lg italic font-serif bg-slate-50 p-4 border-l-4 border-rcem-purple"></p></div>
-                             </div>
-                             <div class="space-y-8">
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">Strategy</h2><p id="pos-strat" class="text-sm"></p></div>
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">Results</h2><img id="pos-chart" class="w-full border"><p id="pos-res" class="text-sm mt-2 font-bold"></p></div>
-                             </div>
-                             <div class="space-y-8">
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">PDSA Cycles</h2><div id="pos-pdsa" class="text-sm space-y-2"></div></div>
-                                 <div><h2 class="text-2xl font-bold text-rcem-orange border-b-2 border-slate-200 pb-1 mb-2">Conclusion</h2><p id="pos-conc" class="text-sm"></p></div>
-                             </div>
-                         </div>
-                     </div>
-                     <div class="fixed bottom-4 right-4 flex gap-2 no-print">
-                         <button onclick="window.print()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow">Print / PDF</button>
-                         <button onclick="router('dashboard')" class="bg-slate-700 text-white px-4 py-2 rounded shadow">Close</button>
-                     </div>
-                 </div>
+
+                <!-- 8. POSTER MODE -->
+                <div id="view-poster" class="view-section hidden h-screen fixed inset-0 z-[100] bg-gray-100 overflow-auto">
+                    <div class="bg-gray-800 text-white p-4 flex justify-between items-center no-print sticky top-0 z-50">
+                        <span>Poster Preview (A0 Landscape)</span>
+                        <div>
+                            <button onclick="window.print()" class="bg-white text-gray-900 px-4 py-2 rounded mr-2">Print / Save PDF</button>
+                            <button onclick="router('dashboard')" class="text-gray-300 hover:text-white">Close</button>
+                        </div>
+                    </div>
+                    <div class="poster-grid font-sans" id="poster-content">
+                        <!-- Header -->
+                        <div class="col-span-4 bg-rcem-purple text-white p-6 rounded-lg flex justify-between items-center">
+                            <div>
+                                <h1 class="text-4xl font-bold mb-2" id="poster-title">Project Title</h1>
+                                <p class="text-xl" id="poster-team">Team Names</p>
+                            </div>
+                            <img src="https://iili.io/KGQOvkl.md.png" class="h-24 bg-white p-2 rounded">
+                        </div>
+                        
+                        <!-- Col 1 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Background</h2>
+                            <p id="poster-problem" class="text-sm"></p>
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2 mt-4">Aim</h2>
+                            <p id="poster-aim" class="font-bold text-lg italic"></p>
+                        </div>
+
+                        <!-- Col 2 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Strategy</h2>
+                            <div id="poster-driver" class="flex-1 flex items-center justify-center overflow-hidden"></div>
+                        </div>
+
+                        <!-- Col 3 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Results</h2>
+                            <img id="poster-chart" class="w-full object-contain">
+                            <p id="poster-results" class="text-sm mt-2"></p>
+                        </div>
+
+                        <!-- Col 4 -->
+                        <div class="poster-card flex flex-col gap-4">
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Conclusion</h2>
+                            <p id="poster-learning" class="text-sm"></p>
+                            <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2 mt-4">PDSA Cycles</h2>
+                            <div id="poster-pdsa" class="text-xs space-y-1"></div>
+                        </div>
+                    </div>
+                </div>
 
             </div>
-
-            <div id="guide-panel" class="w-0 bg-white dark:bg-slate-800 border-l border-slate-200 dark:border-slate-700 flex flex-col overflow-hidden relative shadow-xl">
-                <div class="p-4 bg-amber-500 text-white flex justify-between items-center">
-                    <h3 class="font-bold flex items-center gap-2"><i data-lucide="compass" class="w-5 h-5"></i> QIP Navigator</h3>
-                    <button onclick="toggleGuide()"><i data-lucide="x" class="w-4 h-4"></i></button>
-                </div>
-                <div class="p-6 overflow-y-auto flex-1 space-y-8">
-                    <div id="guide-content"></div>
-                </div>
-            </div>
-
         </main>
     </div>
 
-    <div id="wizard-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl overflow-hidden">
-            <div class="bg-rcem-purple p-6 text-white">
-                <h3 class="text-xl font-bold">New Project Setup</h3>
-                <p class="text-indigo-200 text-sm">Select a template or start blank.</p>
+    <!-- SMART WIZARD -->
+    <div id="smart-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6">
+            <h3 class="text-xl font-bold mb-4 dark:text-white">Build SMART Aim</h3>
+            <div class="space-y-3">
+                <input id="smart-s" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Specific: What? (e.g. Sepsis Abx)">
+                <input id="smart-m" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Measurable: Target %? (e.g. 95%)">
+                <input id="smart-p" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Population: Who? (e.g. Adult Patients)">
+                <input id="smart-t" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600" placeholder="Time: By when? (e.g. Aug 2025)">
             </div>
-            <div class="p-6 space-y-4">
-                <div>
-                    <label class="label">Project Type</label>
-                    <select id="wiz-type" class="input-field" onchange="updateWizTemplate()">
-                        <option value="blank">Blank Project</option>
-                        <option value="sepsis">RCEM National: Sepsis</option>
-                        <option value="elderly">RCEM National: Care of Older People</option>
-                        <option value="pain">RCEM National: Pain in Children</option>
-                    </select>
-                </div>
-                <div><label class="label">Working Title</label><input id="wiz-title" class="input-field"></div>
-                <div><label class="label">Initial Aim</label><textarea id="wiz-aim" rows="2" class="input-area"></textarea></div>
-                <button onclick="finishWizard()" class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold shadow hover:bg-indigo-900 mt-4">Create Project</button>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
+                <button onclick="saveSmartAim()" class="px-4 py-2 bg-rcem-purple text-white rounded">Save Aim</button>
             </div>
         </div>
     </div>
-    
-    <div id="bulk-modal" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
-         <div class="bg-white p-6 rounded-xl max-w-md w-full shadow-2xl">
-             <h3 class="font-bold mb-2">Paste Data (Date | Value)</h3>
-             <textarea id="bulk-text" class="input-area h-40 font-mono text-sm" placeholder="2025-01-01	50&#10;2025-01-08	60"></textarea>
-             <div class="flex justify-end gap-2 mt-4">
-                 <button onclick="document.getElementById('bulk-modal').classList.add('hidden')" class="text-slate-500">Cancel</button>
-                 <button onclick="processBulk()" class="bg-rcem-purple text-white px-4 py-2 rounded">Import</button>
-             </div>
-         </div>
+
+    <!-- BULK IMPORT MODAL -->
+    <div id="bulk-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6">
+            <h3 class="text-xl font-bold mb-4 dark:text-white">Bulk Data Import</h3>
+            <p class="text-sm text-slate-500 mb-2">Paste 2 columns from Excel (Date | Value):</p>
+            <textarea id="bulk-text" rows="8" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 text-sm font-mono" placeholder="2025-01-01	45&#10;2025-01-08	50&#10;..."></textarea>
+            <div class="mt-4 flex justify-end gap-2">
+                <button onclick="document.getElementById('bulk-modal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
+                <button onclick="handleBulkImport()" class="px-4 py-2 bg-rcem-purple text-white rounded">Import Data</button>
+            </div>
+        </div>
     </div>
 
-    <div id="report-template" class="hidden bg-white text-slate-900 p-12 font-serif text-sm">
-        <h1 class="text-3xl font-sans font-bold text-rcem-purple mb-2" id="rep-title"></h1>
-        <p class="mb-8 italic" id="rep-meta"></p>
-        
-        <h3 class="font-sans font-bold uppercase text-slate-500 border-b mb-2">1. Introduction (Plan)</h3>
-        <p id="rep-intro" class="mb-4 text-justify"></p>
-        <p class="font-bold bg-slate-50 p-2 border-l-2 border-rcem-purple mb-4" id="rep-aim"></p>
-        
-        <h3 class="font-sans font-bold uppercase text-slate-500 border-b mb-2">2. Methods & Strategy</h3>
-        <p id="rep-methods" class="mb-4 text-justify"></p>
-        
-        <h3 class="font-sans font-bold uppercase text-slate-500 border-b mb-2">3. Results (Study)</h3>
-        <img id="rep-chart" class="w-full mb-2 h-64 object-contain border">
-        <p id="rep-results" class="mb-4 text-justify"></p>
-        
-        <h3 class="font-sans font-bold uppercase text-slate-500 border-b mb-2">4. Discussion (Act)</h3>
-        <p id="rep-disc" class="mb-4 text-justify"></p>
+    <!-- GUIDE MODAL -->
+    <div id="guide-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold dark:text-white text-rcem-purple">RCEM QIP Quick Guide</h2>
+                <button onclick="document.getElementById('guide-modal').classList.add('hidden')"><i data-lucide="x" class="dark:text-white"></i></button>
+            </div>
+            <div class="space-y-6 text-sm text-slate-600 dark:text-slate-300">
+                <div class="flex gap-4">
+                    <div class="bg-indigo-100 text-indigo-700 font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">1</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white text-lg">Define & Diagnose</h4>
+                        <p class="mb-2">Start with the <strong>QIAT Checklist</strong>. Describe the problem using local evidence.</p>
+                        <p>Use the <strong>Change Tools</strong> (Fishbone, 5 Whys) to find the root cause, not just the symptoms.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-indigo-100 text-indigo-700 font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">2</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white text-lg">Plan Strategy</h4>
+                        <p class="mb-2">Use the <strong>SMART Wizard</strong> on the dashboard to set a clear aim.</p>
+                        <p>Build a <strong>Driver Diagram</strong> in Tools to map out your primary drivers and change ideas.</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-indigo-100 text-indigo-700 font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">3</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white text-lg">Measure & Act</h4>
+                        <p class="mb-2">Log your changes in <strong>PDSA Cycles</strong>.</p>
+                        <p>Enter data into <strong>Data & Charts</strong>. Mark points as "Intervention Start" to see vertical lines on your Run Chart. Look for red points—they mean statistical improvement!</p>
+                    </div>
+                </div>
+                <div class="flex gap-4">
+                    <div class="bg-indigo-100 text-indigo-700 font-bold w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0">4</div>
+                    <div>
+                        <h4 class="font-bold text-slate-800 dark:text-white text-lg">Report</h4>
+                        <p>Use <strong>Poster Mode</strong> for conferences or <strong>Generate Report</strong> for your ePortfolio/ARCP.</p>
+                    </div>
+                </div>
+            </div>
+            <button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="w-full mt-8 bg-rcem-purple text-white py-3 rounded-lg font-bold">Got it, let's start</button>
+        </div>
+    </div>
+
+    <!-- REPORT TEMPLATE (Journal Style) -->
+    <div id="report-template" class="hidden bg-white p-12 max-w-4xl mx-auto text-slate-900 font-serif leading-relaxed">
+        <div class="flex justify-between items-center border-b-4 border-rcem-purple pb-6 mb-8">
+            <div>
+                <h1 class="text-4xl font-bold mb-2 font-sans text-rcem-purple">QI Project Report</h1>
+                <p class="text-slate-600 italic">Generated via RCEM QIP Assistant</p>
+            </div>
+            <img src="https://iili.io/KGQOvkl.md.png" class="h-20 object-contain">
+        </div>
+        <div class="mb-8 font-sans bg-slate-50 p-6 rounded-lg border border-slate-200">
+            <h2 class="text-2xl font-bold mb-2" id="rep-title"></h2>
+            <p><strong>Lead:</strong> <span id="rep-lead"></span> | <strong>Team:</strong> <span id="rep-team"></span></p>
+        </div>
+        <div class="columns-2 gap-8 mb-8 text-justify text-sm">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">1. Problem</h3>
+            <p id="rep-problem" class="mb-4"></p>
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">2. Aim</h3>
+            <p id="rep-aim" class="mb-4 font-bold italic"></p>
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">3. Strategy</h3>
+            <p id="rep-driver-list" class="mb-4"></p>
+        </div>
+        <div class="mb-8 break-inside-avoid">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">4. Results (Run Chart)</h3>
+            <img id="rep-chart-img" class="w-full h-auto border border-slate-200 mb-2">
+            <p id="rep-results" class="text-sm italic"></p>
+        </div>
+        <div class="mb-8">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">5. PDSA Cycles</h3>
+            <div id="rep-pdsa-list" class="text-sm space-y-2"></div>
+        </div>
+        <div class="mb-8">
+            <h3 class="font-sans font-bold text-lg text-rcem-purple mb-2 uppercase tracking-wide border-b border-slate-300">6. Conclusion</h3>
+            <p id="rep-learning" class="text-sm"></p>
+        </div>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-        // REAL FIREBASE CONFIG (Restored from your initial upload)
         const firebaseConfig = {
             apiKey: "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI",
             authDomain: "rcem-qip-app.firebaseapp.com",
@@ -474,370 +539,375 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        
+
         let currentUser = null;
         let isDemo = false;
+        let projectData = {
+            checklist: {},
+            fishbone: { categories: [] },
+            drivers: { primary: [], secondary: [], changes: [] },
+            forcefield: { driving: [], restraining: [] },
+            swot: { s: [], w: [], o: [], t: [] },
+            fiveWhys: ["","","","",""],
+            gantt: [],
+            pdsa: [],
+            chartData: [],
+            paretoData: [],
+            chartGoal: null
+        };
+        let chartMode = 'run';
+        let toolMode = 'fishbone'; 
+        let authMode = 'signin';
         let chartInstance = null;
-        
-        // Data Structure mirroring QIAT v7
-        let project = {
-            qiat: {
-                title: "", lead: "", supervisors: "", date: "",
-                problem: "", aim: "", strategy: "", // Plan
-                interventions: "", team: "", // Do
-                measures: "", analysis: "", // Study
-                modifications: "", sustainability: "", // Act
-                assessment_val: "", assessment_comments: "" // Assessment
-            },
-            data: [], // {date, value, type, note}
-            pdsa: [], // {id, title, plan, do, study, act}
-            tools: { 
-                fishbone: { categories: [{id:1,text:"People",causes:[]},{id:2,text:"Methods",causes:[]},{id:3,text:"Environment",causes:[]},{id:4,text:"Equipment",causes:[]}] },
-                drivers: { primary:[], secondary:[], changes:[] }
-            },
-            goal: null
-        };
 
-        // --- AUTH ---
-        onAuthStateChanged(auth, (user) => {
-            if(isDemo) return;
-            currentUser = user;
-            if(user) {
-                document.getElementById('auth-screen').classList.add('hidden');
-                document.getElementById('app-sidebar').classList.remove('hidden');
-                document.getElementById('app-sidebar').classList.add('flex');
-                initDB();
-            } else {
-                document.getElementById('auth-screen').classList.remove('hidden');
-                document.getElementById('app-sidebar').classList.remove('flex');
-                document.getElementById('app-sidebar').classList.add('hidden');
-            }
-        });
-
-        document.getElementById('auth-form').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('password').value;
-            try { await signInWithEmailAndPassword(auth, email, pass); } 
-            catch { try { await createUserWithEmailAndPassword(auth, email, pass); } catch(err){ alert(err.message); } }
-        });
-
-        window.signOutApp = () => { isDemo = false; signOut(auth); location.reload(); };
-        
-        window.loadDemoMode = () => {
-            isDemo = true; currentUser = {uid:'demo'};
-            project = {
-                qiat: {
-                    title: "Improving Sepsis 6 Compliance", lead: "Dr. A. Demo", supervisors: "Dr. Cons", date: "2025-01-01",
-                    problem: "Audit showed only 45% of Red Flag Sepsis patients received Abx within 1h. This increases mortality.",
-                    aim: "To increase delivery of IV Abx within 1h for sepsis patients from 45% to 90% by Dec 2025.",
-                    strategy: "Driver Diagram used. Focused on availability of equipment and staff awareness.",
-                    interventions: "Launched Sepsis Grab Bags (Jan). Teaching Sessions (Feb).",
-                    team: "Involved Matron, Pharmacist and Junior Docs.",
-                    measures: "Outcome: % Abx in 1h. Balancing: Time to triage (did it increase?).",
-                    analysis: "Run chart shows a shift of 6 points above median after intervention 1.",
-                    modifications: "Grab bags were often empty, so introduced a checklist.",
-                    sustainability: "Included in induction for new rotators.",
-                    assessment_val: "Satisfactory", assessment_comments: "Excellent use of QI methodology."
-                },
-                data: [
-                    {date:"2025-01-01", value:45, type:"data"}, {date:"2025-01-08", value:40, type:"data"}, {date:"2025-01-15", value:48, type:"data"},
-                    {date:"2025-01-20", value:0, type:"intervention", note:"Sepsis Bags"},
-                    {date:"2025-01-22", value:60, type:"data"}, {date:"2025-01-29", value:75, type:"data"}, {date:"2025-02-05", value:80, type:"data"},
-                    {date:"2025-02-12", value:85, type:"data"}, {date:"2025-02-19", value:82, type:"data"}, {date:"2025-02-26", value:90, type:"data"}
-                ],
-                pdsa: [{id:1, title:"Cycle 1", plan:"Test Grab Bags", do:"Placed in Resus", study:"Used 5 times, worked well", act:"Expand to Majors"}],
-                tools: { fishbone: {categories:[]}, drivers: {primary:[],secondary:[],changes:[]} },
-                goal: 90
-            };
-            document.getElementById('auth-screen').classList.add('hidden');
-            document.getElementById('app-sidebar').classList.remove('hidden');
-            document.getElementById('app-sidebar').classList.add('flex');
-            renderAll();
-            showToast("Demo Mode Active");
-        };
-
-        // --- DATABASE SYNC ---
-        function initDB() {
-            onSnapshot(doc(db, 'projects', currentUser.uid), (doc) => {
-                if(doc.exists()) { project = { ...project, ...doc.data() }; renderAll(); }
-                else { document.getElementById('setup-card').classList.remove('hidden'); }
-            });
-        }
-        async function save() { 
-            if(isDemo) return; 
-            await setDoc(doc(db, 'projects', currentUser.uid), project, {merge:true});
-            const s = document.getElementById('save-status'); s.classList.add('animate-pulse-fast'); setTimeout(()=>s.classList.remove('animate-pulse-fast'),1000);
-        }
-
-        // --- CORE UI ---
-        window.router = (view) => {
-            if(view==='poster') { renderPoster(); document.getElementById('view-poster').classList.remove('hidden'); return; }
-            document.getElementById('view-poster').classList.add('hidden');
-            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`view-${view}`).classList.remove('hidden');
-            updateGuide(view);
-            if(view==='data') renderChart();
-            if(view==='tools') setTool('fishbone');
-        };
-        
-        window.saveQiat = (field, val) => {
-            // Privacy Filter
-            if (/\b\d{10}\b/.test(val)) { 
-                alert("PRIVACY WARNING: That looks like an NHS Number. Please remove it."); 
-                document.getElementById(`qiat-${field}`).value = ""; 
-                return; 
-            }
-            project.qiat[field] = val; save(); renderStats();
-        };
-
-        function renderAll() {
-            // Fill Inputs
-            Object.keys(project.qiat).forEach(k => { 
-                const el = document.getElementById(`qiat-${k}`); 
-                if(el) el.value = project.qiat[k]; 
-            });
-            // Radio buttons
-            if(project.qiat.assessment_val === "Satisfactory") document.getElementById('qiat-assessment-sat').checked = true;
-            if(project.qiat.assessment_val === "Unsatisfactory") document.getElementById('qiat-assessment-unsat').checked = true;
-
-            renderStats(); renderPdsaList(); renderChart();
-            document.getElementById('dash-aim-text').textContent = project.qiat.aim || "No aim defined.";
-        }
-
-        function renderStats() {
-            const filled = Object.values(project.qiat).filter(v=>v).length;
-            document.getElementById('stat-qiat').textContent = Math.round((filled/15)*100) + "%";
-            document.getElementById('stat-data').textContent = project.data.filter(d=>d.type==='data').length;
-            document.getElementById('stat-pdsa').textContent = project.pdsa.length;
-        }
-
-        // --- WIZARD & TEMPLATES ---
-        window.openWizard = () => document.getElementById('wizard-modal').classList.remove('hidden');
-        window.updateWizTemplate = () => {
-            const t = document.getElementById('wiz-type').value;
-            const title = document.getElementById('wiz-title');
-            const aim = document.getElementById('wiz-aim');
-            if(t === 'sepsis') {
-                title.value = "Improving Sepsis 6 Delivery in the ED";
-                aim.value = "To increase the % of patients with Red Flag Sepsis receiving antibiotics within 60 mins from X% to 90% by [Date].";
-            } else if (t === 'elderly') {
-                title.value = "Reducing Delirium in ED";
-                aim.value = "To increase the completion of 4AT assessments for patients >75 from X% to 80% by [Date].";
-            } else { title.value=""; aim.value=""; }
-        };
-        window.finishWizard = () => {
-            project.qiat.title = document.getElementById('wiz-title').value;
-            project.qiat.aim = document.getElementById('wiz-aim').value;
-            save(); document.getElementById('wizard-modal').classList.add('hidden'); document.getElementById('setup-card').classList.add('hidden'); renderAll();
-        };
-
-        // --- DATA & SPC ENGINE ---
-        window.addDataPoint = () => {
-            const date = document.getElementById('chart-date').value;
-            const val = document.getElementById('chart-value').value;
-            const type = document.getElementById('chart-type').value;
-            if(!date) return;
-            project.data.push({date, value:val, type, note: type==='intervention'? prompt("Intervention Name:") : ""});
-            save(); renderChart();
-        };
-        document.getElementById('chart-type').onchange = (e) => {
-            document.getElementById('chart-value').classList.toggle('hidden', e.target.value==='intervention');
-        };
-        window.processBulk = () => {
-            const lines = document.getElementById('bulk-text').value.split('\n');
-            lines.forEach(l => { const [d,v] = l.split(/\t|,/); if(d&&v) project.data.push({date:d.trim(), value:v.trim(), type:'data'}); });
-            save(); document.getElementById('bulk-modal').classList.add('hidden'); renderChart();
-        }
-
-        function renderChart() {
-            const ctx = document.getElementById('mainChart').getContext('2d');
-            if(chartInstance) chartInstance.destroy();
-            
-            const dataPts = project.data.filter(d=>d.type==='data').sort((a,b)=>new Date(a.date)-new Date(b.date));
-            const values = dataPts.map(d=>parseFloat(d.value));
-            
-            // SPC Logic (Nelson Rules Lite)
-            const median = values.length ? values.slice().sort((a,b)=>a-b)[Math.floor(values.length/2)] : 0;
-            const bgColors = [];
-            let shiftCount = 0; let lastSide = 0; // 1=above, -1=below
-            
-            values.forEach(v => {
-                const side = v > median ? 1 : -1;
-                if(side === lastSide) shiftCount++; else shiftCount = 1;
-                lastSide = side;
-                if(shiftCount >= 6) bgColors.push(side===1 ? '#10b981' : '#ef4444'); // Green/Red for shift
-                else bgColors.push('#2d2e83');
-            });
-
-            // Annotations
-            const annotations = {};
-            project.data.filter(d=>d.type==='intervention').forEach((d,i)=>{
-                annotations[`line${i}`] = { type:'line', xMin:d.date, xMax:d.date, borderColor:'#f36f21', borderDash:[5,5], label:{display:true, content:d.note, position:'start', backgroundColor:'#f36f21'} };
-            });
-            if(project.goal) annotations['goal'] = { type:'line', yMin:project.goal, yMax:project.goal, borderColor:'#10b981', borderWidth:2 };
-
-            chartInstance = new Chart(ctx, {
-                type: 'line',
-                data: { 
-                    labels: dataPts.map(d=>d.date),
-                    datasets: [
-                        { label: 'Measure', data: values, borderColor: '#2d2e83', pointBackgroundColor: bgColors, pointRadius: 6 },
-                        { label: 'Median', data: Array(values.length).fill(median), borderColor: '#94a3b8', borderDash:[5,5], pointRadius:0 }
-                    ]
-                },
-                options: { plugins: { annotation: { annotations } } }
-            });
-            
-            // Text Analysis
-            const hasShift = bgColors.some(c => c !== '#2d2e83');
-            document.getElementById('spc-alerts').innerHTML = hasShift ? 
-                `<div class="p-2 bg-emerald-100 text-emerald-800 rounded text-sm font-bold flex gap-2"><i data-lucide="trending-up"></i> SPC Alert: Significant Shift Detected (6+ points).</div>` : 
-                `<div class="text-sm text-slate-500">No statistical shifts detected yet. Keep collecting data.</div>`;
-            lucide.createIcons();
-        }
-
-        // --- STRATEGY TOOLS ---
-        let currTool = 'fishbone';
-        window.setTool = (t) => {
-            currTool = t;
-            document.getElementById('btn-fishbone').className = t==='fishbone'?'bg-rcem-purple text-white px-3 py-1 rounded shadow':'px-3 py-1';
-            document.getElementById('btn-driver').className = t==='driver'?'bg-rcem-purple text-white px-3 py-1 rounded shadow':'px-3 py-1';
-            renderTool();
-        };
-        async function renderTool() {
-            const el = document.getElementById('tool-canvas');
-            if(currTool === 'fishbone') {
-                const cats = project.tools.fishbone.categories;
-                let code = `mindmap\n  root((PROBLEM))\n`;
-                cats.forEach(c => { code += `    ${c.text}\n`; c.causes.forEach(x => code+=`      ${x}\n`)});
-                el.innerHTML = `<div class="mermaid">${code}</div>`;
-                document.getElementById('tool-controls').innerHTML = cats.map(c=>`<button onclick="addFish(${c.id})" class="bg-indigo-50 text-indigo-700 border px-2 py-1 text-xs rounded">+ ${c.text}</button>`).join('');
-            } else {
-                const d = project.tools.drivers;
-                let code = `graph LR\n  A[AIM] --> P[Primary]\n  P --> S[Secondary]\n  S --> C[Changes]\n`;
-                d.primary.forEach((x,i)=>code+=`  P --> P${i}[${x}]\n`); d.secondary.forEach((x,i)=>code+=`  S --> S${i}[${x}]\n`);
-                el.innerHTML = `<div class="mermaid">${code}</div>`;
-                document.getElementById('tool-controls').innerHTML = `<button onclick="addDriver('primary')" class="bg-emerald-50 text-emerald-700 border px-2 py-1 text-xs">+ Primary</button><button onclick="addDriver('secondary')" class="bg-blue-50 text-blue-700 border px-2 py-1 text-xs">+ Secondary</button>`;
-            }
-            try { await mermaid.run(); } catch(e){}
-        }
-        window.addFish = (id) => { const v=prompt("Cause:"); if(v){project.tools.fishbone.categories.find(c=>c.id===id).causes.push(v); save(); renderTool();} };
-        window.addDriver = (k) => { const v=prompt("Driver:"); if(v){project.tools.drivers[k].push(v); save(); renderTool();} };
-
-        // --- PDSA ---
-        window.addPdsa = () => { project.pdsa.unshift({id:Date.now(), title:`Cycle ${project.pdsa.length+1}`, plan:"", do:"", study:"", act:""}); save(); renderPdsaList(); };
-        function renderPdsaList() {
-            document.getElementById('pdsa-list').innerHTML = project.pdsa.map((p,i) => `
-                <details class="glass rounded-xl mb-4 group">
-                    <summary class="p-4 font-bold cursor-pointer flex justify-between bg-white/50">${p.title} <span class="text-xs font-normal text-slate-500">Click to expand</span></summary>
-                    <div class="p-4 grid grid-cols-2 gap-4">
-                        <textarea onchange="updatePdsa(${p.id},'plan',this.value)" class="input-area h-20" placeholder="Plan">${p.plan}</textarea>
-                        <textarea onchange="updatePdsa(${p.id},'do',this.value)" class="input-area h-20" placeholder="Do">${p.do}</textarea>
-                        <textarea onchange="updatePdsa(${p.id},'study',this.value)" class="input-area h-20" placeholder="Study">${p.study}</textarea>
-                        <textarea onchange="updatePdsa(${p.id},'act',this.value)" class="input-area h-20" placeholder="Act">${p.act}</textarea>
-                    </div>
-                </details>
-            `).join('');
-        }
-        window.updatePdsa = (id, f, v) => { project.pdsa.find(p=>p.id===id)[f]=v; save(); };
-
-        // --- EXTRAS ---
-        window.toggleGuide = () => {
-            const p = document.getElementById('guide-panel');
-            p.style.width = p.style.width === '350px' ? '0px' : '350px';
-        };
-        
-        function updateGuide(view) {
-            const content = {
-                dashboard: `
-                    <h4 class="font-bold text-lg mb-2">Welcome</h4>
-                    <p class="text-sm mb-4">This dashboard is your mission control. Start by reviewing the cards.</p>
-                    <div class="bg-indigo-50 p-3 rounded text-sm border-l-4 border-rcem-purple">
-                        <strong>Tip:</strong> RCEM requires evidence of sustained change. Don't just stop at one cycle.
-                    </div>
-                `,
-                qiat: `
-                    <h4 class="font-bold text-lg mb-2">The QIAT Form</h4>
-                    <p class="text-sm mb-4">This form mirrors the ePortfolio exactly. Fill it here, then copy-paste later.</p>
-                    <h5 class="font-bold text-sm mt-4">Domain 1: Plan</h5>
-                    <p class="text-xs text-slate-600 mb-2">Don't rush this. Spend 80% of your time planning. Do you have baseline data proving the problem?</p>
-                    <h5 class="font-bold text-sm mt-4">SMART Aims</h5>
-                    <ul class="list-disc pl-4 text-xs text-slate-600">
-                        <li><strong>S</strong>pecific: Who/What/Where?</li>
-                        <li><strong>M</strong>easurable: Numerical target.</li>
-                        <li><strong>T</strong>ime: By when?</li>
-                    </ul>
-                `,
-                data: `
-                    <h4 class="font-bold text-lg mb-2">SPC Charts</h4>
-                    <p class="text-sm mb-4">Run charts are the gold standard for healthcare improvement.</p>
-                    <div class="bg-emerald-50 p-3 rounded text-sm border-l-4 border-emerald-500 mb-2">
-                        <strong>Shift:</strong> 6 points in a row on one side of the median. This proves your change worked statistically.
-                    </div>
-                    <div class="bg-blue-50 p-3 rounded text-sm border-l-4 border-blue-500">
-                        <strong>Trend:</strong> 5 points constantly going up or down.
-                    </div>
-                `
-            };
-            document.getElementById('guide-content').innerHTML = content[view] || `<p>Select a section to see guidance.</p>`;
-        }
-
-        window.calcCarbon = () => {
-            const f = parseFloat(document.getElementById('green-item').value);
-            const q = parseFloat(document.getElementById('green-qty').value);
-            const res = (f * q).toFixed(2);
-            document.getElementById('green-result').classList.remove('hidden');
-            document.getElementById('green-single').textContent = `Saved: ${res} kg CO2e`;
-            document.getElementById('green-annual').textContent = `Scaled up (if done daily for a year): ${(res * 365 / 1000).toFixed(2)} Tonnes CO2e`;
-        }
-
-        window.generateReport = () => {
-             const t = document.getElementById('report-template');
-             document.getElementById('rep-title').textContent = project.qiat.title;
-             document.getElementById('rep-meta').textContent = `Lead: ${project.qiat.lead} | Date: ${new Date().toLocaleDateString()}`;
-             document.getElementById('rep-intro').textContent = project.qiat.problem;
-             document.getElementById('rep-aim').textContent = `AIM: ${project.qiat.aim}`;
-             document.getElementById('rep-methods').textContent = `Strategy: ${project.qiat.strategy}. Interventions: ${project.qiat.interventions}`;
-             document.getElementById('rep-results').textContent = project.qiat.analysis;
-             document.getElementById('rep-disc').textContent = `Modifications: ${project.qiat.modifications}. Sustainability: ${project.qiat.sustainability}`;
-             
-             document.getElementById('rep-chart').src = document.getElementById('mainChart').toDataURL();
-             t.classList.remove('hidden');
-             html2pdf().from(t).save("RCEM_SQUIRE_Report.pdf").then(()=>t.classList.add('hidden'));
-        };
-        
-        window.renderPoster = () => {
-             document.getElementById('pos-title').textContent = project.qiat.title;
-             document.getElementById('pos-team').textContent = project.qiat.lead + " & Team";
-             document.getElementById('pos-prob').textContent = project.qiat.problem;
-             document.getElementById('pos-aim').textContent = project.qiat.aim;
-             document.getElementById('pos-strat').textContent = project.qiat.strategy;
-             document.getElementById('pos-res').textContent = project.qiat.analysis;
-             document.getElementById('pos-conc').textContent = project.qiat.sustainability;
-             document.getElementById('pos-chart').src = document.getElementById('mainChart').toDataURL();
-             document.getElementById('pos-pdsa').innerHTML = project.pdsa.slice(0,3).map(p=>`<div class="border-l-2 border-slate-300 pl-2"><strong>${p.title}:</strong> ${p.act}</div>`).join('');
-        };
-
-        window.toggleDarkMode = () => document.documentElement.classList.toggle('dark');
-        
-        // CSS Utils
-        const style = document.createElement('style');
-        style.innerHTML = `
-            .input-field { width:100%; padding:0.5rem; border-radius:0.5rem; border:1px solid #cbd5e1; background:transparent; font-size:0.875rem; }
-            .input-area { width:100%; padding:0.5rem; border-radius:0.5rem; border:1px solid #cbd5e1; background:transparent; font-size:0.875rem; }
-            .label { display:block; font-size:0.875rem; font-weight:500; color:#475569; margin-bottom:0.25rem; }
-            .dark .label { color:#cbd5e1; }
-            @media print { .no-print { display: none; } }
-        `;
-        document.head.appendChild(style);
-        
-        lucide.createIcons();
+        const escapeHtml = (unsafe) => { if(!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
         const showToast = (message) => {
             const el = document.createElement('div'); el.className = `px-4 py-2 rounded shadow-lg text-white text-sm font-medium mb-2 fade-in bg-rcem-purple`; el.innerHTML = message;
             document.getElementById('toast-container').appendChild(el); setTimeout(() => el.remove(), 3000);
         }
-        mermaid.initialize({startOnLoad:false});
+
+        mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+
+        // --- AUTH ---
+        onAuthStateChanged(auth, (user) => {
+            if(isDemo) return; 
+            currentUser = user;
+            if (user) {
+                showApp();
+                initRealtimeListener();
+                if(!localStorage.getItem('rcem_tour_done')) {
+                    document.getElementById('guide-modal').classList.remove('hidden');
+                    localStorage.setItem('rcem_tour_done', 'true');
+                }
+            } else {
+                showAuth();
+            }
+        });
+
+        function showApp() {
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('app-sidebar').classList.remove('hidden');
+            document.getElementById('app-sidebar').classList.add('flex');
+            document.getElementById('main-content').classList.remove('hidden');
+            document.getElementById('user-display').textContent = currentUser ? currentUser.email : "Demo User";
+        }
+
+        function showAuth() {
+            document.getElementById('auth-screen').classList.remove('hidden');
+            document.getElementById('app-sidebar').classList.remove('flex');
+            document.getElementById('app-sidebar').classList.add('hidden');
+            document.getElementById('main-content').classList.add('hidden');
+        }
+
+        window.loadDemoMode = () => {
+            isDemo = true;
+            currentUser = { email: "demo@rcem.ac.uk", uid: "demo" };
+            projectData = {
+                checklist: {
+                    title: "Improving Sepsis 6 Bundle Delivery", lead: "Dr. Demo", aim: "To increase Sepsis 6 delivery within 1 hour from 45% to 90% by Dec 2025.",
+                    problem_desc: "Audit showed only 45% of patients get abx in <1h.", results_summary: "Achieved 85% compliance after 3 cycles."
+                },
+                fishbone: { categories: [{id:1, text:"People", causes:["Locum staff"]}, {id:2, text:"Methods", causes:["No protocol"]}, {id:3, text:"Equipment", causes:["Missing kits"]}, {id:4, text:"Env", causes:["Crowding"]}] },
+                drivers: { primary: ["Reliable Identification", "Timely Delivery"], secondary: ["Triage Screening", "Grab Bags"], changes: ["Sepsis Stamp", "Pre-made kits"] },
+                chartData: [
+                    {date:"2025-01-01", value:45, type:"data"}, {date:"2025-01-08", value:42, type:"data"},
+                    {date:"2025-01-15", value:50, type:"data"}, {date:"2025-01-16", value:0, type:"intervention", note:"PDSA 1: Sepsis Stamp"},
+                    {date:"2025-01-22", value:65, type:"data"}, {date:"2025-01-29", value:70, type:"data"},
+                    {date:"2025-02-05", value:85, type:"data"}, {date:"2025-02-12", value:88, type:"data"}
+                ],
+                pdsa: [{id:1, title:"Cycle 1: Sepsis Stamp", date:"2025-01-16", plan:"Stamp notes at triage", do:"Trialled for 1 week", study:"Compliance rose to 65%", act:"Adopt"}],
+                chartGoal: 90,
+                gantt: [], paretoData: [], forcefield: {driving:[], restraining:[]}, swot: {s:[],w:[],o:[],t:[]}, fiveWhys: ["","","","",""]
+            };
+            showApp();
+            renderAll();
+            showToast("Demo Loaded - Data not saved");
+        }
+
+        document.getElementById('auth-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const email = document.getElementById('email').value;
+                const password = document.getElementById('password').value;
+                if (authMode === 'signup') await createUserWithEmailAndPassword(auth, email, password);
+                else await signInWithEmailAndPassword(auth, email, password);
+            } catch (err) { alert(err.message); }
+        });
+        
+        document.getElementById('logout-btn').addEventListener('click', () => { 
+            isDemo = false; 
+            signOut(auth); 
+            location.reload(); 
+        });
+        
+        document.getElementById('toggle-auth').onclick = (e) => { e.preventDefault(); authMode = authMode==='signin'?'signup':'signin'; document.getElementById('auth-btn-text').textContent = authMode==='signin'?'Sign In':'Sign Up'; document.getElementById('auth-title').textContent = authMode==='signin'?'Sign In':'Create Account'; };
+
+        // --- DB ---
+        function initRealtimeListener() {
+            if (!currentUser || isDemo) return;
+            onSnapshot(doc(db, 'projects', currentUser.uid), (doc) => {
+                if (doc.exists()) {
+                    projectData = { ...projectData, ...doc.data() };
+                    // Structure Check
+                    if(!projectData.fishbone || !projectData.fishbone.categories) projectData.fishbone = { categories: [{id:1, text:"People", causes:[]}, {id:2, text:"Methods", causes:[]}, {id:3, text:"Equipment", causes:[]}, {id:4, text:"Environment", causes:[]}] };
+                    if(!projectData.drivers) projectData.drivers = { primary: [], secondary: [], changes: [] };
+                    if(!projectData.fiveWhys) projectData.fiveWhys = ["","","","",""];
+                    if(!projectData.forcefield) projectData.forcefield = { driving: [], restraining: [] };
+                    document.getElementById('chart-goal').value = projectData.chartGoal || '';
+                }
+                renderAll();
+            });
+        }
+        async function saveData() { 
+            if(isDemo) return; 
+            if(currentUser) await setDoc(doc(db, 'projects', currentUser.uid), projectData, { merge: true }); 
+            const s = document.getElementById('save-status');
+            s.innerHTML = '<i data-lucide="save" class="w-3 h-3 text-emerald-600"></i> Saved';
+            s.classList.add('animate-pulse-fast');
+            setTimeout(() => s.classList.remove('animate-pulse-fast'), 1000);
+            lucide.createIcons(); 
+        }
+        window.saveData = saveData;
+
+        // --- ROUTER & SHORTCUTS ---
+        window.router = (viewId) => {
+            if(viewId === 'poster') { updatePoster(); document.getElementById('view-poster').classList.remove('hidden'); return; }
+            document.getElementById('view-poster').classList.add('hidden');
+            document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`view-${viewId}`).classList.remove('hidden');
+            if(viewId === 'tools') renderTools();
+            if(viewId === 'data') renderChart();
+        };
+        window.toggleDarkMode = () => document.documentElement.classList.toggle('dark');
+        window.openGuide = () => document.getElementById('guide-modal').classList.remove('hidden');
+        window.openBulkImport = () => document.getElementById('bulk-modal').classList.remove('hidden');
+        document.getElementById('mobile-menu-btn').onclick = () => { const sb = document.getElementById('app-sidebar'); sb.classList.toggle('hidden'); sb.classList.toggle('absolute'); sb.classList.toggle('z-40'); sb.classList.toggle('w-full'); };
+
+        // Global Shortcuts
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveData(); showToast("Saved"); }
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.fixed').forEach(el => {
+                    if(el.id !== 'auth-screen' && !el.classList.contains('hidden')) el.classList.add('hidden');
+                });
+            }
+        });
+
+        function renderAll() {
+            renderDashboard(); renderChecklist(); renderChart(); renderTools(); renderGantt(); renderPDSA();
+            lucide.createIcons();
+        }
+
+        // --- CHARTING ENGINE ---
+        window.setChartMode = (m) => { chartMode = m; 
+            document.getElementById('input-run').classList.toggle('hidden', m!=='run');
+            document.getElementById('input-pareto').classList.toggle('hidden', m!=='pareto');
+            document.getElementById('chart-input-title').textContent = m==='run' ? 'Add Data / Intervention' : 'Add Pareto Category';
+            renderChart();
+        }
+        
+        window.updateGoal = () => { projectData.chartGoal = document.getElementById('chart-goal').value; saveData(); renderChart(); }
+        window.validateDate = (input) => {
+            const d = new Date(input.value); const now = new Date();
+            if(d > now) alert("Note: You entered a future date. Ensure this is intentional planning.");
+        }
+
+        function renderChart() {
+            const ctx = document.getElementById('mainChart').getContext('2d');
+            if (chartInstance) chartInstance.destroy();
+            const isDark = document.documentElement.classList.contains('dark');
+            const gridColor = isDark ? '#334155' : '#e2e8f0';
+
+            if (chartMode === 'run') {
+                const data = projectData.chartData || [];
+                data.sort((a,b) => new Date(a.date) - new Date(b.date));
+                const dataPoints = data.filter(d => d.type !== 'intervention');
+                
+                const values = dataPoints.map(d => parseFloat(d.value));
+                const sorted = [...values].sort((a,b)=>a-b);
+                const mid = Math.floor(sorted.length/2);
+                const median = sorted.length%2!==0 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+                
+                const pointColors = values.map((v, i) => {
+                    if (i < 5) return '#2d2e83'; 
+                    const subset = values.slice(i-5, i+1);
+                    const allAbove = subset.every(x => x > median);
+                    const allBelow = subset.every(x => x < median);
+                    return (allAbove || allBelow) ? '#ef4444' : '#2d2e83'; 
+                });
+
+                const annotations = {};
+                data.filter(d => d.type === 'intervention').forEach((d, i) => {
+                    annotations[`line${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, borderDash: [6, 6], label: { display: true, content: d.note || 'PDSA', position: 'start', backgroundColor: '#f36f21', color: 'white' } };
+                });
+                if(projectData.chartGoal) annotations['goal'] = { type: 'box', yMin: projectData.chartGoal, yMax: Math.max(...values, parseFloat(projectData.chartGoal)) * 1.1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 0 };
+
+                chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: dataPoints.map(d => d.date), datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', pointBackgroundColor: pointColors, pointRadius: 5, tension: 0.1 }, { label: 'Median', data: Array(values.length).fill(median), borderColor: '#94a3b8', borderDash: [5,5], pointRadius:0 }] },
+                    options: { responsive: true, plugins: { annotation: { annotations } }, scales: { y: { beginAtZero: true, grid:{color:gridColor} }, x: { grid:{color:gridColor} } } }
+                });
+                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`<div class="flex justify-between text-sm border-b border-slate-200 dark:border-slate-700 p-2"><span><span class="font-bold ${d.type==='intervention'?'text-orange-500':'text-indigo-600'}">${d.type==='intervention'?'INT':'DAT'}</span> ${d.date}: ${d.type==='intervention' ? d.note : d.value}</span><button onclick="projectData.chartData.splice(${i},1);saveData()" class="text-red-500 hover:text-red-700">x</button></div>`).join('');
+            
+            } else {
+                const data = projectData.paretoData || [];
+                data.sort((a,b) => b.count - a.count);
+                const total = data.reduce((a,b) => a + Number(b.count), 0);
+                let acc = 0;
+                const percentages = data.map(d => { acc += Number(d.count); return Math.round((acc/total)*100); });
+
+                chartInstance = new Chart(ctx, {
+                    type: 'bar',
+                    data: { labels: data.map(d => d.cat), datasets: [{ type: 'line', label: 'Cumulative %', data: percentages, borderColor: '#f36f21', yAxisID: 'y1' }, { type: 'bar', label: 'Frequency', data: data.map(d => d.count), backgroundColor: '#2d2e83', yAxisID: 'y' }] },
+                    options: { responsive: true, scales: { y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', max: 100 } } }
+                });
+                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`<div class="flex justify-between text-sm border-b p-2"><span>${d.cat}: <b>${d.count}</b></span><button onclick="projectData.paretoData.splice(${i},1);saveData()" class="text-red-500">x</button></div>`).join('');
+            }
+        }
+        window.addDataPoint = () => { 
+            const date = document.getElementById('chart-date').value; const type = document.getElementById('chart-type').value; const value = document.getElementById('chart-value').value; const note = document.getElementById('chart-note').value;
+            if(date && (value || type === 'intervention')) { projectData.chartData.push({ date, value, type, note }); saveData(); }
+        }
+        window.addParetoData = () => { projectData.paretoData.push({ cat: document.getElementById('pareto-cat').value, count: document.getElementById('pareto-count').value }); saveData(); }
+        window.handleBulkImport = () => {
+            const raw = document.getElementById('bulk-text').value;
+            const lines = raw.split('\n');
+            let added = 0;
+            lines.forEach(l => {
+                const [d, v] = l.split(/\t|,/); // Split by tab or comma
+                if(d && v && !isNaN(parseFloat(v))) {
+                    projectData.chartData.push({ date: d.trim(), value: v.trim(), type: 'data' });
+                    added++;
+                }
+            });
+            saveData();
+            document.getElementById('bulk-modal').classList.add('hidden');
+            showToast(`Imported ${added} points`);
+        }
+
+        // --- MERMAID ---
+        window.setToolMode = (m) => { toolMode = m; renderTools(); }
+        async function renderTools() {
+            const container = document.getElementById('tool-canvas'); const controls = document.getElementById('tool-controls'); let mermaidCode = '';
+            if (toolMode === 'fishbone') {
+                const cats = projectData.fishbone.categories;
+                mermaidCode = `mindmap\n  root((PROBLEM))\n`; cats.forEach(c => { mermaidCode += `    ${c.text}\n`; c.causes.forEach(cause => mermaidCode += `      ${cause}\n`); });
+                controls.innerHTML = cats.map(c => `<button onclick="addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
+            } else if (toolMode === 'driver') {
+                const d = projectData.drivers;
+                mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
+                d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}[${p}]\n`); d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}[${s}]\n`); d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}[${c}]\n`);
+                controls.innerHTML = `<button onclick="addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
+            } else { container.innerHTML = `<div class="text-slate-400">Select Fishbone or Driver for Vector Diagrams.</div>`; controls.innerHTML = ''; return; }
+            container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`; try { await mermaid.run(); } catch(e) { console.log(e); }
+        }
+        window.addFish = (id) => { const t=prompt("Cause:"); if(t){projectData.fishbone.categories.find(c=>c.id===id).causes.push(t); saveData(); renderTools();} }
+        window.addDriver = (k) => { const t=prompt("Item:"); if(t){projectData.drivers[k].push(t); saveData(); renderTools();} }
+        window.clearDrivers = () => { if(confirm("Clear?")){ projectData.drivers={primary:[],secondary:[],changes:[]}; saveData(); renderTools(); } }
+        window.downloadDiagram = async () => {
+            const svg = document.querySelector('#tool-canvas svg'); if(!svg) return;
+            const svgData = new XMLSerializer().serializeToString(svg); const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); const img = new Image();
+            img.onload = () => { canvas.width = img.width; canvas.height = img.height; ctx.drawImage(img, 0, 0); const a = document.createElement('a'); a.download = "diagram.png"; a.href = canvas.toDataURL("image/png"); a.click(); };
+            img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+        }
+
+        // --- DASHBOARD & CHECKLIST ---
+        function renderDashboard() {
+            const filled = Object.values(projectData.checklist || {}).filter(v => v).length;
+            const progress = Math.min(100, Math.round((filled / 10) * 100));
+            document.getElementById('stats-grid').innerHTML = `<div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Checklist</span><i data-lucide="check-square" class="text-emerald-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${progress}%</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Cycles</span><i data-lucide="refresh-cw" class="text-blue-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.pdsa.length}</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Data</span><i data-lucide="bar-chart-2" class="text-amber-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.chartData.length}</div></div>`;
+            document.getElementById('dashboard-aim').textContent = projectData.checklist?.aim || "No aim defined.";
+            
+            // Empty State Logic
+            if(projectData.chartData.length === 0 && projectData.pdsa.length === 0 && !projectData.checklist.title) {
+                document.getElementById('get-started-card').classList.remove('hidden');
+            } else {
+                document.getElementById('get-started-card').classList.add('hidden');
+            }
+        }
+        window.openSmartWizard = () => document.getElementById('smart-modal').classList.remove('hidden');
+        window.saveSmartAim = () => {
+            const s = document.getElementById('smart-s').value; const m = document.getElementById('smart-m').value; const p = document.getElementById('smart-p').value; const t = document.getElementById('smart-t').value;
+            projectData.checklist.aim = `To ${s || 'improve x'} for ${p || 'patients'} by ${m || 'a measurable amount'} by ${t || 'date'}.`; saveData(); document.getElementById('smart-modal').classList.add('hidden');
+        }
+        
+        window.emailSupervisor = () => {
+            const subject = encodeURIComponent(`QIP Review: ${projectData.checklist.title || 'Untitled'}`);
+            const body = encodeURIComponent(`Dear Supervisor,\n\nPlease review my QIP.\n\nAIM: ${projectData.checklist.aim || 'Not set'}\n\nSUMMARY: ${projectData.checklist.results_summary || 'Not set'}`);
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        }
+
+        window.copyText = (text) => {
+            navigator.clipboard.writeText(text).then(() => showToast("Copied to Clipboard"));
+        }
+
+        window.updatePoster = () => {
+            document.getElementById('poster-title').textContent = projectData.checklist.title || 'Untitled QIP'; document.getElementById('poster-team').textContent = projectData.checklist.team || 'Team'; document.getElementById('poster-problem').textContent = projectData.checklist.problem_desc || 'No problem defined.'; document.getElementById('poster-aim').textContent = projectData.checklist.aim || 'No aim defined.'; document.getElementById('poster-results').textContent = projectData.checklist.results_summary || 'No results yet.'; document.getElementById('poster-learning').textContent = projectData.checklist.learning || 'No conclusion yet.'; document.getElementById('poster-pdsa').innerHTML = projectData.pdsa.slice(0,3).map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join('');
+            const chartCanvas = document.getElementById('mainChart'); if(chartCanvas) document.getElementById('poster-chart').src = chartCanvas.toDataURL();
+            const d = projectData.drivers; document.getElementById('poster-driver').innerHTML = `<ul class="list-disc pl-5 text-sm"><li>Primary: ${d.primary.join(', ')}</li><li>Secondary: ${d.secondary.join(', ')}</li><li>Changes: ${d.changes.join(', ')}</li></ul>`;
+        }
+
+        window.generateReport = () => {
+            const el = document.getElementById('report-template'); el.classList.remove('hidden');
+            document.getElementById('rep-title').textContent = projectData.checklist.title || 'Untitled'; document.getElementById('rep-lead').textContent = projectData.checklist.lead || ''; document.getElementById('rep-team').textContent = projectData.checklist.team || ''; document.getElementById('rep-problem').textContent = projectData.checklist.problem_desc || ''; document.getElementById('rep-aim').textContent = projectData.checklist.aim || ''; document.getElementById('rep-driver-list').textContent = `Primary: ${projectData.drivers.primary.join(', ')}. Interventions: ${projectData.drivers.changes.join(', ')}.`; document.getElementById('rep-pdsa-list').innerHTML = projectData.pdsa.map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join(''); document.getElementById('rep-results').textContent = projectData.checklist.results_summary || ''; document.getElementById('rep-learning').textContent = projectData.checklist.learning || '';
+            const canvas = document.getElementById('mainChart'); if(canvas) document.getElementById('rep-chart-img').src = canvas.toDataURL();
+            html2pdf().from(el).set({ margin: 0.5, filename: 'RCEM_QIP_Report.pdf' }).save().then(() => el.classList.add('hidden'));
+        }
+
+        // --- RENDERERS ---
+        function renderChecklist() {
+            const checklistConfig = [
+             { title: "1. Problem & Evidence", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"], placeholders: ["Sepsis 6 Compliance", "Dr. Name", "Nurses, Consultants", "Only 40% of patients get Abx in 1h", "Local audit 2024 data"] },
+             { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"], placeholders: ["To improve X by Y date", "Time to Antibiotics (mins)", "Screening Tool Usage %", "Delays in other areas"] },
+             { title: "3. Strategy", icon: "git-branch", fields: ["strategy_summary"], desc:"Summarize driver diagram here", placeholders: ["Focus on education and grab bags"] },
+             { title: "4. Results & Reflection", icon: "file-text", fields: ["results_summary", "learning", "sustainability"], placeholders: ["Compliance rose to 85%", "Staff engagement was key", "Added to induction pack"] }
+            ];
+            document.getElementById('checklist-container').innerHTML = checklistConfig.map((sec, i) => `
+                <details class="glass rounded-xl shadow-sm overflow-hidden group" ${i===0?'open':''}>
+                    <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer bg-slate-50/50 dark:bg-slate-800"><i data-lucide="${sec.icon}" class="text-rcem-purple dark:text-indigo-400 w-5 h-5"></i><h3 class="font-semibold text-slate-800 dark:text-white flex-1">${sec.title}</h3></summary>
+                    <div class="p-6 space-y-4">${sec.fields.map((f, idx) => `<div><label class="flex justify-between text-sm font-medium dark:text-slate-300 capitalize mb-1"><span>${f.replace(/_/g,' ')}</span><button onclick="copyText(this.parentElement.nextElementSibling.value)" class="text-xs text-indigo-500 hover:text-indigo-700"><i data-lucide="copy" class="w-3 h-3 inline"></i> Copy</button></label><textarea onchange="projectData.checklist['${f}']=this.value;saveData()" class="w-full rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900 p-2 text-sm" placeholder="e.g. ${sec.placeholders?.[idx] || 'Enter details...'}">${projectData.checklist[f]||''}</textarea></div>`).join('')}</div>
+                </details>`).join('');
+        }
+        
+        function renderGantt() {
+            const container = document.getElementById('gantt-chart-area'); const tasks = projectData.gantt || [];
+            if(tasks.length === 0) { container.innerHTML = `<div class="text-center text-slate-400 mt-10">No tasks added yet.</div>`; return; }
+            const dates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]); const min = new Date(Math.min(...dates)); const max = new Date(Math.max(...dates)); const totalTime = Math.max(1, max - min) + (1000*60*60*24*10); 
+            document.getElementById('gantt-range').textContent = `Timeline (${min.toLocaleDateString()} - ${max.toLocaleDateString()})`;
+            container.innerHTML = tasks.map(t => { const start = new Date(t.start); const end = new Date(t.end); const left = ((start - min) / totalTime) * 100; const width = Math.max(2, ((end - start) / totalTime) * 100); return `<div class="relative mb-4 flex items-center z-10"><div class="w-1/4 pr-4 flex items-center justify-between"><span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">${escapeHtml(t.name)}</span><button onclick="removeGanttTask('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><div class="flex-1 relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="absolute top-0 h-full rounded-full shadow-sm flex items-center px-2 text-xs text-white bg-rcem-purple" style="left: ${left}%; width: ${width}%">${t.status}</div></div></div>`; }).join('');
+        }
+        window.addGanttTask = () => { projectData.gantt.push({ id:Date.now(), name:document.getElementById('gantt-name').value, start:document.getElementById('gantt-start').value, end:document.getElementById('gantt-end').value, status:document.getElementById('gantt-status').value }); saveData(); }
+        window.removeGanttTask = (id) => { projectData.gantt = projectData.gantt.filter(t => t.id !== id); saveData(); };
+
+        function renderPDSA() {
+            document.getElementById('pdsa-list').innerHTML = projectData.pdsa.map(c => `
+                <div class="glass rounded-xl shadow-sm overflow-hidden mb-4">
+                    <div class="px-6 py-4 bg-slate-50/50 dark:bg-slate-700 border-b dark:border-slate-600 flex justify-between">
+                        <h4 class="font-bold dark:text-white text-rcem-purple">${c.title} (${c.date})</h4>
+                        <div class="flex gap-2"><button onclick="copyText('${c.plan} ${c.do} ${c.study} ${c.act}')" class="text-indigo-500 text-xs">Copy All</button><button onclick="deletePDSA('${c.id}')" class="text-red-500 hover:text-red-700 text-xs">Delete</button></div>
+                    </div>
+                    <div class="p-4 grid grid-cols-2 gap-4">
+                        ${['Plan','Do','Study','Act'].map(s=>`<div><label class="text-xs font-bold dark:text-slate-300 uppercase">${s}</label><textarea onchange="updatePDSA('${c.id}','${s.toLowerCase()}',this.value)" class="w-full text-sm p-2 border rounded dark:bg-slate-900 dark:border-slate-600 h-20" placeholder="Enter details...">${c[s.toLowerCase()]||''}</textarea></div>`).join('')}
+                    </div>
+                </div>`).join('');
+        }
+        window.addPDSACycle = () => { 
+            const d = new Date().toLocaleDateString();
+            projectData.pdsa.unshift({ id: Date.now().toString(), title: `Cycle ${projectData.pdsa.length+1}`, date: d }); 
+            saveData(); 
+        }
+        window.updatePDSA = (id,f,v) => { projectData.pdsa.find(c=>c.id===id)[f]=v; saveData(); }
+        window.deletePDSA = (id) => { if(confirm('Delete?')) { projectData.pdsa=projectData.pdsa.filter(c=>c.id!==id); saveData(); } }
+        
+        // Green ED
+        window.calcCarbon = () => { document.getElementById('green-result').textContent = `Total: ${(document.getElementById('green-item').value * document.getElementById('green-qty').value).toFixed(2)} kg CO2e`; document.getElementById('green-result').classList.remove('hidden'); }
+        
+        window.resetProject = async () => { if(confirm("Delete all data?")) { projectData={checklist:{},fishbone:{categories:[]},drivers:{primary:[],secondary:[],changes:[]},forcefield:{driving:[],restraining:[]},swot:{s:[],w:[],o:[],t:[]},fiveWhys:["","","","",""],gantt:[],pdsa:[],chartData:[],paretoData:[],chartGoal:null}; await saveData(); location.reload(); } }
+        window.downloadJSON = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(projectData)); a.download = "qip_backup.json"; a.click(); }
+        window.restoreJSON = (i) => { const r = new FileReader(); r.onload = (e) => { projectData = JSON.parse(e.target.result); saveData(); location.reload(); }; r.readAsText(i.files[0]); }
+
+        lucide.createIcons();
+        router('dashboard');
     </script>
 </body>
 </html>
