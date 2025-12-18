@@ -46,13 +46,13 @@
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         
         .glass {
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.5);
         }
         .dark .glass {
-            background: rgba(30, 41, 59, 0.8);
+            background: rgba(30, 41, 59, 0.9);
             border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
@@ -261,6 +261,25 @@
                                 </div>
                             </div>
                         </div>
+                        
+                        <div class="glass p-6 rounded-xl border-t-4 border-rcem-purple bg-slate-50 dark:bg-slate-800">
+                            <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2">Assessment of QIAT</h3>
+                            <p class="text-xs text-slate-500 mb-4">Self-assessment or Supervisor validation.</p>
+                            <div class="flex gap-4 items-center mb-4">
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="assessment_val" value="Satisfactory" onclick="saveQiat('assessment_val', 'Satisfactory')" id="qiat-assessment-sat">
+                                    <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-bold border border-green-200">Satisfactory</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer">
+                                    <input type="radio" name="assessment_val" value="Unsatisfactory" onclick="saveQiat('assessment_val', 'Unsatisfactory')" id="qiat-assessment-unsat">
+                                    <span class="px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-bold border border-red-200">Unsatisfactory</span>
+                                </label>
+                            </div>
+                            <div>
+                                <label class="label">Comments / Feedback</label>
+                                <textarea class="input-area bg-white" rows="2" id="qiat-assessment_comments" onchange="saveQiat('assessment_comments', this.value)" placeholder="Supervisor comments..."></textarea>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -441,11 +460,15 @@
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
 
-        // CONFIG (Replace with your actual keys if needed, using placeholders for safety)
-        const firebaseConfig = { 
+        // REAL FIREBASE CONFIG (Restored from your initial upload)
+        const firebaseConfig = {
             apiKey: "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI",
             authDomain: "rcem-qip-app.firebaseapp.com",
             projectId: "rcem-qip-app",
+            storageBucket: "rcem-qip-app.firebasestorage.app",
+            messagingSenderId: "231364231220",
+            appId: "1:231364231220:web:6b2260e2c885d40ecb4a61",
+            measurementId: "G-XHXTBQ29FX"
         };
 
         const app = initializeApp(firebaseConfig);
@@ -463,7 +486,8 @@
                 problem: "", aim: "", strategy: "", // Plan
                 interventions: "", team: "", // Do
                 measures: "", analysis: "", // Study
-                modifications: "", sustainability: "" // Act
+                modifications: "", sustainability: "", // Act
+                assessment_val: "", assessment_comments: "" // Assessment
             },
             data: [], // {date, value, type, note}
             pdsa: [], // {id, title, plan, do, study, act}
@@ -513,7 +537,8 @@
                     measures: "Outcome: % Abx in 1h. Balancing: Time to triage (did it increase?).",
                     analysis: "Run chart shows a shift of 6 points above median after intervention 1.",
                     modifications: "Grab bags were often empty, so introduced a checklist.",
-                    sustainability: "Included in induction for new rotators."
+                    sustainability: "Included in induction for new rotators.",
+                    assessment_val: "Satisfactory", assessment_comments: "Excellent use of QI methodology."
                 },
                 data: [
                     {date:"2025-01-01", value:45, type:"data"}, {date:"2025-01-08", value:40, type:"data"}, {date:"2025-01-15", value:48, type:"data"},
@@ -568,14 +593,21 @@
 
         function renderAll() {
             // Fill Inputs
-            Object.keys(project.qiat).forEach(k => { const el = document.getElementById(`qiat-${k}`); if(el) el.value = project.qiat[k]; });
+            Object.keys(project.qiat).forEach(k => { 
+                const el = document.getElementById(`qiat-${k}`); 
+                if(el) el.value = project.qiat[k]; 
+            });
+            // Radio buttons
+            if(project.qiat.assessment_val === "Satisfactory") document.getElementById('qiat-assessment-sat').checked = true;
+            if(project.qiat.assessment_val === "Unsatisfactory") document.getElementById('qiat-assessment-unsat').checked = true;
+
             renderStats(); renderPdsaList(); renderChart();
             document.getElementById('dash-aim-text').textContent = project.qiat.aim || "No aim defined.";
         }
 
         function renderStats() {
             const filled = Object.values(project.qiat).filter(v=>v).length;
-            document.getElementById('stat-qiat').textContent = Math.round((filled/13)*100) + "%";
+            document.getElementById('stat-qiat').textContent = Math.round((filled/15)*100) + "%";
             document.getElementById('stat-data').textContent = project.data.filter(d=>d.type==='data').length;
             document.getElementById('stat-pdsa').textContent = project.pdsa.length;
         }
@@ -801,6 +833,10 @@
         document.head.appendChild(style);
         
         lucide.createIcons();
+        const showToast = (message) => {
+            const el = document.createElement('div'); el.className = `px-4 py-2 rounded shadow-lg text-white text-sm font-medium mb-2 fade-in bg-rcem-purple`; el.innerHTML = message;
+            document.getElementById('toast-container').appendChild(el); setTimeout(() => el.remove(), 3000);
+        }
         mermaid.initialize({startOnLoad:false});
     </script>
 </body>
