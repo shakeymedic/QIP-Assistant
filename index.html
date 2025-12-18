@@ -197,7 +197,7 @@
                     <!-- Banner for Demo Mode -->
                     <div id="demo-banner" class="hidden bg-amber-100 border-l-4 border-amber-500 text-amber-700 p-4 rounded shadow-sm" role="alert">
                         <p class="font-bold">Demo Mode Active</p>
-                        <p>You are viewing a model QIP example. Feel free to explore! Data changes will not be saved.</p>
+                        <p>You are viewing a model QIP example. Explore the tabs to see what a "Gold Standard" project looks like! Data changes will not be saved.</p>
                     </div>
 
                     <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -236,7 +236,7 @@
                         <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="rocket" class="w-8 h-8"></i></div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Ready to Improve Care?</h3>
                         <p class="text-slate-500 dark:text-slate-400 mb-6 max-w-md mx-auto">Start by defining your project in the Checklist, then build a Driver Diagram to plan your strategy.</p>
-                        <button onclick="router('checklist')" class="bg-rcem-purple text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-900">Start Checklist</button>
+                        <button onclick="openProjectWizard()" class="bg-rcem-purple text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-900">Setup Wizard</button>
                     </div>
                 </div>
 
@@ -447,6 +447,34 @@
         </div>
     </div>
 
+    <!-- NEW PROJECT WIZARD -->
+    <div id="project-wizard" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white dark:bg-slate-800 w-full max-w-xl rounded-xl shadow-2xl p-8">
+            <h3 class="text-2xl font-bold mb-2 dark:text-white text-rcem-purple">Create New QIP</h3>
+            <p class="text-slate-500 mb-6">Let's get the basics down.</p>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Problem Title</label>
+                    <input id="wiz-title" class="w-full border p-3 rounded" placeholder="e.g. Improving Handover Efficiency">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">What is the main issue?</label>
+                    <textarea id="wiz-prob" class="w-full border p-3 rounded" rows="2" placeholder="e.g. Handovers take too long and info is lost."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">What is your primary goal?</label>
+                    <input id="wiz-aim" class="w-full border p-3 rounded" placeholder="e.g. Reduce handover time to <15 mins by June.">
+                </div>
+            </div>
+
+            <div class="mt-8 flex justify-end gap-2">
+                <button onclick="document.getElementById('project-wizard').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
+                <button onclick="saveProjectWizard()" class="px-6 py-2 bg-rcem-purple text-white rounded font-bold">Start Project</button>
+            </div>
+        </div>
+    </div>
+
     <!-- GUIDE MODAL -->
     <div id="guide-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
@@ -624,7 +652,12 @@
                 ],
                 pdsa: [{id:1, title:"Cycle 1: Sepsis Stamp", date:"2025-01-16", plan:"Introduce a 'Sepsis Suspected' stamp for triage notes to prompt senior review.", do:"Trialled for 1 week in Majors A.", study:"Compliance rose to 65%. Nurses found it helpful.", act:"Adopt and roll out to all areas."}],
                 chartGoal: 90,
-                gantt: [], paretoData: [], forcefield: {driving:[], restraining:[]}, swot: {s:[],w:[],o:[],t:[]}, fiveWhys: ["","","","",""]
+                gantt: [], paretoData: [], forcefield: {
+                    driving: ["Consultant support", "New guidelines published", "Motivated junior doctors"], 
+                    restraining: ["Winter pressures", "Nursing vacancies", "Lack of computers in Resus"]
+                }, 
+                swot: {s:[],w:[],o:[],t:[]}, 
+                fiveWhys: ["Antibiotics delayed", "Doctor didn't prescribe them", "Doctor didn't know patient was septic", "Triage nurse didn't flag it", "No sepsis screening tool at triage"]
             };
             showApp();
             renderAll();
@@ -689,6 +722,7 @@
         };
         window.toggleDarkMode = () => document.documentElement.classList.toggle('dark');
         window.openGuide = () => document.getElementById('guide-modal').classList.remove('hidden');
+        window.openProjectWizard = () => document.getElementById('project-wizard').classList.remove('hidden');
         window.openBulkImport = () => document.getElementById('bulk-modal').classList.remove('hidden');
         document.getElementById('mobile-menu-btn').onclick = () => { const sb = document.getElementById('app-sidebar'); sb.classList.toggle('hidden'); sb.classList.toggle('absolute'); sb.classList.toggle('z-40'); sb.classList.toggle('w-full'); };
 
@@ -746,6 +780,20 @@
             tour.addStep({ title: 'Visual Tools', text: 'Use "Change Tools" to build Fishbones and Driver Diagrams.', attachTo: { element: '#nav-tools', on: 'right' }, buttons: [{ text: 'Next', action: tour.next }] });
             tour.addStep({ title: 'Show Evidence', text: 'The "Data" tab creates SPC charts automatically. Just add your dates and numbers.', attachTo: { element: '#nav-data', on: 'right' }, buttons: [{ text: 'Finish', action: tour.next }] });
             tour.start();
+        }
+
+        window.saveProjectWizard = () => {
+            const title = document.getElementById('wiz-title').value;
+            const prob = document.getElementById('wiz-prob').value;
+            const aim = document.getElementById('wiz-aim').value;
+            if(title) projectData.checklist.title = title;
+            if(prob) projectData.checklist.problem_desc = prob;
+            if(aim) projectData.checklist.aim = aim;
+            saveData();
+            document.getElementById('project-wizard').classList.add('hidden');
+            document.getElementById('get-started-card').classList.add('hidden');
+            renderDashboard();
+            showToast("Project Started!");
         }
 
         // --- CHARTING ENGINE ---
@@ -848,12 +896,21 @@
                 mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
                 d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}[${p}]\n`); d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}[${s}]\n`); d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}[${c}]\n`);
                 controls.innerHTML = `<button onclick="addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
-            } else { container.innerHTML = `<div class="text-slate-400">Select Fishbone or Driver for Vector Diagrams.</div>`; controls.innerHTML = ''; return; }
+            } else if (toolMode === 'whys') {
+                container.innerHTML = `<h3 class="font-bold mb-4 dark:text-white">5 Whys Analysis</h3><div class="space-y-3">${projectData.fiveWhys.map((w,i)=>`<div class="flex gap-2 items-center"><span class="font-bold text-slate-400">Why?</span><input class="flex-1 p-2 border rounded dark:bg-slate-700 dark:border-slate-600" value="${w}" onchange="projectData.fiveWhys[${i}]=this.value;saveData()" placeholder="Cause ${i+1}"></div>`).join('')}</div>`;
+                controls.innerHTML = ''; return;
+            } else if (toolMode === 'force') {
+                container.innerHTML = `<div class="grid grid-cols-2 gap-4 h-full"><div class="bg-green-50 dark:bg-green-900/20 p-4 rounded border border-green-200"><h4 class="font-bold text-green-800 dark:text-green-200 mb-2">Driving Forces</h4><button onclick="addForce('driving')" class="text-xs bg-green-200 px-2 py-1 rounded mb-2">+ Add</button><div class="space-y-1">${projectData.forcefield.driving.map((f,i)=>`<div class="flex justify-between bg-white dark:bg-slate-800 p-2 rounded shadow-sm text-sm"><span>${f}</span><button onclick="removeForce('driving',${i})" class="text-red-500">x</button></div>`).join('')}</div></div><div class="bg-red-50 dark:bg-red-900/20 p-4 rounded border border-red-200"><h4 class="font-bold text-red-800 dark:text-red-200 mb-2">Restraining Forces</h4><button onclick="addForce('restraining')" class="text-xs bg-red-200 px-2 py-1 rounded mb-2">+ Add</button><div class="space-y-1">${projectData.forcefield.restraining.map((f,i)=>`<div class="flex justify-between bg-white dark:bg-slate-800 p-2 rounded shadow-sm text-sm"><span>${f}</span><button onclick="removeForce('restraining',${i})" class="text-red-500">x</button></div>`).join('')}</div></div></div>`;
+                controls.innerHTML = ''; return;
+            }
+            else { container.innerHTML = `<div class="text-slate-400">Select a tool.</div>`; controls.innerHTML = ''; return; }
             container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`; try { await mermaid.run(); } catch(e) { console.log(e); }
         }
         window.addFish = (id) => { const t=prompt("Cause:"); if(t){projectData.fishbone.categories.find(c=>c.id===id).causes.push(t); saveData(); renderTools();} }
         window.addDriver = (k) => { const t=prompt("Item:"); if(t){projectData.drivers[k].push(t); saveData(); renderTools();} }
         window.clearDrivers = () => { if(confirm("Clear?")){ projectData.drivers={primary:[],secondary:[],changes:[]}; saveData(); renderTools(); } }
+        window.addForce = (k) => { const t=prompt("Force:"); if(t){projectData.forcefield[k].push(t); saveData(); renderTools();} }
+        window.removeForce = (k,i) => { projectData.forcefield[k].splice(i,1); saveData(); renderTools(); }
         window.downloadDiagram = async () => {
             const svg = document.querySelector('#tool-canvas svg'); if(!svg) return;
             const svgData = new XMLSerializer().serializeToString(svg); const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); const img = new Image();
