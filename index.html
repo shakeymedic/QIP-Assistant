@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RCEM QIP Assistant (WMEBEM)</title>
     
-    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -39,23 +38,17 @@
         }
     </script>
     
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
 
-    <!-- Chart.js & Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
-    <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     
-    <!-- SortableJS -->
     <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 
-    <!-- Mermaid.js (For Vector Diagrams) -->
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
 
-    <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 
     <style>
@@ -82,16 +75,6 @@
 
         #toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
 
-        .matrix-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: 1fr 1fr;
-            gap: 2px;
-            background-color: #cbd5e1;
-            border: 2px solid #64748b;
-        }
-        .matrix-quadrant { background-color: white; padding: 1rem; min-height: 200px; position: relative; }
-
         /* Poster Mode Grid */
         .poster-grid {
             display: grid;
@@ -114,14 +97,20 @@
 
         /* Dark Mode overrides */
         .dark body { background-color: #0f172a; color: #e2e8f0; }
-        .dark .matrix-quadrant { background-color: #1e293b; }
-        .dark .matrix-grid { background-color: #475569; border-color: #64748b; }
         .dark input, .dark textarea, .dark select { background-color: rgba(30, 41, 59, 0.5); border-color: #475569; color: white; }
+        
+        /* Toggle Switch */
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #68D391;
+        }
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #68D391;
+        }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-900 h-screen overflow-hidden flex flex-col bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
 
-    <!-- IG WARNING -->
     <div id="ig-banner" class="bg-amber-100 dark:bg-amber-900 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 px-4 py-2 text-xs md:text-sm font-medium flex justify-between items-center z-50">
         <div class="flex items-center gap-2">
             <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
@@ -132,7 +121,6 @@
 
     <div class="flex flex-1 overflow-hidden relative">
         
-        <!-- LOGIN -->
         <div id="auth-screen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div class="glass bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in">
                 <div class="bg-white/50 p-8 text-center border-b border-slate-100/50">
@@ -148,7 +136,7 @@
                         <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="••••••••">
                         <button type="submit" id="auth-btn" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-xl"><span id="auth-btn-text">Sign In</span></button>
                     </form>
-                    <button onclick="loadDemoMode()" class="w-full mt-3 bg-white border border-slate-300 text-slate-600 font-bold py-3 rounded-lg transition-all hover:bg-slate-50 flex justify-center items-center gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Try Demo Mode</button>
+                    <button onclick="enableDemoMode()" class="w-full mt-3 bg-white border border-slate-300 text-slate-600 font-bold py-3 rounded-lg transition-all hover:bg-slate-50 flex justify-center items-center gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Try Demo Mode</button>
                     <div class="mt-4 flex justify-between text-sm">
                         <button id="toggle-auth" class="text-rcem-purple hover:underline">Create Account</button>
                         <button id="forgot-password" class="text-slate-500 hover:text-slate-700">Forgot Password?</button>
@@ -157,7 +145,6 @@
             </div>
         </div>
 
-        <!-- SIDEBAR -->
         <aside id="app-sidebar" class="hidden w-64 bg-slate-900/95 backdrop-blur-xl text-white flex-col h-full fixed left-0 top-0 z-10 shadow-2xl lg:static lg:flex border-r border-white/10">
             <div class="p-6 border-b border-white/10 flex flex-col items-center">
                 <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-14 mb-3 object-contain bg-white rounded-lg p-2 w-full shadow-inner">
@@ -170,7 +157,7 @@
                 <button onclick="router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> <span class="font-medium">Dashboard</span></button>
                 <button onclick="router('checklist')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-checklist"><i data-lucide="check-square" class="w-5 h-5"></i> <span class="font-medium">QIAT Checklist</span></button>
                 <button onclick="router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-data"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> <span class="font-medium">Data & Charts</span></button>
-                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-tools"><i data-lucide="tool" class="w-5 h-5"></i> <span class="font-medium">Change Tools</span></button>
+                <button onclick="router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-tools"><i data-lucide="wrench" class="w-5 h-5"></i> <span class="font-medium">Change Tools</span></button>
                 <button onclick="router('gantt')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-gantt"><i data-lucide="calendar" class="w-5 h-5"></i> <span class="font-medium">Gantt Chart</span></button>
                 <button onclick="router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-5 h-5"></i> <span class="font-medium">PDSA Cycles</span></button>
                 <button onclick="router('green')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-green"><i data-lucide="leaf" class="w-5 h-5 text-emerald-400"></i> <span class="font-medium">Green ED</span></button>
@@ -182,15 +169,14 @@
             </div>
         </aside>
 
-        <!-- MAIN -->
         <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100/50 dark:bg-slate-900/50 relative w-full">
             <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded-md shadow-lg"><i data-lucide="menu"></i></button>
 
-            <!-- Status Bar -->
             <div class="glass sticky top-0 z-20 px-8 py-3 flex justify-between items-center shadow-sm">
                 <div class="flex items-center text-sm text-slate-500 dark:text-slate-400">
                     <span class="font-semibold text-slate-700 dark:text-slate-200 mr-2">Status:</span>
                     <span id="save-status" class="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 transition-all"><i data-lucide="save" class="w-3 h-3"></i> Saved</span>
+                    <div id="demo-indicator" class="hidden ml-4 bg-amber-100 text-amber-800 text-xs px-2 py-0.5 rounded-full border border-amber-300 font-bold flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Demo Mode</div>
                 </div>
                 <div id="user-display" class="text-xs text-slate-400 font-mono"></div>
             </div>
@@ -199,20 +185,24 @@
 
             <div id="views-container" class="pb-20 p-4 md:p-8">
                 
-                <!-- 1. DASHBOARD -->
                 <div id="view-dashboard" class="view-section space-y-6 fade-in">
                     <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white tracking-tight">Dashboard</h2>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-3"><i data-lucide="layout-dashboard" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Dashboard</h2>
                             <p class="text-slate-500 dark:text-slate-400">QI Project Overview</p>
                         </div>
-                        <div class="flex flex-wrap gap-2">
+                        <div class="flex flex-wrap gap-2 items-center">
+                             <div class="flex items-center mr-4 border-r border-slate-300 pr-4">
+                                <span class="text-sm font-medium text-slate-700 dark:text-slate-300 mr-2">View Example</span>
+                                <div class="relative inline-block w-10 h-6 align-middle select-none transition duration-200 ease-in">
+                                    <input type="checkbox" name="toggle" id="demo-toggle" class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-300" onclick="toggleDemoView()"/>
+                                    <label for="demo-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer"></label>
+                                </div>
+                             </div>
+
                              <button onclick="emailSupervisor()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="mail" class="w-4 h-4"></i> Email Supervisor</button>
                              <button onclick="router('poster')" class="bg-rcem-purple hover:bg-indigo-900 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-md transition-all"><i data-lucide="layout" class="w-4 h-4"></i> Poster Mode</button>
                              <button onclick="generateReport()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="file-text" class="w-4 h-4"></i> Report</button>
-                             <button onclick="downloadJSON()" class="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm"><i data-lucide="download-cloud" class="w-4 h-4"></i> Backup</button>
-                             <label class="bg-slate-200 hover:bg-slate-300 text-slate-700 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm cursor-pointer"><i data-lucide="upload-cloud" class="w-4 h-4"></i> Restore<input type="file" id="restore-input" class="hidden" onchange="restoreJSON(this)"></label>
-                             <button onclick="resetProject()" class="text-slate-400 hover:text-red-600 flex items-center gap-2 text-sm border border-slate-200 dark:border-slate-700 px-3 py-2 rounded-lg hover:border-red-200"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
                         </div>
                     </header>
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="stats-grid"></div>
@@ -225,7 +215,6 @@
                         <div id="dashboard-aim" class="p-4 bg-indigo-50/50 dark:bg-slate-900 rounded-lg border border-indigo-100 dark:border-slate-700 text-indigo-900 dark:text-indigo-100 italic font-serif">No aim defined.</div>
                     </div>
 
-                    <!-- Get Started Guide (Shows if no data) -->
                     <div id="get-started-card" class="glass rounded-xl p-8 border border-dashed border-slate-300 dark:border-slate-600 text-center hidden">
                         <div class="w-16 h-16 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-4"><i data-lucide="rocket" class="w-8 h-8"></i></div>
                         <h3 class="text-xl font-bold text-slate-800 dark:text-white mb-2">Ready to Improve Care?</h3>
@@ -234,20 +223,44 @@
                     </div>
                 </div>
 
-                <!-- 2. CHECKLIST -->
                 <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto fade-in">
                     <div class="mb-8">
-                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white">QIAT Checklist</h2>
+                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="check-square" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> QIAT Checklist</h2>
                         <p class="text-slate-500 dark:text-slate-400">Aligned with RCEM Curriculum requirements.</p>
                     </div>
                     <div id="checklist-container" class="space-y-4"></div>
                 </div>
 
-                <!-- 3. DATA & CHARTS -->
                 <div id="view-data" class="view-section hidden fade-in">
+                    <details class="group mb-6 bg-indigo-50 dark:bg-slate-800 rounded-lg border border-indigo-100 dark:border-slate-700 open:shadow-md transition-all">
+                        <summary class="flex justify-between items-center p-4 cursor-pointer font-bold text-indigo-900 dark:text-indigo-200">
+                            <span class="flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Understanding Charts (SPC vs Pareto)</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="p-4 pt-0 text-sm text-slate-700 dark:text-slate-300 leading-relaxed border-t border-indigo-100 dark:border-slate-700 mt-2">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                <div>
+                                    <h4 class="font-bold mb-1 text-rcem-purple">Run Chart (SPC)</h4>
+                                    <p class="mb-2">Use this to track improvement over time. Plot your data weekly.</p>
+                                    <ul class="list-disc list-inside space-y-1 mb-2">
+                                        <li><strong>Data Point:</strong> Your regular measure (e.g. Time to Analgesia).</li>
+                                        <li><strong>Intervention:</strong> A vertical line showing when you made a change (e.g. "New Protocol").</li>
+                                        <li><strong>Shift:</strong> 6 points below/above the median suggests valid improvement.</li>
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold mb-1 text-rcem-purple">Pareto Chart</h4>
+                                    <p class="mb-2">Use this at the START to choose what to fix (The "80/20" rule).</p>
+                                    <p class="italic">"80% of problems come from 20% of causes."</p>
+                                    <p class="mt-2">Example: Categories of complaints. Focus on the biggest bar first.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
                     <header class="mb-6 flex justify-between items-end">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Data & Charts</h2>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="bar-chart-2" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Data & Charts</h2>
                             <p class="text-slate-500 dark:text-slate-400">Run Charts (SPC) with Annotated Interventions.</p>
                         </div>
                         <div class="flex gap-2">
@@ -288,11 +301,31 @@
                     </div>
                 </div>
 
-                <!-- 4. CHANGE TOOLS -->
                 <div id="view-tools" class="view-section hidden h-full flex flex-col fade-in">
+                    <details class="group mb-6 bg-indigo-50 dark:bg-slate-800 rounded-lg border border-indigo-100 dark:border-slate-700 open:shadow-md transition-all">
+                        <summary class="flex justify-between items-center p-4 cursor-pointer font-bold text-indigo-900 dark:text-indigo-200">
+                            <span class="flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Understanding Change Tools</span>
+                            <i data-lucide="chevron-down" class="w-4 h-4 transition-transform group-open:rotate-180"></i>
+                        </summary>
+                        <div class="p-4 pt-0 text-sm text-slate-700 dark:text-slate-300 leading-relaxed border-t border-indigo-100 dark:border-slate-700 mt-2">
+                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2">
+                                <div>
+                                    <h4 class="font-bold mb-1 text-rcem-purple">Fishbone (Ishikawa)</h4>
+                                    <p class="mb-2">Use this to find the **Root Cause** of a problem.</p>
+                                    <p>Ask: "Why does this happen?" in categories like People, Equipment, and Process.</p>
+                                </div>
+                                <div>
+                                    <h4 class="font-bold mb-1 text-rcem-purple">Driver Diagram</h4>
+                                    <p class="mb-2">Use this to **Plan Strategy**.</p>
+                                    <p>Connect your AIM -> Primary Drivers (Big areas) -> Secondary Drivers -> Change Ideas (Specific Tasks).</p>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
                     <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white">Change Tools</h2>
+                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="wrench" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Change Tools</h2>
                             <p class="text-slate-500 dark:text-slate-400">Mermaid.js Vector Diagrams.</p>
                         </div>
                         <div class="flex gap-2 items-center">
@@ -306,19 +339,15 @@
                         </div>
                     </header>
                     
-                    <!-- Diagram Inputs -->
                     <div id="tool-controls" class="mb-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-end">
-                        <!-- Dynamic inputs injected by JS -->
-                    </div>
+                        </div>
 
                     <div id="tool-canvas" class="flex-1 glass rounded-xl shadow-sm p-4 md:p-8 overflow-auto relative min-h-[500px] flex items-center justify-center bg-white">
-                        <!-- Mermaid renders here -->
-                    </div>
+                        </div>
                 </div>
 
-                <!-- 5. GANTT -->
                 <div id="view-gantt" class="view-section hidden fade-in">
-                    <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white">Gantt Chart</h2></header>
+                    <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="calendar" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Gantt Chart</h2></header>
                     <div class="glass p-4 rounded-xl shadow-sm mb-8 flex flex-wrap gap-4 items-end">
                         <input type="text" id="gantt-name" class="flex-1 min-w-[200px] rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent" placeholder="Task Name (e.g., Literature Review)">
                         <input type="date" id="gantt-start" class="rounded border-slate-300 dark:border-slate-600 border p-2 text-sm bg-transparent">
@@ -332,16 +361,14 @@
                     </div>
                 </div>
 
-                <!-- 6. PDSA -->
                 <div id="view-pdsa" class="view-section hidden fade-in">
                      <header class="mb-6 flex justify-between items-center">
-                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white">PDSA Cycles</h2><p class="text-slate-500 dark:text-slate-400">Iterative improvement.</p></div>
+                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="refresh-cw" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> PDSA Cycles</h2><p class="text-slate-500 dark:text-slate-400">Iterative improvement.</p></div>
                         <button onclick="addPDSACycle()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
                     </header>
                     <div id="pdsa-list" class="space-y-4 max-w-4xl"></div>
                 </div>
 
-                <!-- 7. GREEN ED -->
                 <div id="view-green" class="view-section hidden fade-in">
                     <div class="max-w-4xl mx-auto">
                         <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-2"><i data-lucide="leaf" class="text-emerald-500"></i> Green ED Calculator</h2></header>
@@ -357,7 +384,6 @@
                     </div>
                 </div>
 
-                <!-- 8. POSTER MODE -->
                 <div id="view-poster" class="view-section hidden h-screen fixed inset-0 z-[100] bg-gray-100 overflow-auto">
                     <div class="bg-gray-800 text-white p-4 flex justify-between items-center no-print sticky top-0 z-50">
                         <span>Poster Preview (A0 Landscape)</span>
@@ -367,7 +393,6 @@
                         </div>
                     </div>
                     <div class="poster-grid font-sans" id="poster-content">
-                        <!-- Header -->
                         <div class="col-span-4 bg-rcem-purple text-white p-6 rounded-lg flex justify-between items-center">
                             <div>
                                 <h1 class="text-4xl font-bold mb-2" id="poster-title">Project Title</h1>
@@ -376,7 +401,6 @@
                             <img src="https://iili.io/KGQOvkl.md.png" class="h-24 bg-white p-2 rounded">
                         </div>
                         
-                        <!-- Col 1 -->
                         <div class="poster-card flex flex-col gap-4">
                             <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Background</h2>
                             <p id="poster-problem" class="text-sm"></p>
@@ -384,20 +408,17 @@
                             <p id="poster-aim" class="font-bold text-lg italic"></p>
                         </div>
 
-                        <!-- Col 2 -->
                         <div class="poster-card flex flex-col gap-4">
                             <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Strategy</h2>
                             <div id="poster-driver" class="flex-1 flex items-center justify-center overflow-hidden"></div>
                         </div>
 
-                        <!-- Col 3 -->
                         <div class="poster-card flex flex-col gap-4">
                             <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Results</h2>
                             <img id="poster-chart" class="w-full object-contain">
                             <p id="poster-results" class="text-sm mt-2"></p>
                         </div>
 
-                        <!-- Col 4 -->
                         <div class="poster-card flex flex-col gap-4">
                             <h2 class="text-2xl font-bold text-rcem-purple border-b-2 border-rcem-purple pb-2">Conclusion</h2>
                             <p id="poster-learning" class="text-sm"></p>
@@ -411,7 +432,6 @@
         </main>
     </div>
 
-    <!-- SMART WIZARD -->
     <div id="smart-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6">
             <h3 class="text-xl font-bold mb-4 dark:text-white">Build SMART Aim</h3>
@@ -428,7 +448,6 @@
         </div>
     </div>
 
-    <!-- BULK IMPORT MODAL -->
     <div id="bulk-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6">
             <h3 class="text-xl font-bold mb-4 dark:text-white">Bulk Data Import</h3>
@@ -441,7 +460,6 @@
         </div>
     </div>
 
-    <!-- GUIDE MODAL -->
     <div id="guide-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center mb-6">
@@ -485,7 +503,6 @@
         </div>
     </div>
 
-    <!-- REPORT TEMPLATE (Journal Style) -->
     <div id="report-template" class="hidden bg-white p-12 max-w-4xl mx-auto text-slate-900 font-serif leading-relaxed">
         <div class="flex justify-between items-center border-b-4 border-rcem-purple pb-6 mb-8">
             <div>
@@ -541,7 +558,33 @@
         const db = getFirestore(app);
 
         let currentUser = null;
-        let isDemo = false;
+        let isDemoUser = false; // "Demo User" (Logged out)
+        let isViewingDemo = false; // "Viewing Demo" (Logged in but looking at example)
+
+        // The "Gold Standard" Example Data
+        const demoData = {
+            checklist: {
+                title: "Improving Sepsis 6 Bundle Delivery", lead: "Dr. Demo", aim: "To increase Sepsis 6 delivery within 1 hour from 45% to 90% by Dec 2025.",
+                problem_desc: "Audit showed only 45% of patients get abx in <1h.", results_summary: "Achieved 85% compliance after 3 cycles."
+            },
+            fishbone: { categories: [{id:1, text:"People", causes:["Locum staff"]}, {id:2, text:"Methods", causes:["No protocol"]}, {id:3, text:"Equipment", causes:["Missing kits"]}, {id:4, text:"Env", causes:["Crowding"]}] },
+            drivers: { primary: ["Reliable Identification", "Timely Delivery"], secondary: ["Triage Screening", "Grab Bags"], changes: ["Sepsis Stamp", "Pre-made kits"] },
+            forcefield: { driving: [], restraining: [] },
+            swot: { s: [], w: [], o: [], t: [] },
+            fiveWhys: ["","","","",""],
+            gantt: [],
+            pdsa: [{id:1, title:"Cycle 1: Sepsis Stamp", date:"2025-01-16", plan:"Stamp notes at triage", do:"Trialled for 1 week", study:"Compliance rose to 65%", act:"Adopt"}],
+            chartData: [
+                {date:"2025-01-01", value:45, type:"data"}, {date:"2025-01-08", value:42, type:"data"},
+                {date:"2025-01-15", value:50, type:"data"}, {date:"2025-01-16", value:0, type:"intervention", note:"PDSA 1: Sepsis Stamp"},
+                {date:"2025-01-22", value:65, type:"data"}, {date:"2025-01-29", value:70, type:"data"},
+                {date:"2025-02-05", value:85, type:"data"}, {date:"2025-02-12", value:88, type:"data"}
+            ],
+            paretoData: [],
+            chartGoal: 90
+        };
+
+        // Current user data
         let projectData = {
             checklist: {},
             fishbone: { categories: [] },
@@ -555,6 +598,7 @@
             paretoData: [],
             chartGoal: null
         };
+
         let chartMode = 'run';
         let toolMode = 'fishbone'; 
         let authMode = 'signin';
@@ -570,7 +614,7 @@
 
         // --- AUTH ---
         onAuthStateChanged(auth, (user) => {
-            if(isDemo) return; 
+            if(isDemoUser) return; 
             currentUser = user;
             if (user) {
                 showApp();
@@ -599,29 +643,34 @@
             document.getElementById('main-content').classList.add('hidden');
         }
 
-        window.loadDemoMode = () => {
-            isDemo = true;
+        window.enableDemoMode = () => {
+            isDemoUser = true;
             currentUser = { email: "demo@rcem.ac.uk", uid: "demo" };
-            projectData = {
-                checklist: {
-                    title: "Improving Sepsis 6 Bundle Delivery", lead: "Dr. Demo", aim: "To increase Sepsis 6 delivery within 1 hour from 45% to 90% by Dec 2025.",
-                    problem_desc: "Audit showed only 45% of patients get abx in <1h.", results_summary: "Achieved 85% compliance after 3 cycles."
-                },
-                fishbone: { categories: [{id:1, text:"People", causes:["Locum staff"]}, {id:2, text:"Methods", causes:["No protocol"]}, {id:3, text:"Equipment", causes:["Missing kits"]}, {id:4, text:"Env", causes:["Crowding"]}] },
-                drivers: { primary: ["Reliable Identification", "Timely Delivery"], secondary: ["Triage Screening", "Grab Bags"], changes: ["Sepsis Stamp", "Pre-made kits"] },
-                chartData: [
-                    {date:"2025-01-01", value:45, type:"data"}, {date:"2025-01-08", value:42, type:"data"},
-                    {date:"2025-01-15", value:50, type:"data"}, {date:"2025-01-16", value:0, type:"intervention", note:"PDSA 1: Sepsis Stamp"},
-                    {date:"2025-01-22", value:65, type:"data"}, {date:"2025-01-29", value:70, type:"data"},
-                    {date:"2025-02-05", value:85, type:"data"}, {date:"2025-02-12", value:88, type:"data"}
-                ],
-                pdsa: [{id:1, title:"Cycle 1: Sepsis Stamp", date:"2025-01-16", plan:"Stamp notes at triage", do:"Trialled for 1 week", study:"Compliance rose to 65%", act:"Adopt"}],
-                chartGoal: 90,
-                gantt: [], paretoData: [], forcefield: {driving:[], restraining:[]}, swot: {s:[],w:[],o:[],t:[]}, fiveWhys: ["","","","",""]
-            };
+            projectData = JSON.parse(JSON.stringify(demoData)); // Deep copy
             showApp();
             renderAll();
             showToast("Demo Loaded - Data not saved");
+        }
+
+        // --- TOGGLE DEMO VIEW ---
+        window.toggleDemoView = () => {
+            const checkbox = document.getElementById('demo-toggle');
+            isViewingDemo = checkbox.checked;
+            
+            const indicator = document.getElementById('demo-indicator');
+            if (isViewingDemo) {
+                indicator.classList.remove('hidden');
+                showToast("Viewing Example Project");
+            } else {
+                indicator.classList.add('hidden');
+                showToast("Returning to Your Project");
+            }
+            renderAll();
+        };
+
+        // Helper: get current active data source
+        function getData() {
+            return isViewingDemo ? demoData : projectData;
         }
 
         document.getElementById('auth-form').addEventListener('submit', async (e) => {
@@ -635,7 +684,8 @@
         });
         
         document.getElementById('logout-btn').addEventListener('click', () => { 
-            isDemo = false; 
+            isDemoUser = false; 
+            isViewingDemo = false;
             signOut(auth); 
             location.reload(); 
         });
@@ -644,7 +694,7 @@
 
         // --- DB ---
         function initRealtimeListener() {
-            if (!currentUser || isDemo) return;
+            if (!currentUser || isDemoUser) return;
             onSnapshot(doc(db, 'projects', currentUser.uid), (doc) => {
                 if (doc.exists()) {
                     projectData = { ...projectData, ...doc.data() };
@@ -653,13 +703,15 @@
                     if(!projectData.drivers) projectData.drivers = { primary: [], secondary: [], changes: [] };
                     if(!projectData.fiveWhys) projectData.fiveWhys = ["","","","",""];
                     if(!projectData.forcefield) projectData.forcefield = { driving: [], restraining: [] };
-                    document.getElementById('chart-goal').value = projectData.chartGoal || '';
                 }
-                renderAll();
+                if (!isViewingDemo) renderAll();
             });
         }
+
         async function saveData() { 
-            if(isDemo) return; 
+            // Block save if viewing demo or if demo user
+            if(isViewingDemo || isDemoUser) return; 
+
             if(currentUser) await setDoc(doc(db, 'projects', currentUser.uid), projectData, { merge: true }); 
             const s = document.getElementById('save-status');
             s.innerHTML = '<i data-lucide="save" class="w-3 h-3 text-emerald-600"></i> Saved';
@@ -696,6 +748,10 @@
         function renderAll() {
             renderDashboard(); renderChecklist(); renderChart(); renderTools(); renderGantt(); renderPDSA();
             lucide.createIcons();
+            
+            // Update Goal Input based on view
+            const data = getData();
+            if(document.getElementById('chart-goal')) document.getElementById('chart-goal').value = data.chartGoal || '';
         }
 
         // --- CHARTING ENGINE ---
@@ -704,9 +760,18 @@
             document.getElementById('input-pareto').classList.toggle('hidden', m!=='pareto');
             document.getElementById('chart-input-title').textContent = m==='run' ? 'Add Data / Intervention' : 'Add Pareto Category';
             renderChart();
+            
+            // Toggle active buttons
+            document.getElementById('btn-chart-run').className = m==='run' ? "bg-rcem-purple text-white px-3 py-1.5 rounded text-sm shadow" : "bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm";
+            document.getElementById('btn-chart-pareto').className = m==='pareto' ? "bg-rcem-purple text-white px-3 py-1.5 rounded text-sm shadow" : "bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm";
         }
         
-        window.updateGoal = () => { projectData.chartGoal = document.getElementById('chart-goal').value; saveData(); renderChart(); }
+        window.updateGoal = () => { 
+            if(isViewingDemo) return; 
+            projectData.chartGoal = document.getElementById('chart-goal').value; 
+            saveData(); 
+            renderChart(); 
+        }
         window.validateDate = (input) => {
             const d = new Date(input.value); const now = new Date();
             if(d > now) alert("Note: You entered a future date. Ensure this is intentional planning.");
@@ -717,16 +782,19 @@
             if (chartInstance) chartInstance.destroy();
             const isDark = document.documentElement.classList.contains('dark');
             const gridColor = isDark ? '#334155' : '#e2e8f0';
+            
+            const dataObj = getData();
 
             if (chartMode === 'run') {
-                const data = projectData.chartData || [];
-                data.sort((a,b) => new Date(a.date) - new Date(b.date));
-                const dataPoints = data.filter(d => d.type !== 'intervention');
+                const data = dataObj.chartData || [];
+                // Sort by date
+                const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
+                const dataPoints = sortedData.filter(d => d.type !== 'intervention');
                 
                 const values = dataPoints.map(d => parseFloat(d.value));
-                const sorted = [...values].sort((a,b)=>a-b);
-                const mid = Math.floor(sorted.length/2);
-                const median = sorted.length%2!==0 ? sorted[mid] : (sorted[mid-1]+sorted[mid])/2;
+                const sortedVals = [...values].sort((a,b)=>a-b);
+                const mid = Math.floor(sortedVals.length/2);
+                const median = sortedVals.length%2!==0 ? sortedVals[mid] : (sortedVals[mid-1]+sortedVals[mid])/2;
                 
                 const pointColors = values.map((v, i) => {
                     if (i < 5) return '#2d2e83'; 
@@ -737,39 +805,48 @@
                 });
 
                 const annotations = {};
-                data.filter(d => d.type === 'intervention').forEach((d, i) => {
+                sortedData.filter(d => d.type === 'intervention').forEach((d, i) => {
                     annotations[`line${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, borderDash: [6, 6], label: { display: true, content: d.note || 'PDSA', position: 'start', backgroundColor: '#f36f21', color: 'white' } };
                 });
-                if(projectData.chartGoal) annotations['goal'] = { type: 'box', yMin: projectData.chartGoal, yMax: Math.max(...values, parseFloat(projectData.chartGoal)) * 1.1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 0 };
+                if(dataObj.chartGoal) annotations['goal'] = { type: 'box', yMin: dataObj.chartGoal, yMax: Math.max(...values, parseFloat(dataObj.chartGoal)) * 1.1, backgroundColor: 'rgba(16, 185, 129, 0.1)', borderWidth: 0 };
 
                 chartInstance = new Chart(ctx, {
                     type: 'line',
                     data: { labels: dataPoints.map(d => d.date), datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', pointBackgroundColor: pointColors, pointRadius: 5, tension: 0.1 }, { label: 'Median', data: Array(values.length).fill(median), borderColor: '#94a3b8', borderDash: [5,5], pointRadius:0 }] },
                     options: { responsive: true, plugins: { annotation: { annotations } }, scales: { y: { beginAtZero: true, grid:{color:gridColor} }, x: { grid:{color:gridColor} } } }
                 });
-                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`<div class="flex justify-between text-sm border-b border-slate-200 dark:border-slate-700 p-2"><span><span class="font-bold ${d.type==='intervention'?'text-orange-500':'text-indigo-600'}">${d.type==='intervention'?'INT':'DAT'}</span> ${d.date}: ${d.type==='intervention' ? d.note : d.value}</span><button onclick="projectData.chartData.splice(${i},1);saveData()" class="text-red-500 hover:text-red-700">x</button></div>`).join('');
+                document.getElementById('data-history-list').innerHTML = sortedData.map((d,i)=>`<div class="flex justify-between text-sm border-b border-slate-200 dark:border-slate-700 p-2"><span><span class="font-bold ${d.type==='intervention'?'text-orange-500':'text-indigo-600'}">${d.type==='intervention'?'INT':'DAT'}</span> ${d.date}: ${d.type==='intervention' ? d.note : d.value}</span>${!isViewingDemo ? `<button onclick="deleteDataPoint(${i})" class="text-red-500 hover:text-red-700">x</button>` : ''}</div>`).join('');
             
             } else {
-                const data = projectData.paretoData || [];
-                data.sort((a,b) => b.count - a.count);
-                const total = data.reduce((a,b) => a + Number(b.count), 0);
+                const data = dataObj.paretoData || [];
+                const sortedData = [...data].sort((a,b) => b.count - a.count);
+                const total = sortedData.reduce((a,b) => a + Number(b.count), 0);
                 let acc = 0;
-                const percentages = data.map(d => { acc += Number(d.count); return Math.round((acc/total)*100); });
+                const percentages = sortedData.map(d => { acc += Number(d.count); return Math.round((acc/total)*100); });
 
                 chartInstance = new Chart(ctx, {
                     type: 'bar',
-                    data: { labels: data.map(d => d.cat), datasets: [{ type: 'line', label: 'Cumulative %', data: percentages, borderColor: '#f36f21', yAxisID: 'y1' }, { type: 'bar', label: 'Frequency', data: data.map(d => d.count), backgroundColor: '#2d2e83', yAxisID: 'y' }] },
+                    data: { labels: sortedData.map(d => d.cat), datasets: [{ type: 'line', label: 'Cumulative %', data: percentages, borderColor: '#f36f21', yAxisID: 'y1' }, { type: 'bar', label: 'Frequency', data: sortedData.map(d => d.count), backgroundColor: '#2d2e83', yAxisID: 'y' }] },
                     options: { responsive: true, scales: { y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', max: 100 } } }
                 });
-                document.getElementById('data-history-list').innerHTML = data.map((d,i)=>`<div class="flex justify-between text-sm border-b p-2"><span>${d.cat}: <b>${d.count}</b></span><button onclick="projectData.paretoData.splice(${i},1);saveData()" class="text-red-500">x</button></div>`).join('');
+                document.getElementById('data-history-list').innerHTML = sortedData.map((d,i)=>`<div class="flex justify-between text-sm border-b p-2"><span>${d.cat}: <b>${d.count}</b></span>${!isViewingDemo ? `<button onclick="deleteParetoPoint(${i})" class="text-red-500">x</button>` : ''}</div>`).join('');
             }
         }
+        
+        window.deleteDataPoint = (i) => { projectData.chartData.splice(i,1); saveData(); renderChart(); }
+        window.deleteParetoPoint = (i) => { projectData.paretoData.splice(i,1); saveData(); renderChart(); }
+
         window.addDataPoint = () => { 
+            if(isViewingDemo) return;
             const date = document.getElementById('chart-date').value; const type = document.getElementById('chart-type').value; const value = document.getElementById('chart-value').value; const note = document.getElementById('chart-note').value;
             if(date && (value || type === 'intervention')) { projectData.chartData.push({ date, value, type, note }); saveData(); }
         }
-        window.addParetoData = () => { projectData.paretoData.push({ cat: document.getElementById('pareto-cat').value, count: document.getElementById('pareto-count').value }); saveData(); }
+        window.addParetoData = () => { 
+            if(isViewingDemo) return;
+            projectData.paretoData.push({ cat: document.getElementById('pareto-cat').value, count: document.getElementById('pareto-count').value }); saveData(); 
+        }
         window.handleBulkImport = () => {
+            if(isViewingDemo) return;
             const raw = document.getElementById('bulk-text').value;
             const lines = raw.split('\n');
             let added = 0;
@@ -786,18 +863,40 @@
         }
 
         // --- MERMAID ---
-        window.setToolMode = (m) => { toolMode = m; renderTools(); }
+        window.setToolMode = (m) => { 
+            toolMode = m; 
+            
+            // Highlight Active Button
+            document.querySelectorAll('.tool-tab').forEach(btn => {
+                btn.className = 'tool-tab px-3 py-1.5 rounded-md transition-all bg-transparent text-slate-600 hover:bg-slate-200 dark:text-slate-300 dark:hover:bg-slate-700';
+            });
+            const active = document.getElementById(`btn-${m}`);
+            if(active) active.className = 'tool-tab px-3 py-1.5 rounded-md transition-all bg-rcem-purple text-white shadow-md transform scale-105';
+
+            renderTools(); 
+        }
+
         async function renderTools() {
             const container = document.getElementById('tool-canvas'); const controls = document.getElementById('tool-controls'); let mermaidCode = '';
+            const dataObj = getData();
+
             if (toolMode === 'fishbone') {
-                const cats = projectData.fishbone.categories;
+                const cats = dataObj.fishbone.categories;
                 mermaidCode = `mindmap\n  root((PROBLEM))\n`; cats.forEach(c => { mermaidCode += `    ${c.text}\n`; c.causes.forEach(cause => mermaidCode += `      ${cause}\n`); });
-                controls.innerHTML = cats.map(c => `<button onclick="addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
+                
+                if(!isViewingDemo) {
+                    controls.innerHTML = cats.map(c => `<button onclick="addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
+                } else controls.innerHTML = '<span class="text-sm text-slate-500 italic">View Only (Demo)</span>';
+
             } else if (toolMode === 'driver') {
-                const d = projectData.drivers;
+                const d = dataObj.drivers;
                 mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
                 d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}[${p}]\n`); d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}[${s}]\n`); d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}[${c}]\n`);
-                controls.innerHTML = `<button onclick="addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
+                
+                if(!isViewingDemo) {
+                    controls.innerHTML = `<button onclick="addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
+                } else controls.innerHTML = '<span class="text-sm text-slate-500 italic">View Only (Demo)</span>';
+
             } else { container.innerHTML = `<div class="text-slate-400">Select Fishbone or Driver for Vector Diagrams.</div>`; controls.innerHTML = ''; return; }
             container.innerHTML = `<div class="mermaid">${mermaidCode}</div>`; try { await mermaid.run(); } catch(e) { console.log(e); }
         }
@@ -813,13 +912,14 @@
 
         // --- DASHBOARD & CHECKLIST ---
         function renderDashboard() {
-            const filled = Object.values(projectData.checklist || {}).filter(v => v).length;
+            const dataObj = getData();
+            const filled = Object.values(dataObj.checklist || {}).filter(v => v).length;
             const progress = Math.min(100, Math.round((filled / 10) * 100));
-            document.getElementById('stats-grid').innerHTML = `<div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Checklist</span><i data-lucide="check-square" class="text-emerald-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${progress}%</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Cycles</span><i data-lucide="refresh-cw" class="text-blue-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.pdsa.length}</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Data</span><i data-lucide="bar-chart-2" class="text-amber-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${projectData.chartData.length}</div></div>`;
-            document.getElementById('dashboard-aim').textContent = projectData.checklist?.aim || "No aim defined.";
+            document.getElementById('stats-grid').innerHTML = `<div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Checklist</span><i data-lucide="check-square" class="text-emerald-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${progress}%</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Cycles</span><i data-lucide="refresh-cw" class="text-blue-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${dataObj.pdsa.length}</div></div><div class="glass p-6 rounded-xl"><div class="flex justify-between"><span class="text-slate-500">Data</span><i data-lucide="bar-chart-2" class="text-amber-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${dataObj.chartData.length}</div></div>`;
+            document.getElementById('dashboard-aim').textContent = dataObj.checklist?.aim || "No aim defined.";
             
-            // Empty State Logic
-            if(projectData.chartData.length === 0 && projectData.pdsa.length === 0 && !projectData.checklist.title) {
+            // Empty State Logic (Only show if not demo)
+            if(!isViewingDemo && dataObj.chartData.length === 0 && dataObj.pdsa.length === 0 && !dataObj.checklist.title) {
                 document.getElementById('get-started-card').classList.remove('hidden');
             } else {
                 document.getElementById('get-started-card').classList.add('hidden');
@@ -827,13 +927,15 @@
         }
         window.openSmartWizard = () => document.getElementById('smart-modal').classList.remove('hidden');
         window.saveSmartAim = () => {
+            if(isViewingDemo) return;
             const s = document.getElementById('smart-s').value; const m = document.getElementById('smart-m').value; const p = document.getElementById('smart-p').value; const t = document.getElementById('smart-t').value;
             projectData.checklist.aim = `To ${s || 'improve x'} for ${p || 'patients'} by ${m || 'a measurable amount'} by ${t || 'date'}.`; saveData(); document.getElementById('smart-modal').classList.add('hidden');
         }
         
         window.emailSupervisor = () => {
-            const subject = encodeURIComponent(`QIP Review: ${projectData.checklist.title || 'Untitled'}`);
-            const body = encodeURIComponent(`Dear Supervisor,\n\nPlease review my QIP.\n\nAIM: ${projectData.checklist.aim || 'Not set'}\n\nSUMMARY: ${projectData.checklist.results_summary || 'Not set'}`);
+            const dataObj = getData();
+            const subject = encodeURIComponent(`QIP Review: ${dataObj.checklist.title || 'Untitled'}`);
+            const body = encodeURIComponent(`Dear Supervisor,\n\nPlease review my QIP.\n\nAIM: ${dataObj.checklist.aim || 'Not set'}\n\nSUMMARY: ${dataObj.checklist.results_summary || 'Not set'}`);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
@@ -842,20 +944,23 @@
         }
 
         window.updatePoster = () => {
-            document.getElementById('poster-title').textContent = projectData.checklist.title || 'Untitled QIP'; document.getElementById('poster-team').textContent = projectData.checklist.team || 'Team'; document.getElementById('poster-problem').textContent = projectData.checklist.problem_desc || 'No problem defined.'; document.getElementById('poster-aim').textContent = projectData.checklist.aim || 'No aim defined.'; document.getElementById('poster-results').textContent = projectData.checklist.results_summary || 'No results yet.'; document.getElementById('poster-learning').textContent = projectData.checklist.learning || 'No conclusion yet.'; document.getElementById('poster-pdsa').innerHTML = projectData.pdsa.slice(0,3).map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join('');
+            const dataObj = getData();
+            document.getElementById('poster-title').textContent = dataObj.checklist.title || 'Untitled QIP'; document.getElementById('poster-team').textContent = dataObj.checklist.team || 'Team'; document.getElementById('poster-problem').textContent = dataObj.checklist.problem_desc || 'No problem defined.'; document.getElementById('poster-aim').textContent = dataObj.checklist.aim || 'No aim defined.'; document.getElementById('poster-results').textContent = dataObj.checklist.results_summary || 'No results yet.'; document.getElementById('poster-learning').textContent = dataObj.checklist.learning || 'No conclusion yet.'; document.getElementById('poster-pdsa').innerHTML = dataObj.pdsa.slice(0,3).map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join('');
             const chartCanvas = document.getElementById('mainChart'); if(chartCanvas) document.getElementById('poster-chart').src = chartCanvas.toDataURL();
-            const d = projectData.drivers; document.getElementById('poster-driver').innerHTML = `<ul class="list-disc pl-5 text-sm"><li>Primary: ${d.primary.join(', ')}</li><li>Secondary: ${d.secondary.join(', ')}</li><li>Changes: ${d.changes.join(', ')}</li></ul>`;
+            const d = dataObj.drivers; document.getElementById('poster-driver').innerHTML = `<ul class="list-disc pl-5 text-sm"><li>Primary: ${d.primary.join(', ')}</li><li>Secondary: ${d.secondary.join(', ')}</li><li>Changes: ${d.changes.join(', ')}</li></ul>`;
         }
 
         window.generateReport = () => {
+            const dataObj = getData();
             const el = document.getElementById('report-template'); el.classList.remove('hidden');
-            document.getElementById('rep-title').textContent = projectData.checklist.title || 'Untitled'; document.getElementById('rep-lead').textContent = projectData.checklist.lead || ''; document.getElementById('rep-team').textContent = projectData.checklist.team || ''; document.getElementById('rep-problem').textContent = projectData.checklist.problem_desc || ''; document.getElementById('rep-aim').textContent = projectData.checklist.aim || ''; document.getElementById('rep-driver-list').textContent = `Primary: ${projectData.drivers.primary.join(', ')}. Interventions: ${projectData.drivers.changes.join(', ')}.`; document.getElementById('rep-pdsa-list').innerHTML = projectData.pdsa.map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join(''); document.getElementById('rep-results').textContent = projectData.checklist.results_summary || ''; document.getElementById('rep-learning').textContent = projectData.checklist.learning || '';
+            document.getElementById('rep-title').textContent = dataObj.checklist.title || 'Untitled'; document.getElementById('rep-lead').textContent = dataObj.checklist.lead || ''; document.getElementById('rep-team').textContent = dataObj.checklist.team || ''; document.getElementById('rep-problem').textContent = dataObj.checklist.problem_desc || ''; document.getElementById('rep-aim').textContent = dataObj.checklist.aim || ''; document.getElementById('rep-driver-list').textContent = `Primary: ${dataObj.drivers.primary.join(', ')}. Interventions: ${dataObj.drivers.changes.join(', ')}.`; document.getElementById('rep-pdsa-list').innerHTML = dataObj.pdsa.map(c => `<div><strong>${c.title}:</strong> ${c.act}</div>`).join(''); document.getElementById('rep-results').textContent = dataObj.checklist.results_summary || ''; document.getElementById('rep-learning').textContent = dataObj.checklist.learning || '';
             const canvas = document.getElementById('mainChart'); if(canvas) document.getElementById('rep-chart-img').src = canvas.toDataURL();
             html2pdf().from(el).set({ margin: 0.5, filename: 'RCEM_QIP_Report.pdf' }).save().then(() => el.classList.add('hidden'));
         }
 
         // --- RENDERERS ---
         function renderChecklist() {
+            const dataObj = getData();
             const checklistConfig = [
              { title: "1. Problem & Evidence", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"], placeholders: ["Sepsis 6 Compliance", "Dr. Name", "Nurses, Consultants", "Only 40% of patients get Abx in 1h", "Local audit 2024 data"] },
              { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"], placeholders: ["To improve X by Y date", "Time to Antibiotics (mins)", "Screening Tool Usage %", "Delays in other areas"] },
@@ -865,33 +970,56 @@
             document.getElementById('checklist-container').innerHTML = checklistConfig.map((sec, i) => `
                 <details class="glass rounded-xl shadow-sm overflow-hidden group" ${i===0?'open':''}>
                     <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer bg-slate-50/50 dark:bg-slate-800"><i data-lucide="${sec.icon}" class="text-rcem-purple dark:text-indigo-400 w-5 h-5"></i><h3 class="font-semibold text-slate-800 dark:text-white flex-1">${sec.title}</h3></summary>
-                    <div class="p-6 space-y-4">${sec.fields.map((f, idx) => `<div><label class="flex justify-between text-sm font-medium dark:text-slate-300 capitalize mb-1"><span>${f.replace(/_/g,' ')}</span><button onclick="copyText(this.parentElement.nextElementSibling.value)" class="text-xs text-indigo-500 hover:text-indigo-700"><i data-lucide="copy" class="w-3 h-3 inline"></i> Copy</button></label><textarea onchange="projectData.checklist['${f}']=this.value;saveData()" class="w-full rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900 p-2 text-sm" placeholder="e.g. ${sec.placeholders?.[idx] || 'Enter details...'}">${projectData.checklist[f]||''}</textarea></div>`).join('')}</div>
+                    <div class="p-6 space-y-4">${sec.fields.map((f, idx) => `<div><label class="flex justify-between text-sm font-medium dark:text-slate-300 capitalize mb-1"><span>${f.replace(/_/g,' ')}</span><button onclick="copyText(this.parentElement.nextElementSibling.value)" class="text-xs text-indigo-500 hover:text-indigo-700"><i data-lucide="copy" class="w-3 h-3 inline"></i> Copy</button></label><textarea ${isViewingDemo ? 'disabled' : ''} onchange="projectData.checklist['${f}']=this.value;saveData()" class="w-full rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900 p-2 text-sm disabled:opacity-50" placeholder="e.g. ${sec.placeholders?.[idx] || 'Enter details...'}">${dataObj.checklist[f]||''}</textarea></div>`).join('')}</div>
                 </details>`).join('');
         }
         
         function renderGantt() {
-            const container = document.getElementById('gantt-chart-area'); const tasks = projectData.gantt || [];
+            const dataObj = getData();
+            const container = document.getElementById('gantt-chart-area'); const tasks = dataObj.gantt || [];
             if(tasks.length === 0) { container.innerHTML = `<div class="text-center text-slate-400 mt-10">No tasks added yet.</div>`; return; }
             const dates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]); const min = new Date(Math.min(...dates)); const max = new Date(Math.max(...dates)); const totalTime = Math.max(1, max - min) + (1000*60*60*24*10); 
             document.getElementById('gantt-range').textContent = `Timeline (${min.toLocaleDateString()} - ${max.toLocaleDateString()})`;
-            container.innerHTML = tasks.map(t => { const start = new Date(t.start); const end = new Date(t.end); const left = ((start - min) / totalTime) * 100; const width = Math.max(2, ((end - start) / totalTime) * 100); return `<div class="relative mb-4 flex items-center z-10"><div class="w-1/4 pr-4 flex items-center justify-between"><span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">${escapeHtml(t.name)}</span><button onclick="removeGanttTask('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div><div class="flex-1 relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="absolute top-0 h-full rounded-full shadow-sm flex items-center px-2 text-xs text-white bg-rcem-purple" style="left: ${left}%; width: ${width}%">${t.status}</div></div></div>`; }).join('');
+            container.innerHTML = tasks.map(t => { const start = new Date(t.start); const end = new Date(t.end); const left = ((start - min) / totalTime) * 100; const width = Math.max(2, ((end - start) / totalTime) * 100); return `<div class="relative mb-4 flex items-center z-10"><div class="w-1/4 pr-4 flex items-center justify-between"><span class="text-sm font-medium text-slate-700 dark:text-slate-300 truncate">${escapeHtml(t.name)}</span>${!isViewingDemo ? `<button onclick="removeGanttTask('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}</div><div class="flex-1 relative h-8 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden"><div class="absolute top-0 h-full rounded-full shadow-sm flex items-center px-2 text-xs text-white bg-rcem-purple" style="left: ${left}%; width: ${width}%">${t.status}</div></div></div>`; }).join('');
         }
-        window.addGanttTask = () => { projectData.gantt.push({ id:Date.now(), name:document.getElementById('gantt-name').value, start:document.getElementById('gantt-start').value, end:document.getElementById('gantt-end').value, status:document.getElementById('gantt-status').value }); saveData(); }
+        window.addGanttTask = () => { if(isViewingDemo) return; projectData.gantt.push({ id:Date.now(), name:document.getElementById('gantt-name').value, start:document.getElementById('gantt-start').value, end:document.getElementById('gantt-end').value, status:document.getElementById('gantt-status').value }); saveData(); }
         window.removeGanttTask = (id) => { projectData.gantt = projectData.gantt.filter(t => t.id !== id); saveData(); };
 
         function renderPDSA() {
-            document.getElementById('pdsa-list').innerHTML = projectData.pdsa.map(c => `
+            const dataObj = getData();
+            const container = document.getElementById('pdsa-list');
+
+            // GHOST PDSA Logic
+            if(dataObj.pdsa.length === 0) {
+                container.innerHTML = `
+                    <div class="opacity-60 border-2 border-dashed border-slate-300 p-6 rounded-xl bg-slate-50 pointer-events-none select-none">
+                        <div class="font-bold text-slate-500 mb-4 flex items-center gap-2"><i data-lucide="ghost" class="w-4 h-4"></i> Example Cycle (How it should look)</div>
+                        <div class="grid grid-cols-2 gap-4 text-sm filter blur-[0.5px]">
+                            <div><strong class="text-xs uppercase text-slate-400">Plan</strong><div class="p-2 border rounded bg-white">Trial sepsis stamp on 5 patients.</div></div>
+                            <div><strong class="text-xs uppercase text-slate-400">Do</strong><div class="p-2 border rounded bg-white">Stamp was lost on day 2.</div></div>
+                            <div><strong class="text-xs uppercase text-slate-400">Study</strong><div class="p-2 border rounded bg-white">Only 2 notes stamped.</div></div>
+                            <div><strong class="text-xs uppercase text-slate-400">Act</strong><div class="p-2 border rounded bg-white">Tie stamp to desk. Re-test.</div></div>
+                        </div>
+                        <div class="mt-4 text-center text-rcem-purple font-bold flex items-center justify-center gap-2 animate-pulse">
+                            <i data-lucide="arrow-up"></i> Click "New Cycle" to start yours
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            container.innerHTML = dataObj.pdsa.map(c => `
                 <div class="glass rounded-xl shadow-sm overflow-hidden mb-4">
                     <div class="px-6 py-4 bg-slate-50/50 dark:bg-slate-700 border-b dark:border-slate-600 flex justify-between">
                         <h4 class="font-bold dark:text-white text-rcem-purple">${c.title} (${c.date})</h4>
-                        <div class="flex gap-2"><button onclick="copyText('${c.plan} ${c.do} ${c.study} ${c.act}')" class="text-indigo-500 text-xs">Copy All</button><button onclick="deletePDSA('${c.id}')" class="text-red-500 hover:text-red-700 text-xs">Delete</button></div>
+                        <div class="flex gap-2"><button onclick="copyText('${c.plan} ${c.do} ${c.study} ${c.act}')" class="text-indigo-500 text-xs">Copy All</button>${!isViewingDemo ? `<button onclick="deletePDSA('${c.id}')" class="text-red-500 hover:text-red-700 text-xs">Delete</button>` : ''}</div>
                     </div>
                     <div class="p-4 grid grid-cols-2 gap-4">
-                        ${['Plan','Do','Study','Act'].map(s=>`<div><label class="text-xs font-bold dark:text-slate-300 uppercase">${s}</label><textarea onchange="updatePDSA('${c.id}','${s.toLowerCase()}',this.value)" class="w-full text-sm p-2 border rounded dark:bg-slate-900 dark:border-slate-600 h-20" placeholder="Enter details...">${c[s.toLowerCase()]||''}</textarea></div>`).join('')}
+                        ${['Plan','Do','Study','Act'].map(s=>`<div><label class="text-xs font-bold dark:text-slate-300 uppercase">${s}</label><textarea ${isViewingDemo?'disabled':''} onchange="updatePDSA('${c.id}','${s.toLowerCase()}',this.value)" class="w-full text-sm p-2 border rounded dark:bg-slate-900 dark:border-slate-600 h-20 disabled:opacity-50" placeholder="Enter details...">${c[s.toLowerCase()]||''}</textarea></div>`).join('')}
                     </div>
                 </div>`).join('');
         }
         window.addPDSACycle = () => { 
+            if(isViewingDemo) return;
             const d = new Date().toLocaleDateString();
             projectData.pdsa.unshift({ id: Date.now().toString(), title: `Cycle ${projectData.pdsa.length+1}`, date: d }); 
             saveData(); 
@@ -902,9 +1030,9 @@
         // Green ED
         window.calcCarbon = () => { document.getElementById('green-result').textContent = `Total: ${(document.getElementById('green-item').value * document.getElementById('green-qty').value).toFixed(2)} kg CO2e`; document.getElementById('green-result').classList.remove('hidden'); }
         
-        window.resetProject = async () => { if(confirm("Delete all data?")) { projectData={checklist:{},fishbone:{categories:[]},drivers:{primary:[],secondary:[],changes:[]},forcefield:{driving:[],restraining:[]},swot:{s:[],w:[],o:[],t:[]},fiveWhys:["","","","",""],gantt:[],pdsa:[],chartData:[],paretoData:[],chartGoal:null}; await saveData(); location.reload(); } }
+        window.resetProject = async () => { if(isViewingDemo) return; if(confirm("Delete all data?")) { projectData={checklist:{},fishbone:{categories:[]},drivers:{primary:[],secondary:[],changes:[]},forcefield:{driving:[],restraining:[]},swot:{s:[],w:[],o:[],t:[]},fiveWhys:["","","","",""],gantt:[],pdsa:[],chartData:[],paretoData:[],chartGoal:null}; await saveData(); location.reload(); } }
         window.downloadJSON = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(projectData)); a.download = "qip_backup.json"; a.click(); }
-        window.restoreJSON = (i) => { const r = new FileReader(); r.onload = (e) => { projectData = JSON.parse(e.target.result); saveData(); location.reload(); }; r.readAsText(i.files[0]); }
+        window.restoreJSON = (i) => { if(isViewingDemo) return; const r = new FileReader(); r.onload = (e) => { projectData = JSON.parse(e.target.result); saveData(); location.reload(); }; r.readAsText(i.files[0]); }
 
         lucide.createIcons();
         router('dashboard');
