@@ -6,6 +6,10 @@
     <title>RCEM QIP Assistant (WMEBEM)</title>
     
     <link rel="stylesheet" href="styles.css">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -38,6 +42,8 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
@@ -144,6 +150,9 @@
                                     <label for="demo-toggle" class="toggle-label block overflow-hidden h-6 rounded-full bg-slate-300 cursor-pointer"></label>
                                 </div>
                              </div>
+                             
+                             <button onclick="window.exportPPTX()" class="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="monitor-play" class="w-4 h-4"></i> PPTX</button>
+
                              <button onclick="window.openPortfolioExport()" class="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="copy" class="w-4 h-4"></i> ePortfolio Export</button>
                              <button onclick="window.router('poster')" class="bg-rcem-purple hover:bg-indigo-900 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-md transition-all"><i data-lucide="layout" class="w-4 h-4"></i> Poster Mode</button>
                              <button onclick="window.downloadJSON()" class="bg-slate-600 hover:bg-slate-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm"><i data-lucide="download-cloud" class="w-4 h-4"></i> Backup</button>
@@ -198,7 +207,10 @@
                             </div>
                             <div class="mt-8 max-h-60 overflow-y-auto" id="data-history-list"></div>
                         </div>
-                        <div class="lg:col-span-2 glass rounded-xl p-6 shadow-sm"><canvas id="mainChart"></canvas></div>
+                        <div class="lg:col-span-2 glass rounded-xl p-6 shadow-sm">
+                            <canvas id="mainChart"></canvas>
+                            <div id="chart-legend" class="mt-4 text-xs text-slate-500 text-center font-medium bg-slate-50 dark:bg-slate-800 p-2 rounded border border-slate-200 dark:border-slate-700"></div>
+                        </div>
                     </div>
                 </div>
 
@@ -261,7 +273,7 @@
                     <div class="bg-gray-800 text-white p-4 flex justify-between items-center no-print sticky top-0 z-50">
                         <span>Poster Preview (A0 Landscape)</span>
                         <div>
-                            <button onclick="window.print()" class="bg-white text-gray-900 px-4 py-2 rounded mr-2">Print / Save PDF</button>
+                            <button onclick="window.print()" class="bg-white text-gray-900 px-4 py-2 rounded mr-2 hover:bg-gray-100 transition-colors">Print / Save PDF</button>
                             <button onclick="window.router('dashboard')" class="text-gray-300 hover:text-white">Close</button>
                         </div>
                     </div>
