@@ -218,6 +218,58 @@ function renderAll() {
     if(document.getElementById('chart-goal')) document.getElementById('chart-goal').value = data.chartGoal || '';
 }
 
+// --- QI COACH ---
+function renderCoach() {
+    const dataObj = getData();
+    const coachEl = document.getElementById('qi-coach');
+    const titleEl = document.getElementById('coach-title');
+    const msgEl = document.getElementById('coach-msg');
+    const btnEl = document.getElementById('coach-action');
+
+    if (!coachEl) return; 
+
+    // Hide if viewing demo (as it's already "perfect")
+    if (isViewingDemo) {
+        coachEl.classList.add('hidden');
+        return;
+    }
+
+    let step = {};
+
+    // LOGIC CHAIN
+    if (!dataObj.checklist.title || !dataObj.checklist.problem_desc) {
+        step = { title: "Define the Problem", msg: "A good QIP starts with a clear problem. Use the Checklist to define what is wrong.", action: "checklist", btn: "Go to Checklist" };
+    } else if (!dataObj.checklist.aim) {
+        step = { title: "Set a SMART Aim", msg: "You have a problem, but no target. Use the SMART Wizard to set a specific goal.", action: "dashboard-aim", btn: "Open Wizard" };
+    } else if (dataObj.drivers.changes.length === 0) {
+        step = { title: "Plan your Strategy", msg: "How will you hit your aim? Create a Driver Diagram to map out your change ideas.", action: "tools", btn: "Go to Tools" };
+    } else if (dataObj.chartData.length < 5) {
+        step = { title: "Collect Baseline Data", msg: "Before making changes, you need 5-10 baseline data points to understand the current process.", action: "data", btn: "Add Data" };
+    } else if (dataObj.pdsa.length === 0) {
+        step = { title: "Start PDSA Cycle 1", msg: "You have baseline data. Now pick one change idea from your strategy and test it.", action: "pdsa", btn: "Start PDSA" };
+    } else if (dataObj.checklist.results_summary === undefined || dataObj.checklist.results_summary === "") {
+        step = { title: "Summarize Results", msg: "You have data and cycles. Now summarize your findings in the Checklist for your report.", action: "checklist", btn: "Update Checklist" };
+    } else {
+        // Project largely complete
+        coachEl.classList.add('hidden');
+        return;
+    }
+
+    // Render
+    titleEl.textContent = step.title;
+    msgEl.textContent = step.msg;
+    btnEl.innerHTML = `${step.btn} <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+    
+    // Action Handlers
+    btnEl.onclick = () => {
+        if(step.action === 'dashboard-aim') { window.openSmartWizard(); }
+        else { window.router(step.action); }
+    };
+
+    coachEl.classList.remove('hidden');
+}
+
+
 // --- CHARTING ENGINE ---
 window.setChartMode = (m) => { chartMode = m; 
     document.getElementById('input-run').classList.toggle('hidden', m!=='run');
@@ -388,6 +440,8 @@ function renderDashboard() {
     } else {
         document.getElementById('get-started-card').classList.add('hidden');
     }
+
+    renderCoach(); // NEW: Trigger Coach logic
 }
 window.openSmartWizard = () => document.getElementById('smart-modal').classList.remove('hidden');
 window.saveSmartAim = () => {
@@ -401,6 +455,40 @@ window.emailSupervisor = () => {
     const subject = encodeURIComponent(`QIP Review: ${dataObj.checklist.title || 'Untitled'}`);
     const body = encodeURIComponent(`Dear Supervisor,\n\nPlease review my QIP.\n\nAIM: ${dataObj.checklist.aim || 'Not set'}\n\nSUMMARY: ${dataObj.checklist.results_summary || 'Not set'}`);
     window.location.href = `mailto:?subject=${subject}&body=${body}`;
+}
+
+// NEW: PORTFOLIO EXPORT
+window.openPortfolioExport = () => {
+    const dataObj = getData();
+    const modal = document.getElementById('portfolio-modal');
+    const content = document.getElementById('portfolio-content');
+    
+    modal.classList.remove('hidden');
+
+    const sections = [
+        { title: "Project Title", val: dataObj.checklist.title },
+        { title: "Problem Statement", val: dataObj.checklist.problem_desc },
+        { title: "SMART Aim", val: dataObj.checklist.aim },
+        { title: "Intervention (Driver Diagram Summary)", val: `Primary Drivers: ${dataObj.drivers.primary.join(', ')}. \nChange Ideas: ${dataObj.drivers.changes.join(', ')}.` },
+        { title: "Results Summary", val: dataObj.checklist.results_summary },
+        { title: "PDSA Cycles", val: dataObj.pdsa.map(p => `${p.title}: ${p.plan} -> ${p.act}`).join('\n\n') },
+        { title: "Learning & Reflection", val: dataObj.checklist.learning },
+        { title: "Sustainability Plan", val: dataObj.checklist.sustainability_plan }
+    ];
+
+    content.innerHTML = sections.map(s => `
+        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
+            <div class="flex justify-between items-center mb-2">
+                <h4 class="font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wide">${s.title}</h4>
+                <button onclick="window.copyText(this.dataset.val)" data-val="${escapeHtml(s.val || 'Not completed')}" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded">
+                    <i data-lucide="copy" class="w-3 h-3"></i> Copy
+                </button>
+            </div>
+            <div class="text-sm text-slate-600 dark:text-slate-400 font-mono bg-slate-50 dark:bg-slate-900 p-3 rounded border border-slate-100 dark:border-slate-800 whitespace-pre-wrap">${s.val || '<span class="italic text-slate-400">Not completed yet</span>'}</div>
+        </div>
+    `).join('');
+    
+    lucide.createIcons();
 }
 
 window.copyText = (text) => {
@@ -425,12 +513,16 @@ window.generateReport = () => {
 // --- RENDERERS ---
 function renderChecklist() {
     const dataObj = getData();
+    // UPDATED CHECKLIST with SUSTAINABILITY
     const checklistConfig = [
-     { title: "1. Problem & Evidence", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"], placeholders: ["Sepsis 6 Compliance", "Dr. Name", "Nurses, Consultants", "Only 40% of patients get Abx in 1h", "Local audit 2024 data"] },
-     { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"], placeholders: ["To improve X by Y date", "Time to Antibiotics (mins)", "Screening Tool Usage %", "Delays in other areas"] },
-     { title: "3. Strategy", icon: "git-branch", fields: ["strategy_summary"], desc:"Summarize driver diagram here", placeholders: ["Focus on education and grab bags"] },
-     { title: "4. Results & Reflection", icon: "file-text", fields: ["results_summary", "learning", "sustainability"], placeholders: ["Compliance rose to 85%", "Staff engagement was key", "Added to induction pack"] }
+        { title: "1. Problem & Diagnosis", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"], placeholders: ["Sepsis 6 Compliance", "Dr. Name", "Nurses, Consultants", "Only 40% of patients get Abx in 1h", "Local audit 2024 data"] },
+        { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"], placeholders: ["To improve X by Y date", "Time to Antibiotics (mins)", "Screening Tool Usage %", "Delays in other areas"] },
+        { title: "3. Strategy & Change", icon: "git-branch", fields: ["strategy_summary"], desc:"Summarize driver diagram here", placeholders: ["Focus on education and grab bags"] },
+        { title: "4. Results", icon: "bar-chart-2", fields: ["results_summary", "learning"], placeholders: ["Compliance rose to 85%", "Staff engagement was key"] },
+        // NEW SECTION
+        { title: "5. Sustainability & Spread", icon: "repeat", fields: ["sustainability_plan", "spread_plan"], placeholders: ["Added to induction handbook, Monthly Audit scheduled", "Presented at Regional Governance meeting"] }
     ];
+
     document.getElementById('checklist-container').innerHTML = checklistConfig.map((sec, i) => `
         <details class="glass rounded-xl shadow-sm overflow-hidden group" ${i===0?'open':''}>
             <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer bg-slate-50/50 dark:bg-slate-800"><i data-lucide="${sec.icon}" class="text-rcem-purple dark:text-indigo-400 w-5 h-5"></i><h3 class="font-semibold text-slate-800 dark:text-white flex-1">${sec.title}</h3></summary>
