@@ -116,7 +116,7 @@ let chartMode = 'run';
 let toolMode = 'fishbone'; 
 let authMode = 'signin';
 let chartInstance = null;
-let toolZoom = 1.0; // Zoom level for vector tools
+let toolZoom = 1.0; 
 
 const escapeHtml = (unsafe) => { if(!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
 const showToast = (message) => {
@@ -355,7 +355,7 @@ function renderChart() {
             if (subset.length < 6) return '#2d2e83';
             const allAbove = subset.every(x => x > median);
             const allBelow = subset.every(x => x < median);
-            return (allAbove || allBelow) ? '#ef4444' : '#2d2e83'; // Shift detected
+            return (allAbove || allBelow) ? '#ef4444' : '#2d2e83'; 
         });
 
         const annotations = {};
@@ -434,6 +434,10 @@ async function renderTools() {
     
     let contentHtml = '';
     let controlHtml = '';
+    
+    // Helper to sanitize text for Mermaid
+    const clean = (str) => str ? str.replace(/"/g, "'") : "..."; 
+
     const zoomControls = `
         <div class="flex items-center gap-2 bg-slate-100 dark:bg-slate-700 rounded-lg p-1 ml-auto">
             <button onclick="window.changeZoom(-0.1)" class="p-1 hover:bg-white rounded dark:hover:bg-slate-600"><i data-lucide="minus" class="w-4 h-4"></i></button>
@@ -444,32 +448,33 @@ async function renderTools() {
 
     if (toolMode === 'fishbone') {
         const cats = dataObj.fishbone.categories;
-        const mermaidCode = `mindmap\n  root((PROBLEM))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(cause => `      ${cause}`).join('\n')).join('\n');
+        const mermaidCode = `mindmap\n  root((PROBLEM))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(cause => `      ${clean(cause)}`).join('\n')).join('\n');
         contentHtml = `<div class="mermaid tool-content-inner origin-top-left transition-transform">${mermaidCode}</div>`;
         if(!isViewingDemo) controlHtml = cats.map(c => `<button onclick="window.addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
     
     } else if (toolMode === 'driver') {
         const d = dataObj.drivers;
         let mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
-        d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}[${p}]\n`); d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}[${s}]\n`); d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}[${c}]\n`);
+        d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}["${clean(p)}"]\n`); 
+        d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}["${clean(s)}"]\n`); 
+        d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}["${clean(c)}"]\n`);
         contentHtml = `<div class="mermaid tool-content-inner origin-top-left transition-transform">${mermaidCode}</div>`;
         if(!isViewingDemo) controlHtml = `<button onclick="window.addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="window.addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="window.addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="window.clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
 
     } else if (toolMode === 'whys') {
         const whys = dataObj.fiveWhys || ["","","","",""];
-        // Using Mermaid for 5 Whys Flow
-        let mermaidCode = `graph TD\n  Problem(Problem) --> W1[Why?]\n  W1 -->|Because...| A[${whys[0] || "..."}]\n`;
-        if(whys[1]) mermaidCode += `  A --> W2[Why?]\n  W2 -->|Because...| B[${whys[1]}]\n`;
-        if(whys[2]) mermaidCode += `  B --> W3[Why?]\n  W3 -->|Because...| C[${whys[2]}]\n`;
-        if(whys[3]) mermaidCode += `  C --> W4[Why?]\n  W4 -->|Because...| D[${whys[3]}]\n`;
-        if(whys[4]) mermaidCode += `  D --> W5[Why?]\n  W5 -->|Root Cause| E(((${whys[4]})))\n`;
+        // FIXED: Added quotes around variables to handle parentheses safely
+        let mermaidCode = `graph TD\n  Problem(Problem) --> W1[Why?]\n  W1 -->|Because...| A["${clean(whys[0])}"]\n`;
+        if(whys[1]) mermaidCode += `  A --> W2[Why?]\n  W2 -->|Because...| B["${clean(whys[1])}"]\n`;
+        if(whys[2]) mermaidCode += `  B --> W3[Why?]\n  W3 -->|Because...| C["${clean(whys[2])}"]\n`;
+        if(whys[3]) mermaidCode += `  C --> W4[Why?]\n  W4 -->|Because...| D["${clean(whys[3])}"]\n`;
+        if(whys[4]) mermaidCode += `  D --> W5[Why?]\n  W5 -->|Root Cause| E((("${clean(whys[4])}")))\n`;
         
         contentHtml = `<div class="mermaid tool-content-inner origin-top-left transition-transform">${mermaidCode}</div>`;
         if(!isViewingDemo) controlHtml = `<div class="flex flex-col gap-2 w-full max-w-md">${whys.map((w,i) => `<input placeholder="Why ${i+1}?" value="${w}" onchange="window.updateWhy(${i}, this.value)" class="border rounded px-2 py-1 text-sm">`).join('')}</div>`;
 
     } else if (toolMode === 'force') {
         const f = dataObj.forcefield || { driving:[], restraining:[] };
-        // HTML Based Rendering for Force Field as it's cleaner than Mermaid for this layout
         contentHtml = `
             <div class="tool-content-inner origin-top-center transition-transform w-full max-w-4xl mx-auto grid grid-cols-3 gap-8 p-8">
                 <div class="space-y-4">
