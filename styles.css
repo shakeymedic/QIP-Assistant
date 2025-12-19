@@ -1,101 +1,93 @@
-body { font-family: 'Inter', sans-serif; transition: background-color 0.3s, color 0.3s; }
-.fade-in { animation: fadeIn 0.4s ease-out; }
-@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
-::-webkit-scrollbar { width: 8px; }
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-/* Glassmorphism Classes */
-.glass {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.3);
+/* Diagram Cinema Mode */
+#diagram-viewport {
+    overflow: hidden;
+    touch-action: none;
 }
-.dark .glass {
-    background: rgba(30, 41, 59, 0.7);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-#toast-container { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); z-index: 100; }
-
-/* Poster Mode Grid - Screen View */
-.poster-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-template-rows: auto auto 1fr auto;
-    gap: 1.5rem;
-    width: 100%;
+#diagram-canvas {
+    transform-origin: 0 0;
+    min-width: 100%;
     min-height: 100%;
-    padding: 2rem;
-    background: white;
-    color: #1e293b;
 }
-.poster-card {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 0.5rem;
-    padding: 1rem;
+
+/* Poster Styles (Screen Preview) */
+.poster-container {
+    width: 841mm; /* A0 Width */
+    height: 1189mm; /* A0 Height */
+    transform: scale(0.2); /* Scale down for screen preview */
+    transform-origin: top center;
+    background: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.poster-box {
+    background: white;
+    border: 2px solid #e2e8f0;
+    padding: 2rem;
+    border-radius: 1rem;
     box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
 }
 
-/* Dark Mode overrides */
-.dark body { background-color: #0f172a; color: #e2e8f0; }
-.dark input, .dark textarea, .dark select { background-color: rgba(30, 41, 59, 0.5); border-color: #475569; color: white; }
+.poster-box h2 {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #2d2e83;
+    border-bottom: 4px solid #f36f21;
+    padding-bottom: 1rem;
+    margin-bottom: 1.5rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
 
-/* Toggle Switch */
-.toggle-checkbox:checked { right: 0; border-color: #68D391; }
-.toggle-checkbox:checked + .toggle-label { background-color: #68D391; }
+.poster-box p, .poster-box li {
+    font-size: 1.8rem;
+    line-height: 1.6;
+    color: #334155;
+}
 
-/* --- A0 PRINT STYLES --- */
+/* PRINTING MAGIC - A0 Portrait */
 @media print {
     @page {
-        size: A0 landscape;
-        margin: 1cm;
+        size: A0 portrait;
+        margin: 0;
     }
     
-    /* Hide Everything Else */
-    body * { visibility: hidden; }
+    body * {
+        visibility: hidden;
+    }
     
-    /* Show Poster */
-    #view-poster, #view-poster * { visibility: visible; }
-    
+    #view-poster, #view-poster * {
+        visibility: visible;
+    }
+
     #view-poster {
         position: fixed;
         left: 0;
         top: 0;
-        width: 100vw;
-        height: 100vh;
-        z-index: 9999;
+        width: 100%;
+        height: 100%;
         background: white;
-        padding: 0;
-        margin: 0;
+        z-index: 9999;
         overflow: visible;
         display: block !important;
     }
-
-    /* Hide Print Controls */
+    
     .no-print { display: none !important; }
 
-    /* Scale for A0 */
-    .poster-grid {
-        display: grid;
-        grid-template-columns: 25% 25% 25% 25%; /* Explicit Columns */
-        gap: 2rem;
+    .poster-container {
+        width: 100%;
         height: 100%;
-        padding: 2rem;
-        border: 4px solid #2d2e83; /* Professional Border */
+        transform: none; /* Full size for print */
+        box-shadow: none;
+        margin: 0;
     }
-
-    /* Typography Scaling for Large Format */
-    #poster-title { font-size: 3.5rem !important; line-height: 1.1; }
-    #poster-team { font-size: 1.8rem !important; }
-    h2 { font-size: 2rem !important; margin-bottom: 1rem; }
-    p, li { font-size: 1.2rem !important; line-height: 1.6; }
-    .poster-card { box-shadow: none; border: 2px solid #cbd5e1; }
-    
-    /* Ensure Chart is High Res */
-    #poster-chart { width: 100%; max-height: 500px; object-fit: contain; }
 }
