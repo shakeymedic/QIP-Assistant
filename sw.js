@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rcem-qip-v1.2';
+const CACHE_NAME = 'rcem-qip-v3.0-production';
 const ASSETS = [
   './',
   './index.html',
