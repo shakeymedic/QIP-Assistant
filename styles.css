@@ -45,7 +45,7 @@ body.demo-mode::before {
 .dark .kanban-card { background: #1e293b; color: white; }
 
 /* Diagram */
-.mermaid { display: flex; justify-content: center; }
+.mermaid { display: flex; justify-content: center; width: 100%; }
 
 /* Print / Poster */
 @media print {
