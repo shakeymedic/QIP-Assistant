@@ -3,143 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCEM QIP Assistant (WMEBEM)</title>
-    
+    <title>RCEM QIP Assistant</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        slate: { 850: '#1e293b', 900: '#0f172a' },
-                        rcem: { purple: '#2d2e83', orange: '#f36f21', light: '#f4f6f8', teal: '#008080' } 
-                    },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                        serif: ['Merriweather', 'serif'],
-                    },
-                    screens: { 'print': {'raw': 'print'} }
-                }
-            }
-        }
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { slate: {850:'#1e293b',900:'#0f172a'}, rcem: {purple:'#2d2e83',orange:'#f36f21'} } } } }
     </script>
-    
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
 <body class="bg-slate-100 text-slate-900 h-screen overflow-hidden flex flex-col bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]">
 
-    <div id="ig-banner" class="bg-amber-100 dark:bg-amber-900 border-b border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-100 px-4 py-2 text-xs md:text-sm font-medium flex justify-between items-center z-50 no-print">
-        <div class="flex items-center gap-2">
-            <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600 dark:text-amber-400"></i>
-            <span>INFORMATION GOVERNANCE: Do <strong>NOT</strong> enter patient names, DoBs, or MRNs.</span>
-        </div>
-        <button onclick="document.getElementById('ig-banner').remove()" class="text-amber-700 hover:text-amber-900 dark:hover:text-amber-200"><i data-lucide="x" class="w-4 h-4"></i></button>
+    <div id="ig-banner" class="bg-amber-100 dark:bg-amber-900 border-b border-amber-200 text-amber-900 dark:text-amber-100 px-4 py-2 text-xs font-medium flex justify-between items-center z-50 no-print">
+        <span><i data-lucide="shield-alert" class="w-4 h-4 inline mr-1"></i> IG ALERT: Do NOT enter patient names or MRNs.</span>
+        <button onclick="this.parentElement.remove()"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
-
+    
     <div id="demo-banner" class="hidden bg-orange-500 text-white text-center text-sm font-bold py-1 uppercase tracking-wider z-50 no-print">
         <i data-lucide="eye" class="w-4 h-4 inline mb-1"></i> Demo / Example Mode - Read Only
     </div>
 
     <div class="flex flex-1 overflow-hidden relative">
         <div id="auth-screen" class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print">
-            <div class="glass bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden fade-in">
-                <div class="bg-white/50 p-8 text-center border-b border-slate-100/50">
-                    <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-20 mx-auto mb-4 object-contain">
-                    <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
-                    <p class="text-slate-500 mt-1">Professional Portfolio & Audit Tool</p>
-                </div>
-                <div class="p-8">
-                    <h2 id="auth-title" class="text-lg font-semibold text-slate-800 mb-6 text-center">Sign In</h2>
-                    <form id="auth-form" class="space-y-4">
-                        <input type="email" id="email" required class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="doctor@nhs.net">
-                        <input type="password" id="password" class="w-full p-3 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-rcem-purple transition-all" placeholder="••••••••">
-                        <button type="submit" id="auth-btn" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded-lg transition-all shadow-lg hover:shadow-xl"><span id="auth-btn-text">Sign In</span></button>
-                    </form>
-                    <div class="mt-4 flex justify-between text-sm">
-                        <button id="toggle-auth" class="text-rcem-purple hover:underline">Create Account</button>
-                    </div>
-                </div>
+            <div class="glass bg-white rounded-xl shadow-2xl w-full max-w-md p-8 text-center fade-in">
+                <img src="https://iili.io/KGQOvkl.md.png" class="h-20 mx-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
+                <p class="text-slate-500 mb-6">Professional Portfolio & Audit Tool</p>
+                <form id="auth-form" class="space-y-4">
+                    <input type="email" id="email" required class="inp" placeholder="doctor@nhs.net">
+                    <input type="password" id="password" class="inp" placeholder="••••••••">
+                    <button type="submit" id="auth-btn" class="w-full bg-rcem-purple text-white font-bold py-3 rounded-lg hover:shadow-xl"><span id="auth-btn-text">Sign In</span></button>
+                </form>
+                <button id="toggle-auth" class="mt-4 text-rcem-purple text-sm hover:underline">Create Account</button>
             </div>
         </div>
 
         <aside id="app-sidebar" class="hidden w-64 bg-slate-900/95 backdrop-blur-xl text-white flex-col h-full fixed left-0 top-0 z-10 shadow-2xl lg:static lg:flex border-r border-white/10 no-print">
-            <div class="p-6 border-b border-white/10 flex flex-col items-center">
-                <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="h-14 mb-3 object-contain bg-white rounded-lg p-2 w-full shadow-inner">
-                <div class="text-center">
-                    <h1 class="font-bold text-lg tracking-tight">RCEM QIP</h1>
-                    <p class="text-xs text-slate-400">West Midlands EM</p>
-                </div>
+            <div class="p-6 border-b border-white/10 text-center">
+                <img src="https://iili.io/KGQOvkl.md.png" class="h-12 mx-auto mb-2 bg-white rounded p-1">
+                <h1 class="font-bold">RCEM QIP</h1>
             </div>
 
-            <div class="px-4 py-2 space-y-2 border-b border-white/10 pb-4">
-                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 mt-2">Mode</div>
-                <div class="flex bg-slate-800 rounded-lg p-1">
-                    <button onclick="window.toggleMode('live')" id="mode-live" class="flex-1 py-1 text-xs font-bold rounded text-center transition-all bg-rcem-purple text-white">My Projects</button>
-                    <button onclick="window.toggleMode('demo')" id="mode-demo" class="flex-1 py-1 text-xs font-bold rounded text-center transition-all text-slate-400 hover:text-white">Examples</button>
+            <div class="px-4 py-4 border-b border-white/10">
+                <div class="flex bg-slate-800 rounded-lg p-1 mb-3">
+                    <button onclick="window.toggleMode('live')" id="mode-live" class="flex-1 py-1 text-xs font-bold rounded bg-rcem-purple text-white transition-all">My Projects</button>
+                    <button onclick="window.toggleMode('demo')" id="mode-demo" class="flex-1 py-1 text-xs font-bold rounded text-slate-400 hover:text-white transition-all">Examples</button>
                 </div>
-
-                <div id="project-list-container" class="mt-4 max-h-32 overflow-y-auto space-y-1">
-                    </div>
-                 <div id="demo-list-container" class="hidden mt-4 space-y-1">
-                    <button onclick="window.loadExample('sepsis')" class="w-full text-left px-3 py-2 rounded text-sm text-slate-300 hover:bg-white/10 hover:text-white border border-transparent hover:border-amber-500/50 flex items-center gap-2"><i data-lucide="star" class="w-3 h-3 text-amber-500"></i> Sepsis (Gold Std)</button>
-                    <button onclick="window.loadExample('hip')" class="w-full text-left px-3 py-2 rounded text-sm text-slate-300 hover:bg-white/10 hover:text-white">Hip Fracture</button>
+                <div id="project-list-container" class="max-h-32 overflow-y-auto space-y-1"></div>
+                <div id="demo-list-container" class="hidden space-y-1">
+                    <button onclick="window.loadExample('sepsis')" class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded flex items-center gap-2"><i data-lucide="star" class="w-3 h-3 text-amber-500"></i> Sepsis (Gold Std)</button>
+                    <button onclick="window.loadExample('hip')" class="w-full text-left px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/10 rounded">Hip Fracture</button>
                 </div>
-
-                <button id="btn-new-project" onclick="window.createNewProject()" class="w-full mt-2 bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-600/50 text-xs font-bold py-2 rounded flex items-center justify-center gap-2 transition-all"><i data-lucide="plus"></i> New Project</button>
+                <button id="btn-new-project" onclick="window.createNewProject()" class="w-full mt-2 border border-emerald-500/50 text-emerald-400 text-xs font-bold py-2 rounded hover:bg-emerald-500/10 transition-all">+ New Project</button>
             </div>
 
             <nav class="flex-1 p-4 space-y-1 overflow-y-auto">
-                <button onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-5 h-5"></i> <span class="font-medium">Dashboard</span></button>
-                <button onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-checklist"><i data-lucide="check-square" class="w-5 h-5"></i> <span class="font-medium">QIAT Checklist</span></button>
-                <button onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-data"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> <span class="font-medium">Data & Charts</span></button>
-                <button onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-tools"><i data-lucide="wrench" class="w-5 h-5"></i> <span class="font-medium">Change Tools</span></button>
-                <button onclick="window.router('kanban')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-kanban"><i data-lucide="trello" class="w-5 h-5"></i> <span class="font-medium">Kanban Board</span></button>
-                <button onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-gantt"><i data-lucide="calendar" class="w-5 h-5"></i> <span class="font-medium">Gantt Chart</span></button>
-                <button onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-5 h-5"></i> <span class="font-medium">PDSA Cycles</span></button>
-                <button onclick="window.router('sustain')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-sustain"><i data-lucide="leaf" class="w-5 h-5 text-emerald-400"></i> <span class="font-medium">Sustainability</span></button>
-                <button onclick="window.router('governance')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-governance"><i data-lucide="scale" class="w-5 h-5"></i> <span class="font-medium">Governance</span></button>
-                <button onclick="window.router('reflection')" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10 transition-all" id="nav-reflection"><i data-lucide="book-open" class="w-5 h-5"></i> <span class="font-medium">Reflection</span></button>
-                <button onclick="window.openGuide()" class="nav-btn w-full flex items-center gap-3 px-4 py-3 rounded-lg text-amber-300 hover:bg-white/10 transition-all mt-4 border border-amber-500/30 bg-amber-500/10"><i data-lucide="help-circle" class="w-5 h-5"></i> <span class="font-medium">Guide</span></button>
+                <button onclick="window.router('dashboard')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="layout-dashboard"></i> Dashboard</button>
+                <button onclick="window.router('checklist')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="check-square"></i> Checklist</button>
+                <button onclick="window.router('data')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="bar-chart-2"></i> Data</button>
+                <button onclick="window.router('tools')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="wrench"></i> Tools</button>
+                <button onclick="window.router('kanban')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="trello"></i> Kanban</button>
+                <button onclick="window.router('gantt')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="calendar"></i> Gantt</button>
+                <button onclick="window.router('pdsa')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="refresh-cw"></i> PDSA</button>
+                <button onclick="window.router('sustain')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="leaf"></i> Sustain</button>
+                <button onclick="window.router('governance')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="scale"></i> Governance</button>
+                <button onclick="window.router('reflection')" class="nav-btn w-full flex gap-3 px-4 py-3 rounded-lg text-slate-300 hover:bg-white/10"><i data-lucide="book-open"></i> Reflection</button>
             </nav>
-            <div class="p-4 border-t border-white/10 bg-slate-900/50">
-                <button onclick="window.toggleDarkMode()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm mb-2"><i data-lucide="moon" class="w-4 h-4"></i> Dark Mode</button>
-                <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white hover:bg-white/10 px-4 py-2 rounded-lg transition-all text-sm"><i data-lucide="log-out" class="w-4 h-4"></i> Sign Out</button>
+            <div class="p-4 border-t border-white/10">
+                <button id="logout-btn" class="w-full flex gap-2 text-slate-400 hover:text-white px-4 py-2 text-sm"><i data-lucide="log-out"></i> Sign Out</button>
             </div>
         </aside>
 
-        <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100/50 dark:bg-slate-900/50 relative w-full no-print">
-            <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded-md shadow-lg"><i data-lucide="menu"></i></button>
+        <main id="main-content" class="hidden flex-1 overflow-y-auto bg-slate-100/50 dark:bg-slate-900/50 relative no-print">
+            <button id="mobile-menu-btn" class="lg:hidden absolute top-4 right-4 z-30 bg-slate-900 text-white p-2 rounded shadow-lg"><i data-lucide="menu"></i></button>
 
             <div class="glass sticky top-0 z-20 px-8 py-3 flex justify-between items-center shadow-sm">
                 <div class="flex items-center text-sm text-slate-500 dark:text-slate-400">
                     <span class="font-semibold text-slate-700 dark:text-slate-200 mr-2">Project:</span>
                     <span id="current-project-name" class="font-bold text-rcem-purple dark:text-white truncate max-w-[200px]">Loading...</span>
-                    <span id="save-status" class="ml-4 flex items-center gap-1 text-emerald-600 dark:text-emerald-400 transition-all text-xs"><i data-lucide="save" class="w-3 h-3"></i> Saved</span>
+                    <span id="save-status" class="ml-4 flex items-center gap-1 text-emerald-600 text-xs">Saved</span>
                 </div>
-                <div class="flex gap-2">
-                     <button onclick="window.openTherapy()" class="flex items-center gap-1 text-xs bg-pink-100 text-pink-700 px-2 py-1 rounded border border-pink-200 hover:bg-pink-200"><i data-lucide="heart-handshake" class="w-3 h-3"></i> QIP Therapy</button>
-                     <div id="user-display" class="text-xs text-slate-400 font-mono flex items-center"></div>
+                <div class="flex gap-2 items-center">
+                    <div id="user-display" class="text-xs text-slate-400 font-mono"></div>
                 </div>
             </div>
 
-            <div id="toast-container"></div>
             <div id="views-container" class="pb-20 p-4 md:p-8">
-                <div id="view-dashboard" class="view-section space-y-6 fade-in">
-                    <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 overflow-x-auto">
-                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">QI Project Journey (Risr/QIAT)</h4>
+                <div id="view-dashboard" class="view-section fade-in">
+                    <div class="w-full bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4 mb-6 overflow-x-auto">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">QI Project Journey</h4>
                         <div class="flex items-center justify-between min-w-[600px] journey-track relative">
                             <div class="absolute top-1/2 left-0 w-full h-1 bg-slate-200 dark:bg-slate-700 -z-0"></div>
                             <div class="journey-step" data-step="scope"><div class="step-circle"><i data-lucide="search"></i></div><span class="step-label">Scope</span></div>
@@ -150,116 +108,79 @@
                             <div class="journey-step" data-step="share"><div class="step-circle"><i data-lucide="share-2"></i></div><span class="step-label">Share</span></div>
                         </div>
                     </div>
-
-                    <div id="qi-coach" class="hidden mb-6 bg-gradient-to-r from-indigo-600 to-purple-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden">
-                        <div class="relative z-10">
-                            <h3 class="font-bold text-lg" id="coach-title">Welcome</h3>
-                            <p class="text-indigo-100 text-sm mb-4 max-w-2xl" id="coach-msg">...</p>
-                            <button id="coach-action" class="bg-white text-indigo-700 px-4 py-2 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors shadow-sm inline-flex items-center gap-2">Do it now</button>
-                        </div>
-                    </div>
-
-                    <header class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h2 class="text-3xl font-bold text-slate-800 dark:text-white tracking-tight flex items-center gap-3"><i data-lucide="layout-dashboard" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Dashboard</h2>
-                            <p class="text-slate-500 dark:text-slate-400">QI Project Overview</p>
-                        </div>
-                        <div class="flex flex-wrap gap-2 items-center">
-                             <button onclick="window.runPreFlight()" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm shadow hover:bg-indigo-700"><i data-lucide="clipboard-check" class="w-4 h-4 inline"></i> Examiner Check</button>
-                             <button onclick="window.exportPPTX()" class="bg-orange-600 hover:bg-orange-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="monitor-play" class="w-4 h-4"></i> PPTX</button>
-                             <button onclick="window.openPortfolioExport()" class="bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-sm transition-all"><i data-lucide="copy" class="w-4 h-4"></i> Kaizen</button>
-                             <button onclick="window.printPoster()" class="bg-rcem-purple hover:bg-indigo-900 text-white flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow-md transition-all"><i data-lucide="printer" class="w-4 h-4"></i> Poster</button>
+                    <header class="flex justify-between items-center mb-6">
+                        <h2 class="text-3xl font-bold text-slate-800 dark:text-white flex gap-3"><i data-lucide="layout-dashboard"></i> Dashboard</h2>
+                        <div class="flex gap-2">
+                             <button onclick="window.runPreFlight()" class="bg-indigo-600 text-white px-3 py-2 rounded text-sm shadow">Examiner Check</button>
+                             <button onclick="window.exportPPTX()" class="bg-orange-600 text-white px-3 py-2 rounded text-sm shadow">PPTX</button>
+                             <button onclick="window.openPortfolioExport()" class="bg-emerald-600 text-white px-3 py-2 rounded text-sm shadow">Kaizen</button>
+                             <button onclick="window.printPoster()" class="bg-rcem-purple text-white px-3 py-2 rounded text-sm shadow">Poster</button>
                         </div>
                     </header>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" id="stats-grid"></div>
+                    <div id="stats-grid" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
                 </div>
 
                 <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto fade-in">
-                    <div class="help-box">
-                        <h4><i data-lucide="check-circle"></i> QIAT Checklist</h4>
-                        <p>Complete these fields to meet curriculum requirements. The placeholders show you <em>exactly</em> what to write.</p>
-                    </div>
-                    <div class="mb-8"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="check-square" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> QIAT Checklist</h2></div>
+                    <div class="help-box"><h4><i data-lucide="check-circle"></i> QIAT Checklist</h4><p>The placeholders below guide you on exactly what to write for a high-scoring project.</p></div>
+                    <h2 class="text-3xl font-bold mb-6 flex gap-3"><i data-lucide="check-square"></i> QIAT Checklist</h2>
                     <div id="checklist-container" class="space-y-4"></div>
                 </div>
 
                 <div id="view-data" class="view-section hidden fade-in">
-                    <div class="help-box"><h4><i data-lucide="bar-chart"></i> Data & Analytics</h4><p>Charts auto-detect Shifts & Trends.</p></div>
-                    <header class="mb-6 flex justify-between items-end flex-wrap gap-4">
-                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="bar-chart-2" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Data & Charts</h2></div>
-                        <div class="flex gap-2 flex-wrap">
-                            <button onclick="window.openBulkImport()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded text-sm"><i data-lucide="table" class="w-4 h-4 inline"></i> Import</button>
-                            <div class="bg-slate-200 dark:bg-slate-700 p-1 rounded flex">
-                                <button onclick="window.setChartMode('run')" id="btn-chart-run" class="px-3 py-1 rounded text-xs font-bold transition-all">Run</button>
-                                <button onclick="window.setChartMode('spc_p')" id="btn-chart-spc_p" class="px-3 py-1 rounded text-xs transition-all">P-Chart</button>
-                                <button onclick="window.setChartMode('spc_xmr')" id="btn-chart-spc_xmr" class="px-3 py-1 rounded text-xs transition-all">XmR</button>
-                            </div>
+                    <div class="help-box"><h4><i data-lucide="bar-chart"></i> Data & Analytics</h4><p>Add data below. The chart automatically flags <strong>Shifts</strong> (6 points) and <strong>Trends</strong> (5 points). The narrative box interprets this for you.</p></div>
+                    <header class="mb-6 flex justify-between items-center">
+                        <h2 class="text-3xl font-bold flex gap-3"><i data-lucide="bar-chart-2"></i> Data & Charts</h2>
+                        <div class="flex gap-2 bg-slate-200 p-1 rounded">
+                             <button onclick="window.setChartMode('run')" class="px-3 py-1 text-xs font-bold rounded">Run</button>
+                             <button onclick="window.setChartMode('spc_p')" class="px-3 py-1 text-xs rounded">P-Chart</button>
+                             <button onclick="window.setChartMode('spc_xmr')" class="px-3 py-1 text-xs rounded">XmR</button>
                         </div>
                     </header>
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div class="glass rounded-xl p-6 shadow-sm h-fit">
-                            <h3 id="chart-input-title" class="font-bold text-lg mb-4 text-slate-800 dark:text-white">Add Data</h3>
-                            <div id="input-run" class="space-y-4">
-                                <div class="grid grid-cols-2 gap-2"><div><label class="lbl">Date</label><input type="date" id="chart-date" class="inp" onchange="window.validateDate(this)"></div><div><label class="lbl">Category</label><select id="chart-category" class="inp"><option value="outcome">Outcome</option><option value="process">Process</option><option value="balance">Balance</option></select></div></div>
-                                <div class="grid grid-cols-2 gap-2"><div><label class="lbl">Value</label><input type="number" id="chart-value" class="inp" placeholder="e.g. 45"></div><div><label class="lbl">Type</label><select id="chart-type" class="inp"><option value="data">Data</option><option value="intervention">PDSA Start</option></select></div></div>
-                                <input type="text" id="chart-note" class="inp" placeholder="Label (e.g. Started Checklist)">
-                                <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded hover:bg-indigo-900 shadow transition-all">Add Point</button>
+                            <h3 class="font-bold text-lg mb-4">Add Data</h3>
+                            <div class="space-y-4">
+                                <div class="grid grid-cols-2 gap-2"><div><label class="lbl">Date</label><input type="date" id="chart-date" class="inp"></div><div><label class="lbl">Category</label><select id="chart-category" class="inp"><option value="outcome">Outcome</option><option value="process">Process</option></select></div></div>
+                                <div class="grid grid-cols-2 gap-2"><div><label class="lbl">Value</label><input type="number" id="chart-value" class="inp" placeholder="Value"></div><div><label class="lbl">Type</label><select id="chart-type" class="inp"><option value="data">Data</option><option value="intervention">PDSA</option></select></div></div>
+                                <input id="chart-note" class="inp" placeholder="Note (e.g. PDSA 1 started)">
+                                <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded shadow">Add Point</button>
                             </div>
                         </div>
                         <div class="lg:col-span-2 glass rounded-xl p-6 shadow-sm flex flex-col">
-                             <div class="relative h-96 w-full flex-1 min-h-[400px]"><canvas id="mainChart"></canvas></div>
-                             <div id="chart-narrative" class="mt-4 p-4 bg-indigo-50 dark:bg-slate-900 rounded border border-indigo-100 text-sm italic">Narrative loading...</div>
+                            <div class="relative h-96 w-full flex-1"><canvas id="mainChart"></canvas></div>
+                            <div id="chart-narrative" class="mt-4 p-4 bg-indigo-50 rounded border border-indigo-100 text-sm italic">Narrative loading...</div>
                         </div>
                     </div>
                 </div>
 
-                <div id="view-tools" class="view-section hidden h-full flex flex-col fade-in">
-                    <header class="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="wrench" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Change Tools</h2></div>
-                        <div class="bg-slate-200 dark:bg-slate-700 p-1 rounded-lg flex text-xs md:text-sm flex-wrap"><button onclick="window.setToolMode('fishbone')" id="btn-fishbone" class="tool-tab px-3 py-1.5 rounded-md font-medium transition-all">Fishbone</button><button onclick="window.setToolMode('driver')" id="btn-driver" class="tool-tab px-3 py-1.5 rounded-md transition-all">Driver Diagram</button><button onclick="window.setToolMode('stakeholder')" id="btn-stakeholder" class="tool-tab px-3 py-1.5 rounded-md transition-all">Stakeholder</button></div>
-                    </header>
-                    <div id="tool-controls" class="mb-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 flex flex-wrap gap-4 items-end"></div>
-                    <div id="tool-container-wrapper" class="flex-1 glass rounded-xl shadow-sm overflow-hidden relative min-h-[500px] bg-white cursor-grab active:cursor-grabbing border border-slate-300"><div id="tool-canvas" class="origin-top-left transition-transform duration-75 p-10 min-w-full min-h-full flex items-center justify-center"></div></div>
-                </div>
-
-                <div id="view-governance" class="view-section hidden fade-in">
-                     <div class="help-box"><h4><i data-lucide="scale"></i> Governance</h4><p>Ensure your project meets legal standards.</p></div>
-                     <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="scale" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Governance</h2></header>
-                     <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="glass p-6 rounded-xl"><h3 class="font-bold text-lg mb-4">Research vs Audit</h3><div id="hra-questions"><p class="mb-2 text-sm">1. Randomising patients?</p><button onclick="window.checkHra('q1',true)" class="bg-slate-200 px-4 py-2 rounded mr-2">Yes</button><button onclick="window.checkHra('q1',false)" class="bg-slate-200 px-4 py-2 rounded">No</button><div id="hra-result" class="hidden p-4 rounded-lg font-bold text-center mt-4"></div></div></div></div>
-                </div>
-
-                <div id="view-sustain" class="view-section hidden fade-in">
-                    <div class="help-box"><h4><i data-lucide="leaf"></i> Sustainability</h4><p>Green ED and Human Factors.</p></div>
-                    <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="leaf" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Sustainability</h2></header>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div class="glass p-6 rounded-xl border border-emerald-100"><h3 class="font-bold text-emerald-800 mb-4">Green ED Calculator</h3><div class="space-y-2"><select id="green-item" class="inp"><option value="0.035">IV Cannula (35g)</option><option value="0.150">IV Fluid 1L (150g)</option></select><input id="green-qty" type="number" class="inp" placeholder="Qty Saved"><button onclick="window.calcCarbon()" class="bg-emerald-600 text-white w-full py-2 rounded">Calculate</button><div id="green-result" class="mt-2 font-bold text-emerald-600"></div></div></div><div class="glass p-6 rounded-xl border border-blue-100"><h3 class="font-bold text-blue-800 mb-4">NHS Sustainability Model</h3><div class="space-y-2 text-sm"><div class="flex justify-between items-center"><label>Staff engagement?</label><input type="range" class="w-32" min="0" max="10" id="sus-1"></div><button onclick="window.calcSusModel()" class="bg-blue-600 text-white w-full py-2 rounded">Calculate</button><div id="sus-result" class="mt-2 font-bold text-blue-600"></div></div></div></div>
-                </div>
-
-                 <div id="view-kanban" class="view-section hidden fade-in h-full">
-                     <header class="mb-6 flex justify-between"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="trello" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Kanban Board</h2><button onclick="window.addKanbanTask()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900">+ Add Task</button></header>
-                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 h-[600px]"><div class="kanban-col bg-slate-200 dark:bg-slate-800 rounded-xl p-4 flex flex-col" data-status="todo"><h3 class="font-bold mb-4 text-slate-600 dark:text-slate-300 uppercase text-xs tracking-wider">To Do</h3><div class="kanban-list flex-1 space-y-2 overflow-y-auto min-h-[50px]" id="kb-todo"></div></div><div class="kanban-col bg-slate-200 dark:bg-slate-800 rounded-xl p-4 flex flex-col" data-status="doing"><h3 class="font-bold mb-4 text-indigo-600 dark:text-indigo-300 uppercase text-xs tracking-wider">In Progress</h3><div class="kanban-list flex-1 space-y-2 overflow-y-auto min-h-[50px]" id="kb-doing"></div></div><div class="kanban-col bg-slate-200 dark:bg-slate-800 rounded-xl p-4 flex flex-col" data-status="done"><h3 class="font-bold mb-4 text-emerald-600 dark:text-emerald-300 uppercase text-xs tracking-wider">Done</h3><div class="kanban-list flex-1 space-y-2 overflow-y-auto min-h-[50px]" id="kb-done"></div></div></div>
+                <div id="view-tools" class="view-section hidden fade-in">
+                    <div class="help-box"><h4><i data-lucide="wrench"></i> Change Tools</h4><p><strong>Fishbone:</strong> Causes. <strong>Driver:</strong> Strategy. <strong>Stakeholder:</strong> People.</p></div>
+                    <header class="mb-6 flex justify-between items-center"><h2 class="text-3xl font-bold flex gap-3"><i data-lucide="wrench"></i> Change Tools</h2><div class="flex gap-2"><button onclick="window.setToolMode('fishbone')" class="tool-tab px-3 py-1 bg-slate-200 rounded">Fishbone</button><button onclick="window.setToolMode('driver')" class="tool-tab px-3 py-1 bg-slate-200 rounded">Driver</button><button onclick="window.setToolMode('stakeholder')" class="tool-tab px-3 py-1 bg-slate-200 rounded">Stakeholder</button></div></header>
+                    <div id="tool-controls" class="mb-4 bg-white p-4 rounded-lg border border-slate-200 flex flex-wrap gap-4"></div>
+                    <div id="tool-container-wrapper" class="glass rounded-xl shadow-sm h-[500px] overflow-hidden relative bg-white cursor-grab"><div id="tool-canvas" class="origin-top-left transition-transform duration-75 p-10 flex justify-center items-center"></div></div>
                 </div>
 
                 <div id="view-pdsa" class="view-section hidden fade-in">
-                     <header class="mb-6 flex justify-between items-center"><div><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="refresh-cw" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> PDSA Cycles</h2></div><button onclick="window.addPDSACycle()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button></header>
+                     <div class="help-box"><h4><i data-lucide="refresh-cw"></i> PDSA Cycles</h4><p>Plan-Do-Study-Act. Use the <strong>Idea Bank</strong> to select proven NHS interventions.</p></div>
+                     <header class="mb-6 flex justify-between"><h2 class="text-3xl font-bold flex gap-3"><i data-lucide="refresh-cw"></i> PDSA Cycles</h2><button onclick="window.addPDSACycle()" class="bg-rcem-purple text-white px-4 py-2 rounded">+ New Cycle</button></header>
                      <div id="pdsa-list" class="space-y-4 max-w-4xl"></div>
                 </div>
+                
+                <div id="view-kanban" class="view-section hidden fade-in"><header class="mb-6 flex justify-between"><h2 class="text-3xl font-bold flex gap-3"><i data-lucide="trello"></i> Kanban</h2><button onclick="window.addKanbanTask()" class="bg-rcem-purple text-white px-4 py-2 rounded">+ Task</button></header><div class="grid grid-cols-3 gap-6 h-[600px]"><div class="bg-slate-200 p-4 rounded-xl flex flex-col"><h3>To Do</h3><div id="kb-todo" class="flex-1 space-y-2 mt-4"></div></div><div class="bg-slate-200 p-4 rounded-xl flex flex-col"><h3>In Progress</h3><div id="kb-doing" class="flex-1 space-y-2 mt-4"></div></div><div class="bg-slate-200 p-4 rounded-xl flex flex-col"><h3>Done</h3><div id="kb-done" class="flex-1 space-y-2 mt-4"></div></div></div></div>
+                
+                <div id="view-governance" class="view-section hidden fade-in"><div class="help-box"><h4><i data-lucide="scale"></i> Governance</h4><p>Check ethics.</p></div><h2 class="text-3xl font-bold mb-6">Governance</h2><div class="glass p-6 rounded-xl max-w-2xl"><h3 class="font-bold mb-4">Research vs Audit?</h3><p>1. Are you randomising patients?</p><div class="mt-2"><button onclick="window.checkHra(true)" class="bg-slate-200 px-4 py-2 rounded mr-2">Yes</button><button onclick="window.checkHra(false)" class="bg-slate-200 px-4 py-2 rounded">No</button></div><div id="hra-result" class="mt-4 p-4 rounded hidden font-bold"></div></div></div>
+                
+                <div id="view-sustain" class="view-section hidden fade-in"><div class="help-box"><h4><i data-lucide="leaf"></i> Sustainability</h4><p>Green ED.</p></div><h2 class="text-3xl font-bold mb-6">Sustainability</h2><div class="glass p-6 rounded-xl max-w-2xl"><h3 class="font-bold mb-4">Carbon Calc</h3><select id="green-item" class="inp mb-2"><option value="0.035">IV Cannula</option><option value="0.150">IV Fluid</option></select><input id="green-qty" class="inp mb-2" placeholder="Qty Saved"><button onclick="window.calcCarbon()" class="bg-emerald-600 text-white w-full py-2 rounded">Calc</button><div id="green-result" class="mt-2 font-bold text-emerald-600"></div></div></div>
 
-                <div id="view-gantt" class="view-section hidden fade-in">
-                     <header class="mb-6"><h2 class="text-3xl font-bold text-slate-800 dark:text-white flex items-center gap-3"><i data-lucide="calendar" class="w-8 h-8 text-rcem-purple dark:text-indigo-400"></i> Gantt Chart</h2></header>
-                     <div class="glass p-4 rounded-xl shadow-sm mb-8 flex flex-wrap gap-4 items-end"><input type="text" id="gantt-name" class="flex-1 min-w-[200px] inp" placeholder="Task Name"><input type="date" id="gantt-start" class="inp"><input type="date" id="gantt-end" class="inp"><button onclick="window.addGanttTask()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add</button></div>
-                     <div class="glass rounded-xl shadow-sm overflow-hidden min-h-[300px] flex flex-col"><div class="p-4 border-b border-slate-200 bg-slate-50/50 font-medium text-slate-500 flex justify-between"><span>Task List</span><span id="gantt-range">Timeline</span></div><div id="gantt-chart-area" class="relative flex-1 p-4 bg-slate-50/20"></div></div>
-                </div>
+                <div id="view-reflection" class="view-section hidden fade-in"><div class="help-box"><h4><i data-lucide="book-open"></i> Reflection</h4><p>Map to GMC domains.</p></div><h2 class="text-3xl font-bold mb-6">Reflection</h2><div class="grid grid-cols-2 gap-6"><div class="glass p-6 rounded-xl"><h3 class="font-bold mb-2">GMC Domain 1</h3><textarea id="ref-d1" class="inp h-32" onchange="window.saveReflection('d1',this.value)"></textarea></div><div class="glass p-6 rounded-xl"><h3 class="font-bold mb-2">GMC Domain 2</h3><textarea id="ref-d2" class="inp h-32" onchange="window.saveReflection('d2',this.value)"></textarea></div></div></div>
             </div>
         </main>
     </div>
 
-    <div id="problem-wizard-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6"><h3 class="text-xl font-bold mb-4 dark:text-white">Problem Statement Architect</h3><div class="space-y-3"><input id="prob-who" class="w-full border p-2 rounded" placeholder="Who? (e.g. Adult Sepsis Patients)"><input id="prob-what" class="w-full border p-2 rounded" placeholder="What is the issue? (e.g. Delayed antibiotics)"><input id="prob-when" class="w-full border p-2 rounded" placeholder="When/Where? (e.g. ED Resus, nights)"><input id="prob-evi" class="w-full border p-2 rounded" placeholder="Evidence? (e.g. Audit showing 45%)"></div><div class="mt-6 flex justify-end gap-2"><button onclick="document.getElementById('problem-wizard-modal').classList.add('hidden')" class="px-4 py-2">Cancel</button><button onclick="window.saveProblemWizard()" class="px-4 py-2 bg-rcem-purple text-white rounded">Generate</button></div></div></div>
-    <div id="rubric-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6"><h3 class="text-xl font-bold mb-4 dark:text-white flex items-center gap-2"><i data-lucide="clipboard-check" class="text-emerald-500"></i> Examiner Pre-Flight Check</h3><div id="rubric-list" class="space-y-2 mb-4"></div><button onclick="document.getElementById('rubric-modal').classList.add('hidden')" class="w-full bg-rcem-purple text-white py-2 rounded">Close</button></div></div>
-    <div id="therapy-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6"><h3 class="text-xl font-bold mb-4 dark:text-white text-pink-600">QIP Therapy</h3><p class="mb-4 text-sm text-slate-600">Select your frustration:</p><div class="grid grid-cols-1 gap-2"><button onclick="alert('Advice: Identify the WIIFM (What’s in it for me) for them.')" class="p-3 bg-slate-100 rounded text-left hover:bg-slate-200">"Nurses won't engage"</button><button onclick="alert('Advice: Use a paper trail first.')" class="p-3 bg-slate-100 rounded text-left hover:bg-slate-200">"Computer says no"</button></div><button onclick="document.getElementById('therapy-modal').classList.add('hidden')" class="mt-4 w-full border border-slate-300 py-2 rounded">Feel Better</button></div></div>
-    <div id="portfolio-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-3xl rounded-xl shadow-2xl flex flex-col max-h-[90vh]"><div class="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-rcem-purple text-white rounded-t-xl"><div><h3 class="text-xl font-bold flex items-center gap-2"><i data-lucide="copy"></i> RCEM ePortfolio Generator (Risr/Kaizen)</h3></div><button onclick="document.getElementById('portfolio-modal').classList.add('hidden')"><i data-lucide="x" class="text-white"></i></button></div><div class="p-6 overflow-y-auto space-y-6 bg-slate-50 dark:bg-slate-900/50 flex-1" id="portfolio-content"></div></div></div>
-    <div id="guide-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-2xl rounded-xl shadow-2xl p-8 max-h-[90vh] overflow-y-auto"><div class="flex justify-between items-center mb-6"><h2 class="text-2xl font-bold dark:text-white text-rcem-purple">RCEM QIP Quick Guide</h2><button onclick="document.getElementById('guide-modal').classList.add('hidden')"><i data-lucide="x" class="dark:text-white"></i></button></div><p class="mb-4 text-slate-600">This tool helps you complete your Quality Improvement Project for the RCEM curriculum.</p><button onclick="document.getElementById('guide-modal').classList.add('hidden')" class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold">Got it, let's start</button></div></div>
-    <div id="bulk-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4 backdrop-blur-sm no-print"><div class="bg-white dark:bg-slate-800 w-full max-w-lg rounded-xl shadow-2xl p-6"><h3 class="text-xl font-bold mb-4 dark:text-white">Bulk Data Import</h3><textarea id="bulk-text" rows="8" class="w-full border p-2 rounded dark:bg-slate-700 dark:border-slate-600 text-sm font-mono" placeholder="2025-01-01	45"></textarea><div class="mt-4 flex justify-end gap-2"><button onclick="document.getElementById('bulk-modal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button><button onclick="window.handleBulkImport()" class="px-4 py-2 bg-rcem-purple text-white rounded">Import Data</button></div></div></div>
-    <div id="poster-print-container" class="hidden"><div class="poster-layout"><div class="poster-header"><div class="logo-area"><img src="https://iili.io/KGQOvkl.md.png" alt="Logo"></div><div class="title-area"><h1 id="print-title">Project Title</h1><div class="authors" id="print-team">Authors & Team</div></div><div class="trust-area">NHS Trust / Hospital</div></div><div class="poster-body"><div class="poster-col"><div class="poster-box"><h2>1. Introduction & Problem</h2><p id="print-problem"></p></div><div class="poster-box"><h2>2. SMART Aim</h2><p id="print-aim" class="highlight-box"></p></div><div class="poster-box"><h2>3. Drivers & Strategy</h2><div id="print-driver-container" class="img-holder"></div></div></div><div class="poster-col"><div class="poster-box"><h2>4. Intervention (PDSA)</h2><ul id="print-pdsa-list"></ul></div><div class="poster-box grow-box"><h2>5. Results</h2><div class="chart-holder"><img id="print-chart-img" alt="Chart"></div><p id="print-results"></p></div></div><div class="poster-col"><div class="poster-box"><h2>6. Process Measures</h2><p id="print-process-measures"></p></div><div class="poster-box"><h2>7. Conclusions & Learning</h2><p id="print-learning"></p></div><div class="poster-box"><h2>8. Sustainability</h2><p id="print-sustain"></p></div></div></div><div class="poster-footer">Generated by RCEM QIP Assistant</div></div></div>
+    <div id="problem-wizard-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4"><div class="bg-white w-full max-w-lg rounded-xl p-6"><h3 class="font-bold text-xl mb-4">Problem Wizard</h3><input id="prob-who" class="inp mb-2" placeholder="Who?"><input id="prob-what" class="inp mb-2" placeholder="What?"><input id="prob-when" class="inp mb-2" placeholder="When?"><input id="prob-evi" class="inp mb-4" placeholder="Evidence?"><div class="flex justify-end gap-2"><button onclick="this.parentElement.parentElement.parentElement.classList.add('hidden')" class="px-4 py-2">Cancel</button><button onclick="window.saveProblemWizard()" class="bg-rcem-purple text-white px-4 py-2 rounded">Generate</button></div></div></div>
+    <div id="rubric-modal" class="fixed inset-0 bg-black/50 z-[70] hidden flex items-center justify-center p-4"><div class="bg-white w-full max-w-lg rounded-xl p-6"><h3 class="font-bold text-xl mb-4">Examiner Check</h3><div id="rubric-list" class="space-y-2 mb-4"></div><button onclick="this.parentElement.parentElement.classList.add('hidden')" class="w-full bg-slate-200 py-2 rounded">Close</button></div></div>
+    
+    <div id="poster-print-container" class="hidden"><div class="poster-layout"><div class="poster-header"><div class="logo-area"><img src="https://iili.io/KGQOvkl.md.png"></div><div class="title-area"><h1 id="print-title">Project</h1><div class="authors" id="print-team">Team</div></div><div class="trust-area">NHS Trust</div></div><div class="poster-body"><div class="poster-col"><div class="poster-box"><h2>1. Problem</h2><p id="print-problem"></p></div><div class="poster-box"><h2>2. Aim</h2><p id="print-aim"></p></div></div><div class="poster-col"><div class="poster-box"><h2>3. Results</h2><div class="chart-holder"><img id="print-chart-img"></div><p id="print-results"></p></div></div><div class="poster-col"><div class="poster-box"><h2>4. Sustain</h2><p id="print-sustain"></p></div></div></div></div></div>
 
     <script type="module" src="app.js"></script>
 </body>
