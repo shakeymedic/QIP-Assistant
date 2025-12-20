@@ -1,6 +1,6 @@
 {
   "name": "RCEM QIP Assistant",
-  "short_name": "QIP Assistant",
+  "short_name": "QIP Tool",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
