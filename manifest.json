@@ -1,11 +1,11 @@
 {
   "name": "RCEM QIP Assistant",
-  "short_name": "RCEM QIP",
-  "start_url": "index.html",
+  "short_name": "QIP Assistant",
+  "start_url": ".",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#2d2e83",
-  "orientation": "portrait",
+  "description": "Assistant for Emergency Medicine Quality Improvement Projects",
   "icons": [
     {
       "src": "https://iili.io/KGQOvkl.md.png",
