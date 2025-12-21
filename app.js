@@ -65,8 +65,11 @@ const demoProject = {
         { date: "2025-01-15", value: 85, type: "outcome" }, { date: "2025-01-16", value: 88, type: "outcome" }
     ],
     gantt: [
-        { id: "1", name: "Data Collection", start: "2025-01-01", end: "2025-01-14" },
-        { id: "2", name: "PDSA 1: Stamps", start: "2025-01-07", end: "2025-01-10" }
+        { id: "1", name: "Project Planning & Registration", start: "2024-12-01", end: "2024-12-15" },
+        { id: "2", name: "Baseline Data Collection", start: "2025-01-01", end: "2025-01-14" },
+        { id: "3", name: "PDSA 1: Sepsis Stamps", start: "2025-01-07", end: "2025-01-21" },
+        { id: "4", name: "PDSA 2: Grab Bags", start: "2025-01-14", end: "2025-02-01" },
+        { id: "5", name: "Write Up & Poster Design", start: "2025-02-15", end: "2025-03-01" }
     ]
 };
 
@@ -496,7 +499,7 @@ window.addStep = () => { const v=prompt("Step Description:"); if(v){projectData.
 window.resetProcess = () => { if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
 
 // Pan/Zoom Logic
-let scale = 1, pX = 0, pY = 0;
+let scale = 1.3, pX = 0, pY = 0; // Default scale increased to 1.3
 function setupPanZoom() {
     const wrap = document.getElementById('diagram-wrapper');
     const canvas = document.getElementById('diagram-canvas');
@@ -506,9 +509,14 @@ function setupPanZoom() {
     window.onmouseup = () => { isDown = false; wrap.classList.remove('cursor-grabbing'); };
     wrap.onmousemove = (e) => { if(!isDown) return; e.preventDefault(); pX = e.clientX - startX; pY = e.clientY - startY; updateTransform(); };
     wrap.onwheel = (e) => { e.preventDefault(); scale += e.deltaY * -0.001; scale = Math.min(Math.max(.5, scale), 4); updateTransform(); };
+    
+    // Init transform on first load
+    updateTransform();
 }
 function updateTransform() { document.getElementById('diagram-canvas').style.transform = `translate(${pX}px, ${pY}px) scale(${scale})`; }
-window.resetZoom = () => { scale=1; pX=0; pY=0; updateTransform(); };
+window.resetZoom = () => { scale=1.3; pX=0; pY=0; updateTransform(); };
+window.zoomIn = () => { scale = Math.min(scale + 0.2, 4); updateTransform(); };
+window.zoomOut = () => { scale = Math.max(scale - 0.2, 0.5); updateTransform(); };
 
 // --- 4. CHARTING & SPC LOGIC ---
 function renderChart() {
@@ -694,6 +702,70 @@ window.openPortfolioExport = () => {
     `).join('');
 };
 
+window.exportPPTX = () => {
+    if (!projectData) return;
+    const d = projectData;
+    const pres = new PptxGenJS();
+
+    // Theme
+    pres.layout = 'LAYOUT_16x9';
+    pres.defineSlideMaster({
+        title: 'MASTER_SLIDE',
+        background: { color: 'FFFFFF' },
+        objects: [
+            { rect: { x: 0, y: 0, w: '100%', h: 0.5, fill: '2d2e83' } },
+            { text: { text: 'RCEM QIP Assistant', options: { x: 0.5, y: 0.1, color: 'FFFFFF', fontSize: 14 } } }
+        ]
+    });
+
+    // 1. Title Slide
+    let slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
+    slide.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, color: '2d2e83', bold: true, align: 'center' });
+    slide.addText(d.checklist.team || 'QIP Team', { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+    slide.addText('Quality Improvement Project', { x: 1, y: 4.5, w: 8, fontSize: 14, color: '94a3b8', align: 'center' });
+
+    // 2. Problem & Aim
+    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
+    slide.addText('Problem & Aim', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
+    slide.addText('The Problem:', { x: 0.5, y: 1.5, fontSize: 14, color: 'f36f21', bold: true });
+    slide.addText(d.checklist.problem_desc || 'N/A', { x: 0.5, y: 1.8, w: 9, fontSize: 14, color: '334155' });
+    slide.addText('SMART Aim:', { x: 0.5, y: 3.5, fontSize: 14, color: 'f36f21', bold: true });
+    slide.addText(d.checklist.aim || 'N/A', { x: 0.5, y: 3.8, w: 9, fontSize: 18, color: '2d2e83', italic: true, fill: 'f1f5f9', inset: 0.2 });
+
+    // 3. Drivers
+    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
+    slide.addText('Drivers & Strategy', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
+    const drivers = d.drivers.secondary.map(s => `• ${s}`).join('\n');
+    slide.addText('Driver Diagram Summary', { x: 0.5, y: 1.5, fontSize: 18, color: '475569' });
+    slide.addText(drivers || 'No drivers listed.', { x: 0.5, y: 2, w: 4, h: 4, fontSize: 14, color: '334155', fill: 'f8fafc' });
+    const changes = d.drivers.changes.map(c => `• ${c}`).join('\n');
+    slide.addText('Change Ideas', { x: 5, y: 1.5, fontSize: 18, color: '475569' });
+    slide.addText(changes || 'No changes listed.', { x: 5, y: 2, w: 4, h: 4, fontSize: 14, color: '334155', fill: 'f8fafc' });
+
+    // 4. Data
+    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
+    slide.addText('Results (Run Chart)', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
+    try {
+        const dataUrl = document.getElementById('mainChart').toDataURL('image/png');
+        slide.addImage({ data: dataUrl, x: 1, y: 1.5, w: 8, h: 3.5, sizing: { type: 'contain', w: 8, h: 3.5 } });
+    } catch(e) { slide.addText("Chart Image Unavailable", { x: 1, y: 2 }); }
+    slide.addText(d.checklist.results_text || 'No analysis provided.', { x: 1, y: 5.2, w: 8, h: 1, fontSize: 12, color: '475569', italic: true });
+
+    // 5. PDSA
+    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
+    slide.addText('PDSA Cycles', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
+    let yPos = 1.5;
+    d.pdsa.forEach(p => {
+        if(yPos > 5) return;
+        slide.addText(p.title, { x: 0.5, y: yPos, fontSize: 14, bold: true, color: '2d2e83' });
+        slide.addText(`Plan: ${p.plan} | Do: ${p.do}`, { x: 0.5, y: yPos + 0.3, w: 9, fontSize: 10, color: '64748b' });
+        slide.addText(`Study: ${p.study} | Act: ${p.act}`, { x: 0.5, y: yPos + 0.6, w: 9, fontSize: 10, color: '64748b' });
+        yPos += 1.2;
+    });
+
+    pres.writeFile({ fileName: `QIP-Assistant-${Date.now()}.pptx` });
+};
+
 window.printPoster = () => {
     // Inject Poster HTML
     const d = projectData;
@@ -779,19 +851,49 @@ function renderGantt() {
 }
 window.addGanttTask = () => {
     const n = prompt("Task Name:");
-    if(n) { 
-        if(!projectData.gantt) projectData.gantt=[];
-        projectData.gantt.push({id:Date.now(), name:n, start: new Date().toISOString().split('T')[0], end: new Date().toISOString().split('T')[0]}); 
-        saveData(); renderGantt(); 
-    }
+    if(!n) return;
+    const s = prompt("Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if(!s) return;
+    const e = prompt("End Date (YYYY-MM-DD):", s);
+    if(!e) return;
+
+    if(!projectData.gantt) projectData.gantt=[];
+    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e}); 
+    saveData(); 
+    renderGantt(); 
 }
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
 
-// --- Placeholders ---
+// --- Calculators ---
+// Green ED (Carbon)
 window.calcGreen = () => {
     const v = document.getElementById('green-type').value;
     const q = document.getElementById('green-qty').value;
     const r = document.getElementById('green-res');
     r.textContent = `Total CO2e Saved: ${(v*q).toFixed(2)} kg`;
     r.classList.remove('hidden');
+}
+
+// Resource Stewardship (Money/Time)
+document.getElementById('value-type').addEventListener('change', (e) => {
+    const lbl = document.getElementById('value-unit-label');
+    if (e.target.value === 'cost') lbl.textContent = "Cost per Item (£)";
+    else lbl.textContent = "Minutes per Item";
+});
+
+window.calcValue = () => {
+    const type = document.getElementById('value-type').value;
+    const unit = parseFloat(document.getElementById('value-unit').value) || 0;
+    const qty = parseFloat(document.getElementById('value-qty').value) || 0;
+    const resEl = document.getElementById('value-res');
+    
+    if (type === 'cost') {
+        resEl.textContent = `Total Savings: £${(unit * qty).toFixed(2)}`;
+    } else {
+        const totalMins = unit * qty;
+        const hrs = Math.floor(totalMins / 60);
+        const mins = totalMins % 60;
+        resEl.textContent = `Time Saved: ${hrs}h ${mins}m (${totalMins} mins)`;
+    }
+    resEl.classList.remove('hidden');
 }
