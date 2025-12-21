@@ -28,7 +28,7 @@
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.6.1/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
 </head>
@@ -37,7 +37,7 @@
     <div id="ig-banner" class="bg-amber-100 border-b border-amber-200 text-amber-900 px-4 py-2 text-xs font-medium flex justify-between items-center z-50 no-print">
         <div class="flex items-center gap-2">
             <i data-lucide="shield-alert" class="w-4 h-4 text-amber-600"></i>
-            <span><strong>IG ALERT:</strong> No patient names, DoBs, or MRNs. This tool is for aggregate QI data only.</span>
+            <span><strong>IG ALERT:</strong> Do NOT enter patient names, DoBs, or MRNs. This tool is for aggregate QI data only.</span>
         </div>
         <button onclick="this.parentElement.remove()" class="text-amber-700 hover:text-amber-900"><i data-lucide="x" class="w-4 h-4"></i></button>
     </div>
@@ -91,7 +91,7 @@
             <div id="top-bar" class="hidden h-14 bg-white border-b border-slate-200 px-6 flex justify-between items-center z-20 no-print">
                 <div class="flex items-center gap-3">
                     <h2 id="project-header-title" class="font-bold text-slate-700 truncate max-w-[300px]">Select Project</h2>
-                    <span id="save-status" class="text-xs text-slate-400 transition-opacity opacity-0 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Saved</span>
+                    <span id="save-status" class="text-xs text-emerald-600 font-bold transition-opacity opacity-0 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Saved</span>
                 </div>
                 <div class="flex items-center gap-3">
                     <button onclick="window.openHelp()" class="text-slate-400 hover:text-rcem-purple transition-colors" title="Help"><i data-lucide="help-circle" class="w-5 h-5"></i></button>
@@ -108,22 +108,28 @@
                 <div id="auth-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center p-4">
                     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div class="bg-slate-50 p-8 text-center border-b border-slate-100">
-                            <img src="https://iili.io/KGQOvkl.md.png" class="h-16 mx-auto mb-4">
+                            <img src="https://iili.io/KGQOvkl.md.png" class="h-16 mx-auto mb-4 object-contain">
                             <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
                             <p class="text-slate-500 text-sm mt-1">Professional Portfolio Tool</p>
                         </div>
                         <div class="p-8 space-y-4">
                             <form id="auth-form" class="space-y-4">
-                                <input type="email" id="email" required class="w-full p-3 rounded border border-slate-300 text-sm" placeholder="doctor@nhs.net">
-                                <input type="password" id="password" class="w-full p-3 rounded border border-slate-300 text-sm" placeholder="••••••••">
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Email</label>
+                                    <input type="email" id="email" required class="w-full p-3 rounded border border-slate-300 text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="doctor@nhs.net">
+                                </div>
+                                <div>
+                                    <label class="text-xs font-bold text-slate-500 uppercase">Password</label>
+                                    <input type="password" id="password" class="w-full p-3 rounded border border-slate-300 text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="••••••••">
+                                </div>
                                 <button type="submit" class="w-full bg-rcem-purple hover:bg-indigo-900 text-white font-bold py-3 rounded shadow transition-all">Sign In / Register</button>
                             </form>
-                            <button id="demo-auth-btn" class="w-full border border-slate-300 text-slate-600 py-2 rounded text-sm hover:bg-slate-50">Try Demo Mode</button>
+                            <button id="demo-auth-btn" class="w-full border border-slate-300 text-slate-600 py-2 rounded text-sm hover:bg-slate-50 font-medium">Try Demo Mode</button>
                         </div>
                     </div>
                 </div>
 
-                <div id="view-projects" class="view-section hidden max-w-5xl mx-auto">
+                <div id="view-projects" class="view-section hidden max-w-6xl mx-auto">
                     <header class="mb-8 flex justify-between items-center">
                         <div>
                             <h1 class="text-3xl font-bold text-slate-900">My Projects</h1>
@@ -136,17 +142,17 @@
                 </div>
 
                 <div id="view-dashboard" class="view-section hidden space-y-6">
-                    <div id="qi-coach-banner" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all">
+                    <div id="qi-coach-banner" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500">
                         <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-32 h-32"></i></div>
                         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                             <div>
                                 <div class="flex items-center gap-2 mb-1">
-                                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">Coach</span>
-                                    <h3 class="font-bold text-lg" id="coach-title">Analysing...</h3>
+                                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">QI Coach</span>
+                                    <h3 class="font-bold text-lg" id="coach-title">Analysing Project...</h3>
                                 </div>
-                                <p class="text-blue-100 text-sm max-w-2xl" id="coach-msg">Loading project status...</p>
+                                <p class="text-blue-100 text-sm max-w-2xl" id="coach-msg">Loading logic...</p>
                             </div>
-                            <button id="coach-btn" class="bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-50 transition-colors whitespace-nowrap">Take Action</button>
+                            <button id="coach-btn" class="bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-50 transition-colors whitespace-nowrap flex items-center gap-2">Take Action <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
                         </div>
                     </div>
 
@@ -173,14 +179,14 @@
                             
                             <div class="bg-white rounded-xl shadow-sm p-6">
                                 <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-rcem-purple"></i> Project Aim</h3>
-                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic">
-                                    No aim defined yet.
+                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif">
+                                    No aim defined yet. Use the 'Define & Measure' tab to create a SMART Aim.
                                 </div>
                             </div>
                         </div>
 
                         <div class="bg-white rounded-xl shadow-sm p-6 h-fit">
-                            <h3 class="font-bold text-slate-800 mb-4">Quick Actions</h3>
+                            <h3 class="font-bold text-slate-800 mb-4">Export & Share</h3>
                             <div class="space-y-3">
                                 <button onclick="window.exportPPTX()" class="w-full flex items-center gap-3 p-3 rounded border border-slate-200 hover:bg-slate-50 text-left transition-all group">
                                     <div class="bg-orange-100 p-2 rounded text-orange-600 group-hover:bg-orange-200"><i data-lucide="presentation" class="w-4 h-4"></i></div>
@@ -201,39 +207,35 @@
 
                 <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto space-y-6">
                     <header class="flex justify-between items-center">
-                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="clipboard-check" class="text-rcem-purple"></i> Define & Measure <button onclick="window.showHelp('checklist')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-4 h-4"></i></button></h2>
+                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="clipboard-check" class="text-rcem-purple"></i> Define & Measure <button onclick="window.showHelp('checklist')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
                     </header>
                     <div id="checklist-container" class="space-y-4"></div>
                 </div>
 
                 <div id="view-tools" class="view-section hidden h-full flex flex-col">
                     <header class="flex justify-between items-center mb-4">
-                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="git-branch" class="text-rcem-purple"></i> Diagrams <button onclick="window.showHelp('diagrams')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-4 h-4"></i></button></h2>
-                         <div class="flex bg-slate-200 p-1 rounded-lg text-sm">
-                             <button onclick="window.setToolMode('fishbone')" class="tool-tab px-3 py-1.5 rounded font-medium" id="tab-fishbone">Fishbone</button>
-                             <button onclick="window.setToolMode('driver')" class="tool-tab px-3 py-1.5 rounded font-medium" id="tab-driver">Driver</button>
-                             <button onclick="window.setToolMode('process')" class="tool-tab px-3 py-1.5 rounded font-medium" id="tab-process">Process</button>
+                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="git-branch" class="text-rcem-purple"></i> Diagrams <button onclick="window.showHelp('diagrams')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                         <div class="flex bg-slate-200 p-1 rounded-lg text-sm font-medium">
+                             <button onclick="window.setToolMode('fishbone')" class="tool-tab px-3 py-1.5 rounded transition-all" id="tab-fishbone">Fishbone</button>
+                             <button onclick="window.setToolMode('driver')" class="tool-tab px-3 py-1.5 rounded transition-all" id="tab-driver">Driver</button>
+                             <button onclick="window.setToolMode('process')" class="tool-tab px-3 py-1.5 rounded transition-all" id="tab-process">Process</button>
                          </div>
                     </header>
                     
                     <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative">
-                        <div id="tool-controls" class="p-2 border-b border-slate-100 flex gap-2 overflow-x-auto bg-slate-50"></div>
+                        <div id="tool-controls" class="p-2 border-b border-slate-100 flex gap-2 overflow-x-auto bg-slate-50 min-h-[50px] items-center"></div>
                         <div id="diagram-wrapper" class="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-slate-50">
                             <div id="diagram-canvas" class="w-full h-full flex items-center justify-center transition-transform origin-center"></div>
                         </div>
-                        <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2">
-                             <button onclick="window.resetZoom()"><i data-lucide="maximize" class="w-4 h-4"></i></button>
-                             <button onclick="window.downloadDiagram()"><i data-lucide="download" class="w-4 h-4"></i></button>
+                        <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2 border border-slate-200">
+                             <button onclick="window.resetZoom()" class="hover:text-rcem-purple"><i data-lucide="maximize" class="w-4 h-4"></i> Reset</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="view-data" class="view-section hidden space-y-6">
                     <header class="flex justify-between items-center">
-                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-4 h-4"></i></button></h2>
-                        <div class="flex gap-2">
-                             <button onclick="window.openBulkImport()" class="text-sm bg-white border border-slate-300 px-3 py-1.5 rounded hover:bg-slate-50">Bulk Import</button>
-                        </div>
+                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
                     </header>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -242,56 +244,79 @@
                             <div class="space-y-4">
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm">
+                                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="e.g. 45">
+                                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="e.g. 45">
                                 </div>
                                 <div>
                                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
-                                    <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                                    <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white focus:ring-2 focus:ring-rcem-purple outline-none">
                                         <option value="outcome">Outcome (Primary Aim)</option>
                                         <option value="process">Process (Compliance)</option>
                                         <option value="balance">Balancing (Safety)</option>
                                     </select>
                                 </div>
-                                <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow">Add Data</button>
+                                <div class="pt-2">
+                                    <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all">Add Data</button>
+                                </div>
                             </div>
-                            <div class="mt-6">
-                                <h4 class="text-xs font-bold text-slate-400 uppercase border-b pb-1 mb-2">Recent History</h4>
-                                <div id="data-history" class="max-h-48 overflow-y-auto text-sm space-y-1"></div>
+                            <div class="mt-8">
+                                <h4 class="text-xs font-bold text-slate-400 uppercase border-b border-slate-200 pb-1 mb-2">Recent History</h4>
+                                <div id="data-history" class="max-h-48 overflow-y-auto text-sm space-y-2"></div>
                             </div>
                         </div>
 
                         <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm relative min-h-[400px]">
                             <canvas id="mainChart"></canvas>
-                            <div id="chart-ghost" class="absolute inset-0 bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden">
+                            <div id="chart-ghost" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl">
                                 <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
                                 <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
-                                <p class="text-slate-500 max-w-sm mb-4">Start by establishing a baseline. You need 10-15 data points before implementing changes to see reliable trends.</p>
-                                <button onclick="document.getElementById('chart-value').focus()" class="bg-indigo-600 text-white px-4 py-2 rounded shadow hover:bg-indigo-700">Enter Baseline Data</button>
+                                <p class="text-slate-500 max-w-sm mb-6">Start by establishing a baseline. You need 10-15 data points before implementing changes to see reliable trends (SPC).</p>
+                                <button onclick="document.getElementById('chart-value').focus()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700 transition-all font-medium">Enter Baseline Data</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div id="view-pdsa" class="view-section hidden max-w-4xl mx-auto"><div id="pdsa-container"></div></div>
-                <div id="view-gantt" class="view-section hidden"><div id="gantt-container"></div></div>
-                <div id="view-green" class="view-section hidden max-w-3xl mx-auto text-center pt-12">
+                <div id="view-pdsa" class="view-section hidden max-w-4xl mx-auto space-y-6">
+                    <header class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="refresh-cw" class="text-rcem-purple"></i> PDSA Cycles <button onclick="window.showHelp('pdsa')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                        <button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2 font-medium"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
+                    </header>
+                    <div id="pdsa-container" class="space-y-6"></div>
+                </div>
+
+                <div id="view-gantt" class="view-section hidden max-w-5xl mx-auto">
+                    <header class="flex justify-between items-center mb-6">
+                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)</h2>
+                        <button onclick="window.addGanttTask()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded hover:bg-slate-300 text-sm font-medium">+ Add Task</button>
+                    </header>
+                    <div id="gantt-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[300px]"></div>
+                </div>
+
+                <div id="view-green" class="view-section hidden max-w-3xl mx-auto text-center pt-8">
                      <i data-lucide="leaf" class="w-16 h-16 text-emerald-500 mx-auto mb-4"></i>
-                     <h2 class="text-2xl font-bold mb-4">Green ED Calculator</h2>
-                     <div class="bg-white p-8 rounded-xl shadow-sm max-w-md mx-auto">
-                         <div class="mb-4 text-left">
-                             <label class="block text-sm font-bold mb-1">Item Saved</label>
-                             <select id="green-type" class="w-full p-2 border rounded"><option value="0.035">Cannula (35g CO2e)</option><option value="0.150">Fluid Bag 1L (150g CO2e)</option><option value="0.02">Blood Bottle (20g CO2e)</option></select>
+                     <h2 class="text-2xl font-bold mb-2 text-slate-800">Green ED Calculator</h2>
+                     <p class="text-slate-500 mb-8">Estimate the carbon savings of your Quality Improvement Project.</p>
+                     <div class="bg-white p-8 rounded-xl shadow-sm border border-emerald-100 max-w-md mx-auto text-left">
+                         <div class="mb-4">
+                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Item Saved / Avoided</label>
+                             <select id="green-type" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                                 <option value="0.035">IV Cannula (Plastic) - 35g CO2e</option>
+                                 <option value="0.150">IV Fluid Bag (1L) - 150g CO2e</option>
+                                 <option value="0.020">Blood Bottle - 20g CO2e</option>
+                                 <option value="0.200">Patient Meal (Wasted) - 200g CO2e</option>
+                                 <option value="2.500">Bed Day (Low Intensity) - 2.5kg CO2e</option>
+                             </select>
                          </div>
-                         <div class="mb-6 text-left">
-                             <label class="block text-sm font-bold mb-1">Quantity Avoided</label>
-                             <input type="number" id="green-qty" class="w-full p-2 border rounded" placeholder="e.g. 100">
+                         <div class="mb-6">
+                             <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Quantity</label>
+                             <input type="number" id="green-qty" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="e.g. 100">
                          </div>
-                         <button onclick="window.calcGreen()" class="w-full bg-emerald-600 text-white py-2 rounded font-bold">Calculate Savings</button>
-                         <div id="green-res" class="mt-4 font-bold text-emerald-700 text-lg hidden"></div>
+                         <button onclick="window.calcGreen()" class="w-full bg-emerald-600 text-white py-2 rounded font-bold hover:bg-emerald-700 shadow-lg shadow-emerald-200 transition-all">Calculate Savings</button>
+                         <div id="green-res" class="mt-6 text-center font-bold text-emerald-700 text-xl hidden p-4 bg-emerald-50 rounded border border-emerald-100 animate-pulse"></div>
                      </div>
                 </div>
 
@@ -299,43 +324,61 @@
         </main>
     </div>
 
-    <div id="help-modal" class="fixed inset-0 bg-slate-900/50 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden">
+    <div id="help-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm transition-opacity">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden animate-[scaleIn_0.2s_ease-out]">
             <div class="bg-rcem-purple p-4 flex justify-between items-center text-white">
-                <h3 class="font-bold flex items-center gap-2"><i data-lucide="graduation-cap"></i> <span id="help-title">Guide</span></h3>
-                <button onclick="document.getElementById('help-modal').classList.add('hidden')"><i data-lucide="x"></i></button>
+                <h3 class="font-bold flex items-center gap-2 text-lg"><i data-lucide="graduation-cap"></i> <span id="help-title">Guide</span></h3>
+                <button onclick="document.getElementById('help-modal').classList.add('hidden')" class="hover:bg-white/20 p-1 rounded transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
-            <div class="p-6 overflow-y-auto max-h-[60vh]" id="help-content"></div>
+            <div class="p-6 overflow-y-auto max-h-[60vh] text-slate-600 space-y-4" id="help-content"></div>
             <div class="p-4 bg-slate-50 border-t text-center">
-                <a href="https://rcem.ac.uk" target="_blank" class="text-rcem-purple text-sm hover:underline">View Full RCEM Guidelines</a>
+                <a href="https://rcem.ac.uk/quality-improvement/" target="_blank" class="text-rcem-purple text-sm font-bold hover:underline flex items-center justify-center gap-1">View Full RCEM Guidelines <i data-lucide="external-link" class="w-3 h-3"></i></a>
             </div>
         </div>
     </div>
 
-    <div id="smart-modal" class="fixed inset-0 bg-slate-900/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6">
-            <h3 class="text-xl font-bold mb-2 text-rcem-purple">Build a SMART Aim</h3>
-            <p class="text-slate-500 text-sm mb-6">A good aim is Specific, Measurable, Achievable, Relevant, and Time-bound.</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div><label class="text-xs font-bold uppercase text-slate-500">To what?</label><select id="sa-verb" class="w-full border p-2 rounded"><option>Increase</option><option>Decrease</option><option>Maintain</option></select></div>
-                <div><label class="text-xs font-bold uppercase text-slate-500">The Metric</label><input id="sa-metric" class="w-full border p-2 rounded" placeholder="e.g. Sepsis 6 Compliance"></div>
-                <div><label class="text-xs font-bold uppercase text-slate-500">Population</label><input id="sa-pop" class="w-full border p-2 rounded" placeholder="e.g. Adult patients in ED"></div>
-                <div><label class="text-xs font-bold uppercase text-slate-500">Target</label><input id="sa-val" class="w-full border p-2 rounded" placeholder="e.g. from 40% to 90%"></div>
-                <div class="md:col-span-2"><label class="text-xs font-bold uppercase text-slate-500">By When?</label><input type="date" id="sa-date" class="w-full border p-2 rounded"></div>
+    <div id="smart-modal" class="fixed inset-0 bg-slate-900/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-8">
+            <h3 class="text-2xl font-bold mb-2 text-rcem-purple">Build a SMART Aim</h3>
+            <p class="text-slate-500 text-sm mb-6 border-b pb-4">A good aim is <b>Specific</b>, <b>Measurable</b>, <b>Achievable</b>, <b>Relevant</b>, and <b>Time-bound</b>.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Direction</label>
+                    <select id="sa-verb" class="w-full border p-2 rounded bg-white"><option>Increase</option><option>Decrease</option><option>Maintain</option></select>
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">The Metric</label>
+                    <input id="sa-metric" class="w-full border p-2 rounded" placeholder="e.g. Sepsis 6 Compliance">
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Population / Context</label>
+                    <input id="sa-pop" class="w-full border p-2 rounded" placeholder="e.g. Adult patients in ED">
+                </div>
+                <div>
+                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Target Goal</label>
+                    <input id="sa-val" class="w-full border p-2 rounded" placeholder="e.g. from 40% to 90%">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">By When?</label>
+                    <input type="date" id="sa-date" class="w-full border p-2 rounded">
+                </div>
             </div>
-            <div class="bg-indigo-50 p-4 rounded mb-6 text-center italic font-serif text-indigo-900" id="sa-preview">"To Increase Sepsis 6 Compliance..."</div>
-            <div class="flex justify-end gap-2">
-                <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-4 py-2 text-slate-500">Cancel</button>
-                <button onclick="window.saveSmartAim()" class="px-4 py-2 bg-rcem-purple text-white rounded font-bold">Save Aim</button>
+            <div class="bg-indigo-50 p-4 rounded-lg mb-6 text-center italic font-serif text-indigo-900 text-lg border border-indigo-100 shadow-inner" id="sa-preview">"To Increase Sepsis 6 Compliance..."</div>
+            <div class="flex justify-end gap-3">
+                <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-5 py-2 text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="window.saveSmartAim()" class="px-5 py-2 bg-rcem-purple text-white rounded shadow hover:bg-indigo-900 font-bold transition-all">Save Aim</button>
             </div>
         </div>
     </div>
     
-    <div id="risr-modal" class="fixed inset-0 bg-slate-900/50 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+    <div id="risr-modal" class="fixed inset-0 bg-slate-900/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl">
             <div class="p-4 border-b flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-lg">Kaizen/Risr Portfolio Export</h3>
-                <button onclick="document.getElementById('risr-modal').classList.add('hidden')"><i data-lucide="x"></i></button>
+                <div class="flex items-center gap-2">
+                    <i data-lucide="file-text" class="text-teal-600"></i>
+                    <h3 class="font-bold text-lg text-slate-800">Kaizen/Risr Portfolio Export</h3>
+                </div>
+                <button onclick="document.getElementById('risr-modal').classList.add('hidden')" class="hover:bg-slate-200 p-1 rounded"><i data-lucide="x"></i></button>
             </div>
             <div class="p-6 overflow-y-auto flex-1 space-y-6 bg-slate-100" id="risr-content"></div>
         </div>
