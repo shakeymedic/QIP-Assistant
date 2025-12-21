@@ -1,589 +1,604 @@
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-firestore.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js";
 
+// --- CONFIG ---
 const firebaseConfig = {
-    apiKey: "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI",
+    apiKey: "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI", // Replace if needed
     authDomain: "rcem-qip-app.firebaseapp.com",
     projectId: "rcem-qip-app",
     storageBucket: "rcem-qip-app.firebasestorage.app",
     messagingSenderId: "231364231220",
-    appId: "1:231364231220:web:6b2260e2c885d40ecb4a61",
-    measurementId: "G-XHXTBQ29FX"
+    appId: "1:231364231220:web:6b2260e2c885d40ecb4a61"
 };
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- STATE ---
 let currentUser = null;
-let isDemoUser = false;
-let isViewingDemo = false;
+let currentProjectId = null;
+let projectData = null;
+let isDemoMode = false;
+let chartInstance = null;
+let unsubscribeProject = null; // Firestore listener
 
-// --- GOLD STANDARD DEMO DATA ---
-const demoData = {
+// --- DEMO DATA (Gold Standard Sepsis Example) ---
+const demoProject = {
+    meta: { title: "Improving Sepsis 6 Delivery", created: new Date().toISOString() },
     checklist: {
-        title: "Improving Sepsis 6 Bundle Delivery in the ED",
-        lead: "Dr. A. Medic (ST4)",
-        team: "Sr. B. Nurse (Band 7), Dr. C. Consultant (QIP Lead)",
-        problem_desc: "Local audit (Nov 2024) revealed only 45% of patients triggered for 'Red Flag Sepsis' received the full Sepsis 6 bundle within 1 hour of arrival. This increases mortality risk and length of stay.",
-        evidence: "RCEM Guidelines require 100% compliance. NCEPOD 'Just Say Sepsis' highlights early antibiotics as critical.",
-        aim: "To increase the delivery of the Sepsis 6 bundle within 1 hour for eligible patients from 45% to 90% by 1st March 2025.",
-        outcome_measures: "Percentage of eligible patients receiving Sepsis 6 < 1 hour.",
-        process_measures: "1. Time to screening (Triage). 2. Time to antibiotic prescription. 3. Availability of Sepsis Grab Bags.",
-        balance_measures: "1. Time to initial assessment for non-sepsis patients (displacement). 2. Rate of inappropriate antibiotic prescribing.",
-        strategy_summary: "We identified that equipment availability and lack of triage prompts were key drivers. We plan to introduce 'Sepsis Grab Bags' and a 'Sepsis Stamp' for notes.",
-        results_summary: "Baseline data (n=20) showed 45% compliance. Cycle 1 (Stamp) improved this to 65%. Cycle 2 (Grab Bags) improved this to 82%. Cycle 3 (PGD) sustained improvement at 88%.",
-        learning: "Process mapping revealed wasted time searching for fluids. Pre-filled bags saved 8 mins per patient. Nursing engagement was crucial for the PGD.",
-        sustainability_plan: "Sepsis Lead Nurse appointed to check grab bags daily. Audit metrics added to monthly departmental dashboard.",
-        spread_plan: "Presenting at Regional EM Conference in April. Sharing protocol with ICU."
+        title: "Improving Sepsis 6 Delivery in ED",
+        lead: "Dr. A. Medic",
+        team: "Sr. B. Nurse (Band 7), Dr. C. Consultant (Sponsor)",
+        problem_desc: "Audit showed only 45% of Red Flag Sepsis patients received Abx within 1h. This increases mortality risk.",
+        evidence: "RCEM Guidelines require 100% compliance. NCEPOD 'Just Say Sepsis' mandates early Abx.",
+        aim: "To increase delivery of Sepsis 6 bundle within 1 hour from 45% to 90% by March 2025.",
+        outcome_measures: "Sepsis 6 Compliance % (<1h)",
+        process_measures: "Time to Screening; Availability of Packs",
+        balance_measures: "Time to initial assessment for non-sepsis patients (displacement)",
+        ethics: "QI project only. No patient identifiable data used. Registered with Audit Dept (Ref: 1234).",
+        learning: "Process mapping showed 'hunting for kit' was a major delay. Grab bags fixed this.",
+        sustain: "Nurse in Charge checks grab bags daily. Monthly audit report automated.",
+        ppi: "Patient liaison group reviewed the new patient information leaflet."
     },
-    fishbone: { 
-        categories: [
-            {id:1, text:"People", causes:["Locum doctors unfamiliar with protocol", "Nursing shortage", "Fear of prescribing wrong dose"]}, 
-            {id:2, text:"Methods", causes:["No PGD for nurses", "Paper notes messy", "Screening tool ignored"]}, 
-            {id:3, text:"Equipment", causes:["Cannulas missing", "Fluids locked in store room", "Antibiotics in separate cupboard"]}, 
-            {id:4, text:"Environment", causes:["Overcrowded Resus", "No dedicated sepsis trolley"]}
-        ] 
+    drivers: {
+        primary: ["Identification", "Equipment", "Culture"],
+        secondary: ["Triage Screening", "Access to Fluids/Abx", "Empowerment to prescribe"],
+        changes: ["Sepsis Stamp", "Grab Bags", "PGD for Nurses"]
     },
-    drivers: { 
-        primary: ["Reliable Identification at Triage", "Rapid Equipment Availability", "Empowered Nursing Staff"], 
-        secondary: ["Visual prompts in notes", "Pre-prepared 'Grab Bags'", "Nurse PGD for Antibiotics"], 
-        changes: ["Sepsis Stamp", "Grab Bag Implementation", "Training Sessions"] 
-    },
-    stakeholder: [
-        {group: "Consultants", interest: "High", power: "High", strategy: "Manage Closely"},
-        {group: "ED Nurses", interest: "High", power: "High", strategy: "Manage Closely"},
-        {group: "Hospital Managers", interest: "Low", power: "High", strategy: "Keep Satisfied"},
-        {group: "Porters", interest: "Low", power: "Low", strategy: "Monitor"}
-    ],
-    processMap: ["Patient Arrives", "Triage (Trigger Sepsis?)", "No -> Routine Care", "Yes -> Blue Light", "Doctor Assessment", "Cannula/Bloods", "Antibiotics Given"],
-    forcefield: { 
-        driving: ["National Targets (CQUIN)", "Enthusiastic Junior Doctors", "Consultant Support"], 
-        restraining: ["Winter Pressures / Crowding", "Agency Staff Turnover", "IT System Slowness"] 
-    },
-    swot: { s: [], w: [], o: [], t: [] },
-    fiveWhys: [
-        "Antibiotics delivered late (>1 hour)", 
-        "Doctor didn't prescribe them immediately", 
-        "Doctor was busy in Resus with another patient", 
-        "Nurses not authorised to prescribe first dose", 
-        "No PGD (Patient Group Direction) in place"
-    ],
-    gantt: [
-        {id:"1", name:"Project Planning & Team Formation", start:"2025-01-01", end:"2025-01-07", status:"Complete"},
-        {id:"2", name:"Baseline Data Collection (n=20)", start:"2025-01-07", end:"2025-01-14", status:"Complete"},
-        {id:"3", name:"PDSA 1: Sepsis Stamp Design", start:"2025-01-14", end:"2025-01-16", status:"Complete"}
-    ],
+    fishbone: { categories: [{ id: 1, text: "People", causes: ["Locums unaware", "Fear of error"] }, { id: 2, text: "Process", causes: ["No PGD", "Paper notes"] }] },
+    process: ["Arrival", "Triage (Screen +)", "Doctor Review", "Sepsis 6 Initiated"],
     pdsa: [
-        {id:"3", title:"Cycle 3: Nurse PGD", date:"2025-02-10", plan:"Empower Band 6+ nurses to give 1st dose Abx without doctor.", do:"Training run for 10 nurses. PGD signed off.", study:"Time to Abx dropped to 25 mins average.", act:"Roll out to all Band 5s."},
-        {id:"2", title:"Cycle 2: Sepsis Grab Bags", date:"2025-01-24", plan:"Create kits with fluids, giving sets, and blood bottles to reduce 'hunting' time.", do:"10 bags placed in Majors. Stock checked daily.", study:"Compliance rose to 82%. Nurses reported high satisfaction.", act:"Adopt as standard practice."},
-        {id:"1", title:"Cycle 1: Sepsis Stamp", date:"2025-01-16", plan:"Rubber stamp for notes to prompt Sepsis 6 actions at triage.", do:"Trialled for 1 week. 50 notes stamped.", study:"Compliance rose from 45% to 65%, but stamp ink ran out often.", act:"Adapt: Switch to sticker or digital flag."}
+        { id: "1", title: "Cycle 1: Sepsis Stamp", plan: "Use stamp in notes to prompt action.", do: "Used for 1 week.", study: "Compliance rose to 60%. Ink ran out.", act: "Switch to stickers." },
+        { id: "2", title: "Cycle 2: Grab Bags", plan: "Pre-fill bags to save time.", do: "Deployed 10 bags.", study: "Compliance hit 82%. Staff loved it.", act: "Adopt permanently." }
     ],
     chartData: [
-        {date:"2025-01-01", value:45, type:"data", category:"outcome"}, {date:"2025-01-03", value:40, type:"data", category:"outcome"}, {date:"2025-01-05", value:48, type:"data", category:"outcome"}, 
-        {date:"2025-01-08", value:42, type:"data", category:"outcome"}, {date:"2025-01-12", value:45, type:"data", category:"outcome"},
-        {date:"2025-01-16", value:null, type:"intervention", note:"PDSA 1: Stamp"},
-        {date:"2025-01-18", value:60, type:"data", category:"outcome"}, {date:"2025-01-20", value:65, type:"data", category:"outcome"}, {date:"2025-01-23", value:62, type:"data", category:"outcome"},
-        {date:"2025-01-24", value:null, type:"intervention", note:"PDSA 2: Grab Bags"},
-        {date:"2025-01-27", value:78, type:"data", category:"outcome"}, {date:"2025-01-30", value:82, type:"data", category:"outcome"}, {date:"2025-02-03", value:85, type:"data", category:"outcome"},
-        {date:"2025-02-10", value:null, type:"intervention", note:"PDSA 3: PGD"},
-        {date:"2025-02-14", value:88, type:"data", category:"outcome"}, {date:"2025-02-18", value:92, type:"data", category:"outcome"}
-    ],
-    paretoData: [
-        {cat: "Doctor Busy / Delay", count: 45},
-        {cat: "Equipment Missing", count: 30},
-        {cat: "Not Flagged at Triage", count: 15}
-    ],
-    chartGoal: 90
+        { date: "2025-01-01", value: 45, type: "outcome" }, { date: "2025-01-02", value: 42, type: "outcome" },
+        { date: "2025-01-03", value: 48, type: "outcome" }, { date: "2025-01-04", value: 46, type: "outcome" },
+        { date: "2025-01-05", value: 50, type: "outcome" }, { date: "2025-01-06", value: 45, type: "outcome" },
+        { date: "2025-01-07", value: 65, type: "outcome", note: "PDSA 1: Stamp" },
+        { date: "2025-01-08", value: 68, type: "outcome" }, { date: "2025-01-09", value: 70, type: "outcome" },
+        { date: "2025-01-14", value: 82, type: "outcome", note: "PDSA 2: Bags" },
+        { date: "2025-01-15", value: 85, type: "outcome" }, { date: "2025-01-16", value: 88, type: "outcome" }
+    ]
 };
 
-// Current user data structure
-let projectData = {
+const emptyProject = {
+    meta: { title: "New Project", created: new Date().toISOString() },
     checklist: {},
-    fishbone: { categories: [] },
     drivers: { primary: [], secondary: [], changes: [] },
-    forcefield: { driving: [], restraining: [] },
-    stakeholder: [],
-    processMap: [],
-    swot: { s: [], w: [], o: [], t: [] },
-    fiveWhys: ["","","","",""],
-    gantt: [],
+    fishbone: { categories: [{ id: 1, text: "People", causes: [] }, { id: 2, text: "Methods", causes: [] }, { id: 3, text: "Environment", causes: [] }, { id: 4, text: "Equipment", causes: [] }] },
+    process: ["Start", "End"],
     pdsa: [],
-    chartData: [],
-    paretoData: [],
-    chartGoal: null
+    chartData: []
 };
 
-let chartMode = 'run';
-let toolMode = 'fishbone'; 
-let authMode = 'signin';
-let chartInstance = null;
-
-// PAN & ZOOM STATE
-let panState = { scale: 1, panning: false, pointX: 0, pointY: 0, startX: 0, startY: 0 };
-
-const escapeHtml = (unsafe) => { if(!unsafe) return ''; return unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
-const showToast = (message) => {
-    const el = document.createElement('div'); el.className = `px-4 py-2 rounded shadow-lg text-white text-sm font-medium mb-2 fade-in bg-rcem-purple`; el.innerHTML = message;
-    document.getElementById('toast-container').appendChild(el); setTimeout(() => el.remove(), 3000);
-}
-
-// Config Mermaid for high quality
-mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose', maxTextSize: 90000 });
-
-// --- AUTH & SETUP ---
+// --- AUTH & INIT ---
 onAuthStateChanged(auth, (user) => {
-    if(isDemoUser) return; 
     currentUser = user;
     if (user) {
-        showApp();
-        initRealtimeListener();
-        if(!localStorage.getItem('rcem_tour_done')) {
-            document.getElementById('guide-modal').classList.remove('hidden');
-            localStorage.setItem('rcem_tour_done', 'true');
-        }
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-sidebar').classList.remove('hidden');
+        document.getElementById('app-sidebar').classList.add('flex');
+        document.getElementById('user-display').textContent = user.email;
+        loadProjectList();
     } else {
-        showAuth();
+        document.getElementById('auth-screen').classList.remove('hidden');
     }
 });
-
-function showApp() {
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('app-sidebar').classList.remove('hidden');
-    document.getElementById('app-sidebar').classList.add('flex');
-    document.getElementById('main-content').classList.remove('hidden');
-    document.getElementById('user-display').textContent = currentUser ? currentUser.email : "Demo User";
-    initPanZoom();
-}
-
-function showAuth() {
-    document.getElementById('auth-screen').classList.remove('hidden');
-    document.getElementById('app-sidebar').classList.remove('flex');
-    document.getElementById('app-sidebar').classList.add('hidden');
-    document.getElementById('main-content').classList.add('hidden');
-}
-
-window.enableDemoMode = () => {
-    isDemoUser = true;
-    currentUser = { email: "demo@rcem.ac.uk", uid: "demo" };
-    projectData = JSON.parse(JSON.stringify(demoData)); // Deep copy
-    showApp();
-    renderAll();
-    showToast("Demo Loaded - Data not saved");
-}
-
-document.getElementById('demo-btn').onclick = window.enableDemoMode;
-window.toggleDemoView = () => {
-    const checkbox = document.getElementById('demo-toggle');
-    isViewingDemo = checkbox.checked;
-    const indicator = document.getElementById('demo-indicator');
-    if (isViewingDemo) { indicator.classList.remove('hidden'); showToast("Viewing Example Project"); } 
-    else { indicator.classList.add('hidden'); showToast("Returning to Your Project"); }
-    renderAll();
-};
-document.getElementById('demo-toggle').onclick = window.toggleDemoView;
-
-function getData() { return isViewingDemo ? demoData : projectData; }
 
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
     try {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        if (authMode === 'signup') await createUserWithEmailAndPassword(auth, email, password);
-        else await signInWithEmailAndPassword(auth, email, password);
-    } catch (err) { alert(err.message); }
+        await signInWithEmailAndPassword(auth, email, pass);
+    } catch {
+        try { await createUserWithEmailAndPassword(auth, email, pass); } catch (err) { alert(err.message); }
+    }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => { 
-    isDemoUser = false; isViewingDemo = false; signOut(auth); location.reload(); 
-});
-document.getElementById('toggle-auth').onclick = (e) => { e.preventDefault(); authMode = authMode==='signin'?'signup':'signin'; document.getElementById('auth-btn-text').textContent = authMode==='signin'?'Sign In':'Sign Up'; document.getElementById('auth-title').textContent = authMode==='signin'?'Sign In':'Create Account'; };
+document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); location.reload(); });
 
-// --- DB ---
-function initRealtimeListener() {
-    if (!currentUser || isDemoUser) return;
-    onSnapshot(doc(db, 'projects', currentUser.uid), (doc) => {
-        if (doc.exists()) {
-            projectData = { ...projectData, ...doc.data() };
-            // Ensure schema integrity
-            if(!projectData.fishbone || !projectData.fishbone.categories) projectData.fishbone = { categories: [{id:1, text:"People", causes:[]}, {id:2, text:"Methods", causes:[]}, {id:3, text:"Equipment", causes:[]}, {id:4, text:"Environment", causes:[]}] };
-            if(!projectData.drivers) projectData.drivers = { primary: [], secondary: [], changes: [] };
-            if(!projectData.fiveWhys) projectData.fiveWhys = ["","","","",""];
-            if(!projectData.stakeholder) projectData.stakeholder = [];
-            if(!projectData.processMap) projectData.processMap = [];
-        }
-        if (!isViewingDemo) renderAll();
+// --- PROJECT MANAGEMENT ---
+async function loadProjectList() {
+    window.router('projects');
+    document.getElementById('top-bar').classList.add('hidden');
+    const listEl = document.getElementById('project-list');
+    listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10">Loading projects...</div>';
+    
+    const snap = await getDocs(collection(db, `users/${currentUser.uid}/projects`));
+    listEl.innerHTML = '';
+    
+    if (snap.empty) {
+        listEl.innerHTML = `<div class="col-span-3 text-center border-2 border-dashed border-slate-300 rounded-xl p-10">
+            <h3 class="font-bold text-slate-600 mb-2">No Projects Yet</h3>
+            <button onclick="window.createNewProject()" class="text-rcem-purple font-bold hover:underline">Create your first QIP</button>
+        </div>`;
+    }
+
+    snap.forEach(doc => {
+        const d = doc.data();
+        const date = new Date(d.meta?.created).toLocaleDateString();
+        listEl.innerHTML += `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group relative" onclick="window.openProject('${doc.id}')">
+                <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple">${d.meta?.title || 'Untitled'}</h3>
+                <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
+                <div class="flex gap-2 text-xs font-medium text-slate-500">
+                    <span class="bg-slate-100 px-2 py-1 rounded">${d.chartData?.length || 0} Points</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded">${d.pdsa?.length || 0} Cycles</span>
+                </div>
+                <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+        `;
     });
+    lucide.createIcons();
 }
 
-async function saveData() { 
-    if(isViewingDemo || isDemoUser) return; 
-    if(currentUser) await setDoc(doc(db, 'projects', currentUser.uid), projectData, { merge: true }); 
-    const s = document.getElementById('save-status');
-    s.innerHTML = '<i data-lucide="save" class="w-3 h-3 text-emerald-600"></i> Saved';
-    s.classList.add('animate-pulse-fast');
-    setTimeout(() => s.classList.remove('animate-pulse-fast'), 1000);
-}
-window.saveData = saveData;
+window.createNewProject = async () => {
+    const title = prompt("Project Title:", "My New QIP");
+    if (!title) return;
+    const newProj = JSON.parse(JSON.stringify(emptyProject));
+    newProj.meta.title = title;
+    await addDoc(collection(db, `users/${currentUser.uid}/projects`), newProj);
+    loadProjectList();
+};
 
-// --- ROUTER & SHORTCUTS ---
-window.router = (viewId) => {
+window.deleteProject = async (id) => {
+    if (confirm("Are you sure? This cannot be undone.")) {
+        await deleteDoc(doc(db, `users/${currentUser.uid}/projects`, id));
+        loadProjectList();
+    }
+};
+
+window.openProject = (id) => {
+    currentProjectId = id;
+    if (unsubscribeProject) unsubscribeProject();
+    
+    unsubscribeProject = onSnapshot(doc(db, `users/${currentUser.uid}/projects`, id), (doc) => {
+        if (doc.exists()) {
+            projectData = doc.data();
+            // Schema checks
+            if(!projectData.checklist) projectData.checklist = {};
+            if(!projectData.drivers) projectData.drivers = {primary:[], secondary:[], changes:[]};
+            document.getElementById('project-header-title').textContent = projectData.meta.title;
+            renderCoach(); // The "Brain" update
+            if (currentView === 'data') renderChart(); 
+            if (currentView === 'tools') renderTools();
+            if (currentView === 'checklist') renderChecklist();
+        }
+    });
+
+    document.getElementById('top-bar').classList.remove('hidden');
+    window.router('dashboard');
+};
+
+window.returnToProjects = () => {
+    currentProjectId = null;
+    projectData = null;
+    if (unsubscribeProject) unsubscribeProject();
+    loadProjectList();
+};
+
+// --- ROUTER ---
+let currentView = 'dashboard';
+window.router = (view) => {
+    currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
-    document.getElementById(`view-${viewId}`).classList.remove('hidden');
-    if(viewId === 'tools') renderTools();
-    if(viewId === 'data') renderChart();
+    document.getElementById(`view-${view}`).classList.remove('hidden');
+    
+    // Nav Highlights
+    document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
+    const btn = document.getElementById(`nav-${view}`);
+    if(btn) btn.classList.add('bg-rcem-purple', 'text-white');
+
+    if (view === 'checklist') renderChecklist();
+    if (view === 'tools') renderTools();
+    if (view === 'data') renderChart();
+    if (view === 'pdsa') renderPDSA();
+    
     lucide.createIcons();
 };
-window.toggleDarkMode = () => document.documentElement.classList.toggle('dark');
-window.openGuide = () => document.getElementById('guide-modal').classList.remove('hidden');
-window.openBulkImport = () => document.getElementById('bulk-modal').classList.remove('hidden');
+
+// --- DATA SAVING ---
+async function saveData() {
+    if (isDemoMode || !currentProjectId) return;
+    await setDoc(doc(db, `users/${currentUser.uid}/projects`, currentProjectId), projectData, { merge: true });
+    
+    const s = document.getElementById('save-status');
+    s.classList.remove('opacity-0');
+    setTimeout(() => s.classList.add('opacity-0'), 2000);
+}
+
+// --- DEMO MODE ---
+document.getElementById('demo-toggle').addEventListener('change', (e) => {
+    isDemoMode = e.target.checked;
+    const wm = document.getElementById('demo-watermark');
+    if (isDemoMode) {
+        projectData = JSON.parse(JSON.stringify(demoProject)); // Deep copy
+        wm.classList.remove('hidden');
+        renderAll();
+    } else {
+        wm.classList.add('hidden');
+        // Re-fetch real data
+        window.openProject(currentProjectId);
+    }
+});
+document.getElementById('demo-auth-btn').onclick = () => {
+    isDemoMode = true;
+    currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+    projectData = JSON.parse(JSON.stringify(demoProject));
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-sidebar').classList.remove('hidden');
+    document.getElementById('app-sidebar').classList.add('flex');
+    document.getElementById('demo-watermark').classList.remove('hidden');
+    document.getElementById('top-bar').classList.remove('hidden');
+    document.getElementById('demo-toggle').checked = true;
+    renderAll();
+    window.router('dashboard');
+};
 
 function renderAll() {
-    renderDashboard(); renderChecklist(); renderChart(); renderTools(); renderGantt(); renderPDSA();
-    lucide.createIcons();
+    renderCoach();
+    if(currentView==='dashboard') renderCoach(); 
+    else window.router(currentView);
 }
 
-// --- DIAGRAM PAN & ZOOM LOGIC ---
-function initPanZoom() {
-    const wrapper = document.getElementById('tool-container-wrapper');
-    const canvas = document.getElementById('tool-canvas');
-
-    wrapper.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        panState.panning = true;
-        panState.startX = e.clientX - panState.pointX;
-        panState.startY = e.clientY - panState.pointY;
-        wrapper.classList.add('grabbing-cursor');
-    });
-
-    wrapper.addEventListener('mousemove', (e) => {
-        if (!panState.panning) return;
-        e.preventDefault();
-        panState.pointX = e.clientX - panState.startX;
-        panState.pointY = e.clientY - panState.startY;
-        canvas.style.transform = `translate(${panState.pointX}px, ${panState.pointY}px) scale(${panState.scale})`;
-    });
-
-    wrapper.addEventListener('mouseup', () => { panState.panning = false; wrapper.classList.remove('grabbing-cursor'); });
-    wrapper.addEventListener('mouseleave', () => { panState.panning = false; wrapper.classList.remove('grabbing-cursor'); });
-
-    wrapper.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        const xs = (e.clientX - panState.pointX) / panState.scale;
-        const ys = (e.clientY - panState.pointY) / panState.scale;
-        const delta = -Math.sign(e.deltaY) * 0.1;
-        panState.scale = Math.min(Math.max(0.5, panState.scale + delta), 4);
-        panState.pointX = e.clientX - xs * panState.scale;
-        panState.pointY = e.clientY - ys * panState.scale;
-        canvas.style.transform = `translate(${panState.pointX}px, ${panState.pointY}px) scale(${panState.scale})`;
-    });
-}
-
-// --- CHARTING ENGINE ---
-window.setChartMode = (m) => { chartMode = m; 
-    document.getElementById('input-run').classList.toggle('hidden', m!=='run');
-    document.getElementById('input-pareto').classList.toggle('hidden', m!=='pareto');
-    renderChart(); 
-}
-
-function renderChart() {
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    if (chartInstance) chartInstance.destroy();
-    const dataObj = getData();
-
-    if (chartMode === 'run') {
-        const data = dataObj.chartData || [];
-        const sortedData = [...data].sort((a,b) => new Date(a.date) - new Date(b.date));
-        
-        // Filter Outcome Measures for the chart line
-        const outcomePoints = sortedData.filter(d => d.type === 'data' && (d.category === 'outcome' || !d.category));
-        
-        const values = outcomePoints.map(d => parseFloat(d.value));
-        const annotations = {};
-        sortedData.filter(d => d.type === 'intervention').forEach((d, i) => {
-            annotations[`line${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, borderDash: [6, 6], label: { display: true, content: d.note || 'PDSA', position: 'start', backgroundColor: '#f36f21', color: 'white' } };
-        });
-        if(dataObj.chartGoal) annotations['goal'] = { type: 'line', yMin: dataObj.chartGoal, yMax: dataObj.chartGoal, borderColor: 'green', borderWidth: 1, borderDash:[2,2], label: {display:true, content:'Target'} };
-
-        chartInstance = new Chart(ctx, {
-            type: 'line',
-            data: { 
-                labels: outcomePoints.map(d => d.date), 
-                datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: '#2d2e83', pointRadius: 5, tension: 0.1 }] 
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } } }
-        });
-
-        // List Render
-        document.getElementById('data-history-list').innerHTML = sortedData.map((d,i)=>`<div class="flex justify-between text-sm border-b border-slate-200 dark:border-slate-700 p-2"><span><span class="font-bold uppercase text-xs w-16 inline-block ${d.type==='intervention'?'text-orange-500':'text-indigo-600'}">${d.type==='intervention'?'INT':(d.category||'OUT').substring(0,3)}</span> ${d.date}: ${d.type==='intervention' ? d.note : d.value}</span>${!isViewingDemo ? `<button onclick="window.deleteDataPoint(${i})" class="text-red-500">x</button>` : ''}</div>`).join('');
+// --- 1. THE QI COACH (Logic Engine) ---
+function renderCoach() {
+    const d = projectData;
+    const banner = document.getElementById('qi-coach-banner');
+    const title = document.getElementById('coach-title');
+    const msg = document.getElementById('coach-msg');
+    const btn = document.getElementById('coach-btn');
     
+    // Logic Tree
+    if (!d.checklist.aim) {
+        title.textContent = "Step 1: Define your Aim";
+        msg.textContent = "Every QIP starts with a clear goal. Use the SMART wizard to define what you want to achieve.";
+        btn.textContent = "Build SMART Aim";
+        btn.onclick = () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); };
+        banner.className = "bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden";
+    } else if (d.drivers.secondary.length === 0) {
+        title.textContent = "Step 2: Diagnose the Issue";
+        msg.textContent = "You have an aim, but how will you get there? Create a Driver Diagram to map your strategy.";
+        btn.textContent = "Go to Drivers";
+        btn.onclick = () => window.router('tools');
+        banner.className = "bg-gradient-to-r from-blue-600 to-cyan-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden";
+    } else if (d.chartData.length < 5) {
+        title.textContent = "Step 3: Establish Baseline";
+        msg.textContent = "Before changing anything, measure the current performance. Collect at least 10-15 data points.";
+        btn.textContent = "Add Data";
+        btn.onclick = () => window.router('data');
+        banner.className = "bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden";
+    } else if (d.pdsa.length === 0) {
+        title.textContent = "Step 4: Time to Act";
+        msg.textContent = "You have a baseline. Now pick a Change Idea from your Driver Diagram and run a PDSA cycle.";
+        btn.textContent = "Start PDSA";
+        btn.onclick = () => window.router('pdsa');
+        banner.className = "bg-gradient-to-r from-emerald-600 to-green-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden";
     } else {
-        // Pareto Logic
-        const data = dataObj.paretoData || [];
-        const sortedData = [...data].sort((a,b) => b.count - a.count);
-        const total = sortedData.reduce((a,b) => a + Number(b.count), 0);
-        let acc = 0;
-        const percentages = sortedData.map(d => { acc += Number(d.count); return Math.round((acc/total)*100); });
-
-        chartInstance = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: sortedData.map(d => d.cat), datasets: [{ type: 'line', label: 'Cumulative %', data: percentages, borderColor: '#f36f21', yAxisID: 'y1' }, { type: 'bar', label: 'Frequency', data: sortedData.map(d => d.count), backgroundColor: '#2d2e83', yAxisID: 'y' }] },
-            options: { responsive: true, scales: { y: { beginAtZero: true }, y1: { beginAtZero: true, position: 'right', max: 100 } } }
-        });
+        title.textContent = "Project Active";
+        msg.textContent = "Great work! Continue collecting data to show sustained improvement. Consider your sustainability plan.";
+        btn.textContent = "Review Data";
+        btn.onclick = () => window.router('data');
+        banner.className = "bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden";
     }
+
+    // Dashboard Stats
+    document.getElementById('stat-progress').textContent = Math.round((Object.values(d.checklist).filter(v=>v).length / 12)*100) + "%";
+    document.getElementById('stat-pdsa').textContent = d.pdsa.length;
+    document.getElementById('stat-data').textContent = d.chartData.length;
+    document.getElementById('stat-drivers').textContent = d.drivers.changes.length;
+    document.getElementById('dash-aim-display').textContent = d.checklist.aim || "No aim defined yet.";
 }
 
-window.deleteDataPoint = (i) => { projectData.chartData.splice(i,1); saveData(); renderChart(); }
-window.addDataPoint = () => { 
-    if(isViewingDemo) return;
-    const date = document.getElementById('chart-date').value; 
-    const type = document.getElementById('chart-type').value; 
-    const value = document.getElementById('chart-value').value; 
-    const note = document.getElementById('chart-note').value;
-    const category = document.getElementById('chart-category').value;
-    if(date) { projectData.chartData.push({ date, value, type, note, category }); saveData(); renderChart(); }
+// --- 2. CHECKLIST & WIZARD ---
+function renderChecklist() {
+    const list = document.getElementById('checklist-container');
+    const sections = [
+        { id: "def", title: "Problem & Evidence", fields: [
+            {k:"problem_desc", l:"Problem Description", p:"What is wrong? Why is it a problem?"},
+            {k:"evidence", l:"Evidence / Standards", p:"RCEM Guidelines, NICE, Local Audit data..."}
+        ]},
+        { id: "meas", title: "Aim & Measures", fields: [
+            {k:"aim", l:"SMART Aim", p:"Use the wizard to build this...", w:true},
+            {k:"outcome_measures", l:"Outcome Measure", p:"The main result (e.g. % Compliance)"},
+            {k:"process_measures", l:"Process Measures", p:"Are staff doing the steps? (e.g. Screening tool used)"},
+            {k:"balance_measures", l:"Balancing Measures", p:"Are we causing harm elsewhere? (e.g. Delays)"}
+        ]},
+        { id: "team", title: "Team & Ethics", fields: [
+            {k:"lead", l:"Project Lead", p:"Your name"},
+            {k:"team", l:"Team Members", p:"Consultant Sponsor, Nursing Lead, etc."},
+            {k:"ethics", l:"Ethical / Governance", p:"Registered with Audit Dept? PPI involved?"},
+            {k:"ppi", l:"Patient Public Involvement", p:"How have patients been consulted?"}
+        ]},
+        { id: "conc", title: "Conclusions", fields: [
+            {k:"learning", l:"Key Learning", p:"What worked? What didn't?"},
+            {k:"sustain", l:"Sustainability Plan", p:"How will this stick when you leave?"}
+        ]}
+    ];
+
+    list.innerHTML = sections.map(s => `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <div class="bg-slate-50 px-6 py-3 font-bold text-slate-700 border-b border-slate-200">${s.title}</div>
+            <div class="p-6 space-y-4">
+                ${s.fields.map(f => `
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex justify-between">
+                            ${f.l} ${f.w ? '<button onclick="document.getElementById(\'smart-modal\').classList.remove(\'hidden\')" class="text-rcem-purple hover:underline text-[10px] ml-2">Open Wizard</button>' : ''}
+                        </label>
+                        <textarea onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none" rows="2" placeholder="${f.p}">${projectData.checklist[f.k]||''}</textarea>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `).join('');
 }
 
-// --- TOOLS (Diagrams) ---
-window.setToolMode = (m) => { 
-    toolMode = m; 
-    panState.scale = 1; panState.pointX = 0; panState.pointY = 0; 
-    document.getElementById('tool-canvas').style.transform = `translate(0px, 0px) scale(1)`;
-    renderTools(); 
+// SMART Wizard Logic
+const smartInputs = ['sa-verb', 'sa-metric', 'sa-pop', 'sa-val', 'sa-date'];
+smartInputs.forEach(id => document.getElementById(id).addEventListener('input', updateSmartPreview));
+function updateSmartPreview() {
+    const txt = `To ${document.getElementById('sa-verb').value} ${document.getElementById('sa-metric').value || '...'} for ${document.getElementById('sa-pop').value || '...'} ${document.getElementById('sa-val').value || '...'} by ${document.getElementById('sa-date').value || '...'}.`;
+    document.getElementById('sa-preview').textContent = txt;
 }
+window.saveSmartAim = () => {
+    projectData.checklist.aim = document.getElementById('sa-preview').textContent;
+    saveData();
+    document.getElementById('smart-modal').classList.add('hidden');
+    renderChecklist();
+};
+
+// --- 3. DIAGRAMS & TOOLS ---
+let toolMode = 'fishbone';
+window.setToolMode = (m) => {
+    toolMode = m;
+    document.querySelectorAll('.tool-tab').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-rcem-purple'));
+    document.getElementById(`tab-${m}`).classList.add('bg-white', 'shadow-sm', 'text-rcem-purple');
+    renderTools();
+};
 
 async function renderTools() {
-    const container = document.getElementById('tool-canvas'); 
-    const controls = document.getElementById('tool-controls'); 
-    const dataObj = getData();
-    let contentHtml = '';
-    let controlHtml = '';
-    const clean = (str) => str ? str.replace(/"/g, "'") : "..."; 
+    const canvas = document.getElementById('diagram-canvas');
+    const controls = document.getElementById('tool-controls');
+    let mCode = '';
+    let ctrls = '';
 
-    // FISHBONE
     if (toolMode === 'fishbone') {
-        const cats = dataObj.fishbone.categories;
-        const mermaidCode = `mindmap\n  root((PROBLEM))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(cause => `      ${clean(cause)}`).join('\n')).join('\n');
-        contentHtml = `<div class="mermaid">${mermaidCode}</div>`;
-        if(!isViewingDemo) controlHtml = cats.map(c => `<button onclick="window.addFish(${c.id})" class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-xs">+ ${c.text}</button>`).join('');
-    
-    // DRIVER
+        const cats = projectData.fishbone.categories;
+        mCode = `mindmap\n  root((${projectData.meta.title.replace(/ /g,'_')}))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(x => `      ${x}`).join('\n')).join('\n');
+        ctrls = cats.map(c => `<button onclick="window.addCause(${c.id})" class="whitespace-nowrap px-3 py-1 bg-white border rounded text-xs hover:bg-slate-50">+ ${c.text}</button>`).join('');
     } else if (toolMode === 'driver') {
-        const d = dataObj.drivers;
-        let mermaidCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary Drivers]\n  S --> C[Change Ideas]\n`;
-        d.primary.forEach((p,i) => mermaidCode += `  P --> P${i}["${clean(p)}"]\n`); 
-        d.secondary.forEach((s,i) => mermaidCode += `  S --> S${i}["${clean(s)}"]\n`); 
-        d.changes.forEach((c,i) => mermaidCode += `  C --> C${i}["${clean(c)}"]\n`);
-        contentHtml = `<div class="mermaid">${mermaidCode}</div>`;
-        if(!isViewingDemo) controlHtml = `<button onclick="window.addDriver('primary')" class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs">+ Primary</button><button onclick="window.addDriver('secondary')" class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">+ Secondary</button><button onclick="window.addDriver('changes')" class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs">+ Change Idea</button><button onclick="window.clearDrivers()" class="text-red-500 text-xs ml-2">Clear</button>`;
-
-    // PROCESS MAP
+        const d = projectData.drivers;
+        mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${x}"]\n`);
+        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${x}"]\n`);
+        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${x}"]\n`);
+        ctrls = `<button onclick="window.addDriver('primary')" class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded text-xs">+ Primary</button>
+                 <button onclick="window.addDriver('secondary')" class="px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs">+ Secondary</button>
+                 <button onclick="window.addDriver('changes')" class="px-3 py-1 bg-purple-100 text-purple-800 rounded text-xs">+ Change Idea</button>`;
     } else if (toolMode === 'process') {
-        const steps = dataObj.processMap || ["Start"];
-        let mermaidCode = `graph TD\n` + steps.map((s, i) => i < steps.length-1 ? `  S${i}["${clean(s)}"] --> S${i+1}["${clean(steps[i+1])}"]` : `  S${i}["${clean(s)}"]`).join('\n');
-        contentHtml = `<div class="mermaid">${mermaidCode}</div>`;
-        if(!isViewingDemo) controlHtml = `<button onclick="window.addProcessStep()" class="bg-teal-100 text-teal-800 px-2 py-1 rounded text-xs">+ Add Step</button> <button onclick="window.resetProcess()" class="text-red-500 text-xs">Reset</button>`;
-
-    // STAKEHOLDER
-    } else if (toolMode === 'stakeholder') {
-        contentHtml = `<div class="grid grid-cols-2 gap-4 w-full max-w-2xl bg-white p-4">
-            ${(dataObj.stakeholder || []).map(s => `<div class="border p-2 rounded shadow-sm bg-slate-50"><h4 class="font-bold">${s.group}</h4><p class="text-xs">Interest: ${s.interest} | Power: ${s.power}</p><p class="text-xs text-indigo-600 font-bold uppercase">${s.strategy}</p></div>`).join('')}
-        </div>`;
-        if(!isViewingDemo) controlHtml = `<button onclick="window.addStakeholder()" class="bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs">+ Add Stakeholder</button>`;
+        const p = projectData.process;
+        mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${x}"] --> n${i+1}["${p[i+1]}"]` : `  n${i}["${x}"]`).join('\n');
+        ctrls = `<button onclick="window.addStep()" class="px-3 py-1 bg-white border rounded text-xs">+ Step</button>`;
     }
 
-    container.innerHTML = contentHtml;
-    controls.innerHTML = isViewingDemo ? '<span class="text-sm text-slate-500 italic mr-auto">View Only (Demo)</span>' : controlHtml;
-    
-    if(toolMode !== 'stakeholder') {
-        try { await mermaid.run(); } catch(e) { console.log("Mermaid Error", e); }
+    // Only re-render if code changed (to stop flicker)
+    if (canvas.dataset.code !== mCode) {
+        canvas.innerHTML = `<div class="mermaid">${mCode}</div>`;
+        canvas.dataset.code = mCode;
+        try { await mermaid.run(); } catch(e) { console.error(e); }
     }
+    controls.innerHTML = ctrls;
+    setupPanZoom();
 }
 
 // Diagram Actions
-window.addFish = (id) => { const t=prompt("Cause:"); if(t){projectData.fishbone.categories.find(c=>c.id===id).causes.push(t); saveData(); renderTools();} }
-window.addDriver = (k) => { const t=prompt("Item:"); if(t){projectData.drivers[k].push(t); saveData(); renderTools();} }
-window.addProcessStep = () => { const t=prompt("Next Step:"); if(t){projectData.processMap.push(t); saveData(); renderTools();} }
-window.resetProcess = () => { if(confirm("Clear?")){projectData.processMap=["Start"]; saveData(); renderTools();} }
-window.addStakeholder = () => {
-    const g = prompt("Stakeholder Group:");
-    if(g) {
-        projectData.stakeholder.push({group:g, interest:"High", power:"High", strategy:"Manage Closely"}); 
-        saveData(); renderTools();
-    }
+window.addCause = (id) => { const v=prompt("Cause:"); if(v){projectData.fishbone.categories.find(c=>c.id===id).causes.push(v); saveData(); renderTools();} }
+window.addDriver = (t) => { const v=prompt("Driver:"); if(v){projectData.drivers[t].push(v); saveData(); renderTools();} }
+window.addStep = () => { const v=prompt("Step:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
+
+// Pan/Zoom
+let scale = 1, pX = 0, pY = 0;
+function setupPanZoom() {
+    const el = document.getElementById('diagram-canvas');
+    const wrap = document.getElementById('diagram-wrapper');
+    let isDown = false, startX, startY;
+
+    wrap.onmousedown = (e) => { isDown = true; startX = e.clientX - pX; startY = e.clientY - pY; wrap.classList.add('cursor-grabbing'); };
+    wrap.onmouseup = () => { isDown = false; wrap.classList.remove('cursor-grabbing'); };
+    wrap.onmousemove = (e) => { if(!isDown) return; e.preventDefault(); pX = e.clientX - startX; pY = e.clientY - startY; updateTransform(); };
+    wrap.onwheel = (e) => { e.preventDefault(); scale += e.deltaY * -0.001; scale = Math.min(Math.max(.5, scale), 4); updateTransform(); };
 }
-window.clearDrivers = () => { if(confirm("Clear?")){ projectData.drivers={primary:[],secondary:[],changes:[]}; saveData(); renderTools(); } }
+function updateTransform() { document.getElementById('diagram-canvas').style.transform = `translate(${pX}px, ${pY}px) scale(${scale})`; }
+window.resetZoom = () => { scale=1; pX=0; pY=0; updateTransform(); };
 
-window.downloadDiagram = async () => {
-    const svg = document.querySelector('#tool-canvas svg'); 
-    if(svg) {
-        const svgData = new XMLSerializer().serializeToString(svg); 
-        const canvas = document.createElement("canvas"); const ctx = canvas.getContext("2d"); const img = new Image();
-        img.onload = () => { canvas.width = img.width*2; canvas.height = img.height*2; ctx.drawImage(img, 0, 0, canvas.width, canvas.height); const a = document.createElement('a'); a.download = "diagram.png"; a.href = canvas.toDataURL("image/png"); a.click(); };
-        img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-    }
-}
+// --- 4. CHARTING & SPC LOGIC ---
+function renderChart() {
+    const ctx = document.getElementById('mainChart').getContext('2d');
+    const ghost = document.getElementById('chart-ghost');
+    const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
 
-// --- PPTX EXPORT (Professional) ---
-window.exportPPTX = async () => {
-    const data = getData();
-    const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_16x9';
+    // Ghost State
+    if (data.length === 0) { ghost.classList.remove('hidden'); return; }
+    ghost.classList.add('hidden');
 
-    // 1. Title Slide
-    let s1 = pptx.addSlide();
-    s1.background = { color: '2d2e83' };
-    s1.addText(data.checklist.title || "Untitled QIP", { x: 0.5, y: 2, w: '90%', fontSize: 36, bold: true, color: 'FFFFFF', align: 'center' });
-    s1.addText(`Lead: ${data.checklist.lead || "Unknown"}`, { x: 0.5, y: 4, w: '90%', fontSize: 18, color: 'FFFFFF', align: 'center' });
-    s1.addText("Generated by RCEM QIP Assistant", { x: 0.5, y: 6.5, fontSize: 12, color: 'AAAAAA', align: 'center' });
+    const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
+    const values = outcomes.map(d => Number(d.value));
+    const labels = outcomes.map(d => d.date);
+    
+    // SPC Logic: Calculate Median
+    const median = values.length ? values.slice().sort((a,b)=>a-b)[Math.floor(values.length/2)] : 0;
+    
+    // SPC Rules: Highlight special cause (6 points one side of median)
+    const pointColors = values.map((v, i) => {
+        // Simple check for now: if 6 in a row above median, highlight green
+        let isRun = false;
+        if (i >= 5) {
+            const subset = values.slice(i-5, i+1);
+            if (subset.every(x => x > median)) isRun = true;
+        }
+        return isRun ? '#059669' : '#2d2e83'; // Emerald vs Purple
+    });
 
-    // 2. The Problem
-    let s2 = pptx.addSlide();
-    s2.addText("The Problem", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    s2.addText(data.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: '90%', fontSize: 18 });
-    s2.addText("Evidence:", { x: 0.5, y: 3.5, bold: true });
-    s2.addText(data.checklist.evidence || "...", { x: 0.5, y: 4, w: '90%', fontSize: 14 });
+    if (chartInstance) chartInstance.destroy();
+    
+    // Annotations (PDSAs)
+    const annotations = {
+        median: { type: 'line', yMin: median, yMax: median, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2, label: { display: true, content: 'Median', position: 'end' } }
+    };
+    data.filter(d => d.note).forEach((d, i) => {
+        annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
+    });
 
-    // 3. SMART Aim
-    let s3 = pptx.addSlide();
-    s3.addText("SMART Aim", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    s3.addText(data.checklist.aim || "No aim defined.", { x: 1, y: 2, w: '80%', fontSize: 24, italic: true, align: 'center', color: '2d2e83', fill: { color: 'F0F0F0' } });
+    chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Outcome Measure',
+                data: values,
+                borderColor: '#2d2e83',
+                backgroundColor: pointColors,
+                pointBackgroundColor: pointColors,
+                pointRadius: 5,
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: { annotation: { annotations } }
+        }
+    });
 
-    // 4. Drivers
-    let s4 = pptx.addSlide();
-    s4.addText("Strategy (Driver Diagram)", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    let driverText = `PRIMARY DRIVERS:\n${data.drivers.primary.map(x=>'- '+x).join('\n')}\n\nCHANGE IDEAS:\n${data.drivers.changes.map(x=>'- '+x).join('\n')}`;
-    s4.addText(driverText, { x: 0.5, y: 1.5, fontSize: 14 });
-    s4.addText("(Insert exported Driver Diagram image here)", { x: 5, y: 3, fontSize: 12, color: '888888', shape: pptx.ShapeType.rect, w: 4, h: 3, align:'center' });
-
-    // 5. Results (Chart)
-    let s5 = pptx.addSlide();
-    s5.addText("Results", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    const canvas = document.getElementById('mainChart');
-    if(canvas) {
-        const img = canvas.toDataURL("image/png");
-        s5.addImage({ data: img, x: 0.5, y: 1.5, w: 9, h: 4.5 });
-    }
-
-    // 6. Summary
-    let s6 = pptx.addSlide();
-    s6.addText("Conclusions & Sustainability", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    s6.addText(`Summary:\n${data.checklist.results_summary || ''}`, { x: 0.5, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: {color:'f8fafc'} });
-    s6.addText(`Sustainability Plan:\n${data.checklist.sustainability_plan || ''}`, { x: 5.2, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: {color:'f0fdf4'} });
-
-    pptx.writeFile({ fileName: 'RCEM_QIP_Presentation.pptx' });
-}
-
-// --- PORTFOLIO GENERATOR (Risr/Kaizen) ---
-window.openPortfolioExport = () => {
-    const data = getData();
-    const modal = document.getElementById('portfolio-modal');
-    const content = document.getElementById('portfolio-content');
-    modal.classList.remove('hidden');
-
-    const fields = [
-        { label: "Project Title", value: data.checklist.title },
-        { label: "Date Completed", value: new Date().toLocaleDateString() },
-        { label: "Role", value: "Project Lead" },
-        { label: "Description / Reason for Project", value: `${data.checklist.problem_desc}\n\nEvidence:\n${data.checklist.evidence}` },
-        { label: "Evaluation / Results", value: `Aim: ${data.checklist.aim}\n\nResults Summary:\n${data.checklist.results_summary}` },
-        { label: "Analysis / Reflection", value: `What went well?\n${data.checklist.learning}\n\nSustainability:\n${data.checklist.sustainability_plan}` }
-    ];
-
-    content.innerHTML = fields.map(f => `
-        <div class="bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm">
-            <div class="flex justify-between items-center mb-2">
-                <h4 class="font-bold text-slate-700 dark:text-slate-200 text-sm uppercase tracking-wide">${f.label}</h4>
-                <button onclick="navigator.clipboard.writeText(this.dataset.val); showToast('Copied')" data-val="${escapeHtml(f.value || '')}" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold flex items-center gap-1 bg-indigo-50 px-2 py-1 rounded">
-                    <i data-lucide="copy" class="w-3 h-3"></i> Copy
-                </button>
-            </div>
-            <div class="text-sm text-slate-600 dark:text-slate-400 font-mono bg-slate-50 dark:bg-slate-900 p-3 rounded border border-slate-100 dark:border-slate-800 whitespace-pre-wrap">${f.value || '...'}</div>
+    // History List
+    document.getElementById('data-history').innerHTML = data.slice().reverse().map(d => `
+        <div class="flex justify-between border-b border-slate-100 py-1">
+            <span>${d.date}: <strong>${d.value}</strong> <span class="text-xs text-slate-400">(${d.type})</span></span>
+            ${d.note ? `<span class="bg-orange-100 text-orange-800 text-xs px-1 rounded">${d.note}</span>` : ''}
         </div>
     `).join('');
-    lucide.createIcons();
 }
 
-// --- POSTER PRINTING ---
-window.printPoster = async () => {
-    const data = getData();
-    
-    // Fill Text
-    document.getElementById('print-title').textContent = data.checklist.title || "Untitled QIP";
-    document.getElementById('print-team').textContent = data.checklist.team || "Team";
-    document.getElementById('print-problem').textContent = data.checklist.problem_desc || "No problem defined.";
-    document.getElementById('print-aim').textContent = data.checklist.aim || "No aim defined.";
-    document.getElementById('print-results').textContent = data.checklist.results_summary || "No results.";
-    document.getElementById('print-learning').textContent = data.checklist.learning || "No learning recorded.";
-    document.getElementById('print-sustain').textContent = data.checklist.sustainability_plan || "No plan.";
-    document.getElementById('print-process-measures').textContent = data.checklist.process_measures || "None.";
-
-    // Fill Lists
-    document.getElementById('print-pdsa-list').innerHTML = data.pdsa.map(p => `<li><strong>${p.title}:</strong> ${p.act}</li>`).join('');
-
-    // High Res Chart Clone
-    const chartCanvas = document.getElementById('mainChart');
-    if(chartCanvas) {
-        document.getElementById('print-chart-img').src = chartCanvas.toDataURL("image/png", 1.0);
+window.addDataPoint = () => {
+    const d = {
+        date: document.getElementById('chart-date').value,
+        value: document.getElementById('chart-value').value,
+        type: document.getElementById('chart-cat').value
+    };
+    if (d.date && d.value) {
+        projectData.chartData.push(d);
+        saveData();
+        renderChart();
     }
+};
+
+// --- 5. EXPORTS (GOLD STANDARD) ---
+window.openPortfolioExport = () => {
+    const d = projectData;
+    const modal = document.getElementById('risr-modal');
+    modal.classList.remove('hidden');
     
-    // Driver Diagram (Render SVG to Image)
-    // Note: This relies on the current tool view being the driver diagram or using saved data to gen one
-    // For simplicity, we ask user to ensure diagram is ready, or we could auto-generate a graph text list
-    const drivers = data.drivers;
-    document.getElementById('print-driver-container').innerHTML = `<ul class="list-disc pl-5">
-        <li><strong>Primary:</strong> ${drivers.primary.join(', ')}</li>
-        <li><strong>Secondary:</strong> ${drivers.secondary.join(', ')}</li>
-        <li><strong>Changes:</strong> ${drivers.changes.join(', ')}</li>
-    </ul>`;
-
-    // Trigger Print
-    window.print();
-}
-
-// --- EXISTING DASHBOARD & UTILS (Kept) ---
-function renderDashboard() {
-    const dataObj = getData();
-    const filled = Object.values(dataObj.checklist || {}).filter(v => v).length;
-    const progress = Math.min(100, Math.round((filled / 13) * 100)); 
-    
-    document.getElementById('stats-grid').innerHTML = `
-        <div class="glass p-6 rounded-xl border-l-4 border-emerald-500"><div class="flex justify-between"><span class="text-slate-500">Checklist</span><i data-lucide="check-square" class="text-emerald-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${progress}%</div></div>
-        <div class="glass p-6 rounded-xl border-l-4 border-blue-500"><div class="flex justify-between"><span class="text-slate-500">Cycles</span><i data-lucide="refresh-cw" class="text-blue-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${dataObj.pdsa.length}</div></div>
-        <div class="glass p-6 rounded-xl border-l-4 border-amber-500"><div class="flex justify-between"><span class="text-slate-500">Data Points</span><i data-lucide="bar-chart-2" class="text-amber-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${dataObj.chartData.length}</div></div>
-        <div class="glass p-6 rounded-xl border-l-4 border-purple-500"><div class="flex justify-between"><span class="text-slate-500">Strategy</span><i data-lucide="git-branch" class="text-purple-500 w-6 h-6"></i></div><div class="text-3xl font-bold dark:text-white">${dataObj.drivers.changes.length}</div></div>
-    `;
-    document.getElementById('dashboard-aim').textContent = dataObj.checklist?.aim || "No aim defined.";
-    renderCoach();
-}
-
-function renderChecklist() {
-    const dataObj = getData();
-    const checklistConfig = [
-        { title: "1. Problem & Diagnosis", icon: "alert-circle", fields: ["title", "lead", "team", "problem_desc", "evidence"], placeholders: ["Sepsis 6 Compliance", "Dr. Name", "Nurses, Consultants", "Only 40% of patients get Abx in 1h", "Local audit 2024 data"] },
-        { title: "2. Aim & Measures", icon: "target", fields: ["aim", "outcome_measures", "process_measures", "balance_measures"], placeholders: ["To improve X by Y date", "Time to Antibiotics (mins)", "Screening Tool Usage %", "Delays in other areas"] },
-        { title: "3. Strategy & Change", icon: "git-branch", fields: ["strategy_summary"], desc:"Summarize driver diagram here", placeholders: ["Focus on education and grab bags"] },
-        { title: "4. Results", icon: "bar-chart-2", fields: ["results_summary", "learning"], placeholders: ["Compliance rose to 85%", "Staff engagement was key"] },
-        { title: "5. Sustainability & Spread", icon: "repeat", fields: ["sustainability_plan", "spread_plan"], placeholders: ["Added to induction handbook, Monthly Audit scheduled", "Presented at Regional Governance meeting"] }
+    const fields = [
+        { t: "Title", v: d.meta.title },
+        { t: "Reason for Project (Problem)", v: d.checklist.problem_desc },
+        { t: "Evidence / Standards", v: d.checklist.evidence },
+        { t: "SMART Aim", v: d.checklist.aim },
+        { t: "Team & Stakeholders", v: d.checklist.team },
+        { t: "Drivers & Strategy", v: `Primary Drivers: ${d.drivers.primary.join(', ')}\nChanges: ${d.drivers.changes.join(', ')}` },
+        { t: "Measures", v: `Outcome: ${d.checklist.outcome_measures}\nProcess: ${d.checklist.process_measures}\nBalance: ${d.checklist.balance_measures}` },
+        { t: "Interventions (PDSA)", v: d.pdsa.map(p => `${p.title}: ${p.study}`).join('\n') },
+        { t: "Results & Analysis", v: `Started at baseline... [Interpret chart here].` },
+        { t: "Learning & Sustainability", v: d.checklist.learning + "\n\n" + d.checklist.sustain },
+        { t: "Ethical & PPI", v: d.checklist.ethics + "\n\nPPI: " + d.checklist.ppi }
     ];
 
-    document.getElementById('checklist-container').innerHTML = checklistConfig.map((sec, i) => `
-        <details class="glass rounded-xl shadow-sm overflow-hidden group" ${i===0?'open':''}>
-            <summary class="px-6 py-4 flex items-center gap-3 cursor-pointer bg-slate-50/50 dark:bg-slate-800"><i data-lucide="${sec.icon}" class="text-rcem-purple dark:text-indigo-400 w-5 h-5"></i><h3 class="font-semibold text-slate-800 dark:text-white flex-1">${sec.title}</h3></summary>
-            <div class="p-6 space-y-4">${sec.fields.map((f, idx) => `<div><label class="flex justify-between text-sm font-medium dark:text-slate-300 capitalize mb-1"><span>${f.replace(/_/g,' ')}</span><button onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.value)" class="text-xs text-indigo-500 hover:text-indigo-700"><i data-lucide="copy" class="w-3 h-3 inline"></i> Copy</button></label><textarea ${isViewingDemo ? 'disabled' : ''} onchange="projectData.checklist['${f}']=this.value;saveData()" class="w-full rounded border-slate-300 dark:border-slate-600 dark:bg-slate-900 p-2 text-sm disabled:opacity-50" placeholder="e.g. ${sec.placeholders?.[idx] || 'Enter details...'}">${dataObj.checklist[f]||''}</textarea></div>`).join('')}</div>
-        </details>`).join('');
+    document.getElementById('risr-content').innerHTML = fields.map(f => `
+        <div class="bg-white p-4 rounded border border-slate-200">
+            <h4 class="font-bold text-slate-700 text-sm mb-2 uppercase">${f.t}</h4>
+            <div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono select-all">${f.v || 'Not recorded'}</div>
+        </div>
+    `).join('');
+};
+
+window.printPoster = () => {
+    // Inject Poster HTML
+    const d = projectData;
+    const container = document.getElementById('print-container');
+    container.innerHTML = `
+        <div class="poster-grid">
+            <header>
+                <img src="https://iili.io/KGQOvkl.md.png" class="logo">
+                <div><h1>${d.meta.title}</h1><p>${d.checklist.team}</p></div>
+            </header>
+            <div class="col">
+                <div class="box"><h2>Problem</h2><p>${d.checklist.problem_desc}</p></div>
+                <div class="box"><h2>Aim</h2><p class="big">${d.checklist.aim}</p></div>
+                <div class="box"><h2>Drivers</h2><ul>${d.drivers.secondary.map(s=>`<li>${s}</li>`).join('')}</ul></div>
+            </div>
+            <div class="col wide">
+                <div class="box grow">
+                    <h2>Results (Run Chart)</h2>
+                    <img src="${document.getElementById('mainChart').toDataURL()}" style="width:100%">
+                    <p>Outcome: ${d.checklist.outcome_measures}</p>
+                </div>
+            </div>
+            <div class="col">
+                <div class="box"><h2>PDSA Cycles</h2><ul>${d.pdsa.map(p=>`<li><b>${p.title}:</b> ${p.study}</li>`).join('')}</ul></div>
+                <div class="box"><h2>Learning</h2><p>${d.checklist.learning}</p></div>
+            </div>
+        </div>
+    `;
+    window.print();
+};
+
+// --- HELP SYSTEM ---
+const helpData = {
+    checklist: { t: "Define & Measure", c: "<p><b>Problem:</b> What is the gap between standard and reality?</p><p><b>Aim:</b> Must be SMART (Specific, Measurable, Achievable, Relevant, Time-bound).</p><p><b>Measures:</b><br>- Outcome: The goal.<br>- Process: Are we doing the steps?<br>- Balance: Are we safe?</p>" },
+    diagrams: { t: "Drivers & Fishbone", c: "<p><b>Fishbone:</b> Use to find root causes. 'Why' does the problem exist?</p><p><b>Driver Diagram:</b> Your strategy. Drivers are 'What' we need to change, Change Ideas are 'How' we do it.</p>" },
+    data: { t: "SPC & Run Charts", c: "<p><b>Run Chart:</b> Plot data over time.</p><p><b>Rules:</b><br>- Shift: 6+ points on one side of median.<br>- Trend: 5+ points going up or down.</p>" }
+};
+window.showHelp = (key) => {
+    document.getElementById('help-title').textContent = helpData[key].t;
+    document.getElementById('help-content').innerHTML = helpData[key].c;
+    document.getElementById('help-modal').classList.remove('hidden');
+};
+window.openHelp = () => window.showHelp('checklist'); // Default
+
+// --- PLACEHOLDER LOGIC ---
+window.calcGreen = () => {
+    const v = document.getElementById('green-type').value;
+    const q = document.getElementById('green-qty').value;
+    const r = document.getElementById('green-res');
+    r.textContent = `Total CO2e Saved: ${(v*q).toFixed(2)} kg`;
+    r.classList.remove('hidden');
 }
 
-// Keep Coach, Gantt, PDSA, Green functions (same as original but ensured scope accessibility)
-function renderCoach() { /* ... kept from original ... */ document.getElementById('qi-coach').classList.remove('hidden'); }
-function renderGantt() { /* ... kept from original ... */ }
-function renderPDSA() { /* ... kept from original ... */ }
-window.calcCarbon = () => { document.getElementById('green-result').textContent = `Total: ${(document.getElementById('green-item').value * document.getElementById('green-qty').value).toFixed(2)} kg CO2e`; document.getElementById('green-result').classList.remove('hidden'); }
-window.saveSmartAim = () => { if(isViewingDemo) return; const s = document.getElementById('smart-s').value; const m = document.getElementById('smart-m').value; const p = document.getElementById('smart-p').value; const t = document.getElementById('smart-t').value; projectData.checklist.aim = `To ${s || 'improve x'} for ${p || 'patients'} by ${m || 'a measurable amount'} by ${t || 'date'}.`; saveData(); document.getElementById('smart-modal').classList.add('hidden'); renderAll(); }
-window.handleBulkImport = () => { /* ... kept ... */ }
-window.downloadJSON = () => { const a = document.createElement('a'); a.href = "data:text/json;charset=utf-8,"+encodeURIComponent(JSON.stringify(projectData)); a.download = "qip_backup.json"; a.click(); }
-
-lucide.createIcons();
-router('dashboard');
+// PDSA Render Stub (similar to checklist)
+function renderPDSA() {
+    document.getElementById('pdsa-container').innerHTML = `
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">PDSA Cycles</h2>
+            <button onclick="addPDSA()" class="bg-rcem-purple text-white px-3 py-1 rounded">New Cycle</button>
+        </div>
+        <div class="space-y-4">
+            ${projectData.pdsa.map((p,i) => `
+                <div class="bg-white p-4 rounded shadow border border-slate-200">
+                    <div class="font-bold text-lg mb-2">${p.title}</div>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div class="bg-blue-50 p-2 rounded"><b>Plan:</b> ${p.plan}</div>
+                        <div class="bg-orange-50 p-2 rounded"><b>Do:</b> ${p.do}</div>
+                        <div class="bg-purple-50 p-2 rounded"><b>Study:</b> ${p.study}</div>
+                        <div class="bg-emerald-50 p-2 rounded"><b>Act:</b> ${p.act}</div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+window.addPDSA = () => {
+    const t = prompt("Cycle Title:");
+    if(t) { projectData.pdsa.push({id: Date.now(), title:t, plan:"", do:"", study:"", act:""}); saveData(); renderPDSA(); }
+}
