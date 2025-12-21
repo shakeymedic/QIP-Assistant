@@ -235,6 +235,7 @@ window.router = (view) => {
     if (view === 'data') renderChart();
     if (view === 'pdsa') renderPDSA();
     if (view === 'gantt') renderGantt();
+    if (view === 'full') renderFullProject();
     
     lucide.createIcons();
 };
@@ -285,6 +286,7 @@ function renderAll() {
     if(currentView === 'checklist') renderChecklist();
     if(currentView === 'pdsa') renderPDSA();
     if(currentView === 'gantt') renderGantt();
+    if(currentView === 'full') renderFullProject();
 }
 
 // --- 1. THE QI COACH (Logic Engine) ---
@@ -896,4 +898,148 @@ window.calcValue = () => {
         resEl.textContent = `Time Saved: ${hrs}h ${mins}m (${totalMins} mins)`;
     }
     resEl.classList.remove('hidden');
+}
+
+// --- WHOLE PROJECT VIEW (NEW) ---
+function renderFullProject() {
+    if(!projectData) return;
+    const d = projectData;
+    const c = d.checklist;
+    const container = document.getElementById('full-project-container');
+    
+    // 1. Validation Logic
+    const flags = checkRCEMCriteria(d);
+    
+    // 2. Build HTML
+    let html = '';
+
+    // Validator Banner
+    if(flags.length > 0) {
+        html += `
+            <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-8 rounded shadow-sm">
+                <div class="flex items-center gap-2 mb-2">
+                    <i data-lucide="alert-triangle" class="text-amber-600"></i>
+                    <h3 class="font-bold text-amber-900">Project Action Points</h3>
+                </div>
+                <ul class="list-disc list-inside text-sm text-amber-800 space-y-1">
+                    ${flags.map(f => `<li>${f}</li>`).join('')}
+                </ul>
+            </div>
+        `;
+    } else {
+        html += `
+            <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 mb-8 rounded shadow-sm flex items-center gap-3">
+                <i data-lucide="check-circle-2" class="text-emerald-600 w-6 h-6"></i>
+                <div>
+                    <h3 class="font-bold text-emerald-900">RCEM Gold Standard Met</h3>
+                    <p class="text-xs text-emerald-700">Your project meets all core criteria. Excellent work!</p>
+                </div>
+            </div>
+        `;
+    }
+
+    // Sections Helper
+    const section = (title, content, validationKey) => {
+        const isMissing = !content || (Array.isArray(content) && content.length === 0);
+        const warning = isMissing ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing / Incomplete</div>` : '';
+        return `
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">${title}</h3>
+                <div class="text-slate-600 text-sm whitespace-pre-wrap">${content || '<span class="italic text-slate-400">Not recorded</span>'}</div>
+                ${warning}
+            </div>
+        `;
+    };
+
+    html += `<div class="space-y-6">`;
+    html += section("1. Problem & Reason", c.problem_desc);
+    html += section("2. Evidence & Guidelines", c.evidence);
+    html += section("3. SMART Aim", c.aim);
+    
+    // Drivers
+    html += `
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">4. Driver Diagram Summary</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Primary Drivers</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.length ? d.drivers.primary.map(x=>`<li>${x}</li>`).join('') : '<li class="italic text-slate-400">None</li>'}</ul>
+                </div>
+                 <div>
+                    <h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Change Ideas (Interventions)</h4>
+                    <ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.changes.length ? d.drivers.changes.map(x=>`<li>${x}</li>`).join('') : '<li class="italic text-slate-400">None</li>'}</ul>
+                </div>
+            </div>
+            ${d.drivers.secondary.length === 0 ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-4 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing Drivers</div>` : ''}
+        </div>
+    `;
+
+    // Chart
+    html += `
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">5. Data & Results</h3>
+            <div class="h-64 relative mb-4">
+                <img src="${document.getElementById('mainChart').toDataURL()}" class="w-full h-full object-contain">
+            </div>
+            <p class="text-sm text-slate-600"><strong>Analysis:</strong> ${c.results_text || 'No analysis recorded.'}</p>
+            ${d.chartData.length < 10 ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-4 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Insufficient Data (<10 points)</div>` : ''}
+        </div>
+    `;
+
+    // PDSA
+    const pdsaContent = d.pdsa.map(p => `
+        <div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200">
+            <div class="font-bold text-slate-700 mb-1">${p.title}</div>
+            <div class="text-xs text-slate-500 grid grid-cols-2 gap-2">
+                <div><strong>Plan:</strong> ${p.plan}</div>
+                <div><strong>Do:</strong> ${p.do}</div>
+                <div><strong>Study:</strong> ${p.study}</div>
+                <div><strong>Act:</strong> ${p.act}</div>
+            </div>
+        </div>
+    `).join('');
+    html += `
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">6. PDSA Cycles</h3>
+            ${pdsaContent || '<span class="italic text-slate-400 text-sm">No cycles recorded.</span>'}
+            ${d.pdsa.length === 0 ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> No Intervention Cycles</div>` : ''}
+        </div>
+    `;
+
+    html += section("7. Learning & Sustainability", c.learning + "\n\n" + c.sustain);
+    html += section("8. Ethics & Governance", c.ethics);
+    
+    html += `</div>`;
+    
+    container.innerHTML = html;
+    lucide.createIcons();
+}
+
+// --- VALIDATION ENGINE ---
+function checkRCEMCriteria(d) {
+    const flags = [];
+    const c = d.checklist;
+    
+    // 1. Aim
+    if(!c.aim) flags.push("Missing SMART Aim.");
+    else if(!c.aim.toLowerCase().includes('by')) flags.push("Aim may not be Time-bound (missing date/deadline).");
+
+    // 2. Drivers
+    if(d.drivers.secondary.length === 0) flags.push("Driver Diagram incomplete (no secondary drivers).");
+    if(d.drivers.changes.length === 0) flags.push("No Change Ideas (Interventions) listed.");
+
+    // 3. Data
+    if(d.chartData.length === 0) flags.push("No data recorded.");
+    else if(d.chartData.length < 10) flags.push("Insufficient data points for reliable SPC analysis (aim for 15+).");
+
+    // 4. PDSA
+    if(d.pdsa.length === 0) flags.push("No PDSA cycles recorded. QIP requires iterative testing.");
+
+    // 5. Ethics
+    if(!c.ethics) flags.push("Ethics & Governance section missing.");
+
+    // 6. Sustainability
+    if(!c.sustain) flags.push("Sustainability plan missing.");
+
+    return flags;
 }
