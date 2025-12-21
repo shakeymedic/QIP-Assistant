@@ -137,8 +137,7 @@
                         </div>
                         <button onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> New Project</button>
                     </header>
-                    <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        </div>
+                    <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
                 </div>
 
                 <div id="view-dashboard" class="view-section hidden space-y-6">
@@ -236,8 +235,9 @@
                                     <div class="bg-indigo-50 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3 text-indigo-600">
                                         <i data-lucide="edit-3" class="w-6 h-6"></i>
                                     </div>
-                                    <h3 class="font-bold text-slate-800 text-lg mb-1">Start Building</h3>
-                                    <p class="text-slate-500 text-sm mb-4">This diagram is currently empty. Use the buttons in the toolbar above to add content.</p>
+                                    <h3 class="font-bold text-slate-800 text-lg mb-1" id="ghost-title">Start Building</h3>
+                                    <p class="text-slate-500 text-sm mb-4" id="ghost-msg">This diagram is currently empty.</p>
+                                    <div class="text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded inline-block">Click buttons above to add items</div>
                                 </div>
                             </div>
 
@@ -251,7 +251,7 @@
                 <div id="view-data" class="view-section hidden space-y-6">
                     <header>
                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
-                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC rules to visualize improvement.</p>
+                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC (Statistical Process Control) rules to visualize real improvement.</p>
                     </header>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -287,6 +287,12 @@
                         <div class="lg:col-span-2 space-y-6">
                             <div class="bg-white p-6 rounded-xl shadow-sm relative min-h-[400px]">
                                 <canvas id="mainChart"></canvas>
+                                <div class="absolute top-4 right-4 bg-white/90 p-2 rounded border border-slate-100 text-[10px] text-slate-500 shadow-sm flex flex-col gap-1 z-0">
+                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rcem-purple"></div> Normal Variation</div>
+                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-600"></div> <strong>Improvement</strong> (Shift)</div>
+                                    <div class="flex items-center gap-1"><div class="w-4 h-0.5 bg-orange-500"></div> PDSA Intervention</div>
+                                </div>
+
                                 <div id="chart-ghost" class="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl border border-dashed border-slate-300 m-4">
                                     <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
                                     <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
@@ -300,7 +306,7 @@
                                     <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="file-bar-chart-2" class="w-4 h-4 text-rcem-purple"></i> Results & Interpretation</h3>
                                     <span class="text-xs text-slate-400">Analysis</span>
                                 </div>
-                                <p class="text-xs text-slate-500 mb-2">Describe what the chart shows. Is there a shift? A trend? Did your PDSA cycle cause a change?</p>
+                                <p class="text-xs text-slate-500 mb-2">Describe what the chart shows. Did you achieve a 'Shift' (6 green points in a row)? Did a specific PDSA cycle cause the change?</p>
                                 <textarea id="results-text" onchange="window.saveResults(this.value)" class="w-full p-3 rounded border border-slate-300 text-sm focus:ring-2 focus:ring-rcem-purple outline-none" rows="3" placeholder="e.g. The chart shows a sustained shift in compliance following the introduction of 'Grab Bags' in PDSA Cycle 2..."></textarea>
                             </div>
                         </div>
