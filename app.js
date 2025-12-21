@@ -41,7 +41,8 @@ const demoProject = {
         ethics: "QI project only. No patient identifiable data used. Registered with Audit Dept (Ref: 1234).",
         learning: "Process mapping showed 'hunting for kit' was a major delay. Grab bags fixed this.",
         sustain: "Nurse in Charge checks grab bags daily. Monthly audit report automated.",
-        ppi: "Patient liaison group reviewed the new patient information leaflet and suggested clearer language."
+        ppi: "Patient liaison group reviewed the new patient information leaflet and suggested clearer language.",
+        results_text: "The chart demonstrates a clear shift in the process. Initially, compliance was variable (mean 45%). Following the introduction of sepsis stickers (Cycle 1), there was a modest increase. However, the introduction of 'Grab Bags' (Cycle 2) led to a sustained shift above the median, with 6 consecutive points >80%."
     },
     drivers: {
         primary: ["Identification", "Equipment", "Culture"],
@@ -71,7 +72,7 @@ const demoProject = {
 
 const emptyProject = {
     meta: { title: "New Project", created: new Date().toISOString() },
-    checklist: {},
+    checklist: { results_text: "" },
     drivers: { primary: [], secondary: [], changes: [] },
     fishbone: { categories: [{ id: 1, text: "People", causes: [] }, { id: 2, text: "Methods", causes: [] }, { id: 3, text: "Environment", causes: [] }, { id: 4, text: "Equipment", causes: [] }] },
     process: ["Start", "End"],
@@ -281,6 +282,7 @@ function renderAll() {
     if(currentView === 'tools') renderTools();
     if(currentView === 'checklist') renderChecklist();
     if(currentView === 'pdsa') renderPDSA();
+    if(currentView === 'gantt') renderGantt();
 }
 
 // --- 1. THE QI COACH (Logic Engine) ---
@@ -411,30 +413,54 @@ async function renderTools() {
     if(!projectData) return;
     const canvas = document.getElementById('diagram-canvas');
     const controls = document.getElementById('tool-controls');
+    const ghost = document.getElementById('diagram-ghost');
+    
     let mCode = '';
     let ctrls = '';
+    let isEmpty = false;
 
     if (toolMode === 'fishbone') {
         const cats = projectData.fishbone.categories;
         const titleSafe = projectData.meta.title.replace(/[^a-zA-Z0-9]/g, '_') || "Problem";
         mCode = `mindmap\n  root((${titleSafe}))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(x => `      ${x}`).join('\n')).join('\n');
-        ctrls = cats.map(c => `<button onclick="window.addCause(${c.id})" class="whitespace-nowrap px-3 py-1 bg-white border border-slate-200 rounded text-xs hover:bg-slate-50 font-medium text-slate-700 shadow-sm">+ ${c.text}</button>`).join('');
+        
+        // Buttons
+        const colors = ['bg-rose-100 text-rose-800 border-rose-200', 'bg-blue-100 text-blue-800 border-blue-200', 'bg-emerald-100 text-emerald-800 border-emerald-200', 'bg-amber-100 text-amber-800 border-amber-200'];
+        ctrls = cats.map((c, i) => `
+            <button onclick="window.addCause(${c.id})" class="whitespace-nowrap px-4 py-2 ${colors[i%4]} border rounded-lg text-sm font-bold shadow-sm hover:brightness-95 flex items-center gap-2">
+                <i data-lucide="plus" class="w-4 h-4"></i> ${c.text}
+            </button>
+        `).join('');
+        
+        isEmpty = cats.every(c => c.causes.length === 0);
+
     } else if (toolMode === 'driver') {
         const d = projectData.drivers;
         mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
         d.primary.forEach((x,i) => mCode += `  P --> P${i}["${x}"]\n`);
         d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${x}"]\n`);
         d.changes.forEach((x,i) => mCode += `  C --> C${i}["${x}"]\n`);
-        ctrls = `<button onclick="window.addDriver('primary')" class="px-3 py-1 bg-emerald-100 text-emerald-800 rounded text-xs font-bold border border-emerald-200">+ Primary Driver</button>
-                 <button onclick="window.addDriver('secondary')" class="px-3 py-1 bg-blue-100 text-blue-800 rounded text-xs font-bold border border-blue-200">+ Secondary Driver</button>
-                 <button onclick="window.addDriver('changes')" class="px-3 py-1 bg-purple-100 text-purple-800 rounded text-xs font-bold border border-purple-200">+ Change Idea</button>`;
+        
+        ctrls = `
+            <button onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg text-sm font-bold border border-emerald-200 shadow-sm flex items-center gap-2 hover:bg-emerald-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Primary Driver</button>
+            <button onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-bold border border-blue-200 shadow-sm flex items-center gap-2 hover:bg-blue-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Secondary Driver</button>
+            <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm font-bold border border-purple-200 shadow-sm flex items-center gap-2 hover:bg-purple-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Change Idea</button>
+        `;
+        isEmpty = d.primary.length === 0 && d.secondary.length === 0;
+
     } else if (toolMode === 'process') {
         const p = projectData.process;
         mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${x}"] --> n${i+1}["${p[i+1]}"]` : `  n${i}["${x}"]`).join('\n');
-        ctrls = `<button onclick="window.addStep()" class="px-3 py-1 bg-white border border-slate-200 rounded text-xs font-medium shadow-sm hover:bg-slate-50">+ Add Step</button> <button onclick="window.resetProcess()" class="px-3 py-1 text-red-500 text-xs ml-auto">Reset</button>`;
+        
+        ctrls = `
+            <button onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-slate-600"></i> Add Step</button>
+            <div class="w-px h-6 bg-slate-300 mx-2"></div>
+            <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500 text-sm font-medium hover:bg-red-50 rounded-lg flex items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
+        `;
+        isEmpty = p.length <= 2;
     }
 
-    // Only re-render if code changed (to stop flicker)
+    // Render Mermaid
     if (canvas.dataset.code !== mCode) {
         canvas.innerHTML = `<div class="mermaid opacity-0 transition-opacity duration-300" id="mermaid-render">${mCode}</div>`;
         canvas.dataset.code = mCode;
@@ -443,7 +469,16 @@ async function renderTools() {
             document.getElementById('mermaid-render').classList.remove('opacity-0');
         } catch(e) { console.error(e); }
     }
+    
+    // Render Controls & Ghost
     controls.innerHTML = ctrls;
+    if(isEmpty) {
+        ghost.classList.remove('hidden');
+    } else {
+        ghost.classList.add('hidden');
+    }
+    
+    lucide.createIcons();
     setupPanZoom();
 }
 
@@ -473,10 +508,21 @@ function renderChart() {
     if(!projectData) return;
     const ctx = document.getElementById('mainChart').getContext('2d');
     const ghost = document.getElementById('chart-ghost');
+    const resultsTxt = document.getElementById('results-text');
     const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
 
+    // Populate results text
+    if(projectData.checklist && projectData.checklist.results_text) {
+        resultsTxt.value = projectData.checklist.results_text;
+    }
+
     // Ghost State
-    if (data.length === 0) { ghost.classList.remove('hidden'); return; }
+    if (data.length === 0) { 
+        ghost.classList.remove('hidden'); 
+        if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
+        document.getElementById('data-history').innerHTML = '<p class="text-xs text-slate-400 italic">No data history available.</p>';
+        return; 
+    }
     ghost.classList.add('hidden');
 
     const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
@@ -486,10 +532,8 @@ function renderChart() {
     // SPC Logic: Calculate Median
     const median = values.length ? values.slice().sort((a,b)=>a-b)[Math.floor(values.length/2)] : 0;
     
-    // SPC Rules: Highlight special cause (6 points one side of median)
+    // SPC Rules
     const pointColors = values.map((v, i) => {
-        // Simple shift rule: if 6 in a row above median, highlight green
-        // Note: Real SPC is more complex, but this is a good educational approximation
         let isRun = false;
         if (i >= 5) {
             const subset = values.slice(i-5, i+1);
@@ -500,7 +544,6 @@ function renderChart() {
 
     if (chartInstance) chartInstance.destroy();
     
-    // Annotations (PDSAs)
     const annotations = {
         median: { type: 'line', yMin: median, yMax: median, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2, label: { display: true, content: 'Median', position: 'end' } }
     };
@@ -551,10 +594,33 @@ window.addDataPoint = () => {
     }
 };
 
+window.saveResults = (val) => {
+    if(!projectData.checklist) projectData.checklist = {};
+    projectData.checklist.results_text = val;
+    saveData();
+}
+
 // --- 5. PDSA Logic ---
 function renderPDSA() {
     if(!projectData) return;
-    document.getElementById('pdsa-container').innerHTML = projectData.pdsa.map((p,i) => `
+    const container = document.getElementById('pdsa-container');
+    
+    if (projectData.pdsa.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50">
+                <div class="bg-purple-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-purple-600">
+                    <i data-lucide="refresh-cw" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-700">No Cycles Yet</h3>
+                <p class="text-slate-400 text-sm mb-6 max-w-sm mx-auto">Start your first Plan-Do-Study-Act cycle to test a change idea.</p>
+                <button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-indigo-900 transition-all">Start Cycle 1</button>
+            </div>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = projectData.pdsa.map((p,i) => `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md">
             <div class="flex justify-between items-center mb-4">
                 <div class="font-bold text-lg text-slate-800">${p.title}</div>
@@ -605,7 +671,7 @@ window.openPortfolioExport = () => {
         { t: "Drivers & Strategy", v: `Primary Drivers: ${d.drivers.primary.join(', ')}\nChanges: ${d.drivers.changes.join(', ')}` },
         { t: "Measures", v: `Outcome: ${d.checklist.outcome_measures}\nProcess: ${d.checklist.process_measures}\nBalance: ${d.checklist.balance_measures}` },
         { t: "Interventions (PDSA)", v: d.pdsa.map(p => `[${p.title}] Study: ${p.study} Act: ${p.act}`).join('\n\n') },
-        { t: "Results & Analysis", v: `Baseline data showed... \nRun Chart analysis demonstrates... \n[Insert analysis here]` },
+        { t: "Results & Analysis", v: d.checklist.results_text || "No analysis recorded yet." },
         { t: "Learning & Sustainability", v: d.checklist.learning + "\n\nSustainability Plan:\n" + d.checklist.sustain },
         { t: "Ethical & PPI", v: d.checklist.ethics + "\n\nPPI: " + d.checklist.ppi }
     ];
@@ -644,7 +710,7 @@ window.printPoster = () => {
                 <div class="box grow">
                     <h2>4. Results (Run Chart)</h2>
                     <div class="chart-holder"><img src="${document.getElementById('mainChart').toDataURL('image/png', 2.0)}"></div>
-                    <p class="caption"><b>Outcome Measure:</b> ${d.checklist.outcome_measures}</p>
+                    <p class="caption"><b>Analysis:</b> ${d.checklist.results_text || 'No results text added.'}</p>
                 </div>
             </div>
             <div class="col">
@@ -675,16 +741,33 @@ window.openHelp = () => window.showHelp('checklist');
 function renderGantt() {
     if(!projectData) return;
     const g = projectData.gantt || [];
-    document.getElementById('gantt-container').innerHTML = g.length ? g.map(t => `
-        <div class="flex items-center gap-4 mb-2 p-2 bg-slate-50 rounded border border-slate-100">
-            <div class="w-1/3 font-bold text-sm">${t.name}</div>
-            <div class="flex-1 bg-slate-200 h-4 rounded overflow-hidden relative">
-                 <div class="absolute bg-rcem-purple h-full opacity-70" style="left: 0; width: 100%"></div> 
-                 <span class="absolute inset-0 text-[10px] text-center text-white flex items-center justify-center">${t.start} - ${t.end}</span>
+    const container = document.getElementById('gantt-container');
+    
+    if (g.length === 0) {
+        container.innerHTML = `
+             <div class="text-center py-10">
+                <div class="bg-slate-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <i data-lucide="calendar" class="w-8 h-8"></i>
+                </div>
+                <h3 class="text-lg font-bold text-slate-700">No Timeline Tasks</h3>
+                <p class="text-slate-400 text-sm mb-6">Track your milestones and deadlines here.</p>
+                <button onclick="window.addGanttTask()" class="bg-white border border-slate-300 text-slate-700 px-6 py-2 rounded-lg font-medium shadow-sm hover:bg-slate-50 transition-all">Add First Task</button>
             </div>
-            <button onclick="deleteGantt('${t.id}')" class="text-slate-400 hover:text-red-500"><i data-lucide="x" class="w-4 h-4"></i></button>
+        `;
+        lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = g.map(t => `
+        <div class="flex items-center gap-4 mb-2 p-2 bg-slate-50 rounded border border-slate-100 group hover:border-rcem-purple/30 transition-colors">
+            <div class="w-1/3 font-bold text-sm text-slate-700">${t.name}</div>
+            <div class="flex-1 bg-slate-200 h-6 rounded overflow-hidden relative">
+                 <div class="absolute bg-rcem-purple h-full opacity-70" style="left: 0; width: 100%"></div> 
+                 <span class="absolute inset-0 text-[10px] text-center text-white flex items-center justify-center font-bold drop-shadow-md">${t.start} - ${t.end}</span>
+            </div>
+            <button onclick="deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="x" class="w-4 h-4"></i></button>
         </div>
-    `).join('') : '<p class="text-center text-slate-400">No tasks defined.</p>';
+    `).join('');
     lucide.createIcons();
 }
 window.addGanttTask = () => {
