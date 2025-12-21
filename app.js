@@ -25,7 +25,7 @@ let isDemoMode = false;
 let chartInstance = null;
 let unsubscribeProject = null;
 
-// --- DEMO DATA (Significantly Expanded) ---
+// --- DEMO DATA ---
 const demoProject = {
     meta: { title: "Improving Sepsis 6 Delivery in ED", created: new Date().toISOString() },
     checklist: {
@@ -75,7 +75,36 @@ const demoProject = {
         { id: "5", name: "PDSA 2: Grab Bags", start: "2025-01-14", end: "2025-01-28" },
         { id: "6", name: "Sustainability Planning", start: "2025-02-01", end: "2025-02-14" },
         { id: "7", name: "Final Report & Poster", start: "2025-02-15", end: "2025-03-01" }
+    ],
+    stakeholders: [
+        { name: "Consultants", power: 90, interest: 80 },
+        { name: "Junior Doctors", power: 30, interest: 70 },
+        { name: "IT Dept", power: 80, interest: 20 },
+        { name: "Nurses", power: 60, interest: 90 }
     ]
+};
+
+const qipTemplates = {
+    pain: {
+        meta: { title: "Analgesia in Majors (RCEM Audit)" },
+        checklist: {
+            problem_desc: "Delays in analgesia lead to poor patient experience and physiological stress. Current performance is below the RCEM standard (50% within 20 mins).",
+            evidence: "RCEM Pain in Adults Guidelines (2023).",
+            aim: "To increase % of patients with severe pain receiving analgesia within 20 mins from X% to 90% by [Date].",
+            outcome_measures: "% Time to Analgesia < 20 mins",
+            process_measures: "Time to Triage; Pain Score recorded at Triage",
+            drivers: { primary: ["Identification", "Prescribing", "Administration"], secondary: ["Pain Scoring", "Nurse PGDs", "Drug Availability"], changes: ["Mandatory Pain Score at Triage", "Intranasal Fentanyl PGD"] }
+        }
+    },
+    hba1c: {
+        meta: { title: "Diabetic Ketoacidosis Management" },
+        checklist: {
+            problem_desc: "DKA pathways are complex and often delayed. NCEPOD data shows delay in fixed rate insulin increases LoS.",
+            evidence: "JBDS Guidelines for DKA Management.",
+            aim: "To reduce time to fixed rate insulin by 30 mins by [Date].",
+            drivers: { primary: ["Diagnosis", "Treatment bundle"], secondary: ["VBG availability", "Fluids prescribed"], changes: ["DKA Box in Resus"] }
+        }
+    }
 };
 
 const emptyProject = {
@@ -86,7 +115,8 @@ const emptyProject = {
     process: ["Start", "End"],
     pdsa: [],
     chartData: [],
-    gantt: []
+    gantt: [],
+    stakeholders: []
 };
 
 // --- AUTH & INIT ---
@@ -168,11 +198,30 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
-    const title = prompt("Project Title:", "My New QIP");
+    const choice = prompt("Choose a type:\n1. Blank Project\n2. Analgesia (Pain)\n3. DKA / Diabetes\n\nEnter Number:", "1");
+    if (!choice) return;
+
+    let template = JSON.parse(JSON.stringify(emptyProject));
+    
+    if (choice === "2") {
+        Object.assign(template.meta, qipTemplates.pain.meta);
+        Object.assign(template.checklist, qipTemplates.pain.checklist);
+        template.drivers = qipTemplates.pain.checklist.drivers;
+        if(qipTemplates.pain.checklist.changes) template.drivers.changes = qipTemplates.pain.checklist.changes;
+    } else if (choice === "3") {
+        Object.assign(template.meta, qipTemplates.hba1c.meta);
+        Object.assign(template.checklist, qipTemplates.hba1c.checklist);
+        template.drivers = qipTemplates.hba1c.checklist.drivers;
+        if(qipTemplates.hba1c.checklist.changes) template.drivers.changes = qipTemplates.hba1c.checklist.changes;
+    }
+
+    const title = prompt("Project Title:", template.meta.title || "My New QIP");
     if (!title) return;
-    const newProj = JSON.parse(JSON.stringify(emptyProject));
-    newProj.meta.title = title;
-    await addDoc(collection(db, `users/${currentUser.uid}/projects`), newProj);
+    
+    template.meta.title = title;
+    template.meta.created = new Date().toISOString();
+    
+    await addDoc(collection(db, `users/${currentUser.uid}/projects`), template);
     loadProjectList();
 };
 
@@ -197,6 +246,7 @@ window.openProject = (id) => {
             if(!projectData.process) projectData.process = ["Start", "End"];
             if(!projectData.pdsa) projectData.pdsa = [];
             if(!projectData.gantt) projectData.gantt = [];
+            if(!projectData.stakeholders) projectData.stakeholders = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
             renderAll();
@@ -229,14 +279,13 @@ window.router = (view) => {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
     
-    // Nav Highlights
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
     const btn = document.getElementById(`nav-${view}`);
     if(btn) btn.classList.add('bg-rcem-purple', 'text-white');
 
-    // Trigger specific renders
     if (view === 'checklist') renderChecklist();
     if (view === 'tools') renderTools();
+    if (view === 'stakeholders') renderStakeholders();
     if (view === 'data') renderChart();
     if (view === 'pdsa') renderPDSA();
     if (view === 'gantt') renderGantt();
@@ -288,6 +337,7 @@ function renderAll() {
     renderCoach();
     if(currentView === 'data') renderChart();
     if(currentView === 'tools') renderTools();
+    if(currentView === 'stakeholders') renderStakeholders();
     if(currentView === 'checklist') renderChecklist();
     if(currentView === 'pdsa') renderPDSA();
     if(currentView === 'gantt') renderGantt();
@@ -442,7 +492,6 @@ window.setToolMode = (m) => {
 };
 
 async function renderTools() {
-    // 1. Inject Explainer
     const info = toolInfo[toolMode];
     document.getElementById('tool-explainer').innerHTML = `
         <h2 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> ${info.title} <span class="text-xs bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded uppercase">${info.subtitle}</span></h2>
@@ -453,13 +502,10 @@ async function renderTools() {
         </div>
     `;
     
-    // 2. Render Diagram
     if(!projectData) return;
     const canvas = document.getElementById('diagram-canvas');
     const controls = document.getElementById('tool-controls');
     const ghost = document.getElementById('diagram-ghost');
-    const ghostTitle = document.getElementById('ghost-title');
-    const ghostMsg = document.getElementById('ghost-msg');
     
     let mCode = '';
     let ctrls = '';
@@ -470,17 +516,13 @@ async function renderTools() {
         const titleSafe = projectData.meta.title.replace(/[^a-zA-Z0-9]/g, '_') || "Problem";
         mCode = `mindmap\n  root((${titleSafe}))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(x => `      ${x}`).join('\n')).join('\n');
         
-        // Buttons
         const colors = ['bg-rose-100 text-rose-800 border-rose-200', 'bg-blue-100 text-blue-800 border-blue-200', 'bg-emerald-100 text-emerald-800 border-emerald-200', 'bg-amber-100 text-amber-800 border-amber-200'];
         ctrls = cats.map((c, i) => `
             <button onclick="window.addCause(${c.id})" class="whitespace-nowrap px-4 py-2 ${colors[i%4]} border rounded-lg text-sm font-bold shadow-sm hover:brightness-95 flex items-center gap-2">
                 <i data-lucide="plus" class="w-4 h-4"></i> ${c.text}
             </button>
         `).join('');
-        
         isEmpty = cats.every(c => c.causes.length === 0);
-        ghostTitle.innerText = "Empty Fishbone";
-        ghostMsg.innerText = "Use this diagram to brainstorm root causes. Ask 'Why' is this happening?";
 
     } else if (toolMode === 'driver') {
         const d = projectData.drivers;
@@ -495,8 +537,6 @@ async function renderTools() {
             <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm font-bold border border-purple-200 shadow-sm flex items-center gap-2 hover:bg-purple-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Change Idea</button>
         `;
         isEmpty = d.primary.length === 0 && d.secondary.length === 0 && d.changes.length === 0;
-        ghostTitle.innerText = "Start Your Strategy";
-        ghostMsg.innerText = "Map out your theory of change. Drivers are 'What' you need to influence, Change Ideas are 'How' you do it.";
 
     } else if (toolMode === 'process') {
         const p = projectData.process;
@@ -508,11 +548,8 @@ async function renderTools() {
             <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500 text-sm font-medium hover:bg-red-50 rounded-lg flex items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
         `;
         isEmpty = p.length <= 2;
-        ghostTitle.innerText = "Map the Process";
-        ghostMsg.innerText = "Visualise the patient journey or current workflow step-by-step.";
     }
 
-    // Render Mermaid
     if (canvas.dataset.code !== mCode) {
         canvas.innerHTML = `<div class="mermaid opacity-0 transition-opacity duration-300" id="mermaid-render">${mCode}</div>`;
         canvas.dataset.code = mCode;
@@ -522,26 +559,20 @@ async function renderTools() {
         } catch(e) { console.error(e); }
     }
     
-    // Render Controls & Ghost
     controls.innerHTML = ctrls;
-    if(isEmpty) {
-        ghost.classList.remove('hidden');
-    } else {
-        ghost.classList.add('hidden');
-    }
+    if(isEmpty) ghost.classList.remove('hidden');
+    else ghost.classList.add('hidden');
     
     lucide.createIcons();
     setupPanZoom();
 }
 
-// Diagram Actions
 window.addCause = (id) => { const v=prompt("Cause:"); if(v){projectData.fishbone.categories.find(c=>c.id===id).causes.push(v); saveData(); renderTools();} }
 window.addDriver = (t) => { const v=prompt("Driver:"); if(v){projectData.drivers[t].push(v); saveData(); renderTools();} }
 window.addStep = () => { const v=prompt("Step Description:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
 window.resetProcess = () => { if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
 
-// Pan/Zoom Logic
-let scale = 1.3, pX = 0, pY = 0; // Default scale increased to 1.3
+let scale = 1.3, pX = 0, pY = 0;
 function setupPanZoom() {
     const wrap = document.getElementById('diagram-wrapper');
     const canvas = document.getElementById('diagram-canvas');
@@ -551,14 +582,81 @@ function setupPanZoom() {
     window.onmouseup = () => { isDown = false; wrap.classList.remove('cursor-grabbing'); };
     wrap.onmousemove = (e) => { if(!isDown) return; e.preventDefault(); pX = e.clientX - startX; pY = e.clientY - startY; updateTransform(); };
     wrap.onwheel = (e) => { e.preventDefault(); scale += e.deltaY * -0.001; scale = Math.min(Math.max(.5, scale), 4); updateTransform(); };
-    
-    // Init transform on first load
     updateTransform();
 }
 function updateTransform() { document.getElementById('diagram-canvas').style.transform = `translate(${pX}px, ${pY}px) scale(${scale})`; }
 window.resetZoom = () => { scale=1.3; pX=0; pY=0; updateTransform(); };
 window.zoomIn = () => { scale = Math.min(scale + 0.2, 4); updateTransform(); };
 window.zoomOut = () => { scale = Math.max(scale - 0.2, 0.5); updateTransform(); };
+
+// --- STAKEHOLDERS LOGIC ---
+function renderStakeholders() {
+    if (!projectData) return;
+    const container = document.getElementById('stakeholder-canvas');
+    container.innerHTML = '';
+    
+    projectData.stakeholders.forEach((s, index) => {
+        const bottom = s.power; 
+        const left = s.interest;
+        
+        const el = document.createElement('div');
+        el.className = 'absolute transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-slate-600 rounded-full px-3 py-1 text-xs font-bold shadow-lg cursor-grab active:cursor-grabbing hover:scale-110 transition-transform z-30 flex items-center gap-1';
+        el.style.bottom = `${bottom}%`;
+        el.style.left = `${left}%`;
+        el.innerHTML = `<span class="whitespace-nowrap">${s.name}</span>`;
+        
+        el.oncontextmenu = (e) => {
+            e.preventDefault();
+            if(confirm(`Remove ${s.name}?`)) {
+                projectData.stakeholders.splice(index, 1);
+                saveData();
+                renderStakeholders();
+            }
+        };
+
+        el.onmousedown = (e) => dragStakeholder(e, index);
+        container.appendChild(el);
+    });
+}
+
+function dragStakeholder(e, index) {
+    e.preventDefault();
+    const container = document.getElementById('stakeholder-canvas');
+    const rect = container.getBoundingClientRect();
+    
+    function onMouseMove(moveEvent) {
+        let x = moveEvent.clientX - rect.left;
+        let y = rect.bottom - moveEvent.clientY; // Invert Y because bottom is 0%
+        
+        x = Math.max(0, Math.min(x, rect.width));
+        y = Math.max(0, Math.min(y, rect.height));
+        
+        const xPct = (x / rect.width) * 100;
+        const yPct = (y / rect.height) * 100;
+        
+        projectData.stakeholders[index].interest = xPct;
+        projectData.stakeholders[index].power = yPct;
+        renderStakeholders();
+    }
+    
+    function onMouseUp() {
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        saveData();
+    }
+    
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+}
+
+window.addStakeholder = () => {
+    const name = prompt("Stakeholder Name / Group (e.g. 'Senior Nurses'):");
+    if(!name) return;
+    if(!projectData.stakeholders) projectData.stakeholders = [];
+    projectData.stakeholders.push({ name: name, power: 50, interest: 50 });
+    saveData();
+    renderStakeholders();
+};
 
 // --- 4. CHARTING & SPC LOGIC ---
 function renderChart() {
@@ -568,12 +666,10 @@ function renderChart() {
     const resultsTxt = document.getElementById('results-text');
     const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
 
-    // Populate results text
     if(projectData.checklist && projectData.checklist.results_text) {
         resultsTxt.value = projectData.checklist.results_text;
     }
 
-    // Ghost State
     if (data.length === 0) { 
         ghost.classList.remove('hidden'); 
         if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
@@ -586,10 +682,8 @@ function renderChart() {
     const values = outcomes.map(d => Number(d.value));
     const labels = outcomes.map(d => d.date);
     
-    // SPC Logic: Calculate Median
     const median = values.length ? values.slice().sort((a,b)=>a-b)[Math.floor(values.length/2)] : 0;
     
-    // SPC Rules
     const pointColors = values.map((v, i) => {
         let isRun = false;
         if (i >= 5) {
@@ -629,7 +723,6 @@ function renderChart() {
         }
     });
 
-    // History List
     document.getElementById('data-history').innerHTML = data.slice().reverse().map(d => `
         <div class="flex justify-between border-b border-slate-100 py-2 items-center">
             <span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong> <span class="text-[10px] text-slate-400 uppercase tracking-wide ml-1">${d.type}</span></span>
@@ -854,7 +947,7 @@ window.showHelp = (key) => {
 };
 window.openHelp = () => window.showHelp('checklist');
 
-// --- GANTT CHART (Proper Timeline) ---
+// --- GANTT CHART ---
 function renderGantt() {
     if(!projectData) return;
     const g = projectData.gantt || [];
@@ -865,40 +958,34 @@ function renderGantt() {
         return;
     }
 
-    // 1. Calculate Grid Dates
     const dates = g.flatMap(t => [new Date(t.start), new Date(t.end)]);
     const minDate = new Date(Math.min(...dates));
     const maxDate = new Date(Math.max(...dates));
-    minDate.setDate(minDate.getDate() - 7); // Buffer
+    minDate.setDate(minDate.getDate() - 7); 
     maxDate.setDate(maxDate.getDate() + 7);
 
     const dayMs = 24 * 60 * 60 * 1000;
     const totalDays = Math.ceil((maxDate - minDate) / dayMs);
-    const pxPerDay = 30; // Width of one day column
+    const pxPerDay = 30; 
     
-    // 2. Build Header
     let gridHTML = `<div class="gantt-grid" style="grid-template-columns: 200px repeat(${totalDays}, ${pxPerDay}px); width: ${200 + (totalDays * pxPerDay)}px">`;
     
-    // Header Row
     gridHTML += `<div class="gantt-header sticky left-0 bg-white z-20 border-r border-slate-200">Task Name</div>`;
-    for(let i=0; i<totalDays; i+=7) { // Show weekly headers
+    for(let i=0; i<totalDays; i+=7) { 
         const d = new Date(minDate.getTime() + (i * dayMs));
         gridHTML += `<div class="gantt-header" style="grid-column: span 7; text-align: left; padding-left: 5px;">${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</div>`;
     }
 
-    // 3. Build Rows
     g.forEach(t => {
         const start = new Date(t.start);
         const end = new Date(t.end);
         const offsetDays = Math.floor((start - minDate) / dayMs);
         const durationDays = Math.ceil((end - start) / dayMs) || 1;
         
-        // Row Label
         gridHTML += `<div class="gantt-row sticky left-0 bg-white z-10 border-r border-slate-200 flex items-center px-4 text-sm font-medium text-slate-700 truncate" title="${t.name}">
             ${t.name} <button onclick="deleteGantt('${t.id}')" class="ml-auto text-slate-300 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
         </div>`;
         
-        // Row Bar Container
         gridHTML += `<div class="gantt-row" style="grid-column: 2 / -1;">
             <div class="gantt-bar" style="left: ${offsetDays * pxPerDay}px; width: ${durationDays * pxPerDay}px;">
                 ${durationDays} days
@@ -925,7 +1012,7 @@ window.addGanttTask = () => {
 }
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
 
-// --- CALCULATORS (Separated) ---
+// --- CALCULATORS ---
 window.calcGreen = () => {
     const v = document.getElementById('green-type').value;
     const q = document.getElementById('green-qty').value;
@@ -969,14 +1056,10 @@ function renderFullProject() {
     const d = projectData;
     const c = d.checklist;
     const container = document.getElementById('full-project-container');
-    
-    // 1. Validation Logic
     const flags = checkRCEMCriteria(d);
     
-    // 2. Build HTML
     let html = '';
 
-    // Validator Banner
     if(flags.length > 0) {
         html += `
             <div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-8 rounded shadow-sm">
@@ -1001,7 +1084,6 @@ function renderFullProject() {
         `;
     }
 
-    // Sections Helper
     const section = (title, content, validationKey) => {
         const isMissing = !content || (Array.isArray(content) && content.length === 0);
         const warning = isMissing ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing / Incomplete</div>` : '';
@@ -1019,7 +1101,6 @@ function renderFullProject() {
     html += section("2. Evidence & Guidelines", c.evidence);
     html += section("3. SMART Aim", c.aim);
     
-    // Drivers
     html += `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">4. Driver Diagram Summary</h3>
@@ -1037,7 +1118,6 @@ function renderFullProject() {
         </div>
     `;
 
-    // Chart
     html += `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">5. Data & Results</h3>
@@ -1049,7 +1129,6 @@ function renderFullProject() {
         </div>
     `;
 
-    // PDSA
     const pdsaContent = d.pdsa.map(p => `
         <div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200">
             <div class="font-bold text-slate-700 mb-1">${p.title}</div>
