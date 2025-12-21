@@ -61,6 +61,7 @@
                 
                 <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Diagnose & Plan</div>
                 <button onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools"><i data-lucide="git-branch" class="w-4 h-4"></i> Driver & Diagrams</button>
+                <button onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders"><i data-lucide="users" class="w-4 h-4"></i> Stakeholders</button>
                 <button onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Timeline (Gantt)</button>
 
                 <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Act & Study</div>
@@ -222,8 +223,7 @@
                 </div>
 
                 <div id="view-tools" class="view-section hidden h-full flex flex-col">
-                    <div id="tool-explainer" class="bg-indigo-50 border-b border-indigo-100 p-6">
-                        </div>
+                    <div id="tool-explainer" class="bg-indigo-50 border-b border-indigo-100 p-6"></div>
                     
                     <header class="flex flex-wrap justify-between items-center p-4 gap-4 bg-white border-b border-slate-100">
                          <div class="flex bg-slate-200 p-1 rounded-lg text-sm font-medium">
@@ -237,24 +237,47 @@
                         <div id="tool-controls" class="p-3 border-b border-slate-100 flex gap-3 overflow-x-auto bg-slate-50 min-h-[60px] items-center no-scrollbar"></div>
                         <div id="diagram-wrapper" class="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-slate-50">
                             <div id="diagram-canvas" class="w-full h-full flex items-center justify-center transition-transform origin-center"></div>
-                            
                             <div id="diagram-ghost" class="absolute inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm pointer-events-none hidden z-10">
                                 <div class="text-center p-6 bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm">
-                                    <div class="bg-indigo-50 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3 text-indigo-600">
-                                        <i data-lucide="edit-3" class="w-6 h-6"></i>
-                                    </div>
+                                    <div class="bg-indigo-50 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3 text-indigo-600"><i data-lucide="edit-3" class="w-6 h-6"></i></div>
                                     <h3 class="font-bold text-slate-800 text-lg mb-1" id="ghost-title">Start Building</h3>
                                     <p class="text-slate-500 text-sm mb-4" id="ghost-msg">This diagram is currently empty.</p>
-                                    <div class="text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1 rounded inline-block">Click buttons above to add items</div>
                                 </div>
                             </div>
-
                         </div>
                         <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2 border border-slate-200 z-20">
                              <button onclick="window.zoomOut()" class="hover:text-rcem-purple flex items-center gap-1 border-r border-slate-200 pr-2"><i data-lucide="minus" class="w-4 h-4"></i></button>
                              <button onclick="window.resetZoom()" class="hover:text-rcem-purple flex items-center gap-1 px-1">Reset</button>
                              <button onclick="window.zoomIn()" class="hover:text-rcem-purple flex items-center gap-1 border-l border-slate-200 pl-2"><i data-lucide="plus" class="w-4 h-4"></i></button>
                         </div>
+                    </div>
+                </div>
+
+                <div id="view-stakeholders" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col pb-4">
+                    <header class="mb-6 flex justify-between items-end">
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users" class="text-rcem-purple"></i> Stakeholder Mapping</h2>
+                            <p class="text-slate-500 text-sm mt-1">Map your team based on their <b>Influence</b> (Power) and <b>Interest</b> in the project.</p>
+                        </div>
+                        <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2 font-medium"><i data-lucide="plus" class="w-4 h-4"></i> Add Person/Group</button>
+                    </header>
+
+                    <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
+                        <div class="absolute inset-0 z-0 flex flex-col">
+                            <div class="flex-1 flex">
+                                <div class="flex-1 border-r border-b border-slate-200 bg-red-50/30 p-4 relative"><span class="absolute top-2 left-2 text-xs font-bold text-red-300 uppercase">High Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-red-800 font-bold text-xl">Keep Satisfied</div></div>
+                                <div class="flex-1 border-b border-slate-200 bg-emerald-50/30 p-4 relative"><span class="absolute top-2 right-2 text-xs font-bold text-emerald-300 uppercase">High Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-emerald-800 font-bold text-xl">Manage Closely (Key Players)</div></div>
+                            </div>
+                            <div class="flex-1 flex">
+                                <div class="flex-1 border-r border-slate-200 bg-slate-50/30 p-4 relative"><span class="absolute bottom-2 left-2 text-xs font-bold text-slate-300 uppercase">Low Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-slate-800 font-bold text-xl">Monitor</div></div>
+                                <div class="flex-1 bg-blue-50/30 p-4 relative"><span class="absolute bottom-2 right-2 text-xs font-bold text-blue-300 uppercase">Low Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-blue-800 font-bold text-xl">Keep Informed</div></div>
+                            </div>
+                        </div>
+                        
+                        <div class="absolute left-2 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-400 tracking-widest z-10">POWER / INFLUENCE</div>
+                        <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-widest z-10">INTEREST</div>
+
+                        <div id="stakeholder-canvas" class="absolute inset-8 z-20"></div>
                     </div>
                 </div>
 
