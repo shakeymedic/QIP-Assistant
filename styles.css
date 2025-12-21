@@ -3,150 +3,58 @@
 @tailwind utilities;
 
 /* Custom Scrollbar */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; }
-::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
 
-/* Diagram Pan/Zoom cursor */
-.grab-cursor { cursor: grab; }
-.grabbing-cursor { cursor: grabbing; }
+/* Diagram */
+.cursor-grab { cursor: grab; }
+.cursor-grabbing { cursor: grabbing; }
 
-/* === A0 POSTER PRINT STYLES === */
+/* Print / Poster Layout - GOLD STANDARD */
 @media print {
-    @page {
-        size: A0 portrait;
-        margin: 0;
-    }
+    @page { size: A0 portrait; margin: 0; }
+    body { background: white; -webkit-print-color-adjust: exact; }
     
-    body {
-        background: white;
-        width: 100%;
-        height: 100%;
-        overflow: visible;
+    /* Hide UI */
+    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar { display: none !important; }
+    #main-wrapper { display: none !important; }
+    
+    /* Show Poster */
+    #print-container { 
+        display: block !important; 
+        width: 100vw; height: 100vh;
+        padding: 40px; box-sizing: border-box;
     }
 
-    /* Hide UI Elements */
-    aside, #ig-banner, #auth-screen, #views-container, .no-print, header, nav, #mobile-menu-btn, .sticky {
-        display: none !important;
-    }
-
-    #main-content {
-        background: white;
-        margin: 0;
-        padding: 0;
-        overflow: visible;
-        display: block !important;
-    }
-
-    /* Show Poster Container */
-    #poster-print-container {
-        display: block !important;
-        width: 100vw;
-        height: 100vh; /* Fill the paper */
-        background: white;
-        font-family: 'Inter', sans-serif;
-    }
-
-    .poster-layout {
-        display: flex;
-        flex-direction: column;
-        height: 100%;
-        padding: 40px;
-        box-sizing: border-box;
-        gap: 30px;
-    }
-
-    /* Header */
-    .poster-header {
-        background-color: #2d2e83; /* RCEM Purple */
-        color: white;
-        padding: 40px;
-        border-radius: 20px;
-        display: flex;
-        align-items: center;
-        gap: 40px;
-        box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-    }
-    .logo-area img { height: 180px; background: white; padding: 10px; border-radius: 10px; }
-    .title-area { flex: 1; }
-    .title-area h1 { font-size: 80px; font-weight: 800; line-height: 1.1; margin-bottom: 15px; }
-    .authors { font-size: 36px; opacity: 0.9; }
-    .trust-area { font-size: 30px; font-weight: bold; text-align: right; opacity: 0.8; }
-
-    /* Grid Body */
-    .poster-body {
+    .poster-grid {
         display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
+        grid-template-columns: 1fr 2fr 1fr; /* Center column wider for Chart */
+        grid-template-rows: auto 1fr;
         gap: 30px;
-        flex: 1;
+        height: 100%;
     }
 
-    .poster-col {
-        display: flex;
-        flex-direction: column;
-        gap: 30px;
+    .poster-grid header {
+        grid-column: 1 / -1;
+        background: #2d2e83; color: white;
+        padding: 30px; border-radius: 20px;
+        display: flex; gap: 30px; align-items: center;
     }
+    .poster-grid header img { height: 100px; background: white; padding: 10px; border-radius: 10px; }
+    .poster-grid header h1 { font-size: 60px; font-weight: 800; line-height: 1; }
+    .poster-grid header p { font-size: 30px; opacity: 0.9; }
 
-    .poster-box {
-        background: #f8fafc;
-        border: 4px solid #e2e8f0;
-        border-radius: 20px;
-        padding: 30px;
-        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
-    }
-
-    .poster-box h2 {
-        font-size: 32px;
-        font-weight: 800;
-        color: #2d2e83;
-        text-transform: uppercase;
-        border-bottom: 4px solid #f36f21; /* RCEM Orange */
-        padding-bottom: 10px;
-        margin-bottom: 20px;
-    }
-
-    .poster-box p, .poster-box li {
-        font-size: 20px;
-        line-height: 1.5;
-        color: #334155;
-        margin-bottom: 10px;
-    }
-
-    .poster-box ul { list-style-type: disc; padding-left: 30px; }
-
-    .highlight-box {
-        background: #e0e7ff;
-        padding: 20px;
-        border-left: 8px solid #2d2e83;
-        font-style: italic;
-        font-size: 24px !important;
-        font-weight: 600;
-    }
-
-    .img-holder {
-        width: 100%;
-        overflow: hidden;
-        border: 2px solid #cbd5e1;
-        background: white;
-        padding: 10px;
-        border-radius: 10px;
-    }
+    .col { display: flex; flex-direction: column; gap: 30px; }
     
-    .img-holder svg {
-        width: 100% !important;
-        height: auto !important;
+    .box {
+        background: #f8fafc; border: 4px solid #cbd5e1;
+        padding: 30px; border-radius: 20px;
     }
-
-    .chart-holder img {
-        width: 100%;
-        height: auto;
+    .box h2 {
+        color: #2d2e83; border-bottom: 4px solid #f36f21;
+        font-size: 32px; font-weight: 800; margin-bottom: 20px;
     }
-
-    .poster-footer {
-        text-align: center;
-        font-size: 18px;
-        color: #94a3b8;
-        padding-top: 20px;
-        border-top: 2px solid #e2e8f0;
-    }
+    .box p, .box li { font-size: 20px; margin-bottom: 10px; }
+    .box.grow { flex: 1; }
+    .big { font-size: 28px !important; font-style: italic; color: #2d2e83; }
 }
