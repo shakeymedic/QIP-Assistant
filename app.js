@@ -116,7 +116,6 @@ async function loadProjectList() {
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
     if (isDemoMode) {
-        // In demo mode, show just one project
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-rcem-purple relative overflow-hidden cursor-pointer hover:shadow-md transition-all" onclick="window.openDemoProject()">
                  <div class="absolute top-0 right-0 bg-rcem-purple text-white text-xs px-2 py-1">Example</div>
@@ -414,6 +413,8 @@ async function renderTools() {
     const canvas = document.getElementById('diagram-canvas');
     const controls = document.getElementById('tool-controls');
     const ghost = document.getElementById('diagram-ghost');
+    const ghostTitle = document.getElementById('ghost-title');
+    const ghostMsg = document.getElementById('ghost-msg');
     
     let mCode = '';
     let ctrls = '';
@@ -433,6 +434,8 @@ async function renderTools() {
         `).join('');
         
         isEmpty = cats.every(c => c.causes.length === 0);
+        ghostTitle.innerText = "Empty Fishbone";
+        ghostMsg.innerText = "Use this diagram to brainstorm root causes. Ask 'Why' is this happening?";
 
     } else if (toolMode === 'driver') {
         const d = projectData.drivers;
@@ -446,7 +449,9 @@ async function renderTools() {
             <button onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-bold border border-blue-200 shadow-sm flex items-center gap-2 hover:bg-blue-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Secondary Driver</button>
             <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm font-bold border border-purple-200 shadow-sm flex items-center gap-2 hover:bg-purple-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Change Idea</button>
         `;
-        isEmpty = d.primary.length === 0 && d.secondary.length === 0;
+        isEmpty = d.primary.length === 0 && d.secondary.length === 0 && d.changes.length === 0;
+        ghostTitle.innerText = "Start Your Strategy";
+        ghostMsg.innerText = "Map out your theory of change. Drivers are 'What' you need to influence, Change Ideas are 'How' you do it.";
 
     } else if (toolMode === 'process') {
         const p = projectData.process;
@@ -458,6 +463,8 @@ async function renderTools() {
             <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500 text-sm font-medium hover:bg-red-50 rounded-lg flex items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
         `;
         isEmpty = p.length <= 2;
+        ghostTitle.innerText = "Map the Process";
+        ghostMsg.innerText = "Visualise the patient journey or current workflow step-by-step.";
     }
 
     // Render Mermaid
