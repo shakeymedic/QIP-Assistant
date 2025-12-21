@@ -25,35 +25,36 @@ let isDemoMode = false;
 let chartInstance = null;
 let unsubscribeProject = null;
 
-// --- DEMO DATA (Gold Standard Sepsis Example) ---
+// --- DEMO DATA (Significantly Expanded) ---
 const demoProject = {
-    meta: { title: "Improving Sepsis 6 Delivery", created: new Date().toISOString() },
+    meta: { title: "Improving Sepsis 6 Delivery in ED", created: new Date().toISOString() },
     checklist: {
         title: "Improving Sepsis 6 Delivery in ED",
         lead: "Dr. A. Medic",
-        team: "Sr. B. Nurse (Band 7), Dr. C. Consultant (Sponsor)",
-        problem_desc: "Audit showed only 45% of Red Flag Sepsis patients received Abx within 1h. This increases mortality risk.",
-        evidence: "RCEM Guidelines require 100% compliance. NCEPOD 'Just Say Sepsis' mandates early Abx.",
-        aim: "To increase delivery of Sepsis 6 bundle within 1 hour from 45% to 90% by March 2025.",
-        outcome_measures: "Sepsis 6 Compliance % (<1h)",
-        process_measures: "Time to Screening; Availability of Packs",
-        balance_measures: "Time to initial assessment for non-sepsis patients (displacement)",
-        ethics: "QI project only. No patient identifiable data used. Registered with Audit Dept (Ref: 1234).",
-        learning: "Process mapping showed 'hunting for kit' was a major delay. Grab bags fixed this.",
-        sustain: "Nurse in Charge checks grab bags daily. Monthly audit report automated.",
-        ppi: "Patient liaison group reviewed the new patient information leaflet and suggested clearer language.",
-        results_text: "The chart demonstrates a clear shift in the process. Initially, compliance was variable (mean 45%). Following the introduction of sepsis stickers (Cycle 1), there was a modest increase. However, the introduction of 'Grab Bags' (Cycle 2) led to a sustained shift above the median, with 6 consecutive points >80%."
+        team: "Sr. B. Nurse (Band 7), Dr. C. Consultant (Sponsor), Mr. D. Pharmacist",
+        problem_desc: "Sepsis is a time-critical condition with high mortality. National data suggests every hour of delay in antibiotic administration increases mortality by 7.6%. \n\nLocal audit data (Oct-Dec 2024, n=50) revealed that only 45% of patients meeting 'Red Flag' sepsis criteria received the full Sepsis 6 bundle within 1 hour of arrival. The average time to antibiotics was 95 minutes. This represents a significant quality gap compared to the RCEM standard of 100%.",
+        evidence: "1. RCEM Clinical Standard for Sepsis (2023): '100% of patients with red flag sepsis should receive antibiotics within 1 hour.'\n2. NCEPOD 'Just Say Sepsis' Report (2015): Highlights early recognition as key failure point.\n3. NICE NG51: Mandates rapid delivery of care bundle.",
+        aim: "To increase the percentage of adult patients (age >18) with Red Flag Sepsis receiving the full Sepsis 6 bundle within 60 minutes of arrival from a baseline of 45% to 90% by 1st March 2025.",
+        outcome_measures: "Primary: % of Red Flag Sepsis patients receiving Sepsis 6 within 1h.",
+        process_measures: "1. Time from arrival to screening (minutes).\n2. % of notes with Sepsis Stamp completed.\n3. Availability of Sepsis Grab Bags in Resus (daily check).",
+        balance_measures: "1. Time to initial assessment for non-sepsis patients (displacement effect).\n2. Rate of inappropriate antibiotic prescribing (reviews by Micro).",
+        ethics: "Registered as a Quality Improvement Project with the Trust Audit Department (Ref: QIP-25-101). No patient identifiable data collected on this platform. Data is aggregate only.",
+        learning: "The main barrier identified was 'Cognitive Load' and 'Access to Equipment'. Staff knew *what* to do, but gathering the equipment took too long (avg 12 mins). Creating pre-filled 'Grab Bags' reduced this to 2 mins.\n\nKey Lesson: Make the right thing the easiest thing to do.",
+        sustain: "Sustainability relies on embedding the process. The 'Grab Bags' are now part of the daily HCA stock check. The Sepsis screening prompt has been added to the electronic triage system (Cerner) to replace the paper stamp.",
+        ppi: "We held a focus group with the Patient Liaison Group. They reviewed the patient information leaflet and suggested changing 'Lactate' to 'Blood Acid Level' for clarity, which we adopted.",
+        results_text: "The Run Chart shows a clear improvement. \n\nBaseline (Points 1-6): Performance was variable with a median of 45%.\n\nIntervention 1 (Stamps): Resulted in a small increase but no sustained shift.\n\nIntervention 2 (Grab Bags): This created a 'Step Change'. We observe a run of 6 consecutive points above the median, indicating a statistically significant shift. The new process median is approx 85%."
     },
     drivers: {
-        primary: ["Identification", "Equipment", "Culture"],
-        secondary: ["Triage Screening", "Access to Fluids/Abx", "Empowerment to prescribe"],
-        changes: ["Sepsis Stamp", "Grab Bags", "PGD for Nurses"]
+        primary: ["Early Identification", "Rapid Equipment Access", "Staff Culture & Empowerment"],
+        secondary: ["Reliable Triage Screening", "Availability of Antibiotics/Fluids", "Nurse Prescribing (PGD)", "Feedback to Staff"],
+        changes: ["Sepsis Stamp in Notes", "Pre-filled 'Grab Bags'", "Sepsis Trolley in Majors", "Weekly Data Dashboard in Coffee Room"]
     },
-    fishbone: { categories: [{ id: 1, text: "People", causes: ["Locums unaware", "Fear of error"] }, { id: 2, text: "Process", causes: ["No PGD", "Paper notes"] }, { id: 3, text: "Equipment", causes: ["Fluids locked away"] }, { id: 4, text: "Environment", causes: ["Crowded Resus"] }] },
-    process: ["Arrival", "Triage (Screen +)", "Doctor Review", "Sepsis 6 Initiated"],
+    fishbone: { categories: [{ id: 1, text: "People", causes: ["Junior doctors rotating often", "Fear of prescribing wrong dose", "Nurses not empowered to cannulate"] }, { id: 2, text: "Process", causes: ["Screening tool buried in notes", "Wait for blood results before Abx", "No PGD for fluids"] }, { id: 3, text: "Equipment", causes: ["Fluids locked in different room", "Blood culture bottles out of stock", "No dedicated trolley"] }, { id: 4, text: "Environment", causes: ["Overcrowding in ED", "Lack of cubicle space", "IT system slow"] }] },
+    process: ["Patient Arrives", "Triage Nurse Screens", "Positive Flag?", "Doctor Bleeped", "Cannulation & Cultures", "Antibiotics Prescribed", "Antibiotics Administered"],
     pdsa: [
-        { id: "1", title: "Cycle 1: Sepsis Stamp", plan: "Use stamp in notes to prompt action.", do: "Used for 1 week.", study: "Compliance rose to 60%. Ink ran out.", act: "Switch to stickers." },
-        { id: "2", title: "Cycle 2: Grab Bags", plan: "Pre-fill bags to save time.", do: "Deployed 10 bags.", study: "Compliance hit 82%. Staff loved it.", act: "Adopt permanently." }
+        { id: "1", title: "Cycle 1: Sepsis Stamp", plan: "Test if a visual prompt in notes increases screening. \nWho: Triage Nurses. \nWhen: 1 week.", do: "Rubber stamp used on all notes. \nProblem: Ink pad dried out on Day 3.", study: "Data showed screening rose from 40% to 60%, but fell back when ink ran out. Staff liked the prompt but hated the mess.", act: "ABANDON stamp. Move to stickers or digital prompt." },
+        { id: "2", title: "Cycle 2: Sepsis Grab Bags", plan: "Reduce time looking for kit. \nWho: Charge Nurse to stock. \nWhat: Bag containing blood bottles, cannula, giving set, saline.", do: "10 bags created and placed in Resus. Used for 2 weeks.", study: "Time to cannulation dropped by 10 mins. Staff feedback excellent: 'Saved my life during a busy shift'.", act: "ADOPT. Roll out to Majors and Triage." },
+        { id: "3", title: "Cycle 3: Digital Screen", plan: "Embed screening in IT system.", do: "IT dept updated triage form.", study: "Screening hit 95%. Hard stop added.", act: "SUSTAIN. Standard practice." }
     ],
     chartData: [
         { date: "2025-01-01", value: 45, type: "outcome" }, { date: "2025-01-02", value: 42, type: "outcome" },
@@ -62,14 +63,18 @@ const demoProject = {
         { date: "2025-01-07", value: 65, type: "outcome", note: "PDSA 1: Stamp" },
         { date: "2025-01-08", value: 68, type: "outcome" }, { date: "2025-01-09", value: 70, type: "outcome" },
         { date: "2025-01-14", value: 82, type: "outcome", note: "PDSA 2: Bags" },
-        { date: "2025-01-15", value: 85, type: "outcome" }, { date: "2025-01-16", value: 88, type: "outcome" }
+        { date: "2025-01-15", value: 85, type: "outcome" }, { date: "2025-01-16", value: 88, type: "outcome" },
+        { date: "2025-01-17", value: 89, type: "outcome" }, { date: "2025-01-18", value: 92, type: "outcome" },
+        { date: "2025-01-19", value: 86, type: "outcome" }
     ],
     gantt: [
-        { id: "1", name: "Project Planning & Registration", start: "2024-12-01", end: "2024-12-15" },
-        { id: "2", name: "Baseline Data Collection", start: "2025-01-01", end: "2025-01-14" },
-        { id: "3", name: "PDSA 1: Sepsis Stamps", start: "2025-01-07", end: "2025-01-21" },
-        { id: "4", name: "PDSA 2: Grab Bags", start: "2025-01-14", end: "2025-02-01" },
-        { id: "5", name: "Write Up & Poster Design", start: "2025-02-15", end: "2025-03-01" }
+        { id: "1", name: "Project Setup & Registration", start: "2024-12-01", end: "2024-12-10" },
+        { id: "2", name: "Baseline Audit (n=50)", start: "2024-12-11", end: "2024-12-31" },
+        { id: "3", name: "Driver Diagram Workshop", start: "2025-01-02", end: "2025-01-03" },
+        { id: "4", name: "PDSA 1: Stamps", start: "2025-01-05", end: "2025-01-12" },
+        { id: "5", name: "PDSA 2: Grab Bags", start: "2025-01-14", end: "2025-01-28" },
+        { id: "6", name: "Sustainability Planning", start: "2025-02-01", end: "2025-02-14" },
+        { id: "7", name: "Final Report & Poster", start: "2025-02-15", end: "2025-03-01" }
     ]
 };
 
@@ -123,10 +128,10 @@ async function loadProjectList() {
             <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-rcem-purple relative overflow-hidden cursor-pointer hover:shadow-md transition-all" onclick="window.openDemoProject()">
                  <div class="absolute top-0 right-0 bg-rcem-purple text-white text-xs px-2 py-1">Example</div>
                  <h3 class="font-bold text-lg text-slate-800 mb-1">Improving Sepsis 6 Delivery</h3>
-                 <p class="text-xs text-slate-400 mb-4">Created: Today</p>
+                 <p class="text-xs text-slate-400 mb-4">Dr. A. Medic</p>
                  <div class="flex gap-2 text-xs font-medium text-slate-500">
-                    <span class="bg-slate-100 px-2 py-1 rounded">12 Points</span>
-                    <span class="bg-slate-100 px-2 py-1 rounded">2 Cycles</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded">15 Data Points</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded">3 Cycles</span>
                 </div>
             </div>
         `;
@@ -204,7 +209,7 @@ window.openProject = (id) => {
 
 window.openDemoProject = () => {
     projectData = JSON.parse(JSON.stringify(demoProject));
-    document.getElementById('project-header-title').textContent = "Demo Project";
+    document.getElementById('project-header-title').textContent = "Demo Project (Read Only)";
     document.getElementById('top-bar').classList.remove('hidden');
     renderAll();
     window.router('dashboard');
@@ -405,7 +410,30 @@ window.saveSmartAim = () => {
 };
 
 // --- 3. DIAGRAMS & TOOLS ---
-let toolMode = 'fishbone';
+const toolInfo = {
+    fishbone: {
+        title: "Fishbone (Ishikawa) Diagram",
+        subtitle: "Root Cause Analysis",
+        desc: "A Fishbone diagram helps you explore the underlying causes of a problem, rather than just the symptoms. It structures your brainstorming into categories (People, Process, Equipment, Environment).",
+        how: "Start with the problem on the right. Ask 'Why is this happening?' for each category. Keep asking 'Why?' (The 5 Whys) until you reach a root cause that you can actually change.",
+        tip: "Useful at the very start of a project before you decide on solutions."
+    },
+    driver: {
+        title: "Driver Diagram",
+        subtitle: "Theory of Change",
+        desc: "The Driver Diagram connects your Aim to your Actions. It visualises your strategy on one page.",
+        how: "<b>Primary Drivers:</b> Big topics that influence the aim directly (e.g. 'Staff Knowledge').<br><b>Secondary Drivers:</b> Specific components of the primary drivers (e.g. 'Training sessions').<br><b>Change Ideas:</b> The specific interventions you will test (e.g. 'Weekly simulation training').",
+        tip: "This should be your project's roadmap."
+    },
+    process: {
+        title: "Process Map",
+        subtitle: "Workflow Visualisation",
+        desc: "A Process Map lays out the steps of the current patient journey or workflow. It highlights bottlenecks, duplication, or safety gaps.",
+        how: "Map the 'As-Is' process (how it actually happens, not how it's written in policy). Walk the floor and observe.",
+        tip: "Look for steps that add no value and try to remove them."
+    }
+};
+
 window.setToolMode = (m) => {
     toolMode = m;
     document.querySelectorAll('.tool-tab').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-rcem-purple'));
@@ -414,6 +442,18 @@ window.setToolMode = (m) => {
 };
 
 async function renderTools() {
+    // 1. Inject Explainer
+    const info = toolInfo[toolMode];
+    document.getElementById('tool-explainer').innerHTML = `
+        <h2 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> ${info.title} <span class="text-xs bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded uppercase">${info.subtitle}</span></h2>
+        <p class="text-indigo-800 mb-3 text-sm leading-relaxed">${info.desc}</p>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div class="bg-white p-3 rounded border border-indigo-100"><strong class="block text-indigo-600 mb-1">How to make it:</strong> ${info.how}</div>
+            <div class="bg-white p-3 rounded border border-indigo-100"><strong class="block text-indigo-600 mb-1">Top Tip:</strong> ${info.tip}</div>
+        </div>
+    `;
+    
+    // 2. Render Diagram
     if(!projectData) return;
     const canvas = document.getElementById('diagram-canvas');
     const controls = document.getElementById('tool-controls');
@@ -704,68 +744,64 @@ window.openPortfolioExport = () => {
     `).join('');
 };
 
-window.exportPPTX = () => {
+window.exportPPTX = async () => {
     if (!projectData) return;
     const d = projectData;
     const pres = new PptxGenJS();
-
-    // Theme
-    pres.layout = 'LAYOUT_16x9';
-    pres.defineSlideMaster({
-        title: 'MASTER_SLIDE',
-        background: { color: 'FFFFFF' },
-        objects: [
-            { rect: { x: 0, y: 0, w: '100%', h: 0.5, fill: '2d2e83' } },
-            { text: { text: 'RCEM QIP Assistant', options: { x: 0.5, y: 0.1, color: 'FFFFFF', fontSize: 14 } } }
-        ]
-    });
+    
+    // Helper to rasterize Mermaid SVG
+    const getDiagramImage = async () => {
+        const svg = document.querySelector('#mermaid-render svg');
+        if(!svg) return null;
+        const svgData = new XMLSerializer().serializeToString(svg);
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+        const url = URL.createObjectURL(svgBlob);
+        
+        return new Promise(resolve => {
+            img.onload = () => {
+                canvas.width = img.width * 2; // High res
+                canvas.height = img.height * 2;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                resolve(canvas.toDataURL('image/png'));
+                URL.revokeObjectURL(url);
+            };
+            img.src = url;
+        });
+    };
 
     // 1. Title Slide
-    let slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-    slide.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, color: '2d2e83', bold: true, align: 'center' });
-    slide.addText(d.checklist.team || 'QIP Team', { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
-    slide.addText('Quality Improvement Project', { x: 1, y: 4.5, w: 8, fontSize: 14, color: '94a3b8', align: 'center' });
+    let slide = pres.addSlide();
+    slide.addText(d.meta.title, { x: 0.5, y: 2, w: 9, fontSize: 32, bold: true, color: '2d2e83' });
+    slide.addText(d.checklist.team || 'QIP Team', { x: 0.5, y: 3.5, fontSize: 18, color: '64748b' });
 
     // 2. Problem & Aim
-    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-    slide.addText('Problem & Aim', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
-    slide.addText('The Problem:', { x: 0.5, y: 1.5, fontSize: 14, color: 'f36f21', bold: true });
-    slide.addText(d.checklist.problem_desc || 'N/A', { x: 0.5, y: 1.8, w: 9, fontSize: 14, color: '334155' });
+    slide = pres.addSlide();
+    slide.addText('Problem & Aim', { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
+    slide.addText('The Problem:', { x: 0.5, y: 1.2, fontSize: 14, color: 'f36f21', bold: true });
+    slide.addText(d.checklist.problem_desc || 'N/A', { x: 0.5, y: 1.5, w: 9, fontSize: 12, color: '334155' });
     slide.addText('SMART Aim:', { x: 0.5, y: 3.5, fontSize: 14, color: 'f36f21', bold: true });
-    slide.addText(d.checklist.aim || 'N/A', { x: 0.5, y: 3.8, w: 9, fontSize: 18, color: '2d2e83', italic: true, fill: 'f1f5f9', inset: 0.2 });
+    slide.addText(d.checklist.aim || 'N/A', { x: 0.5, y: 3.8, w: 9, fontSize: 16, color: '2d2e83', italic: true, fill: 'f1f5f9' });
 
-    // 3. Drivers
-    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-    slide.addText('Drivers & Strategy', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
-    const drivers = d.drivers.secondary.map(s => `• ${s}`).join('\n');
-    slide.addText('Driver Diagram Summary', { x: 0.5, y: 1.5, fontSize: 18, color: '475569' });
-    slide.addText(drivers || 'No drivers listed.', { x: 0.5, y: 2, w: 4, h: 4, fontSize: 14, color: '334155', fill: 'f8fafc' });
-    const changes = d.drivers.changes.map(c => `• ${c}`).join('\n');
-    slide.addText('Change Ideas', { x: 5, y: 1.5, fontSize: 18, color: '475569' });
-    slide.addText(changes || 'No changes listed.', { x: 5, y: 2, w: 4, h: 4, fontSize: 14, color: '334155', fill: 'f8fafc' });
-
-    // 4. Data
-    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-    slide.addText('Results (Run Chart)', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
+    // 3. Diagrams Slide
+    slide = pres.addSlide();
+    slide.addText('Project Drivers / Strategy', { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
     try {
-        const dataUrl = document.getElementById('mainChart').toDataURL('image/png');
-        slide.addImage({ data: dataUrl, x: 1, y: 1.5, w: 8, h: 3.5, sizing: { type: 'contain', w: 8, h: 3.5 } });
-    } catch(e) { slide.addText("Chart Image Unavailable", { x: 1, y: 2 }); }
-    slide.addText(d.checklist.results_text || 'No analysis provided.', { x: 1, y: 5.2, w: 8, h: 1, fontSize: 12, color: '475569', italic: true });
+        const diagImg = await getDiagramImage();
+        if(diagImg) slide.addImage({ data: diagImg, x: 0.5, y: 1.5, w: 9, h: 5, sizing: {type:'contain'} });
+        else slide.addText("(Navigate to Diagrams tab to include diagram)", { x: 3, y: 3, color: '94a3b8' });
+    } catch(e) { console.log(e); }
 
-    // 5. PDSA
-    slide = pres.addSlide({ masterName: 'MASTER_SLIDE' });
-    slide.addText('PDSA Cycles', { x: 0.5, y: 0.8, fontSize: 24, color: '2d2e83', bold: true });
-    let yPos = 1.5;
-    d.pdsa.forEach(p => {
-        if(yPos > 5) return;
-        slide.addText(p.title, { x: 0.5, y: yPos, fontSize: 14, bold: true, color: '2d2e83' });
-        slide.addText(`Plan: ${p.plan} | Do: ${p.do}`, { x: 0.5, y: yPos + 0.3, w: 9, fontSize: 10, color: '64748b' });
-        slide.addText(`Study: ${p.study} | Act: ${p.act}`, { x: 0.5, y: yPos + 0.6, w: 9, fontSize: 10, color: '64748b' });
-        yPos += 1.2;
-    });
+    // 4. Results Slide
+    slide = pres.addSlide();
+    slide.addText('Results (Run Chart)', { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
+    const chartImg = document.getElementById('mainChart').toDataURL('image/png');
+    slide.addImage({ data: chartImg, x: 0.5, y: 1.5, w: 9, h: 4.5, sizing: {type:'contain'} });
+    slide.addText(d.checklist.results_text || '', { x: 0.5, y: 6.2, w: 9, fontSize: 11 });
 
-    pres.writeFile({ fileName: `QIP-Assistant-${Date.now()}.pptx` });
+    pres.writeFile({ fileName: `QIP-Export.pptx` });
 };
 
 window.printPoster = () => {
@@ -818,37 +854,60 @@ window.showHelp = (key) => {
 };
 window.openHelp = () => window.showHelp('checklist');
 
-// --- Gantt Logic ---
+// --- GANTT CHART (Proper Timeline) ---
 function renderGantt() {
     if(!projectData) return;
     const g = projectData.gantt || [];
     const container = document.getElementById('gantt-container');
     
     if (g.length === 0) {
-        container.innerHTML = `
-             <div class="text-center py-10">
-                <div class="bg-slate-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-slate-400">
-                    <i data-lucide="calendar" class="w-8 h-8"></i>
-                </div>
-                <h3 class="text-lg font-bold text-slate-700">No Timeline Tasks</h3>
-                <p class="text-slate-400 text-sm mb-6">Track your milestones and deadlines here.</p>
-                <button onclick="window.addGanttTask()" class="bg-white border border-slate-300 text-slate-700 px-6 py-2 rounded-lg font-medium shadow-sm hover:bg-slate-50 transition-all">Add First Task</button>
-            </div>
-        `;
-        lucide.createIcons();
+        container.innerHTML = `<div class="text-center py-12"><button onclick="window.addGanttTask()" class="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">Add First Task</button></div>`;
         return;
     }
 
-    container.innerHTML = g.map(t => `
-        <div class="flex items-center gap-4 mb-2 p-2 bg-slate-50 rounded border border-slate-100 group hover:border-rcem-purple/30 transition-colors">
-            <div class="w-1/3 font-bold text-sm text-slate-700">${t.name}</div>
-            <div class="flex-1 bg-slate-200 h-6 rounded overflow-hidden relative">
-                 <div class="absolute bg-rcem-purple h-full opacity-70" style="left: 0; width: 100%"></div> 
-                 <span class="absolute inset-0 text-[10px] text-center text-white flex items-center justify-center font-bold drop-shadow-md">${t.start} - ${t.end}</span>
+    // 1. Calculate Grid Dates
+    const dates = g.flatMap(t => [new Date(t.start), new Date(t.end)]);
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    minDate.setDate(minDate.getDate() - 7); // Buffer
+    maxDate.setDate(maxDate.getDate() + 7);
+
+    const dayMs = 24 * 60 * 60 * 1000;
+    const totalDays = Math.ceil((maxDate - minDate) / dayMs);
+    const pxPerDay = 30; // Width of one day column
+    
+    // 2. Build Header
+    let gridHTML = `<div class="gantt-grid" style="grid-template-columns: 200px repeat(${totalDays}, ${pxPerDay}px); width: ${200 + (totalDays * pxPerDay)}px">`;
+    
+    // Header Row
+    gridHTML += `<div class="gantt-header sticky left-0 bg-white z-20 border-r border-slate-200">Task Name</div>`;
+    for(let i=0; i<totalDays; i+=7) { // Show weekly headers
+        const d = new Date(minDate.getTime() + (i * dayMs));
+        gridHTML += `<div class="gantt-header" style="grid-column: span 7; text-align: left; padding-left: 5px;">${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</div>`;
+    }
+
+    // 3. Build Rows
+    g.forEach(t => {
+        const start = new Date(t.start);
+        const end = new Date(t.end);
+        const offsetDays = Math.floor((start - minDate) / dayMs);
+        const durationDays = Math.ceil((end - start) / dayMs) || 1;
+        
+        // Row Label
+        gridHTML += `<div class="gantt-row sticky left-0 bg-white z-10 border-r border-slate-200 flex items-center px-4 text-sm font-medium text-slate-700 truncate" title="${t.name}">
+            ${t.name} <button onclick="deleteGantt('${t.id}')" class="ml-auto text-slate-300 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
+        </div>`;
+        
+        // Row Bar Container
+        gridHTML += `<div class="gantt-row" style="grid-column: 2 / -1;">
+            <div class="gantt-bar" style="left: ${offsetDays * pxPerDay}px; width: ${durationDays * pxPerDay}px;">
+                ${durationDays} days
             </div>
-            <button onclick="deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="x" class="w-4 h-4"></i></button>
-        </div>
-    `).join('');
+        </div>`;
+    });
+
+    gridHTML += `</div>`;
+    container.innerHTML = gridHTML;
     lucide.createIcons();
 }
 window.addGanttTask = () => {
@@ -866,41 +925,45 @@ window.addGanttTask = () => {
 }
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
 
-// --- Calculators ---
-// Green ED (Carbon)
+// --- CALCULATORS (Separated) ---
 window.calcGreen = () => {
     const v = document.getElementById('green-type').value;
     const q = document.getElementById('green-qty').value;
     const r = document.getElementById('green-res');
-    r.textContent = `Total CO2e Saved: ${(v*q).toFixed(2)} kg`;
+    r.innerHTML = `<span class="text-2xl text-emerald-600">${(v*q).toFixed(2)} kg</span> CO2e`;
     r.classList.remove('hidden');
 }
 
-// Resource Stewardship (Money/Time)
-document.getElementById('value-type').addEventListener('change', (e) => {
-    const lbl = document.getElementById('value-unit-label');
-    if (e.target.value === 'cost') lbl.textContent = "Cost per Item (£)";
-    else lbl.textContent = "Minutes per Item";
-});
-
-window.calcValue = () => {
-    const type = document.getElementById('value-type').value;
-    const unit = parseFloat(document.getElementById('value-unit').value) || 0;
-    const qty = parseFloat(document.getElementById('value-qty').value) || 0;
-    const resEl = document.getElementById('value-res');
-    
-    if (type === 'cost') {
-        resEl.textContent = `Total Savings: £${(unit * qty).toFixed(2)}`;
-    } else {
-        const totalMins = unit * qty;
-        const hrs = Math.floor(totalMins / 60);
-        const mins = totalMins % 60;
-        resEl.textContent = `Time Saved: ${hrs}h ${mins}m (${totalMins} mins)`;
-    }
-    resEl.classList.remove('hidden');
+window.calcMoney = () => {
+    const unit = parseFloat(document.getElementById('money-unit').value) || 0;
+    const qty = parseFloat(document.getElementById('money-qty').value) || 0;
+    const res = document.getElementById('money-res');
+    res.innerHTML = `<span class="text-2xl text-emerald-600">£${(unit * qty).toFixed(2)}</span> total saved`;
+    res.classList.remove('hidden');
 }
 
-// --- WHOLE PROJECT VIEW (NEW) ---
+window.calcTime = () => {
+    const unit = parseFloat(document.getElementById('time-unit').value) || 0;
+    const qty = parseFloat(document.getElementById('time-qty').value) || 0;
+    const res = document.getElementById('time-res');
+    const total = unit * qty;
+    const hrs = Math.floor(total / 60);
+    const mins = total % 60;
+    res.innerHTML = `<span class="text-2xl text-blue-600">${hrs}h ${mins}m</span> total saved`;
+    res.classList.remove('hidden');
+}
+
+window.calcEdu = () => {
+    const pre = parseFloat(document.getElementById('edu-pre').value) || 0;
+    const post = parseFloat(document.getElementById('edu-post').value) || 0;
+    const n = parseFloat(document.getElementById('edu-n').value) || 1;
+    const diff = ((post - pre) / pre) * 100;
+    const res = document.getElementById('edu-res');
+    res.innerHTML = `Confidence improved by <span class="text-2xl text-indigo-600">${diff.toFixed(0)}%</span> across ${n} staff members.`;
+    res.classList.remove('hidden');
+}
+
+// --- WHOLE PROJECT VIEW ---
 function renderFullProject() {
     if(!projectData) return;
     const d = projectData;
@@ -1015,30 +1078,22 @@ function renderFullProject() {
     lucide.createIcons();
 }
 
-// --- VALIDATION ENGINE ---
 function checkRCEMCriteria(d) {
     const flags = [];
     const c = d.checklist;
     
-    // 1. Aim
     if(!c.aim) flags.push("Missing SMART Aim.");
     else if(!c.aim.toLowerCase().includes('by')) flags.push("Aim may not be Time-bound (missing date/deadline).");
 
-    // 2. Drivers
     if(d.drivers.secondary.length === 0) flags.push("Driver Diagram incomplete (no secondary drivers).");
     if(d.drivers.changes.length === 0) flags.push("No Change Ideas (Interventions) listed.");
 
-    // 3. Data
     if(d.chartData.length === 0) flags.push("No data recorded.");
     else if(d.chartData.length < 10) flags.push("Insufficient data points for reliable SPC analysis (aim for 15+).");
 
-    // 4. PDSA
     if(d.pdsa.length === 0) flags.push("No PDSA cycles recorded. QIP requires iterative testing.");
 
-    // 5. Ethics
     if(!c.ethics) flags.push("Ethics & Governance section missing.");
-
-    // 6. Sustainability
     if(!c.sustain) flags.push("Sustainability plan missing.");
 
     return flags;
