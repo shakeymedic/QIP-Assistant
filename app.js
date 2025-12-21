@@ -24,6 +24,7 @@ let projectData = null;
 let isDemoMode = false;
 let chartInstance = null;
 let unsubscribeProject = null;
+let toolMode = 'fishbone'; // [FIX] Initialized missing variable
 
 // --- DEMO DATA ---
 const demoProject = {
@@ -511,10 +512,18 @@ async function renderTools() {
     let ctrls = '';
     let isEmpty = false;
 
+    // Helper to sanitize text for Mermaid
+    const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+
     if (toolMode === 'fishbone') {
         const cats = projectData.fishbone.categories;
-        const titleSafe = projectData.meta.title.replace(/[^a-zA-Z0-9]/g, '_') || "Problem";
-        mCode = `mindmap\n  root((${titleSafe}))\n` + cats.map(c => `    ${c.text}\n` + c.causes.map(x => `      ${x}`).join('\n')).join('\n');
+        const titleSafe = clean(projectData.meta.title) || "Problem";
+        
+        // [FIX] Improved indentation (2 spaces for level 1, 4 spaces for level 2)
+        mCode = `mindmap\n  root(("${titleSafe}"))\n` + 
+            cats.map(c => `    ${clean(c.text)}\n` + 
+                c.causes.map(x => `      ${clean(x)}`).join('\n')
+            ).join('\n');
         
         const colors = ['bg-rose-100 text-rose-800 border-rose-200', 'bg-blue-100 text-blue-800 border-blue-200', 'bg-emerald-100 text-emerald-800 border-emerald-200', 'bg-amber-100 text-amber-800 border-amber-200'];
         ctrls = cats.map((c, i) => `
@@ -527,9 +536,9 @@ async function renderTools() {
     } else if (toolMode === 'driver') {
         const d = projectData.drivers;
         mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${x}"]\n`);
-        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${x}"]\n`);
-        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${x}"]\n`);
+        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
         
         ctrls = `
             <button onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg text-sm font-bold border border-emerald-200 shadow-sm flex items-center gap-2 hover:bg-emerald-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Primary Driver</button>
@@ -540,7 +549,7 @@ async function renderTools() {
 
     } else if (toolMode === 'process') {
         const p = projectData.process;
-        mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${x}"] --> n${i+1}["${p[i+1]}"]` : `  n${i}["${x}"]`).join('\n');
+        mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
         
         ctrls = `
             <button onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-slate-600"></i> Add Step</button>
@@ -556,7 +565,7 @@ async function renderTools() {
         try { 
             await mermaid.run(); 
             document.getElementById('mermaid-render').classList.remove('opacity-0');
-        } catch(e) { console.error(e); }
+        } catch(e) { console.error("Mermaid Render Error:", e); }
     }
     
     controls.innerHTML = ctrls;
@@ -974,6 +983,13 @@ function renderGantt() {
     for(let i=0; i<totalDays; i+=7) { 
         const d = new Date(minDate.getTime() + (i * dayMs));
         gridHTML += `<div class="gantt-header" style="grid-column: span 7; text-align: left; padding-left: 5px;">${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</div>`;
+    }
+
+    // [FIX] Added Today Line
+    const today = new Date();
+    if(today >= minDate && today <= maxDate) {
+        const todayOffset = Math.floor((today - minDate) / dayMs);
+        gridHTML += `<div class="gantt-today" style="left: ${200 + (todayOffset * pxPerDay)}px"></div>`;
     }
 
     g.forEach(t => {
