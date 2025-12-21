@@ -206,15 +206,19 @@
                 </div>
 
                 <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto space-y-6">
-                    <header class="flex justify-between items-center">
+                    <header>
                          <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="clipboard-check" class="text-rcem-purple"></i> Define & Measure <button onclick="window.showHelp('checklist')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                         <p class="text-slate-500 text-sm mt-2">The foundation of your project. Define the problem, set a SMART aim (Specific, Measurable, Achievable, Relevant, Time-bound), and determine your measures before starting.</p>
                     </header>
                     <div id="checklist-container" class="space-y-4"></div>
                 </div>
 
                 <div id="view-tools" class="view-section hidden h-full flex flex-col">
-                    <header class="flex justify-between items-center mb-4">
-                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="git-branch" class="text-rcem-purple"></i> Diagrams <button onclick="window.showHelp('diagrams')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                    <header class="flex flex-wrap justify-between items-center mb-4 gap-4">
+                         <div>
+                             <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="git-branch" class="text-rcem-purple"></i> Diagrams <button onclick="window.showHelp('diagrams')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                             <p class="text-slate-500 text-sm mt-1">Visualise the problem and your strategy. Use buttons to add elements.</p>
+                         </div>
                          <div class="flex bg-slate-200 p-1 rounded-lg text-sm font-medium">
                              <button onclick="window.setToolMode('fishbone')" class="tool-tab px-3 py-1.5 rounded transition-all" id="tab-fishbone">Fishbone</button>
                              <button onclick="window.setToolMode('driver')" class="tool-tab px-3 py-1.5 rounded transition-all" id="tab-driver">Driver</button>
@@ -223,19 +227,31 @@
                     </header>
                     
                     <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative">
-                        <div id="tool-controls" class="p-2 border-b border-slate-100 flex gap-2 overflow-x-auto bg-slate-50 min-h-[50px] items-center"></div>
+                        <div id="tool-controls" class="p-3 border-b border-slate-100 flex gap-3 overflow-x-auto bg-slate-50 min-h-[60px] items-center no-scrollbar"></div>
                         <div id="diagram-wrapper" class="flex-1 overflow-hidden relative cursor-grab active:cursor-grabbing bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-slate-50">
                             <div id="diagram-canvas" class="w-full h-full flex items-center justify-center transition-transform origin-center"></div>
+                            
+                            <div id="diagram-ghost" class="absolute inset-0 flex items-center justify-center bg-slate-50/80 backdrop-blur-sm pointer-events-none hidden z-10">
+                                <div class="text-center p-6 bg-white rounded-xl shadow-xl border border-slate-200 max-w-sm">
+                                    <div class="bg-indigo-50 p-3 rounded-full w-12 h-12 flex items-center justify-center mx-auto mb-3 text-indigo-600">
+                                        <i data-lucide="edit-3" class="w-6 h-6"></i>
+                                    </div>
+                                    <h3 class="font-bold text-slate-800 text-lg mb-1">Start Building</h3>
+                                    <p class="text-slate-500 text-sm mb-4">This diagram is currently empty. Use the buttons in the toolbar above to add content.</p>
+                                </div>
+                            </div>
+
                         </div>
-                        <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2 border border-slate-200">
-                             <button onclick="window.resetZoom()" class="hover:text-rcem-purple"><i data-lucide="maximize" class="w-4 h-4"></i> Reset</button>
+                        <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2 border border-slate-200 z-20">
+                             <button onclick="window.resetZoom()" class="hover:text-rcem-purple flex items-center gap-1"><i data-lucide="maximize" class="w-3 h-3"></i> Reset Zoom</button>
                         </div>
                     </div>
                 </div>
 
                 <div id="view-data" class="view-section hidden space-y-6">
-                    <header class="flex justify-between items-center">
+                    <header>
                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC rules to visualize improvement.</p>
                     </header>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -268,13 +284,24 @@
                             </div>
                         </div>
 
-                        <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm relative min-h-[400px]">
-                            <canvas id="mainChart"></canvas>
-                            <div id="chart-ghost" class="absolute inset-0 bg-white/90 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl">
-                                <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
-                                <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
-                                <p class="text-slate-500 max-w-sm mb-6">Start by establishing a baseline. You need 10-15 data points before implementing changes to see reliable trends (SPC).</p>
-                                <button onclick="document.getElementById('chart-value').focus()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700 transition-all font-medium">Enter Baseline Data</button>
+                        <div class="lg:col-span-2 space-y-6">
+                            <div class="bg-white p-6 rounded-xl shadow-sm relative min-h-[400px]">
+                                <canvas id="mainChart"></canvas>
+                                <div id="chart-ghost" class="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl border border-dashed border-slate-300 m-4">
+                                    <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
+                                    <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
+                                    <p class="text-slate-500 max-w-sm mb-6">Start by establishing a baseline. Enter your first data point using the form on the left.</p>
+                                    <button onclick="document.getElementById('chart-value').focus()" class="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700 transition-all font-medium">Enter Baseline Data</button>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex justify-between items-center mb-2">
+                                    <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="file-bar-chart-2" class="w-4 h-4 text-rcem-purple"></i> Results & Interpretation</h3>
+                                    <span class="text-xs text-slate-400">Analysis</span>
+                                </div>
+                                <p class="text-xs text-slate-500 mb-2">Describe what the chart shows. Is there a shift? A trend? Did your PDSA cycle cause a change?</p>
+                                <textarea id="results-text" onchange="window.saveResults(this.value)" class="w-full p-3 rounded border border-slate-300 text-sm focus:ring-2 focus:ring-rcem-purple outline-none" rows="3" placeholder="e.g. The chart shows a sustained shift in compliance following the introduction of 'Grab Bags' in PDSA Cycle 2..."></textarea>
                             </div>
                         </div>
                     </div>
@@ -282,16 +309,22 @@
 
                 <div id="view-pdsa" class="view-section hidden max-w-4xl mx-auto space-y-6">
                     <header class="flex justify-between items-center">
-                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="refresh-cw" class="text-rcem-purple"></i> PDSA Cycles <button onclick="window.showHelp('pdsa')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
-                        <button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2 font-medium"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="refresh-cw" class="text-rcem-purple"></i> PDSA Cycles <button onclick="window.showHelp('pdsa')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
+                            <p class="text-slate-500 text-sm mt-2">Test your changes iteratively. Plan, Do, Study, Act.</p>
+                        </div>
+                        <button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2 font-medium whitespace-nowrap"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button>
                     </header>
-                    <div id="pdsa-container" class="space-y-6"></div>
+                    <div id="pdsa-container" class="space-y-6 min-h-[200px]"></div>
                 </div>
 
                 <div id="view-gantt" class="view-section hidden max-w-5xl mx-auto">
                     <header class="flex justify-between items-center mb-6">
-                        <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)</h2>
-                        <button onclick="window.addGanttTask()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded hover:bg-slate-300 text-sm font-medium">+ Add Task</button>
+                        <div>
+                            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)</h2>
+                            <p class="text-slate-500 text-sm mt-2">Plan your project milestones and track progress over time.</p>
+                        </div>
+                        <button onclick="window.addGanttTask()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded hover:bg-slate-300 text-sm font-medium flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Task</button>
                     </header>
                     <div id="gantt-container" class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 min-h-[300px]"></div>
                 </div>
