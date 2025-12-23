@@ -128,16 +128,21 @@ async function loadProjectList() {
     // Demo Mode handling
     if (isDemoMode) {
         listEl.innerHTML = `
-            <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-rcem-purple relative overflow-hidden cursor-pointer hover:shadow-md transition-all" onclick="window.openDemoProject()">
-                 <div class="absolute top-0 right-0 bg-rcem-purple text-white text-xs px-2 py-1">Example</div>
-                 <h3 class="font-bold text-lg text-slate-800 mb-1">Improving Sepsis 6 Delivery</h3>
-                 <p class="text-xs text-slate-400 mb-4">Dr. A. Medic</p>
+            <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple border-y border-r border-slate-200 relative overflow-hidden cursor-pointer hover:shadow-md transition-all group" onclick="window.openDemoProject()">
+                 <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide">Gold Standard</div>
+                 <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery</h3>
+                 <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ED Registrar)</p>
                  <div class="flex gap-2 text-xs font-medium text-slate-500">
-                    <span class="bg-slate-100 px-2 py-1 rounded">15 Data Points</span>
-                    <span class="bg-slate-100 px-2 py-1 rounded">3 Cycles</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> 24 Data Points</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 3 Cycles</span>
                 </div>
             </div>
+            <div class="opacity-50 pointer-events-none grayscale bg-white p-6 rounded-xl border border-slate-200 border-dashed">
+                <h3 class="font-bold text-lg text-slate-400 mb-1">Pain Scoring in Triage</h3>
+                <p class="text-xs text-slate-400 mb-4">Example Project 2</p>
+            </div>
         `;
+        lucide.createIcons();
         return;
     }
 
@@ -227,22 +232,120 @@ window.openProject = (id) => {
 };
 
 window.openDemoProject = () => {
-    // Basic Demo Data structure
+    // GOLD STANDARD DEMO DATA
     projectData = {
-        meta: { title: "Demo Project" },
-        checklist: { aim: "To increase sepsis screening to 95% by 2025.", problem_desc: "Demo problem.", drivers: {primary:[], secondary:[], changes:[]} },
-        drivers: { primary: ["Staff"], secondary: ["Training"], changes: ["Posters"] },
-        chartData: [{date: "2024-01-01", value: 50}, {date: "2024-01-02", value: 55}],
-        pdsa: [],
-        fishbone: emptyProject.fishbone,
-        process: ["Start", "End"],
-        stakeholders: [],
-        gantt: []
+        meta: { 
+            title: "Improving Sepsis 6 Delivery in ED", 
+            created: "2024-01-10T09:00:00.000Z" 
+        },
+        checklist: { 
+            problem_desc: "Audit data (Q4 2023) showed only 55% of 'Red Flag' sepsis patients received antibiotics within 60 minutes of arrival. Delays increase mortality risk by 7.6% per hour (Kumar et al).",
+            evidence: "RCEM Sepsis Standards (2023); NICE NG51; Surviving Sepsis Campaign.",
+            aim: "To increase the % of eligible sepsis patients receiving IV antibiotics within 60 minutes of arrival from 55% to 95% by 1st July 2024.",
+            outcome_measures: "% of patients receiving antibiotics < 60 mins.",
+            process_measures: "Screening tool completion rate; Door-to-needle time.",
+            balance_measures: "Antibiotic stewardship (total consumption); C. Difficile rates.",
+            team: "Dr. J Bloggs (Lead), Sr. M. Smith (Nursing Lead), Dr. X (Consultant Sponsor).",
+            ethics: "Registered with Trust Audit Dept (Ref: QIP-2024-055). No ethical approval required (service evaluation).",
+            ppi: "Discussed with Patient Liaison Group (PLG). Poster displayed in waiting room inviting feedback.",
+            learning: "Success was driven by automation (IT alerts) rather than education alone. Human factors (accessibility of equipment) were critical.",
+            sustain: "Sepsis Lead Nurse appointed to monitor monthly data. IT Alert is permanent. Annual audit scheduled.",
+            results_text: "The Run Chart shows a clear 'Shift' (8 points above the median) following PDSA Cycle 2 (Sepsis Trolleys). This improvement was sustained and further stabilised by PDSA Cycle 3 (IT Alerts), reaching a new median of 92%."
+        },
+        drivers: { 
+            primary: ["Early Recognition", "Equipment Availability", "Safety Culture"], 
+            secondary: ["Triage Screening", "Access to Antibiotics", "Feedback Loops", "Staff Education"], 
+            changes: ["Mandatory Sepsis Screen", "Sepsis Grab Bags", "Dedicated Trolley", "IT Best Practice Alert"] 
+        },
+        fishbone: { 
+            categories: [
+                { id: 1, text: "People", causes: ["Reliance on Agency Staff", "Lack of ownership", "Fear of prescribing"] }, 
+                { id: 2, text: "Methods", causes: ["Paper screening tool lost", "No PGD for nurses", "Complex pathway"] }, 
+                { id: 3, text: "Environment", causes: ["Overcrowding", "Distance to drug cupboard", "No dedicated space"] }, 
+                { id: 4, text: "Equipment", causes: ["Cannulas missing", "Antibiotic keys missing", "Computers slow"] }
+            ] 
+        },
+        pdsa: [
+            {
+                id: 1705000000000,
+                title: "Cycle 1: Education Campaign",
+                plan: "Deliver 10-min teaching at handover for 2 weeks. Put up posters.",
+                do: "Teaching delivered to 80% of nursing staff. Posters displayed in Resus.",
+                study: "Compliance rose slightly to 62% but effect wore off quickly. Staff reported 'forgetting' in busy periods.",
+                act: "Abandon (as sole intervention). Need system change, not just education."
+            },
+            {
+                id: 1708000000000,
+                title: "Cycle 2: Sepsis Trolley",
+                plan: "Introduce a dedicated 'Sepsis Trolley' in Majors with pre-made grab bags (bloods, cultures, abx).",
+                do: "Trolley stocked and placed in Bay 1. Checked daily by HCA.",
+                study: "Immediate improvement. Time to cannulation dropped. Staff feedback positive ('saves hunting for keys').",
+                act: "Adopt. Roll out to Resus area as well."
+            },
+            {
+                id: 1712000000000,
+                title: "Cycle 3: Electronic Alert",
+                plan: "IT modification: 'Pop-up' alert on Cerner when NEWS2 > 5 + Infection suspected.",
+                do: "Live on April 1st. Required clinician reason to dismiss.",
+                study: "Compliance hit 95%. Screening tool completion 100%.",
+                act: "Adopt. Standard operating procedure."
+            }
+        ],
+        chartData: [
+            // BASELINE (Jan - Feb) - Median approx 55
+            { date: "2024-01-07", value: 52, type: "outcome" },
+            { date: "2024-01-14", value: 58, type: "outcome" },
+            { date: "2024-01-21", value: 45, type: "outcome" },
+            { date: "2024-01-28", value: 55, type: "outcome" },
+            { date: "2024-02-04", value: 50, type: "outcome" },
+            { date: "2024-02-11", value: 60, type: "outcome" },
+            // PDSA 1: Education (Feb 15) - Slight bump, unstable
+            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1: Education" },
+            { date: "2024-02-25", value: 62, type: "outcome" },
+            { date: "2024-03-03", value: 58, type: "outcome" }, // Wore off
+            // PDSA 2: Trolley (Mar 10) - The Shift starts
+            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2: Trolleys" },
+            { date: "2024-03-17", value: 82, type: "outcome" },
+            { date: "2024-03-24", value: 79, type: "outcome" },
+            { date: "2024-03-31", value: 85, type: "outcome" },
+            // PDSA 3: IT Alert (Apr 1) - Sustained High
+            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3: IT Alert" },
+            { date: "2024-04-14", value: 95, type: "outcome" },
+            { date: "2024-04-21", value: 94, type: "outcome" },
+            { date: "2024-04-28", value: 91, type: "outcome" },
+            { date: "2024-05-05", value: 96, type: "outcome" },
+            { date: "2024-05-12", value: 93, type: "outcome" },
+            { date: "2024-05-19", value: 95, type: "outcome" },
+            { date: "2024-05-26", value: 94, type: "outcome" }
+        ],
+        stakeholders: [
+            { name: "ED Consultants", power: 90, interest: 80 },
+            { name: "Nursing Staff", power: 60, interest: 90 },
+            { name: "Pharmacy", power: 40, interest: 70 },
+            { name: "Junior Doctors", power: 30, interest: 85 },
+            { name: "Hospital Mgmt", power: 80, interest: 20 }
+        ],
+        gantt: [
+            { id: 1, name: "Data Collection (Base)", start: "2024-01-01", end: "2024-02-15" },
+            { id: 2, name: "Cycle 1 (Education)", start: "2024-02-15", end: "2024-03-01" },
+            { id: 3, name: "Cycle 2 (Trolley)", start: "2024-03-10", end: "2024-04-01" },
+            { id: 4, name: "Cycle 3 (IT Build)", start: "2024-03-01", end: "2024-04-01" },
+            { id: 5, name: "Write Up", start: "2024-05-01", end: "2024-06-01" }
+        ],
+        process: ["Patient Arrives", "Triage (Nurse)", "Sepsis Screen +ve?", "Yes -> Trigger Alert", "Doctor Review", "Abx Prescribed", "Abx Administered"]
     };
-    document.getElementById('project-header-title').textContent = "Demo Project (Read Only)";
+
+    document.getElementById('project-header-title').textContent = projectData.meta.title + " (DEMO)";
     document.getElementById('top-bar').classList.remove('hidden');
     renderAll();
+    
+    // Auto-navigate to Dashboard
     window.router('dashboard');
+    
+    // Optional: Trigger a notification to explain
+    const s = document.getElementById('save-status');
+    s.innerHTML = `<i data-lucide="info" class="w-3 h-3"></i> Demo Loaded`;
+    s.classList.remove('opacity-0');
 }
 
 window.returnToProjects = () => {
