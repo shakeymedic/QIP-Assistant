@@ -25,6 +25,7 @@
             }
         }
     </script>
+    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
 
@@ -146,7 +147,7 @@
                 </div>
 
                 <div id="view-dashboard" class="view-section hidden space-y-6">
-                    <div id="qi-coach-banner" class="rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500">
+                    <div id="qi-coach-banner" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500">
                         </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -172,7 +173,9 @@
                             
                             <div class="bg-white rounded-xl shadow-sm p-6 relative">
                                 <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-rcem-purple"></i> Project Aim</h3>
-                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif"></div>
+                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif">
+                                    No aim defined yet. Use the 'Define & Measure' tab to create a SMART Aim.
+                                </div>
                                 <div id="aim-quality-badge" class="mt-2 text-xs"></div>
                             </div>
                         </div>
@@ -254,10 +257,10 @@
                     </header>
 
                     <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-                         <div class="absolute inset-0 z-0 flex flex-col">
+                        <div class="absolute inset-0 z-0 flex flex-col">
                             <div class="flex-1 flex">
                                 <div class="flex-1 border-r border-b border-slate-200 bg-red-50/30 p-4 relative"><span class="absolute top-2 left-2 text-xs font-bold text-red-300 uppercase">High Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-red-800 font-bold text-xl">Keep Satisfied</div></div>
-                                <div class="flex-1 border-b border-slate-200 bg-emerald-50/30 p-4 relative"><span class="absolute top-2 right-2 text-xs font-bold text-emerald-300 uppercase">High Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-emerald-800 font-bold text-xl">Manage Closely</div></div>
+                                <div class="flex-1 border-b border-slate-200 bg-emerald-50/30 p-4 relative"><span class="absolute top-2 right-2 text-xs font-bold text-emerald-300 uppercase">High Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-emerald-800 font-bold text-xl">Manage Closely (Key Players)</div></div>
                             </div>
                             <div class="flex-1 flex">
                                 <div class="flex-1 border-r border-slate-200 bg-slate-50/30 p-4 relative"><span class="absolute bottom-2 left-2 text-xs font-bold text-slate-300 uppercase">Low Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-slate-800 font-bold text-xl">Monitor</div></div>
@@ -269,7 +272,7 @@
                         <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-widest z-10">INTEREST</div>
 
                         <div id="stakeholder-canvas" class="absolute inset-8 z-20"></div>
-                        
+
                         <div id="stakeholder-script" class="absolute bottom-0 left-0 right-0 bg-slate-800 text-white p-4 transform translate-y-full transition-transform z-30">
                             <div class="flex justify-between items-start">
                                 <div>
@@ -285,7 +288,7 @@
                 <div id="view-data" class="view-section hidden space-y-6">
                     <header>
                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
-                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC (Statistical Process Control) rules.</p>
+                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC (Statistical Process Control) rules to visualize real improvement.</p>
                     </header>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -323,10 +326,10 @@
                                 <canvas id="mainChart"></canvas>
                                 <div class="absolute top-4 right-4 bg-white/90 p-2 rounded border border-slate-100 text-[10px] text-slate-500 shadow-sm flex flex-col gap-1 z-0">
                                     <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rcem-purple"></div> Normal Variation</div>
-                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-600"></div> <strong>Shift</strong> (6+ pts)</div>
+                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-600"></div> <strong>Improvement</strong> (Shift)</div>
                                     <div class="flex items-center gap-1"><div class="w-4 h-0.5 bg-orange-500"></div> PDSA Intervention</div>
-                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-red-500"></div> <strong>Outlier</strong> (Investigate)</div>
                                 </div>
+
                                 <div id="chart-ghost" class="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl border border-dashed border-slate-300 m-4">
                                     <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
                                     <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
@@ -376,12 +379,15 @@
                          <h1 class="text-3xl font-bold text-slate-900">Value & Outcomes</h1>
                          <p class="text-slate-500">Calculate the wider impact of your project beyond clinical outcomes.</p>
                      </header>
+
                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
+                         
                          <div class="bg-white p-8 rounded-xl shadow-sm border border-emerald-100 relative overflow-hidden">
                              <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Sustainability</div>
                              <i data-lucide="leaf" class="w-12 h-12 text-emerald-500 mb-4"></i>
                              <h2 class="text-xl font-bold mb-2 text-slate-800">Green ED Calculator</h2>
                              <p class="text-slate-500 text-sm mb-6">Estimate carbon savings (CO2e).</p>
+                             
                              <div class="space-y-4">
                                  <div>
                                      <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Item Saved</label>
@@ -401,11 +407,13 @@
                                  <div id="green-res" class="text-center font-bold text-emerald-700 text-lg hidden p-3 bg-emerald-50 rounded border border-emerald-100"></div>
                              </div>
                          </div>
+
                          <div class="bg-white p-8 rounded-xl shadow-sm border border-indigo-100 relative overflow-hidden">
                              <div class="absolute top-0 right-0 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Education</div>
                              <i data-lucide="graduation-cap" class="w-12 h-12 text-indigo-500 mb-4"></i>
                              <h2 class="text-xl font-bold mb-2 text-slate-800">Confidence Assessment</h2>
                              <p class="text-slate-500 text-sm mb-6">Measure staff knowledge improvements.</p>
+                             
                              <div class="grid grid-cols-2 gap-4 mb-4">
                                  <div>
                                      <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Pre-Project (1-10)</label>
@@ -424,11 +432,13 @@
                              <div id="edu-res" class="text-center font-bold text-indigo-700 text-lg hidden p-3 bg-indigo-50 rounded border border-indigo-100 mt-4"></div>
                          </div>
                      </div>
+
                      <div class="mt-8 bg-white p-8 rounded-xl shadow-sm border border-amber-100 relative overflow-hidden">
                          <div class="absolute top-0 right-0 bg-amber-100 text-amber-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Efficiency</div>
                          <i data-lucide="coins" class="w-12 h-12 text-amber-500 mb-4"></i>
                          <h2 class="text-xl font-bold mb-2 text-slate-800">Resource Stewardship</h2>
                          <p class="text-slate-500 text-sm mb-6">Calculate financial and time efficiencies separately.</p>
+
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
                              <div class="space-y-4 border-r md:border-slate-100 md:pr-6">
                                  <h3 class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="pound-sterling" class="w-4 h-4"></i> Financial Savings</h3>
@@ -443,6 +453,7 @@
                                  <button onclick="window.calcMoney()" class="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900">Calculate £</button>
                                  <div id="money-res" class="text-center font-bold text-slate-800 hidden"></div>
                              </div>
+
                              <div class="space-y-4">
                                  <h3 class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4"></i> Time Savings</h3>
                                  <div>
