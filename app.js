@@ -750,7 +750,7 @@ async function getVisualAsset(type) {
             canvas.height = 800;
             const ctx = canvas.getContext('2d');
             
-            // Draw White Background
+            // 1. Draw White Background (prevents transparency issues in PPT)
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -779,6 +779,7 @@ async function getVisualAsset(type) {
                 median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
             };
 
+            // 2. Render with a Promise to ensure it's fully drawn
             await new Promise(resolve => {
                 new Chart(ctx, {
                     type: 'line',
@@ -812,24 +813,22 @@ async function getVisualAsset(type) {
             d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
             d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
 
-            // Use a unique ID for the off-screen rendering
             const tempId = 'temp-mermaid-' + Date.now();
             
-            // Mermaid v10 returns an object { svg }
+            // 3. Render Mermaid to SVG string
             const { svg: svgString } = await mermaid.render(tempId, mCode);
 
-            // Create a temporary element to hold the SVG so we can read its dimensions
+            // 4. Create a temporary element to read accurate dimensions
             const el = document.createElement('div');
             el.innerHTML = svgString;
             document.body.appendChild(el);
             const svg = el.querySelector('svg');
             
-            // CRITICAL FIX: SVG to Canvas requires explicit width/height in pixels
+            // Critical Fix: SVG to Canvas requires explicit width/height in pixels
             const viewBox = svg.getAttribute('viewBox').split(' ');
             const srcWidth = parseFloat(viewBox[2]);
             const srcHeight = parseFloat(viewBox[3]);
             
-            // Scale up for high resolution
             const scale = 2;
             const width = srcWidth * scale;
             const height = srcHeight * scale;
@@ -845,7 +844,6 @@ async function getVisualAsset(type) {
             canvas.height = height;
             const ctx = canvas.getContext('2d');
             
-            // Draw White Background
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
@@ -986,93 +984,142 @@ window.exportPPTX = async () => {
     }
 };
 
-// --- FEATURE 2: CONFERENCE POSTER PRINTING ---
+// --- FEATURE 2: CONFERENCE POSTER PRINTING (NEW WINDOW) ---
 window.printPoster = async () => {
     try {
         if (!projectData) { alert("Please load a project first."); return; }
-        const d = projectData;
-        const container = document.getElementById('print-container');
         
-        alert("Preparing poster for print... this may take a moment.");
+        // Notify user work is happening
+        const originalText = document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText;
+        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Building...";
 
+        const d = projectData;
+        
         // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
 
-        container.innerHTML = `
-            <div class="poster-grid">
-                <header class="poster-header">
-                    <div class="poster-logo-area">
-                        <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
-                    </div>
-                    <div class="poster-title-area">
-                        <h1>${d.meta.title}</h1>
-                        <p><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
-                    </div>
-                </header>
+        // Create new window
+        const win = window.open('', 'RCEM_Poster', 'width=1200,height=800');
+        if (!win) { alert("Pop-up blocked! Please allow pop-ups to view the poster."); return; }
 
-                <div class="poster-col">
-                    <div class="poster-box">
-                        <h2><i data-lucide="alert-circle" style="width:24px; vertical-align:middle"></i> The Problem</h2>
-                        <p>${d.checklist.problem_desc || 'No problem defined.'}</p>
-                        <p><strong>Evidence:</strong> ${d.checklist.evidence || 'N/A'}</p>
-                    </div>
-                    
-                    <div class="poster-box aim-box">
-                        <h2><i data-lucide="target" style="width:24px; vertical-align:middle"></i> SMART Aim</h2>
-                        <p class="aim-statement">${d.checklist.aim || 'No aim defined.'}</p>
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>RCEM Poster - ${d.meta.title}</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <script src="https://unpkg.com/lucide@latest"></script>
+                <style>
+                    body { background: #f1f5f9; padding: 20px; font-family: sans-serif; }
+                    .poster-container {
+                        width: 1189mm; /* A0 Width (approx) scaled down for view */
+                        max-width: 100%;
+                        aspect-ratio: 1.414;
+                        background: white;
+                        margin: 0 auto;
+                        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.3);
+                        display: grid;
+                        grid-template-columns: 25% 1fr 25%;
+                        grid-template-rows: auto 1fr;
+                        gap: 1.5rem;
+                        padding: 2rem;
+                        box-sizing: border-box;
+                    }
+                    /* Print specific overrides */
+                    @media print {
+                        body { background: white; padding: 0; }
+                        .no-print { display: none !important; }
+                        .poster-container { 
+                            width: 100%; height: 100%; box-shadow: none; margin: 0; padding: 1cm; gap: 1cm;
+                            break-inside: avoid;
+                        }
+                    }
+                    .poster-header { grid-column: 1 / -1; background: #2d2e83; color: white; padding: 2rem; border-radius: 1rem; display: flex; align-items: center; gap: 2rem; border-bottom: 0.5rem solid #f36f21; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .box { background: white; border: 2px solid #cbd5e1; padding: 1.5rem; border-radius: 1rem; height: fit-content; }
+                    .box h2 { color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; display: inline-block; text-transform: uppercase; }
+                </style>
+            </head>
+            <body>
+                <div class="fixed top-4 right-4 z-50 flex gap-2 no-print">
+                    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Print / Save PDF
+                    </button>
+                    <button onclick="window.close()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded shadow-lg">Close</button>
+                </div>
+
+                <div class="poster-container">
+                    <div class="poster-header">
+                        <div class="bg-white p-4 rounded-lg"><img src="https://iili.io/KGQOvkl.md.png" style="height: 80px;"></div>
+                        <div>
+                            <h1 class="text-4xl font-black leading-tight">${d.meta.title}</h1>
+                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                        </div>
                     </div>
 
-                    <div class="poster-box">
-                        <h2><i data-lucide="git-branch" style="width:24px; vertical-align:middle"></i> Driver Diagram</h2>
-                        <div class="driver-holder">
-                            ${driverImg ? `<img src="${driverImg}" class="img-fluid">` : '<p class="text-slate-400 italic">No diagram generated.</p>'}
+                    <div class="space-y-6">
+                        <div class="box">
+                            <h2>The Problem</h2>
+                            <p class="text-slate-700 leading-relaxed">${d.checklist.problem_desc || 'No problem defined.'}</p>
+                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${d.checklist.evidence || 'N/A'}</p>
+                        </div>
+                        <div class="box bg-blue-50 border-blue-200" style="-webkit-print-color-adjust: exact;">
+                            <h2 class="text-blue-900 border-blue-400">SMART Aim</h2>
+                            <p class="text-xl font-serif text-blue-800 italic font-bold">${d.checklist.aim || 'No aim defined.'}</p>
+                        </div>
+                        <div class="box">
+                            <h2>Driver Diagram</h2>
+                            ${driverImg ? `<img src="${driverImg}" class="w-full h-auto rounded border border-slate-100">` : '<p class="italic text-slate-400">No drivers defined.</p>'}
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="box h-full">
+                            <h2>Results & Data</h2>
+                            <div class="bg-white p-4 border rounded-lg mb-4 flex justify-center">
+                                ${chartImg ? `<img src="${chartImg}" class="max-w-full h-auto">` : '<p class="py-10 text-slate-400">No data available.</p>'}
+                            </div>
+                            <div class="bg-slate-50 p-4 border-l-4 border-rcem-purple rounded" style="-webkit-print-color-adjust: exact;">
+                                <h3 class="font-bold text-rcem-purple mb-2">Analysis</h3>
+                                <p class="text-slate-700 whitespace-pre-wrap">${d.checklist.results_text || 'No analysis text provided.'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="box">
+                            <h2>Interventions</h2>
+                            <ul class="space-y-3">
+                                ${d.pdsa.map(p => `
+                                    <li class="pl-4 border-l-4 border-slate-300">
+                                        <strong class="block text-slate-800">${p.title}</strong>
+                                        <span class="text-sm text-slate-600">${p.do}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div class="box">
+                            <h2>Learning</h2>
+                            <p class="text-slate-700 text-sm">${d.checklist.learning || 'N/A'}</p>
+                        </div>
+                        <div class="box bg-emerald-50 border-emerald-200" style="-webkit-print-color-adjust: exact;">
+                            <h2 class="text-emerald-900 border-emerald-400">Sustainability</h2>
+                            <p class="text-emerald-800 text-sm">${d.checklist.sustain || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
-
-                <div class="poster-col">
-                    <div class="poster-box" style="flex:1">
-                        <h2><i data-lucide="line-chart" style="width:24px; vertical-align:middle"></i> Results</h2>
-                        <div class="chart-holder">
-                            ${chartImg ? `<img src="${chartImg}" class="img-fluid">` : '<p>No data available.</p>'}
-                        </div>
-                        <div class="analysis-box">
-                            <h3 style="font-weight:bold; margin-bottom:10px; color:#2d2e83">Analysis</h3>
-                            <p>${d.checklist.results_text || 'No analysis text provided.'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="poster-col">
-                    <div class="poster-box">
-                        <h2><i data-lucide="refresh-cw" style="width:24px; vertical-align:middle"></i> Interventions</h2>
-                        <ul>
-                            ${d.pdsa.map(p => `
-                                <li>
-                                    <strong>${p.title}</strong><br>
-                                    <span style="font-size:14px; opacity:0.8">${p.do}</span>
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-
-                    <div class="poster-box">
-                        <h2><i data-lucide="lightbulb" style="width:24px; vertical-align:middle"></i> Learning</h2>
-                        <p>${d.checklist.learning || 'N/A'}</p>
-                    </div>
-
-                    <div class="poster-box sustain-box">
-                        <h2><i data-lucide="leaf" style="width:24px; vertical-align:middle"></i> Sustainability</h2>
-                        <p>${d.checklist.sustain || 'N/A'}</p>
-                    </div>
-                </div>
-            </div>
+                <script>
+                    lucide.createIcons();
+                </script>
+            </body>
+            </html>
         `;
 
-        lucide.createIcons();
-        // Allow DOM to settle before printing
-        setTimeout(() => { window.print(); }, 1000);
+        win.document.write(htmlContent);
+        win.document.close();
+        
+        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Print A0 Poster";
 
     } catch (e) {
         console.error(e);
