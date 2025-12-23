@@ -25,6 +25,9 @@
             }
         }
     </script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
@@ -96,7 +99,7 @@
                     <span id="save-status" class="text-xs text-emerald-600 font-bold transition-opacity opacity-0 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Saved</span>
                 </div>
                 <div class="flex items-center gap-3">
-                    <button onclick="window.openHelp()" class="text-slate-400 hover:text-rcem-purple transition-colors" title="Help"><i data-lucide="help-circle" class="w-5 h-5"></i></button>
+                    <button onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-xs font-bold transition-colors border border-rcem-purple/20 flex items-center gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Show Me Around</button>
                     <div id="user-display" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600"></div>
                 </div>
             </div>
@@ -143,19 +146,8 @@
                 </div>
 
                 <div id="view-dashboard" class="view-section hidden space-y-6">
-                    <div id="qi-coach-banner" class="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500">
-                        <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-32 h-32"></i></div>
-                        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            <div>
-                                <div class="flex items-center gap-2 mb-1">
-                                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">QI Coach</span>
-                                    <h3 class="font-bold text-lg" id="coach-title">Analysing Project...</h3>
-                                </div>
-                                <p class="text-blue-100 text-sm max-w-2xl" id="coach-msg">Loading logic...</p>
-                            </div>
-                            <button id="coach-btn" class="bg-white text-blue-700 px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-blue-50 transition-colors whitespace-nowrap flex items-center gap-2">Take Action <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+                    <div id="qi-coach-banner" class="rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500">
                         </div>
-                    </div>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div class="lg:col-span-2 space-y-6">
@@ -178,11 +170,10 @@
                                 </div>
                             </div>
                             
-                            <div class="bg-white rounded-xl shadow-sm p-6">
+                            <div class="bg-white rounded-xl shadow-sm p-6 relative">
                                 <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-rcem-purple"></i> Project Aim</h3>
-                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif">
-                                    No aim defined yet. Use the 'Define & Measure' tab to create a SMART Aim.
-                                </div>
+                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif"></div>
+                                <div id="aim-quality-badge" class="mt-2 text-xs"></div>
                             </div>
                         </div>
 
@@ -263,10 +254,10 @@
                     </header>
 
                     <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
-                        <div class="absolute inset-0 z-0 flex flex-col">
+                         <div class="absolute inset-0 z-0 flex flex-col">
                             <div class="flex-1 flex">
                                 <div class="flex-1 border-r border-b border-slate-200 bg-red-50/30 p-4 relative"><span class="absolute top-2 left-2 text-xs font-bold text-red-300 uppercase">High Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-red-800 font-bold text-xl">Keep Satisfied</div></div>
-                                <div class="flex-1 border-b border-slate-200 bg-emerald-50/30 p-4 relative"><span class="absolute top-2 right-2 text-xs font-bold text-emerald-300 uppercase">High Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-emerald-800 font-bold text-xl">Manage Closely (Key Players)</div></div>
+                                <div class="flex-1 border-b border-slate-200 bg-emerald-50/30 p-4 relative"><span class="absolute top-2 right-2 text-xs font-bold text-emerald-300 uppercase">High Power / High Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-emerald-800 font-bold text-xl">Manage Closely</div></div>
                             </div>
                             <div class="flex-1 flex">
                                 <div class="flex-1 border-r border-slate-200 bg-slate-50/30 p-4 relative"><span class="absolute bottom-2 left-2 text-xs font-bold text-slate-300 uppercase">Low Power / Low Interest</span><div class="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20 text-slate-800 font-bold text-xl">Monitor</div></div>
@@ -278,13 +269,23 @@
                         <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 tracking-widest z-10">INTEREST</div>
 
                         <div id="stakeholder-canvas" class="absolute inset-8 z-20"></div>
+                        
+                        <div id="stakeholder-script" class="absolute bottom-0 left-0 right-0 bg-slate-800 text-white p-4 transform translate-y-full transition-transform z-30">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 class="font-bold text-amber-400 text-xs uppercase mb-1" id="script-type">Engagement Script</h4>
+                                    <p class="text-sm italic" id="script-content">"..."</p>
+                                </div>
+                                <button onclick="document.getElementById('stakeholder-script').classList.add('translate-y-full')" class="text-slate-400 hover:text-white"><i data-lucide="x" class="w-4 h-4"></i></button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
                 <div id="view-data" class="view-section hidden space-y-6">
                     <header>
                         <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC <button onclick="window.showHelp('data')" class="text-slate-400 hover:text-rcem-purple"><i data-lucide="help-circle" class="w-5 h-5"></i></button></h2>
-                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC (Statistical Process Control) rules to visualize real improvement.</p>
+                        <p class="text-slate-500 text-sm mt-2">Enter data points sequentially. The chart will automatically apply SPC (Statistical Process Control) rules.</p>
                     </header>
 
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -322,10 +323,10 @@
                                 <canvas id="mainChart"></canvas>
                                 <div class="absolute top-4 right-4 bg-white/90 p-2 rounded border border-slate-100 text-[10px] text-slate-500 shadow-sm flex flex-col gap-1 z-0">
                                     <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-rcem-purple"></div> Normal Variation</div>
-                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-600"></div> <strong>Improvement</strong> (Shift)</div>
+                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-emerald-600"></div> <strong>Shift</strong> (6+ pts)</div>
                                     <div class="flex items-center gap-1"><div class="w-4 h-0.5 bg-orange-500"></div> PDSA Intervention</div>
+                                    <div class="flex items-center gap-1"><div class="w-2 h-2 rounded-full bg-red-500"></div> <strong>Outlier</strong> (Investigate)</div>
                                 </div>
-
                                 <div id="chart-ghost" class="absolute inset-0 bg-white/95 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8 z-10 hidden rounded-xl border border-dashed border-slate-300 m-4">
                                     <div class="bg-indigo-50 p-4 rounded-full mb-4"><i data-lucide="bar-chart" class="w-8 h-8 text-indigo-500"></i></div>
                                     <h3 class="font-bold text-lg text-slate-800">No Data Yet</h3>
@@ -375,15 +376,12 @@
                          <h1 class="text-3xl font-bold text-slate-900">Value & Outcomes</h1>
                          <p class="text-slate-500">Calculate the wider impact of your project beyond clinical outcomes.</p>
                      </header>
-
                      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-                         
                          <div class="bg-white p-8 rounded-xl shadow-sm border border-emerald-100 relative overflow-hidden">
                              <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Sustainability</div>
                              <i data-lucide="leaf" class="w-12 h-12 text-emerald-500 mb-4"></i>
                              <h2 class="text-xl font-bold mb-2 text-slate-800">Green ED Calculator</h2>
                              <p class="text-slate-500 text-sm mb-6">Estimate carbon savings (CO2e).</p>
-                             
                              <div class="space-y-4">
                                  <div>
                                      <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Item Saved</label>
@@ -403,13 +401,11 @@
                                  <div id="green-res" class="text-center font-bold text-emerald-700 text-lg hidden p-3 bg-emerald-50 rounded border border-emerald-100"></div>
                              </div>
                          </div>
-
                          <div class="bg-white p-8 rounded-xl shadow-sm border border-indigo-100 relative overflow-hidden">
                              <div class="absolute top-0 right-0 bg-indigo-100 text-indigo-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Education</div>
                              <i data-lucide="graduation-cap" class="w-12 h-12 text-indigo-500 mb-4"></i>
                              <h2 class="text-xl font-bold mb-2 text-slate-800">Confidence Assessment</h2>
                              <p class="text-slate-500 text-sm mb-6">Measure staff knowledge improvements.</p>
-                             
                              <div class="grid grid-cols-2 gap-4 mb-4">
                                  <div>
                                      <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Pre-Project (1-10)</label>
@@ -428,13 +424,11 @@
                              <div id="edu-res" class="text-center font-bold text-indigo-700 text-lg hidden p-3 bg-indigo-50 rounded border border-indigo-100 mt-4"></div>
                          </div>
                      </div>
-
                      <div class="mt-8 bg-white p-8 rounded-xl shadow-sm border border-amber-100 relative overflow-hidden">
                          <div class="absolute top-0 right-0 bg-amber-100 text-amber-800 px-3 py-1 rounded-bl-lg text-xs font-bold uppercase">Efficiency</div>
                          <i data-lucide="coins" class="w-12 h-12 text-amber-500 mb-4"></i>
                          <h2 class="text-xl font-bold mb-2 text-slate-800">Resource Stewardship</h2>
                          <p class="text-slate-500 text-sm mb-6">Calculate financial and time efficiencies separately.</p>
-
                          <div class="grid grid-cols-1 md:grid-cols-2 gap-12">
                              <div class="space-y-4 border-r md:border-slate-100 md:pr-6">
                                  <h3 class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="pound-sterling" class="w-4 h-4"></i> Financial Savings</h3>
@@ -449,7 +443,6 @@
                                  <button onclick="window.calcMoney()" class="w-full bg-slate-800 text-white py-2 rounded font-medium hover:bg-slate-900">Calculate £</button>
                                  <div id="money-res" class="text-center font-bold text-slate-800 hidden"></div>
                              </div>
-
                              <div class="space-y-4">
                                  <h3 class="font-bold text-slate-700 flex items-center gap-2"><i data-lucide="clock" class="w-4 h-4"></i> Time Savings</h3>
                                  <div>
@@ -485,35 +478,38 @@
     </div>
 
     <div id="smart-modal" class="fixed inset-0 bg-slate-900/60 z-[70] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-8">
-            <h3 class="text-2xl font-bold mb-2 text-rcem-purple">Build a SMART Aim</h3>
-            <p class="text-slate-500 text-sm mb-6 border-b pb-4">A good aim is <b>Specific</b>, <b>Measurable</b>, <b>Achievable</b>, <b>Relevant</b>, and <b>Time-bound</b>.</p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div>
-                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Direction</label>
-                    <select id="sa-verb" class="w-full border p-2 rounded bg-white"><option>Increase</option><option>Decrease</option><option>Maintain</option></select>
-                </div>
-                <div>
-                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">The Metric</label>
-                    <input id="sa-metric" class="w-full border p-2 rounded" placeholder="e.g. Sepsis 6 Compliance">
-                </div>
-                <div>
-                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Population / Context</label>
-                    <input id="sa-pop" class="w-full border p-2 rounded" placeholder="e.g. Adult patients in ED">
-                </div>
-                <div>
-                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">Target Goal</label>
-                    <input id="sa-val" class="w-full border p-2 rounded" placeholder="e.g. from 40% to 90%">
-                </div>
-                <div class="md:col-span-2">
-                    <label class="text-xs font-bold uppercase text-slate-500 mb-1 block">By When?</label>
-                    <input type="date" id="sa-date" class="w-full border p-2 rounded">
-                </div>
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-8 relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-2 h-full bg-rcem-purple"></div>
+            <h3 class="text-2xl font-bold mb-2 text-slate-800">SMART Aim Builder</h3>
+            <p class="text-slate-500 text-sm mb-6 pb-4 border-b">Complete the sentence below to create a robust aim statement.</p>
+            
+            <div class="bg-indigo-50 p-8 rounded-xl border border-indigo-100 text-lg leading-loose text-slate-700 font-serif">
+                We aim to 
+                <select id="sa-verb" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1 rounded">
+                    <option>Increase</option><option>Decrease</option><option>Maintain</option>
+                </select>
+                the 
+                <input id="sa-metric" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1 w-48 placeholder-indigo-300" placeholder="metric (e.g. compliance)">
+                for 
+                <input id="sa-pop" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1 w-48 placeholder-indigo-300" placeholder="patient group">
+                from 
+                <input id="sa-base" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1 w-20 placeholder-indigo-300" placeholder="X%">
+                to 
+                <input id="sa-target" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1 w-20 placeholder-indigo-300" placeholder="Y%">
+                by 
+                <input type="date" id="sa-date" class="bg-white border-b-2 border-indigo-300 font-bold text-indigo-700 focus:outline-none px-2 py-1 mx-1">.
             </div>
-            <div class="bg-indigo-50 p-4 rounded-lg mb-6 text-center italic font-serif text-indigo-900 text-lg border border-indigo-100 shadow-inner" id="sa-preview">"To Increase Sepsis 6 Compliance..."</div>
-            <div class="flex justify-end gap-3">
-                <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-5 py-2 text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveSmartAim()" class="px-5 py-2 bg-rcem-purple text-white rounded shadow hover:bg-indigo-900 font-bold transition-all">Save Aim</button>
+
+            <div class="mt-6 flex justify-between items-center">
+                <div class="text-xs text-slate-400">
+                    <span class="block font-bold uppercase mb-1">Tips:</span>
+                    • Be realistic (Achievable)<br>
+                    • Include a specific date (Time-bound)
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="document.getElementById('smart-modal').classList.add('hidden')" class="px-5 py-2 text-slate-500 hover:bg-slate-100 rounded">Cancel</button>
+                    <button onclick="window.saveSmartAim()" class="px-5 py-2 bg-rcem-purple text-white rounded shadow hover:bg-indigo-900 font-bold transition-all flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i> Save Aim</button>
+                </div>
             </div>
         </div>
     </div>
