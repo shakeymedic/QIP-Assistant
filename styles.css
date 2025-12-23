@@ -68,7 +68,7 @@
     pointer-events: none;
 }
 
-/* === GOLD STANDARD POSTER PRINT LAYOUT (UPDATED) === */
+/* === GOLD STANDARD POSTER PRINT LAYOUT === */
 @media print {
     @page { 
         size: A0 landscape; 
@@ -77,15 +77,15 @@
     
     body { 
         background: white; 
-        -webkit-print-color-adjust: exact; 
-        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact !important; 
+        print-color-adjust: exact !important;
         width: 100vw; 
         height: 100vh;
         overflow: visible;
     }
     
     /* Hide the App UI */
-    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #main-wrapper, #help-modal, #smart-modal, #risr-modal { 
+    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #main-wrapper, #help-modal, #smart-modal, #risr-modal, #demo-watermark { 
         display: none !important; 
     }
     
@@ -112,15 +112,16 @@
     /* 1. Header Section */
     .poster-header {
         grid-column: 1 / -1;
-        background: #2d2e83; /* RCEM Navy */
-        color: white;
+        background: #2d2e83 !important; /* RCEM Navy */
+        color: white !important;
         padding: 30px 40px; 
         border-radius: 15px;
         display: flex; 
         gap: 40px; 
         align-items: center;
         box-shadow: 0 10px 20px rgba(0,0,0,0.1);
-        border-bottom: 8px solid #f36f21; /* RCEM Orange */
+        border-bottom: 8px solid #f36f21 !important; /* RCEM Orange */
+        -webkit-print-color-adjust: exact;
     }
     .poster-logo-area { 
         background: white; 
@@ -190,8 +191,9 @@
 
     /* Feature: The "Big Aim" */
     .aim-box { 
-        background: #eff6ff; 
-        border-color: #3b82f6; 
+        background: #eff6ff !important; 
+        border-color: #3b82f6 !important; 
+        -webkit-print-color-adjust: exact;
     }
     .aim-statement {
         font-size: 24px;
@@ -215,5 +217,20 @@
         align-items: center; 
         justify-content: center;
         margin-bottom: 15px;
+    }
+    
+    /* Analysis Box */
+    .analysis-box {
+        background: #f8fafc !important; 
+        padding: 20px; 
+        border-left: 6px solid #2d2e83 !important; 
+        border-radius: 4px;
+        -webkit-print-color-adjust: exact;
+    }
+    
+    .sustain-box {
+        background: #f0fdf4 !important; 
+        border-color: #86efac !important;
+        -webkit-print-color-adjust: exact;
     }
 }
