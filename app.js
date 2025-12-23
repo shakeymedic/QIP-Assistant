@@ -487,7 +487,6 @@ function renderCoach() {
 function checkAimQuality(aim) {
     if (!aim) return { valid: false, msg: "No aim found" };
     const lower = aim.toLowerCase();
-    if (!/\d/.test(aim)) return { valid: false, msg: "No measurable number" };
     if (!lower.includes('by') && !/\d{2,4}/.test(aim)) return { valid: false, msg: "No date" };
     return { valid: true };
 }
@@ -804,39 +803,266 @@ window.openPortfolioExport = () => {
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${f.v || 'Not recorded'}</div></div>`).join('');
 };
 
-window.exportPPTX = async () => {
-    if (!projectData) return;
-    const d = projectData;
-    const pres = new PptxGenJS();
-    const getDiagramImage = async () => {
-        const svg = document.querySelector('#mermaid-render svg');
-        if(!svg) return null;
+// --- HELPER: HIGH-RES DIAGRAM CAPTURE ---
+// Captures Mermaid SVG or Chart Canvas as a high-quality data URL
+async function getVisualAsset(type) {
+    if (type === 'chart') {
+        const canvas = document.getElementById('mainChart');
+        if (!canvas) return null;
+        // Return high-quality PNG
+        return canvas.toDataURL('image/png', 1.0);
+    }
+
+    if (type === 'driver') {
+        // If we are not in the driver view, we need to generate it
+        let svg = document.querySelector('#diagram-canvas svg');
+        
+        // Expert Check: If no SVG found (e.g., user is on Dashboard), generate one temporarily
+        if (!svg) {
+            const tempId = 'temp-mermaid-' + Date.now();
+            const el = document.createElement('div');
+            el.id = tempId;
+            el.style.position = 'absolute';
+            el.style.left = '-9999px';
+            document.body.appendChild(el);
+            
+            // Reconstruct the driver code logic
+            const d = projectData.drivers;
+            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+            let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+            d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+            d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+            d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+            
+            try {
+                const { svg: svgString } = await mermaid.render(tempId + 'svg', mCode);
+                el.innerHTML = svgString;
+                svg = el.querySelector('svg');
+            } catch (e) {
+                console.error("Mermaid Render Error", e);
+                return null;
+            }
+        }
+
+        if (!svg) return null;
+
+        // Serialize SVG to XML
         const svgData = new XMLSerializer().serializeToString(svg);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
         const img = new Image();
+        
+        // Convert to Base64
         const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
         const url = URL.createObjectURL(svgBlob);
-        return new Promise(resolve => { img.onload = () => { canvas.width = img.width * 2; canvas.height = img.height * 2; ctx.drawImage(img, 0, 0, canvas.width, canvas.height); resolve(canvas.toDataURL('image/png')); URL.revokeObjectURL(url); }; img.src = url; });
+
+        return new Promise(resolve => {
+            img.onload = () => {
+                // Scale up for print quality (3x)
+                canvas.width = img.width * 3;
+                canvas.height = img.height * 3;
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                URL.revokeObjectURL(url);
+                resolve(canvas.toDataURL('image/png'));
+            };
+            img.onerror = () => resolve(null);
+            img.src = url;
+        });
+    }
+    return null;
+}
+
+// --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
+window.exportPPTX = async () => {
+    if (!projectData) return;
+    const d = projectData;
+    const pres = new PptxGenJS();
+
+    // 1. Branding Constants
+    const RCEM_NAVY = '2d2e83';
+    const RCEM_ORANGE = 'f36f21';
+    const SLIDE_W = 10.0;
+    const SLIDE_H = 5.625; // 16:9
+
+    // 2. Define Master Slide (Theme)
+    pres.defineSlideMaster({
+        title: 'RCEM_MASTER',
+        background: { color: 'FFFFFF' },
+        objects: [
+            // Header Bar
+            { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
+            // Footer Bar
+            { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
+            // Footer Text
+            { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
+            // Slide Number
+            { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
+        ]
+    });
+
+    // 3. Helper for new slides
+    const addSlide = (title) => {
+        const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
+        slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
+        return slide;
     };
-    let slide = pres.addSlide();
-    slide.addText(d.meta.title, { x: 0.5, y: 2, w: 9, fontSize: 32, bold: true, color: '2d2e83' });
-    slide.addText(d.checklist.team || 'QIP Team', { x: 0.5, y: 3.5, fontSize: 18, color: '64748b' });
-    slide = pres.addSlide();
-    slide.addText('Problem & Aim', { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    slide.addText(d.checklist.problem_desc, { x: 0.5, y: 1.5, w: 9, fontSize: 12 });
-    slide.addText(d.checklist.aim, { x: 0.5, y: 3.5, w: 9, fontSize: 16, color: '2d2e83', italic: true, fill: 'f1f5f9' });
-    slide = pres.addSlide();
-    slide.addText('Results', { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: '2d2e83' });
-    const chartImg = document.getElementById('mainChart').toDataURL('image/png');
-    slide.addImage({ data: chartImg, x: 0.5, y: 1.5, w: 9, h: 4.5, sizing: {type:'contain'} });
-    pres.writeFile({ fileName: `QIP-Export.pptx` });
+
+    // --- SLIDE 1: TITLE ---
+    const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
+    s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
+    s1.addText(d.checklist.team || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+    s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
+
+    // --- SLIDE 2: THE PROBLEM (Introduction) ---
+    const s2 = addSlide('The Problem & Aim');
+    s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
+    s2.addText(d.checklist.problem_desc, { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
+    
+    s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
+    s2.addText(d.checklist.aim, { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
+
+    // --- SLIDE 3: DRIVER DIAGRAM ---
+    const s3 = addSlide('Driver Diagram (Strategy)');
+    const driverImg = await getVisualAsset('driver');
+    if (driverImg) {
+        s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+    } else {
+        s3.addText("[Driver Diagram Not Generated - Visit Tools Tab]", { x: 3, y: 2.5 });
+    }
+
+    // --- SLIDE 4: INTERVENTIONS (Table) ---
+    const s4 = addSlide('PDSA Cycles & Interventions');
+    // Build Table Rows
+    const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']]; // Header
+    d.pdsa.forEach(p => {
+        rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
+    });
+    
+    s4.addTable(rows, {
+        x: 0.5, y: 1.2, w: 9,
+        colW: [2, 3.5, 3.5],
+        border: { pt: 1, color: 'e2e8f0' },
+        fill: { color: 'F1F5F9' },
+        headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
+        fontSize: 10
+    });
+
+    // --- SLIDE 5: RESULTS (Chart + Analysis) ---
+    const s5 = addSlide('Results & Analysis');
+    const chartImg = await getVisualAsset('chart');
+    if (chartImg) {
+        s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+    }
+    // Analysis Text Box
+    s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
+    s5.addText(d.checklist.results_text || "No analysis recorded.", { 
+        x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
+        fontSize: 11, color: '334155', valign: 'top', 
+        fill: 'F8FAFC', border: { color: 'E2E8F0' } 
+    });
+
+    // --- SLIDE 6: CONCLUSIONS ---
+    const s6 = addSlide('Learning & Sustainability');
+    s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); // Green header
+    s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
+
+    s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); // Blue header
+    s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
+
+    pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
 };
 
-window.printPoster = () => {
+// --- FEATURE 2: CONFERENCE POSTER PRINTING ---
+window.printPoster = async () => {
+    if (!projectData) return;
     const d = projectData;
-    document.getElementById('print-container').innerHTML = `<div class="poster-grid"><header><img src="https://iili.io/KGQOvkl.md.png" class="logo"><div class="header-text"><h1>${d.meta.title}</h1><p class="team">${d.checklist.team}</p></div></header><div class="col"><div class="box"><h2>Problem</h2><p>${d.checklist.problem_desc}</p></div><div class="box"><h2>Aim</h2><p class="big-aim">${d.checklist.aim}</p></div></div><div class="col wide"><div class="box grow"><h2>Results</h2><div class="chart-holder"><img src="${document.getElementById('mainChart').toDataURL('image/png', 2.0)}"></div></div></div><div class="col"><div class="box"><h2>Interventions</h2><ul class="pdsa-list">${d.pdsa.map(p=>`<li>${p.title}</li>`).join('')}</ul></div><div class="box"><h2>Learning</h2><p>${d.checklist.learning}</p></div></div></div>`;
-    window.print();
+    const container = document.getElementById('print-container');
+    
+    // Prepare Assets
+    const driverImg = await getVisualAsset('driver');
+    const chartImg = await getVisualAsset('chart');
+
+    // Build HTML Structure
+    container.innerHTML = `
+        <div class="poster-grid">
+            <header class="poster-header">
+                <div class="poster-logo-area">
+                    <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
+                </div>
+                <div class="poster-title-area">
+                    <h1>${d.meta.title}</h1>
+                    <p><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                </div>
+            </header>
+
+            <div class="poster-col">
+                <div class="poster-box">
+                    <h2><i data-lucide="alert-circle" style="width:24px; vertical-align:middle"></i> The Problem</h2>
+                    <p>${d.checklist.problem_desc}</p>
+                    <p><strong>Evidence:</strong> ${d.checklist.evidence}</p>
+                </div>
+                
+                <div class="poster-box aim-box">
+                    <h2><i data-lucide="target" style="width:24px; vertical-align:middle"></i> SMART Aim</h2>
+                    <p class="aim-statement">${d.checklist.aim}</p>
+                </div>
+
+                <div class="poster-box">
+                    <h2><i data-lucide="git-branch" style="width:24px; vertical-align:middle"></i> Driver Diagram</h2>
+                    <div class="driver-holder">
+                        ${driverImg ? `<img src="${driverImg}" class="img-fluid">` : '<p class="text-slate-400 italic">No diagram generated.</p>'}
+                    </div>
+                </div>
+            </div>
+
+            <div class="poster-col">
+                <div class="poster-box" style="flex:1">
+                    <h2><i data-lucide="line-chart" style="width:24px; vertical-align:middle"></i> Results</h2>
+                    <div class="chart-holder">
+                        ${chartImg ? `<img src="${chartImg}" class="img-fluid">` : '<p>No data available.</p>'}
+                    </div>
+                    <div style="background:#f8fafc; padding:20px; border-left:4px solid #2d2e83; border-radius:4px;">
+                        <h3 style="font-weight:bold; margin-bottom:10px; color:#2d2e83">Analysis</h3>
+                        <p>${d.checklist.results_text || 'No analysis text provided.'}</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="poster-col">
+                <div class="poster-box">
+                    <h2><i data-lucide="refresh-cw" style="width:24px; vertical-align:middle"></i> Interventions</h2>
+                    <ul>
+                        ${d.pdsa.map(p => `
+                            <li>
+                                <strong>${p.title}</strong><br>
+                                <span style="font-size:14px; opacity:0.8">${p.do}</span>
+                            </li>
+                        `).join('')}
+                    </ul>
+                </div>
+
+                <div class="poster-box">
+                    <h2><i data-lucide="lightbulb" style="width:24px; vertical-align:middle"></i> Learning</h2>
+                    <p>${d.checklist.learning}</p>
+                </div>
+
+                <div class="poster-box" style="background:#f0fdf4; border-color:#86efac">
+                    <h2><i data-lucide="leaf" style="width:24px; vertical-align:middle"></i> Sustainability</h2>
+                    <p>${d.checklist.sustain}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Wait for images to render in DOM before printing
+    // Re-run icons for the print view
+    lucide.createIcons();
+    
+    // Slight delay to ensure DOM paint
+    setTimeout(() => {
+        window.print();
+        // Cleanup (Optional: reload page or hide container happens via CSS media query)
+    }, 500);
 };
 
 window.addGanttTask = () => {
