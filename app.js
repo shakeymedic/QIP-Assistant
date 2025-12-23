@@ -25,9 +25,9 @@ let isDemoMode = false;
 let chartInstance = null;
 let unsubscribeProject = null;
 let toolMode = 'fishbone';
-let zoomLevel = 2.0; // Default Zoom set to 2x (200%)
+let zoomLevel = 2.0; 
 
-// --- EXPERT COMMITTEE: OFF-THE-SHELF TEMPLATES ---
+// --- TEMPLATES ---
 const qipTemplates = {
     pain: {
         meta: { title: "Analgesia in Majors (RCEM Audit)" },
@@ -126,7 +126,6 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
-    // Demo Mode handling
     if (isDemoMode) {
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple border-y border-r border-slate-200 relative overflow-hidden cursor-pointer hover:shadow-md transition-all group" onclick="window.openDemoProject()">
@@ -177,7 +176,6 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
-    // Expert Committee: Enhanced Selection
     const choice = prompt("Choose a template:\n1. Blank Project\n2. Sepsis (Sepsis 6)\n3. Pain (Analgesia)\n4. Falls (Elderly)\n5. VTE Assessment\n6. Ambulance Flow\n\nEnter Number:", "1");
     if (!choice) return;
 
@@ -222,6 +220,7 @@ window.openProject = (id) => {
             if(!projectData.pdsa) projectData.pdsa = [];
             if(!projectData.chartData) projectData.chartData = [];
             if(!projectData.stakeholders) projectData.stakeholders = [];
+            if(!projectData.gantt) projectData.gantt = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
             renderAll();
@@ -232,7 +231,6 @@ window.openProject = (id) => {
     window.router('dashboard');
 };
 
-// --- GOLD STANDARD DEMO DATA ---
 window.openDemoProject = () => {
     projectData = {
         meta: { 
@@ -267,76 +265,21 @@ window.openDemoProject = () => {
             ] 
         },
         pdsa: [
-            {
-                id: 1705000000000,
-                title: "Cycle 1: Education Campaign",
-                plan: "Deliver 10-min teaching at handover for 2 weeks. Put up posters.",
-                do: "Teaching delivered to 80% of nursing staff. Posters displayed in Resus.",
-                study: "Compliance rose slightly to 62% but effect wore off quickly. Staff reported 'forgetting' in busy periods.",
-                act: "Abandon (as sole intervention). Need system change, not just education."
-            },
-            {
-                id: 1708000000000,
-                title: "Cycle 2: Sepsis Trolley",
-                plan: "Introduce a dedicated 'Sepsis Trolley' in Majors with pre-made grab bags (bloods, cultures, abx).",
-                do: "Trolley stocked and placed in Bay 1. Checked daily by HCA.",
-                study: "Immediate improvement. Time to cannulation dropped. Staff feedback positive ('saves hunting for keys').",
-                act: "Adopt. Roll out to Resus area as well."
-            },
-            {
-                id: 1712000000000,
-                title: "Cycle 3: Electronic Alert",
-                plan: "IT modification: 'Pop-up' alert on Cerner when NEWS2 > 5 + Infection suspected.",
-                do: "Live on April 1st. Required clinician reason to dismiss.",
-                study: "Compliance hit 95%. Screening tool completion 100%.",
-                act: "Adopt. Standard operating procedure."
-            }
+            { id: 1705000000000, title: "Cycle 1: Education Campaign", plan: "Deliver 10-min teaching at handover for 2 weeks. Put up posters.", do: "Teaching delivered to 80% of nursing staff. Posters displayed in Resus.", study: "Compliance rose slightly to 62% but effect wore off quickly. Staff reported 'forgetting' in busy periods.", act: "Abandon (as sole intervention). Need system change, not just education." },
+            { id: 1708000000000, title: "Cycle 2: Sepsis Trolley", plan: "Introduce a dedicated 'Sepsis Trolley' in Majors with pre-made grab bags (bloods, cultures, abx).", do: "Trolley stocked and placed in Bay 1. Checked daily by HCA.", study: "Immediate improvement. Time to cannulation dropped. Staff feedback positive ('saves hunting for keys').", act: "Adopt. Roll out to Resus area as well." },
+            { id: 1712000000000, title: "Cycle 3: Electronic Alert", plan: "IT modification: 'Pop-up' alert on Cerner when NEWS2 > 5 + Infection suspected.", do: "Live on April 1st. Required clinician reason to dismiss.", study: "Compliance hit 95%. Screening tool completion 100%.", act: "Adopt. Standard operating procedure." }
         ],
         chartData: [
-            // BASELINE (Jan - Feb) - Median approx 55
-            { date: "2024-01-07", value: 52, type: "outcome" },
-            { date: "2024-01-14", value: 58, type: "outcome" },
-            { date: "2024-01-21", value: 45, type: "outcome" },
-            { date: "2024-01-28", value: 55, type: "outcome" },
-            { date: "2024-02-04", value: 50, type: "outcome" },
-            { date: "2024-02-11", value: 60, type: "outcome" },
-            // PDSA 1: Education (Feb 15) - Slight bump, unstable
-            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1: Education" },
-            { date: "2024-02-25", value: 62, type: "outcome" },
-            { date: "2024-03-03", value: 58, type: "outcome" }, // Wore off
-            // PDSA 2: Trolley (Mar 10) - The Shift starts
-            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2: Trolleys" },
-            { date: "2024-03-17", value: 82, type: "outcome" },
-            { date: "2024-03-24", value: 79, type: "outcome" },
-            { date: "2024-03-31", value: 85, type: "outcome" },
-            // PDSA 3: IT Alert (Apr 1) - Sustained High
-            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3: IT Alert" },
-            { date: "2024-04-14", value: 95, type: "outcome" },
-            { date: "2024-04-21", value: 94, type: "outcome" },
-            { date: "2024-04-28", value: 91, type: "outcome" },
-            { date: "2024-05-05", value: 96, type: "outcome" },
-            { date: "2024-05-12", value: 93, type: "outcome" },
-            { date: "2024-05-19", value: 95, type: "outcome" },
-            { date: "2024-05-26", value: 94, type: "outcome" }
+            { date: "2024-01-07", value: 52, type: "outcome" }, { date: "2024-01-14", value: 58, type: "outcome" }, { date: "2024-01-21", value: 45, type: "outcome" }, { date: "2024-01-28", value: 55, type: "outcome" }, { date: "2024-02-04", value: 50, type: "outcome" }, { date: "2024-02-11", value: 60, type: "outcome" },
+            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1: Education" }, { date: "2024-02-25", value: 62, type: "outcome" }, { date: "2024-03-03", value: 58, type: "outcome" },
+            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2: Trolleys" }, { date: "2024-03-17", value: 82, type: "outcome" }, { date: "2024-03-24", value: 79, type: "outcome" }, { date: "2024-03-31", value: 85, type: "outcome" },
+            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3: IT Alert" }, { date: "2024-04-14", value: 95, type: "outcome" }, { date: "2024-04-21", value: 94, type: "outcome" }, { date: "2024-04-28", value: 91, type: "outcome" }, { date: "2024-05-05", value: 96, type: "outcome" }, { date: "2024-05-12", value: 93, type: "outcome" }, { date: "2024-05-19", value: 95, type: "outcome" }, { date: "2024-05-26", value: 94, type: "outcome" }
         ],
         stakeholders: [
-            { name: "ED Consultants", power: 90, interest: 80 },
-            { name: "Nursing Staff", power: 60, interest: 90 },
-            { name: "Pharmacy", power: 40, interest: 70 },
-            { name: "Junior Doctors", power: 30, interest: 85 },
-            { name: "Hospital Mgmt", power: 80, interest: 20 }
+            { name: "ED Consultants", power: 90, interest: 80 }, { name: "Nursing Staff", power: 60, interest: 90 }, { name: "Pharmacy", power: 40, interest: 70 }, { name: "Junior Doctors", power: 30, interest: 85 }, { name: "Hospital Mgmt", power: 80, interest: 20 }
         ],
-        // GOLD STANDARD GANTT DATA
         gantt: [
-            { id: 1, name: "Planning & Stakeholders", start: "2024-01-01", end: "2024-01-20", type: "plan" },
-            { id: 2, name: "Baseline Data Audit", start: "2024-01-15", end: "2024-02-14", type: "study" },
-            { id: 3, name: "Driver Diagram Workshop", start: "2024-02-10", end: "2024-02-15", type: "plan" },
-            { id: 4, name: "Cycle 1: Education", start: "2024-02-16", end: "2024-03-01", type: "act" },
-            { id: 5, name: "Cycle 2: Sepsis Trolley", start: "2024-03-05", end: "2024-04-01", type: "act" },
-            { id: 6, name: "Cycle 3: IT Alert Build", start: "2024-03-01", end: "2024-04-01", type: "plan" },
-            { id: 7, name: "Cycle 3: IT Alert Go-Live", start: "2024-04-01", end: "2024-05-15", type: "act" },
-            { id: 8, name: "Sustainability Audit", start: "2024-05-15", end: "2024-06-01", type: "study" },
-            { id: 9, name: "Write Up & Presentation", start: "2024-06-01", end: "2024-06-15", type: "plan" }
+            { id: 1, name: "Planning & Stakeholders", start: "2024-01-01", end: "2024-01-20", type: "plan" }, { id: 2, name: "Baseline Data Audit", start: "2024-01-15", end: "2024-02-14", type: "study" }, { id: 3, name: "Driver Diagram Workshop", start: "2024-02-10", end: "2024-02-15", type: "plan" }, { id: 4, name: "Cycle 1: Education", start: "2024-02-16", end: "2024-03-01", type: "act" }, { id: 5, name: "Cycle 2: Sepsis Trolley", start: "2024-03-05", end: "2024-04-01", type: "act" }, { id: 6, name: "Cycle 3: IT Alert Build", start: "2024-03-01", end: "2024-04-01", type: "plan" }, { id: 7, name: "Cycle 3: IT Alert Go-Live", start: "2024-04-01", end: "2024-05-15", type: "act" }, { id: 8, name: "Sustainability Audit", start: "2024-05-15", end: "2024-06-01", type: "study" }, { id: 9, name: "Write Up & Presentation", start: "2024-06-01", end: "2024-06-15", type: "plan" }
         ],
         process: ["Patient Arrives", "Triage (Nurse)", "Sepsis Screen +ve?", "Yes -> Trigger Alert", "Doctor Review", "Abx Prescribed", "Abx Administered"]
     };
@@ -346,7 +289,6 @@ window.openDemoProject = () => {
     renderAll();
     window.router('dashboard');
     
-    // Notification
     const s = document.getElementById('save-status');
     s.innerHTML = `<i data-lucide="info" class="w-3 h-3"></i> Demo Loaded`;
     s.classList.remove('opacity-0');
@@ -359,7 +301,6 @@ window.returnToProjects = () => {
     loadProjectList();
 };
 
-// --- ROUTER ---
 let currentView = 'dashboard';
 window.router = (view) => {
     currentView = view;
@@ -391,7 +332,6 @@ async function saveData() {
     setTimeout(() => s.classList.add('opacity-0'), 2000);
 }
 
-// --- DEMO MODE ---
 document.getElementById('demo-toggle').addEventListener('change', (e) => {
     isDemoMode = e.target.checked;
     const wm = document.getElementById('demo-watermark');
@@ -427,13 +367,11 @@ function renderAll() {
     if(currentView === 'full') renderFullProject();
 }
 
-// --- 1. THE QI COACH (Enhanced) ---
 function renderCoach() {
     if(!projectData) return;
     const d = projectData;
     const banner = document.getElementById('qi-coach-banner');
     
-    // Checklist Progress Calculation
     const checkFields = ['problem_desc','evidence','aim','outcome_measures','process_measures','team','ethics','learning'];
     let filledCount = 0;
     if (d.checklist) {
@@ -445,7 +383,6 @@ function renderCoach() {
     const progEl = document.getElementById('stat-progress');
     if(progEl) progEl.textContent = `${progress}%`;
 
-    // Logic Tree
     let status = { t: "", m: "", b: "", c: "" };
     const aimQuality = checkAimQuality(d.checklist.aim);
     const badgeEl = document.getElementById('aim-quality-badge');
@@ -491,7 +428,6 @@ function checkAimQuality(aim) {
     return { valid: true };
 }
 
-// --- 2. CHECKLIST ---
 function renderChecklist() {
     if(!projectData) return;
     const list = document.getElementById('checklist-container');
@@ -553,10 +489,9 @@ function renderChecklist() {
     };
 }
 
-// --- 3. TOOLS (5 WHYS & FISHBONE) & ZOOM ---
 window.setToolMode = (m) => {
     toolMode = m;
-    zoomLevel = 2.0; // Reset to 2x when switching tools
+    zoomLevel = 2.0; 
     document.querySelectorAll('.tool-tab').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-rcem-purple'));
     document.getElementById(`tab-${m}`).classList.add('bg-white', 'shadow-sm', 'text-rcem-purple');
     renderTools();
@@ -620,7 +555,7 @@ async function renderTools() {
 
     canvas.innerHTML = `<div class="mermaid">${mCode}</div>`;
     controls.innerHTML = ctrls;
-    updateZoom(); // Apply the zoom transform
+    updateZoom(); 
     try { await mermaid.run(); } catch(e) {}
     lucide.createIcons();
 }
@@ -644,7 +579,6 @@ window.addDriver = (t) => { const v=prompt("Driver:"); if(v){projectData.drivers
 window.addStep = () => { const v=prompt("Step Description:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
 window.resetProcess = () => { if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
 
-// --- 4. STAKEHOLDERS ---
 const stakeholderScripts = {
     highPowerLowInterest: { t: "Keep Satisfied", s: "Focus on Risk: 'We need your support to ensure this doesn't impact flow/safety. It won't require much of your time, but your sign-off is crucial.'" },
     highPowerHighInterest: { t: "Manage Closely", s: "Partnership: 'You are key to this success. Can we meet weekly? I want to build this around your vision for the department.'" },
@@ -707,7 +641,6 @@ window.addStakeholder = () => {
     saveData(); renderStakeholders();
 };
 
-// --- 5. CHART (SPC) ---
 function renderChart() {
     if(!projectData) return;
     const ctx = document.getElementById('mainChart').getContext('2d');
@@ -748,13 +681,13 @@ function renderChart() {
     
     document.getElementById('data-history').innerHTML = data.slice().reverse().map(d => `<div class="flex justify-between border-b border-slate-100 py-2 items-center"><span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong></span>${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full">${d.note}</span>` : ''}</div>`).join('');
 }
+
 window.addDataPoint = () => {
     const d = { date: document.getElementById('chart-date').value, value: document.getElementById('chart-value').value, type: document.getElementById('chart-cat').value };
     if (d.date && d.value) { projectData.chartData.push(d); saveData(); renderChart(); }
 };
 window.saveResults = (val) => { if(!projectData.checklist) projectData.checklist={}; projectData.checklist.results_text = val; saveData(); }
 
-// --- 6. PDSA ---
 window.addPDSA = () => { const t = prompt("Cycle Title:"); if(t) { projectData.pdsa.unshift({id: Date.now(), title:t, plan:"", do:"", study:"", act:""}); saveData(); renderPDSA(); } }
 function renderPDSA() {
     if(!projectData) return;
@@ -775,14 +708,12 @@ function renderPDSA() {
 }
 window.deletePDSA = (i) => { if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } }
 
-// --- 7. TOURS ---
 window.startTour = () => {
     const driver = window.driver.js.driver;
     const tour = driver({ showProgress: true, steps: [{ element: '#nav-checklist', popover: { title: 'Step 1: Define', description: 'Start here.' } }, { element: '#nav-tools', popover: { title: 'Step 2: Diagnose', description: 'Use Fishbone & Drivers.' } }, { element: '#nav-data', popover: { title: 'Step 3: Measure', description: 'Enter data here.' } }, { element: '#nav-pdsa', popover: { title: 'Step 4: Act', description: 'Record changes.' } }] });
     tour.drive();
 };
 
-// --- 8. EXPORTS & UTILS ---
 window.openPortfolioExport = () => {
     const d = projectData;
     const modal = document.getElementById('risr-modal');
@@ -803,266 +734,307 @@ window.openPortfolioExport = () => {
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${f.v || 'Not recorded'}</div></div>`).join('');
 };
 
-// --- HELPER: HIGH-RES DIAGRAM CAPTURE ---
-// Captures Mermaid SVG or Chart Canvas as a high-quality data URL
+// --- ROBUST ASSET GENERATOR (FAIL-SAFE) ---
 async function getVisualAsset(type) {
+    if (!projectData) return null;
+
     if (type === 'chart') {
-        const canvas = document.getElementById('mainChart');
-        if (!canvas) return null;
-        // Return high-quality PNG
+        // Create an off-screen canvas to generate the chart from data
+        const canvas = document.createElement('canvas');
+        canvas.width = 1200; // High resolution
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+        
+        const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+        if(data.length === 0) return null;
+
+        const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
+        const values = outcomes.map(d => Number(d.value));
+        const labels = outcomes.map(d => d.date);
+        
+        // Basic Median Logic
+        let baselinePoints = values.slice(0, 12); 
+        let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+        
+        // Basic Color Logic
+        const pointColors = [];
+        let runCount = 0; let runDirection = 0;
+        values.forEach((v) => {
+            if (v > currentMedian) {
+                if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
+            } else if (v < currentMedian) {
+                if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
+            } else runCount = 0;
+            pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
+        });
+
+        const annotations = {
+            median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+        };
+
+        // Render Chart to hidden canvas
+        new Chart(ctx, {
+            type: 'line',
+            data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+            options: { 
+                animation: false, // Instant render
+                responsive: false, 
+                plugins: { 
+                    annotation: { annotations },
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+        
         return canvas.toDataURL('image/png', 1.0);
     }
 
     if (type === 'driver') {
-        // If we are not in the driver view, we need to generate it
-        let svg = document.querySelector('#diagram-canvas svg');
+        // Generate Driver Diagram SVGs from data
+        const tempId = 'temp-mermaid-' + Date.now();
+        const el = document.createElement('div');
+        el.id = tempId;
+        el.style.position = 'absolute';
+        el.style.left = '-9999px'; // Hide off-screen
+        el.style.width = '1200px';
+        document.body.appendChild(el);
         
-        // Expert Check: If no SVG found (e.g., user is on Dashboard), generate one temporarily
-        if (!svg) {
-            const tempId = 'temp-mermaid-' + Date.now();
-            const el = document.createElement('div');
-            el.id = tempId;
-            el.style.position = 'absolute';
-            el.style.left = '-9999px';
-            document.body.appendChild(el);
+        const d = projectData.drivers;
+        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+        let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+        
+        if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
+        
+        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+        
+        try {
+            const { svg: svgString } = await mermaid.render(tempId + 'svg', mCode);
+            el.innerHTML = svgString;
+            const svg = el.querySelector('svg');
             
-            // Reconstruct the driver code logic
-            const d = projectData.drivers;
-            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-            let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-            d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-            d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-            d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+            if (!svg) return null;
+
+            const svgData = new XMLSerializer().serializeToString(svg);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
             
-            try {
-                const { svg: svgString } = await mermaid.render(tempId + 'svg', mCode);
-                el.innerHTML = svgString;
-                svg = el.querySelector('svg');
-            } catch (e) {
-                console.error("Mermaid Render Error", e);
-                return null;
-            }
+            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
+
+            return new Promise(resolve => {
+                img.onload = () => {
+                    canvas.width = img.width * 2; // 2x Scaling
+                    canvas.height = img.height * 2;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(el); // Clean up
+                    resolve(canvas.toDataURL('image/png'));
+                };
+                img.onerror = () => { document.body.removeChild(el); resolve(null); };
+                img.src = url;
+            });
+        } catch (e) {
+            console.error("Mermaid Render Error", e);
+            if(el.parentNode) document.body.removeChild(el);
+            return null;
         }
-
-        if (!svg) return null;
-
-        // Serialize SVG to XML
-        const svgData = new XMLSerializer().serializeToString(svg);
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        // Convert to Base64
-        const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-        const url = URL.createObjectURL(svgBlob);
-
-        return new Promise(resolve => {
-            img.onload = () => {
-                // Scale up for print quality (3x)
-                canvas.width = img.width * 3;
-                canvas.height = img.height * 3;
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                URL.revokeObjectURL(url);
-                resolve(canvas.toDataURL('image/png'));
-            };
-            img.onerror = () => resolve(null);
-            img.src = url;
-        });
     }
     return null;
 }
 
 // --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
 window.exportPPTX = async () => {
-    if (!projectData) return;
-    const d = projectData;
-    const pres = new PptxGenJS();
+    try {
+        if (!projectData) { alert("Please load a project first."); return; }
+        const d = projectData;
+        const pres = new PptxGenJS();
 
-    // 1. Branding Constants
-    const RCEM_NAVY = '2d2e83';
-    const RCEM_ORANGE = 'f36f21';
-    const SLIDE_W = 10.0;
-    const SLIDE_H = 5.625; // 16:9
+        // 1. Branding Constants
+        const RCEM_NAVY = '2d2e83';
+        const RCEM_ORANGE = 'f36f21';
 
-    // 2. Define Master Slide (Theme)
-    pres.defineSlideMaster({
-        title: 'RCEM_MASTER',
-        background: { color: 'FFFFFF' },
-        objects: [
-            // Header Bar
-            { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
-            // Footer Bar
-            { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
-            // Footer Text
-            { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
-            // Slide Number
-            { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
-        ]
-    });
+        // 2. Define Master Slide (Theme)
+        pres.defineSlideMaster({
+            title: 'RCEM_MASTER',
+            background: { color: 'FFFFFF' },
+            objects: [
+                { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
+                { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
+                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
+                { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
+            ]
+        });
 
-    // 3. Helper for new slides
-    const addSlide = (title) => {
-        const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
-        slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
-        return slide;
-    };
+        const addSlide = (title) => {
+            const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
+            slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
+            return slide;
+        };
 
-    // --- SLIDE 1: TITLE ---
-    const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
-    s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
-    s1.addText(d.checklist.team || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
-    s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
+        // --- SLIDE 1: TITLE ---
+        const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
+        s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
+        s1.addText(d.checklist.team || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+        s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
 
-    // --- SLIDE 2: THE PROBLEM (Introduction) ---
-    const s2 = addSlide('The Problem & Aim');
-    s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
-    s2.addText(d.checklist.problem_desc, { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
-    
-    s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
-    s2.addText(d.checklist.aim, { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
+        // --- SLIDE 2: THE PROBLEM ---
+        const s2 = addSlide('The Problem & Aim');
+        s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
+        s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
+        
+        s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
+        s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
 
-    // --- SLIDE 3: DRIVER DIAGRAM ---
-    const s3 = addSlide('Driver Diagram (Strategy)');
-    const driverImg = await getVisualAsset('driver');
-    if (driverImg) {
-        s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-    } else {
-        s3.addText("[Driver Diagram Not Generated - Visit Tools Tab]", { x: 3, y: 2.5 });
+        // --- SLIDE 3: DRIVER DIAGRAM ---
+        const s3 = addSlide('Driver Diagram (Strategy)');
+        const driverImg = await getVisualAsset('driver');
+        if (driverImg) {
+            s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+        } else {
+            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5 });
+        }
+
+        // --- SLIDE 4: INTERVENTIONS ---
+        const s4 = addSlide('PDSA Cycles & Interventions');
+        const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
+        d.pdsa.forEach(p => {
+            rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
+        });
+        
+        s4.addTable(rows, {
+            x: 0.5, y: 1.2, w: 9,
+            colW: [2, 3.5, 3.5],
+            border: { pt: 1, color: 'e2e8f0' },
+            fill: { color: 'F1F5F9' },
+            headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
+            fontSize: 10
+        });
+
+        // --- SLIDE 5: RESULTS ---
+        const s5 = addSlide('Results & Analysis');
+        const chartImg = await getVisualAsset('chart');
+        if (chartImg) {
+            s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+        }
+        s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
+        s5.addText(d.checklist.results_text || "No analysis recorded.", { 
+            x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
+            fontSize: 11, color: '334155', valign: 'top', 
+            fill: 'F8FAFC', border: { color: 'E2E8F0' } 
+        });
+
+        // --- SLIDE 6: CONCLUSIONS ---
+        const s6 = addSlide('Learning & Sustainability');
+        s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
+        s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
+
+        s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
+        s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
+
+        pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+
+    } catch (e) {
+        console.error(e);
+        alert("Error generating PowerPoint: " + e.message);
     }
-
-    // --- SLIDE 4: INTERVENTIONS (Table) ---
-    const s4 = addSlide('PDSA Cycles & Interventions');
-    // Build Table Rows
-    const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']]; // Header
-    d.pdsa.forEach(p => {
-        rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
-    });
-    
-    s4.addTable(rows, {
-        x: 0.5, y: 1.2, w: 9,
-        colW: [2, 3.5, 3.5],
-        border: { pt: 1, color: 'e2e8f0' },
-        fill: { color: 'F1F5F9' },
-        headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
-        fontSize: 10
-    });
-
-    // --- SLIDE 5: RESULTS (Chart + Analysis) ---
-    const s5 = addSlide('Results & Analysis');
-    const chartImg = await getVisualAsset('chart');
-    if (chartImg) {
-        s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-    }
-    // Analysis Text Box
-    s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
-    s5.addText(d.checklist.results_text || "No analysis recorded.", { 
-        x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
-        fontSize: 11, color: '334155', valign: 'top', 
-        fill: 'F8FAFC', border: { color: 'E2E8F0' } 
-    });
-
-    // --- SLIDE 6: CONCLUSIONS ---
-    const s6 = addSlide('Learning & Sustainability');
-    s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); // Green header
-    s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
-
-    s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); // Blue header
-    s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
-
-    pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
 };
 
 // --- FEATURE 2: CONFERENCE POSTER PRINTING ---
 window.printPoster = async () => {
-    if (!projectData) return;
-    const d = projectData;
-    const container = document.getElementById('print-container');
-    
-    // Prepare Assets
-    const driverImg = await getVisualAsset('driver');
-    const chartImg = await getVisualAsset('chart');
+    try {
+        if (!projectData) { alert("Please load a project first."); return; }
+        const d = projectData;
+        const container = document.getElementById('print-container');
+        
+        // Load Assets
+        const driverImg = await getVisualAsset('driver');
+        const chartImg = await getVisualAsset('chart');
 
-    // Build HTML Structure
-    container.innerHTML = `
-        <div class="poster-grid">
-            <header class="poster-header">
-                <div class="poster-logo-area">
-                    <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
-                </div>
-                <div class="poster-title-area">
-                    <h1>${d.meta.title}</h1>
-                    <p><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
-                </div>
-            </header>
+        container.innerHTML = `
+            <div class="poster-grid">
+                <header class="poster-header">
+                    <div class="poster-logo-area">
+                        <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
+                    </div>
+                    <div class="poster-title-area">
+                        <h1>${d.meta.title}</h1>
+                        <p><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                    </div>
+                </header>
 
-            <div class="poster-col">
-                <div class="poster-box">
-                    <h2><i data-lucide="alert-circle" style="width:24px; vertical-align:middle"></i> The Problem</h2>
-                    <p>${d.checklist.problem_desc}</p>
-                    <p><strong>Evidence:</strong> ${d.checklist.evidence}</p>
-                </div>
-                
-                <div class="poster-box aim-box">
-                    <h2><i data-lucide="target" style="width:24px; vertical-align:middle"></i> SMART Aim</h2>
-                    <p class="aim-statement">${d.checklist.aim}</p>
+                <div class="poster-col">
+                    <div class="poster-box">
+                        <h2><i data-lucide="alert-circle" style="width:24px; vertical-align:middle"></i> The Problem</h2>
+                        <p>${d.checklist.problem_desc || 'No problem defined.'}</p>
+                        <p><strong>Evidence:</strong> ${d.checklist.evidence || 'N/A'}</p>
+                    </div>
+                    
+                    <div class="poster-box aim-box">
+                        <h2><i data-lucide="target" style="width:24px; vertical-align:middle"></i> SMART Aim</h2>
+                        <p class="aim-statement">${d.checklist.aim || 'No aim defined.'}</p>
+                    </div>
+
+                    <div class="poster-box">
+                        <h2><i data-lucide="git-branch" style="width:24px; vertical-align:middle"></i> Driver Diagram</h2>
+                        <div class="driver-holder">
+                            ${driverImg ? `<img src="${driverImg}" class="img-fluid">` : '<p class="text-slate-400 italic">No diagram generated.</p>'}
+                        </div>
+                    </div>
                 </div>
 
-                <div class="poster-box">
-                    <h2><i data-lucide="git-branch" style="width:24px; vertical-align:middle"></i> Driver Diagram</h2>
-                    <div class="driver-holder">
-                        ${driverImg ? `<img src="${driverImg}" class="img-fluid">` : '<p class="text-slate-400 italic">No diagram generated.</p>'}
+                <div class="poster-col">
+                    <div class="poster-box" style="flex:1">
+                        <h2><i data-lucide="line-chart" style="width:24px; vertical-align:middle"></i> Results</h2>
+                        <div class="chart-holder">
+                            ${chartImg ? `<img src="${chartImg}" class="img-fluid">` : '<p>No data available.</p>'}
+                        </div>
+                        <div class="analysis-box">
+                            <h3 style="font-weight:bold; margin-bottom:10px; color:#2d2e83">Analysis</h3>
+                            <p>${d.checklist.results_text || 'No analysis text provided.'}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="poster-col">
+                    <div class="poster-box">
+                        <h2><i data-lucide="refresh-cw" style="width:24px; vertical-align:middle"></i> Interventions</h2>
+                        <ul>
+                            ${d.pdsa.map(p => `
+                                <li>
+                                    <strong>${p.title}</strong><br>
+                                    <span style="font-size:14px; opacity:0.8">${p.do}</span>
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+
+                    <div class="poster-box">
+                        <h2><i data-lucide="lightbulb" style="width:24px; vertical-align:middle"></i> Learning</h2>
+                        <p>${d.checklist.learning || 'N/A'}</p>
+                    </div>
+
+                    <div class="poster-box sustain-box">
+                        <h2><i data-lucide="leaf" style="width:24px; vertical-align:middle"></i> Sustainability</h2>
+                        <p>${d.checklist.sustain || 'N/A'}</p>
                     </div>
                 </div>
             </div>
+        `;
 
-            <div class="poster-col">
-                <div class="poster-box" style="flex:1">
-                    <h2><i data-lucide="line-chart" style="width:24px; vertical-align:middle"></i> Results</h2>
-                    <div class="chart-holder">
-                        ${chartImg ? `<img src="${chartImg}" class="img-fluid">` : '<p>No data available.</p>'}
-                    </div>
-                    <div style="background:#f8fafc; padding:20px; border-left:4px solid #2d2e83; border-radius:4px;">
-                        <h3 style="font-weight:bold; margin-bottom:10px; color:#2d2e83">Analysis</h3>
-                        <p>${d.checklist.results_text || 'No analysis text provided.'}</p>
-                    </div>
-                </div>
-            </div>
+        lucide.createIcons();
+        setTimeout(() => { window.print(); }, 500);
 
-            <div class="poster-col">
-                <div class="poster-box">
-                    <h2><i data-lucide="refresh-cw" style="width:24px; vertical-align:middle"></i> Interventions</h2>
-                    <ul>
-                        ${d.pdsa.map(p => `
-                            <li>
-                                <strong>${p.title}</strong><br>
-                                <span style="font-size:14px; opacity:0.8">${p.do}</span>
-                            </li>
-                        `).join('')}
-                    </ul>
-                </div>
-
-                <div class="poster-box">
-                    <h2><i data-lucide="lightbulb" style="width:24px; vertical-align:middle"></i> Learning</h2>
-                    <p>${d.checklist.learning}</p>
-                </div>
-
-                <div class="poster-box" style="background:#f0fdf4; border-color:#86efac">
-                    <h2><i data-lucide="leaf" style="width:24px; vertical-align:middle"></i> Sustainability</h2>
-                    <p>${d.checklist.sustain}</p>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Wait for images to render in DOM before printing
-    // Re-run icons for the print view
-    lucide.createIcons();
-    
-    // Slight delay to ensure DOM paint
-    setTimeout(() => {
-        window.print();
-        // Cleanup (Optional: reload page or hide container happens via CSS media query)
-    }, 500);
+    } catch (e) {
+        console.error(e);
+        alert("Error generating Poster: " + e.message);
+    }
 };
 
 window.addGanttTask = () => {
@@ -1076,7 +1048,6 @@ window.addGanttTask = () => {
 }
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
 
-// --- GOLD STANDARD GANTT RENDERER ---
 function renderGantt() {
     if(!projectData) return;
     const g = projectData.gantt || [];
@@ -1087,10 +1058,9 @@ function renderGantt() {
         return;
     }
 
-    // 1. Calculate Timeline Range (Monthly Steps)
     const dates = g.flatMap(t => [new Date(t.start), new Date(t.end)]);
-    const minDate = new Date(Math.min(...dates)); minDate.setDate(1); // Snap to start of month
-    const maxDate = new Date(Math.max(...dates)); maxDate.setMonth(maxDate.getMonth() + 1); maxDate.setDate(0); // Snap to end of month
+    const minDate = new Date(Math.min(...dates)); minDate.setDate(1); 
+    const maxDate = new Date(Math.max(...dates)); maxDate.setMonth(maxDate.getMonth() + 1); maxDate.setDate(0); 
 
     const monthDiff = (maxDate.getFullYear() - minDate.getFullYear()) * 12 + (maxDate.getMonth() - minDate.getMonth()) + 1;
     const pxPerMonth = 150;
@@ -1098,7 +1068,6 @@ function renderGantt() {
 
     let html = `<div class="relative bg-white min-h-[400px] border border-slate-200 rounded-lg overflow-hidden" style="width: ${totalWidth}px;">`;
 
-    // 2. Render Header (Months)
     html += `<div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20">`;
     html += `<div class="w-[250px] shrink-0 p-3 font-bold text-slate-700 text-sm border-r border-slate-200 bg-slate-50 sticky left-0 z-30 shadow-sm">Phase / Task</div>`;
     
@@ -1108,20 +1077,17 @@ function renderGantt() {
     }
     html += `</div>`;
 
-    // 3. Render Rows
     g.forEach(t => {
         const start = new Date(t.start);
         const end = new Date(t.end);
         
-        // Calculate position
         const startMonthIndex = (start.getFullYear() - minDate.getFullYear()) * 12 + (start.getMonth() - minDate.getMonth());
-        const startDayFactor = (start.getDate() / 30); // Approx
+        const startDayFactor = (start.getDate() / 30); 
         const leftPos = (startMonthIndex + startDayFactor) * pxPerMonth;
         
         const durationMs = end - start;
         const width = Math.max(20, (durationMs / (1000 * 60 * 60 * 24 * 30)) * pxPerMonth);
 
-        // Color Logic
         let colorClass = "bg-slate-600";
         if(t.type === 'plan') colorClass = "bg-slate-400";
         if(t.type === 'study') colorClass = "bg-blue-500";
@@ -1149,7 +1115,6 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-// --- CALCULATORS ---
 window.calcGreen = () => {
     const v = document.getElementById('green-type').value;
     const q = document.getElementById('green-qty').value;
@@ -1177,7 +1142,6 @@ window.calcEdu = () => {
     document.getElementById('edu-res').classList.remove('hidden');
 }
 
-// --- WHOLE PROJECT VIEW ---
 function renderFullProject() {
     if(!projectData) return;
     const d = projectData;
@@ -1223,7 +1187,6 @@ function checkRCEMCriteria(d) {
     return flags;
 }
 
-// --- HELP SYSTEM ---
 const helpData = {
     checklist: { t: "Define & Measure", c: "<p>Problem, Aim (SMART), and Measures.</p>" },
     diagrams: { t: "Drivers & Fishbone", c: "<p>Fishbone = Root Cause. Drivers = Strategy.</p>" },
