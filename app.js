@@ -17,6 +17,11 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- INITIALISE LIBRARIES ---
+if (window.mermaid) {
+    window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+}
+
 // --- STATE ---
 let currentUser = null;
 let currentProjectId = null;
@@ -556,7 +561,7 @@ async function renderTools() {
     canvas.innerHTML = `<div class="mermaid">${mCode}</div>`;
     controls.innerHTML = ctrls;
     updateZoom(); 
-    try { await mermaid.run(); } catch(e) {}
+    try { await mermaid.run(); } catch(e) { console.error("Mermaid error:", e); }
     lucide.createIcons();
 }
 
@@ -739,110 +744,127 @@ async function getVisualAsset(type) {
     if (!projectData) return null;
 
     if (type === 'chart') {
-        // Create an off-screen canvas to generate the chart from data
-        const canvas = document.createElement('canvas');
-        canvas.width = 1200; // High resolution
-        canvas.height = 600;
-        const ctx = canvas.getContext('2d');
-        
-        const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-        if(data.length === 0) return null;
+        try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1600; 
+            canvas.height = 800;
+            const ctx = canvas.getContext('2d');
+            
+            // Draw White Background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+            if(data.length === 0) return null;
 
-        const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
-        const values = outcomes.map(d => Number(d.value));
-        const labels = outcomes.map(d => d.date);
-        
-        // Basic Median Logic
-        let baselinePoints = values.slice(0, 12); 
-        let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
-        
-        // Basic Color Logic
-        const pointColors = [];
-        let runCount = 0; let runDirection = 0;
-        values.forEach((v) => {
-            if (v > currentMedian) {
-                if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
-            } else if (v < currentMedian) {
-                if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
-            } else runCount = 0;
-            pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
-        });
+            const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
+            const values = outcomes.map(d => Number(d.value));
+            const labels = outcomes.map(d => d.date);
+            
+            let baselinePoints = values.slice(0, 12); 
+            let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+            
+            const pointColors = [];
+            let runCount = 0; let runDirection = 0;
+            values.forEach((v) => {
+                if (v > currentMedian) {
+                    if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
+                } else if (v < currentMedian) {
+                    if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
+                } else runCount = 0;
+                pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
+            });
 
-        const annotations = {
-            median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
-        };
+            const annotations = {
+                median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+            };
 
-        // Render Chart to hidden canvas
-        new Chart(ctx, {
-            type: 'line',
-            data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
-            options: { 
-                animation: false, // Instant render
-                responsive: false, 
-                plugins: { 
-                    annotation: { annotations },
-                    legend: { display: false }
-                },
-                scales: {
-                    y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-                    x: { grid: { display: false } }
-                }
-            }
-        });
-        
-        return canvas.toDataURL('image/png', 1.0);
+            await new Promise(resolve => {
+                new Chart(ctx, {
+                    type: 'line',
+                    data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+                    options: { 
+                        animation: { onComplete: resolve }, 
+                        responsive: false, 
+                        plugins: { annotation: { annotations }, legend: { display: false } },
+                        scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                    }
+                });
+            });
+            
+            return canvas.toDataURL('image/png', 1.0);
+        } catch (e) {
+            console.error("Chart generation failed", e);
+            return null;
+        }
     }
 
     if (type === 'driver') {
-        // Generate Driver Diagram SVGs from data
-        const tempId = 'temp-mermaid-' + Date.now();
-        const el = document.createElement('div');
-        el.id = tempId;
-        el.style.position = 'absolute';
-        el.style.left = '-9999px'; // Hide off-screen
-        el.style.width = '1200px';
-        document.body.appendChild(el);
-        
-        const d = projectData.drivers;
-        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-        let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-        
-        if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
-        
-        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-        
         try {
-            const { svg: svgString } = await mermaid.render(tempId + 'svg', mCode);
+            const d = projectData.drivers;
+            if(!d || (!d.primary.length && !d.secondary.length)) return null;
+
+            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+            let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+            
+            if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
+            d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+            d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+            d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+
+            // Use a unique ID for the off-screen rendering
+            const tempId = 'temp-mermaid-' + Date.now();
+            
+            // Mermaid v10 returns an object { svg }
+            const { svg: svgString } = await mermaid.render(tempId, mCode);
+
+            // Create a temporary element to hold the SVG so we can read its dimensions
+            const el = document.createElement('div');
             el.innerHTML = svgString;
+            document.body.appendChild(el);
             const svg = el.querySelector('svg');
             
-            if (!svg) return null;
+            // CRITICAL FIX: SVG to Canvas requires explicit width/height in pixels
+            const viewBox = svg.getAttribute('viewBox').split(' ');
+            const srcWidth = parseFloat(viewBox[2]);
+            const srcHeight = parseFloat(viewBox[3]);
+            
+            // Scale up for high resolution
+            const scale = 2;
+            const width = srcWidth * scale;
+            const height = srcHeight * scale;
+            
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
 
             const svgData = new XMLSerializer().serializeToString(svg);
+            document.body.removeChild(el); // Clean up DOM
+
             const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
             const ctx = canvas.getContext('2d');
-            const img = new Image();
             
+            // Draw White Background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            const img = new Image();
             const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
             const url = URL.createObjectURL(svgBlob);
 
             return new Promise(resolve => {
                 img.onload = () => {
-                    canvas.width = img.width * 2; // 2x Scaling
-                    canvas.height = img.height * 2;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
                     URL.revokeObjectURL(url);
-                    document.body.removeChild(el); // Clean up
                     resolve(canvas.toDataURL('image/png'));
                 };
-                img.onerror = () => { document.body.removeChild(el); resolve(null); };
+                img.onerror = () => resolve(null);
                 img.src = url;
             });
+
         } catch (e) {
-            console.error("Mermaid Render Error", e);
-            if(el.parentNode) document.body.removeChild(el);
+            console.error("Driver Diagram generation failed", e);
             return null;
         }
     }
@@ -851,10 +873,20 @@ async function getVisualAsset(type) {
 
 // --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
 window.exportPPTX = async () => {
+    if (!projectData) { alert("Please load a project first."); return; }
+    
+    // Feedback to user
+    const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
+    const originalText = btnText.textContent;
+    btnText.textContent = "Generating...";
+    
     try {
-        if (!projectData) { alert("Please load a project first."); return; }
         const d = projectData;
         const pres = new PptxGenJS();
+        
+        // Load Assets
+        const driverImg = await getVisualAsset('driver');
+        const chartImg = await getVisualAsset('chart');
 
         // 1. Branding Constants
         const RCEM_NAVY = '2d2e83';
@@ -880,8 +912,8 @@ window.exportPPTX = async () => {
 
         // --- SLIDE 1: TITLE ---
         const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
-        s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
-        s1.addText(d.checklist.team || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+        s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
+        s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
         s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
 
         // --- SLIDE 2: THE PROBLEM ---
@@ -894,11 +926,10 @@ window.exportPPTX = async () => {
 
         // --- SLIDE 3: DRIVER DIAGRAM ---
         const s3 = addSlide('Driver Diagram (Strategy)');
-        const driverImg = await getVisualAsset('driver');
         if (driverImg) {
             s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
         } else {
-            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5 });
+            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
         }
 
         // --- SLIDE 4: INTERVENTIONS ---
@@ -908,21 +939,27 @@ window.exportPPTX = async () => {
             rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
         });
         
-        s4.addTable(rows, {
-            x: 0.5, y: 1.2, w: 9,
-            colW: [2, 3.5, 3.5],
-            border: { pt: 1, color: 'e2e8f0' },
-            fill: { color: 'F1F5F9' },
-            headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
-            fontSize: 10
-        });
+        if (rows.length > 1) {
+            s4.addTable(rows, {
+                x: 0.5, y: 1.2, w: 9,
+                colW: [2, 3.5, 3.5],
+                border: { pt: 1, color: 'e2e8f0' },
+                fill: { color: 'F1F5F9' },
+                headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
+                fontSize: 10
+            });
+        } else {
+             s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
+        }
 
         // --- SLIDE 5: RESULTS ---
         const s5 = addSlide('Results & Analysis');
-        const chartImg = await getVisualAsset('chart');
         if (chartImg) {
             s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+        } else {
+             s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
         }
+        
         s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
         s5.addText(d.checklist.results_text || "No analysis recorded.", { 
             x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
@@ -938,11 +975,14 @@ window.exportPPTX = async () => {
         s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
         s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
 
-        pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+        await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+        alert("PowerPoint downloaded successfully.");
 
     } catch (e) {
         console.error(e);
         alert("Error generating PowerPoint: " + e.message);
+    } finally {
+        btnText.textContent = originalText;
     }
 };
 
@@ -953,6 +993,8 @@ window.printPoster = async () => {
         const d = projectData;
         const container = document.getElementById('print-container');
         
+        alert("Preparing poster for print... this may take a moment.");
+
         // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
@@ -1029,7 +1071,8 @@ window.printPoster = async () => {
         `;
 
         lucide.createIcons();
-        setTimeout(() => { window.print(); }, 500);
+        // Allow DOM to settle before printing
+        setTimeout(() => { window.print(); }, 1000);
 
     } catch (e) {
         console.error(e);
