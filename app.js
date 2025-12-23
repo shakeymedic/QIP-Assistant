@@ -24,93 +24,64 @@ let projectData = null;
 let isDemoMode = false;
 let chartInstance = null;
 let unsubscribeProject = null;
-let toolMode = 'fishbone'; // [FIX] Initialized missing variable
+let toolMode = 'fishbone';
 
-// --- DEMO DATA ---
-const demoProject = {
-    meta: { title: "Improving Sepsis 6 Delivery in ED", created: new Date().toISOString() },
-    checklist: {
-        title: "Improving Sepsis 6 Delivery in ED",
-        lead: "Dr. A. Medic",
-        team: "Sr. B. Nurse (Band 7), Dr. C. Consultant (Sponsor), Mr. D. Pharmacist",
-        problem_desc: "Sepsis is a time-critical condition with high mortality. National data suggests every hour of delay in antibiotic administration increases mortality by 7.6%. \n\nLocal audit data (Oct-Dec 2024, n=50) revealed that only 45% of patients meeting 'Red Flag' sepsis criteria received the full Sepsis 6 bundle within 1 hour of arrival. The average time to antibiotics was 95 minutes. This represents a significant quality gap compared to the RCEM standard of 100%.",
-        evidence: "1. RCEM Clinical Standard for Sepsis (2023): '100% of patients with red flag sepsis should receive antibiotics within 1 hour.'\n2. NCEPOD 'Just Say Sepsis' Report (2015): Highlights early recognition as key failure point.\n3. NICE NG51: Mandates rapid delivery of care bundle.",
-        aim: "To increase the percentage of adult patients (age >18) with Red Flag Sepsis receiving the full Sepsis 6 bundle within 60 minutes of arrival from a baseline of 45% to 90% by 1st March 2025.",
-        outcome_measures: "Primary: % of Red Flag Sepsis patients receiving Sepsis 6 within 1h.",
-        process_measures: "1. Time from arrival to screening (minutes).\n2. % of notes with Sepsis Stamp completed.\n3. Availability of Sepsis Grab Bags in Resus (daily check).",
-        balance_measures: "1. Time to initial assessment for non-sepsis patients (displacement effect).\n2. Rate of inappropriate antibiotic prescribing (reviews by Micro).",
-        ethics: "Registered as a Quality Improvement Project with the Trust Audit Department (Ref: QIP-25-101). No patient identifiable data collected on this platform. Data is aggregate only.",
-        learning: "The main barrier identified was 'Cognitive Load' and 'Access to Equipment'. Staff knew *what* to do, but gathering the equipment took too long (avg 12 mins). Creating pre-filled 'Grab Bags' reduced this to 2 mins.\n\nKey Lesson: Make the right thing the easiest thing to do.",
-        sustain: "Sustainability relies on embedding the process. The 'Grab Bags' are now part of the daily HCA stock check. The Sepsis screening prompt has been added to the electronic triage system (Cerner) to replace the paper stamp.",
-        ppi: "We held a focus group with the Patient Liaison Group. They reviewed the patient information leaflet and suggested changing 'Lactate' to 'Blood Acid Level' for clarity, which we adopted.",
-        results_text: "The Run Chart shows a clear improvement. \n\nBaseline (Points 1-6): Performance was variable with a median of 45%.\n\nIntervention 1 (Stamps): Resulted in a small increase but no sustained shift.\n\nIntervention 2 (Grab Bags): This created a 'Step Change'. We observe a run of 6 consecutive points above the median, indicating a statistically significant shift. The new process median is approx 85%."
-    },
-    drivers: {
-        primary: ["Early Identification", "Rapid Equipment Access", "Staff Culture & Empowerment"],
-        secondary: ["Reliable Triage Screening", "Availability of Antibiotics/Fluids", "Nurse Prescribing (PGD)", "Feedback to Staff"],
-        changes: ["Sepsis Stamp in Notes", "Pre-filled 'Grab Bags'", "Sepsis Trolley in Majors", "Weekly Data Dashboard in Coffee Room"]
-    },
-    fishbone: { categories: [{ id: 1, text: "People", causes: ["Junior doctors rotating often", "Fear of prescribing wrong dose", "Nurses not empowered to cannulate"] }, { id: 2, text: "Process", causes: ["Screening tool buried in notes", "Wait for blood results before Abx", "No PGD for fluids"] }, { id: 3, text: "Equipment", causes: ["Fluids locked in different room", "Blood culture bottles out of stock", "No dedicated trolley"] }, { id: 4, text: "Environment", causes: ["Overcrowding in ED", "Lack of cubicle space", "IT system slow"] }] },
-    process: ["Patient Arrives", "Triage Nurse Screens", "Positive Flag?", "Doctor Bleeped", "Cannulation & Cultures", "Antibiotics Prescribed", "Antibiotics Administered"],
-    pdsa: [
-        { id: "1", title: "Cycle 1: Sepsis Stamp", plan: "Test if a visual prompt in notes increases screening. \nWho: Triage Nurses. \nWhen: 1 week.", do: "Rubber stamp used on all notes. \nProblem: Ink pad dried out on Day 3.", study: "Data showed screening rose from 40% to 60%, but fell back when ink ran out. Staff liked the prompt but hated the mess.", act: "ABANDON stamp. Move to stickers or digital prompt." },
-        { id: "2", title: "Cycle 2: Sepsis Grab Bags", plan: "Reduce time looking for kit. \nWho: Charge Nurse to stock. \nWhat: Bag containing blood bottles, cannula, giving set, saline.", do: "10 bags created and placed in Resus. Used for 2 weeks.", study: "Time to cannulation dropped by 10 mins. Staff feedback excellent: 'Saved my life during a busy shift'.", act: "ADOPT. Roll out to Majors and Triage." },
-        { id: "3", title: "Cycle 3: Digital Screen", plan: "Embed screening in IT system.", do: "IT dept updated triage form.", study: "Screening hit 95%. Hard stop added.", act: "SUSTAIN. Standard practice." }
-    ],
-    chartData: [
-        { date: "2025-01-01", value: 45, type: "outcome" }, { date: "2025-01-02", value: 42, type: "outcome" },
-        { date: "2025-01-03", value: 48, type: "outcome" }, { date: "2025-01-04", value: 46, type: "outcome" },
-        { date: "2025-01-05", value: 50, type: "outcome" }, { date: "2025-01-06", value: 45, type: "outcome" },
-        { date: "2025-01-07", value: 65, type: "outcome", note: "PDSA 1: Stamp" },
-        { date: "2025-01-08", value: 68, type: "outcome" }, { date: "2025-01-09", value: 70, type: "outcome" },
-        { date: "2025-01-14", value: 82, type: "outcome", note: "PDSA 2: Bags" },
-        { date: "2025-01-15", value: 85, type: "outcome" }, { date: "2025-01-16", value: 88, type: "outcome" },
-        { date: "2025-01-17", value: 89, type: "outcome" }, { date: "2025-01-18", value: 92, type: "outcome" },
-        { date: "2025-01-19", value: 86, type: "outcome" }
-    ],
-    gantt: [
-        { id: "1", name: "Project Setup & Registration", start: "2024-12-01", end: "2024-12-10" },
-        { id: "2", name: "Baseline Audit (n=50)", start: "2024-12-11", end: "2024-12-31" },
-        { id: "3", name: "Driver Diagram Workshop", start: "2025-01-02", end: "2025-01-03" },
-        { id: "4", name: "PDSA 1: Stamps", start: "2025-01-05", end: "2025-01-12" },
-        { id: "5", name: "PDSA 2: Grab Bags", start: "2025-01-14", end: "2025-01-28" },
-        { id: "6", name: "Sustainability Planning", start: "2025-02-01", end: "2025-02-14" },
-        { id: "7", name: "Final Report & Poster", start: "2025-02-15", end: "2025-03-01" }
-    ],
-    stakeholders: [
-        { name: "Consultants", power: 90, interest: 80 },
-        { name: "Junior Doctors", power: 30, interest: 70 },
-        { name: "IT Dept", power: 80, interest: 20 },
-        { name: "Nurses", power: 60, interest: 90 }
-    ]
-};
-
+// --- EXPERT COMMITTEE: OFF-THE-SHELF TEMPLATES ---
 const qipTemplates = {
     pain: {
         meta: { title: "Analgesia in Majors (RCEM Audit)" },
         checklist: {
             problem_desc: "Delays in analgesia lead to poor patient experience and physiological stress. Current performance is below the RCEM standard (50% within 20 mins).",
             evidence: "RCEM Pain in Adults Guidelines (2023).",
-            aim: "To increase % of patients with severe pain receiving analgesia within 20 mins from X% to 90% by [Date].",
+            aim: "To increase the % of patients with severe pain receiving analgesia within 20 mins from X% to 90% by [Date].",
             outcome_measures: "% Time to Analgesia < 20 mins",
             process_measures: "Time to Triage; Pain Score recorded at Triage",
             drivers: { primary: ["Identification", "Prescribing", "Administration"], secondary: ["Pain Scoring", "Nurse PGDs", "Drug Availability"], changes: ["Mandatory Pain Score at Triage", "Intranasal Fentanyl PGD"] }
         }
     },
-    hba1c: {
-        meta: { title: "Diabetic Ketoacidosis Management" },
+    sepsis: {
+        meta: { title: "Sepsis 6 Compliance" },
         checklist: {
-            problem_desc: "DKA pathways are complex and often delayed. NCEPOD data shows delay in fixed rate insulin increases LoS.",
-            evidence: "JBDS Guidelines for DKA Management.",
-            aim: "To reduce time to fixed rate insulin by 30 mins by [Date].",
-            drivers: { primary: ["Diagnosis", "Treatment bundle"], secondary: ["VBG availability", "Fluids prescribed"], changes: ["DKA Box in Resus"] }
+            problem_desc: "Sepsis mortality increases by 7.6% for every hour delay in antibiotics. Current compliance with the 'Sepsis 6' bundle in our ED is variable.",
+            evidence: "RCEM Sepsis Standards & NICE NG51.",
+            aim: "To increase the % of Red Flag Sepsis patients receiving antibiotics within 60 mins from X% to 95% by [Date].",
+            drivers: { 
+                primary: ["Recognition", "Equipment", "Culture"], 
+                secondary: ["Screening Tool Use", "Grab Bags", "Feedback loops"], 
+                changes: ["Sepsis Trolley in Resus", "Automated Triage Prompt"] 
+            }
+        }
+    },
+    falls: {
+        meta: { title: "Falls Assessment in Elderly" },
+        checklist: {
+            problem_desc: "Elderly patients with mechanical falls are often not screened for lying/standing BP, leading to missed syncope diagnoses.",
+            evidence: "NICE CG161 Falls Assessment.",
+            aim: "To increase the completion of lying/standing BP in patients >65 presenting with falls from X% to 80% by [Date].",
+            drivers: { primary: ["Staff Education", "Equipment", "Documentation"], secondary: ["Lying/Standing Protocol", "Orthostatic BP Machine", "Cerner PowerForm"], changes: ["Poster in Majors", "Dedicated BP machine"] }
+        }
+    },
+    vte: {
+        meta: { title: "VTE Risk Assessment" },
+        checklist: {
+            problem_desc: "Hospital acquired thrombosis is preventable. VTE risk assessment is mandatory but often missed in busy ED flow.",
+            aim: "To increase VTE risk assessment completion for admitted patients from X% to 95% by [Date].",
+            drivers: { primary: ["Prompting", "Ease of Use"], secondary: ["Digital Reminder", "Paper Chart Integration"], changes: ["Doctor sticker in notes"] }
+        }
+    },
+    flow: {
+        meta: { title: "Ambulance Handover Delays" },
+        checklist: {
+            problem_desc: "Ambulance crews are delayed in the corridor, reducing community availability.",
+            aim: "To decrease average ambulance handover time from X mins to 15 mins by [Date].",
+            drivers: { primary: ["Space", "Staffing", "Process"], secondary: ["Fit-to-sit zone", "Cohorting", "Rapid Triage"], changes: ["Halo Nurse Role", "Chairs in corridor"] }
         }
     }
 };
 
 const emptyProject = {
     meta: { title: "New Project", created: new Date().toISOString() },
-    checklist: { results_text: "" },
+    checklist: { results_text: "", aim: "" },
     drivers: { primary: [], secondary: [], changes: [] },
     fishbone: { categories: [{ id: 1, text: "People", causes: [] }, { id: 2, text: "Methods", causes: [] }, { id: 3, text: "Environment", causes: [] }, { id: 4, text: "Equipment", causes: [] }] },
     process: ["Start", "End"],
@@ -154,6 +125,7 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
+    // Demo Mode handling
     if (isDemoMode) {
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-2 border-rcem-purple relative overflow-hidden cursor-pointer hover:shadow-md transition-all" onclick="window.openDemoProject()">
@@ -199,21 +171,18 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
-    const choice = prompt("Choose a type:\n1. Blank Project\n2. Analgesia (Pain)\n3. DKA / Diabetes\n\nEnter Number:", "1");
+    // Expert Committee: Enhanced Selection
+    const choice = prompt("Choose a template:\n1. Blank Project\n2. Sepsis (Sepsis 6)\n3. Pain (Analgesia)\n4. Falls (Elderly)\n5. VTE Assessment\n6. Ambulance Flow\n\nEnter Number:", "1");
     if (!choice) return;
 
     let template = JSON.parse(JSON.stringify(emptyProject));
+    const map = { '2':'sepsis', '3':'pain', '4':'falls', '5':'vte', '6':'flow' };
     
-    if (choice === "2") {
-        Object.assign(template.meta, qipTemplates.pain.meta);
-        Object.assign(template.checklist, qipTemplates.pain.checklist);
-        template.drivers = qipTemplates.pain.checklist.drivers;
-        if(qipTemplates.pain.checklist.changes) template.drivers.changes = qipTemplates.pain.checklist.changes;
-    } else if (choice === "3") {
-        Object.assign(template.meta, qipTemplates.hba1c.meta);
-        Object.assign(template.checklist, qipTemplates.hba1c.checklist);
-        template.drivers = qipTemplates.hba1c.checklist.drivers;
-        if(qipTemplates.hba1c.checklist.changes) template.drivers.changes = qipTemplates.hba1c.checklist.changes;
+    if (map[choice]) {
+        const t = qipTemplates[map[choice]];
+        Object.assign(template.meta, t.meta);
+        Object.assign(template.checklist, t.checklist);
+        template.drivers = t.checklist.drivers || template.drivers;
     }
 
     const title = prompt("Project Title:", template.meta.title || "My New QIP");
@@ -240,13 +209,12 @@ window.openProject = (id) => {
     unsubscribeProject = onSnapshot(doc(db, `users/${currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             projectData = doc.data();
-            // Schema integrity checks
+            // Schema patching
             if(!projectData.checklist) projectData.checklist = {};
             if(!projectData.drivers) projectData.drivers = {primary:[], secondary:[], changes:[]};
             if(!projectData.fishbone) projectData.fishbone = emptyProject.fishbone;
-            if(!projectData.process) projectData.process = ["Start", "End"];
             if(!projectData.pdsa) projectData.pdsa = [];
-            if(!projectData.gantt) projectData.gantt = [];
+            if(!projectData.chartData) projectData.chartData = [];
             if(!projectData.stakeholders) projectData.stakeholders = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
@@ -259,7 +227,18 @@ window.openProject = (id) => {
 };
 
 window.openDemoProject = () => {
-    projectData = JSON.parse(JSON.stringify(demoProject));
+    // Basic Demo Data structure
+    projectData = {
+        meta: { title: "Demo Project" },
+        checklist: { aim: "To increase sepsis screening to 95% by 2025.", problem_desc: "Demo problem.", drivers: {primary:[], secondary:[], changes:[]} },
+        drivers: { primary: ["Staff"], secondary: ["Training"], changes: ["Posters"] },
+        chartData: [{date: "2024-01-01", value: 50}, {date: "2024-01-02", value: 55}],
+        pdsa: [],
+        fishbone: emptyProject.fishbone,
+        process: ["Start", "End"],
+        stakeholders: [],
+        gantt: []
+    };
     document.getElementById('project-header-title').textContent = "Demo Project (Read Only)";
     document.getElementById('top-bar').classList.remove('hidden');
     renderAll();
@@ -293,14 +272,14 @@ window.router = (view) => {
     if (view === 'full') renderFullProject();
     
     lucide.createIcons();
+    
+    // Expert Committee: First-Time Tour trigger logic placeholder
+    // In a real deployment, we would check localStorage here.
+    // if(!localStorage.getItem(`tour-${view}`)) window.startTour();
 };
 
-// --- DATA SAVING ---
 async function saveData() {
-    if (isDemoMode) {
-        renderAll();
-        return;
-    }
+    if (isDemoMode) { renderAll(); return; }
     if (!currentProjectId) return;
     await setDoc(doc(db, `users/${currentUser.uid}/projects`, currentProjectId), projectData, { merge: true });
     
@@ -345,60 +324,70 @@ function renderAll() {
     if(currentView === 'full') renderFullProject();
 }
 
-// --- 1. THE QI COACH (Logic Engine) ---
+// --- 1. THE QI COACH (Enhanced) ---
 function renderCoach() {
     if(!projectData) return;
     const d = projectData;
     const banner = document.getElementById('qi-coach-banner');
-    const title = document.getElementById('coach-title');
-    const msg = document.getElementById('coach-msg');
-    const btn = document.getElementById('coach-btn');
     
-    // Logic Tree
-    if (!d.checklist.aim) {
-        title.textContent = "Step 1: Define your Aim";
-        msg.textContent = "Every QIP starts with a clear goal. Use the SMART wizard to define what you want to achieve.";
-        btn.innerHTML = 'Build SMART Aim <i data-lucide="arrow-right" class="w-4 h-4"></i>';
-        btn.onclick = () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); };
-        banner.className = "bg-gradient-to-r from-purple-600 to-indigo-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500";
-    } else if (d.drivers.secondary.length === 0) {
-        title.textContent = "Step 2: Diagnose the Issue";
-        msg.textContent = "You have an aim, but how will you get there? Create a Driver Diagram to map your strategy.";
-        btn.innerHTML = 'Go to Drivers <i data-lucide="arrow-right" class="w-4 h-4"></i>';
-        btn.onclick = () => window.router('tools');
-        banner.className = "bg-gradient-to-r from-blue-600 to-cyan-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500";
-    } else if (d.chartData.length < 5) {
-        title.textContent = "Step 3: Establish Baseline";
-        msg.textContent = "Before changing anything, measure the current performance. Collect at least 10-15 data points for an SPC baseline.";
-        btn.innerHTML = 'Add Data <i data-lucide="arrow-right" class="w-4 h-4"></i>';
-        btn.onclick = () => window.router('data');
-        banner.className = "bg-gradient-to-r from-amber-500 to-orange-600 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500";
-    } else if (d.pdsa.length === 0) {
-        title.textContent = "Step 4: Time to Act";
-        msg.textContent = "You have a baseline. Now pick a Change Idea from your Driver Diagram and run a PDSA cycle.";
-        btn.innerHTML = 'Start PDSA <i data-lucide="arrow-right" class="w-4 h-4"></i>';
-        btn.onclick = () => window.router('pdsa');
-        banner.className = "bg-gradient-to-r from-emerald-600 to-green-700 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500";
-    } else {
-        title.textContent = "Project Active";
-        msg.textContent = "Great work! Continue collecting data to show sustained improvement. Consider your sustainability plan.";
-        btn.innerHTML = 'Review Data <i data-lucide="arrow-right" class="w-4 h-4"></i>';
-        btn.onclick = () => window.router('data');
-        banner.className = "bg-gradient-to-r from-slate-700 to-slate-800 rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500";
-    }
-    lucide.createIcons();
+    // Logic Tree with "Quality Assurance"
+    let status = { t: "", m: "", b: "", c: "" };
 
-    // Dashboard Stats
-    const totalFields = 12; // Approximation of key fields
-    const filledFields = Object.values(d.checklist).filter(v=>v).length;
-    document.getElementById('stat-progress').textContent = Math.min(100, Math.round((filledFields / totalFields)*100)) + "%";
+    const aimQuality = checkAimQuality(d.checklist.aim);
+    const badgeEl = document.getElementById('aim-quality-badge');
+    if(badgeEl) {
+        badgeEl.innerHTML = aimQuality.valid 
+        ? `<span class="text-emerald-600 font-bold flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Strong Aim</span>` 
+        : `<span class="text-amber-600 font-bold flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Weak Aim: ${aimQuality.msg}</span>`;
+    }
+
+    if (!d.checklist.aim) {
+        status = { t: "Step 1: Define your Aim", m: "A project without an aim is just a hobby. Use the SMART wizard to define exactly what you want to achieve.", b: "Build SMART Aim", a: () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); }, c: "from-purple-600 to-indigo-700" };
+    } else if (!aimQuality.valid) {
+        status = { t: "Refine your Aim", m: `Your aim is missing a key element: ${aimQuality.msg}. Click 'Edit' to make it SMART.`, b: "Fix Aim", a: () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); }, c: "from-amber-600 to-orange-700" };
+    } else if (d.drivers.secondary.length === 0) {
+        status = { t: "Step 2: Diagnose the Issue", m: "You have a target. Now use the Driver Diagram to map out *how* you will hit it.", b: "Go to Drivers", a: () => window.router('tools'), c: "from-blue-600 to-cyan-700" };
+    } else if (d.chartData.length < 5) {
+        status = { t: "Step 3: Establish Baseline", m: "Collect at least 5-10 data points before starting changes to understand your 'normal'.", b: "Add Data", a: () => window.router('data'), c: "from-amber-500 to-orange-600" };
+    } else if (d.pdsa.length === 0) {
+        status = { t: "Step 4: Time to Act", m: "You have a baseline. Pick a 'Change Idea' from your Driver Diagram and run a PDSA cycle.", b: "Start PDSA", a: () => window.router('pdsa'), c: "from-emerald-600 to-green-700" };
+    } else {
+        status = { t: "Project Active", m: "Keep measuring. Look for 'Shifts' (6 points above median) in your data to prove improvement.", b: "Review Data", a: () => window.router('data'), c: "from-slate-700 to-slate-800" };
+    }
+
+    banner.className = `bg-gradient-to-r ${status.c} shadow-lg relative overflow-hidden transition-all duration-500`;
+    banner.innerHTML = `
+        <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-32 h-32"></i></div>
+        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">QI Coach</span>
+                    <h3 class="font-bold text-lg">${status.t}</h3>
+                </div>
+                <p class="text-white/90 text-sm max-w-2xl">${status.m}</p>
+            </div>
+            <button id="coach-action-btn" class="bg-white text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-slate-50 transition-colors whitespace-nowrap flex items-center gap-2">${status.b} <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+        </div>
+    `;
+    document.getElementById('coach-action-btn').onclick = status.a;
+    lucide.createIcons();
+    
+    // Stats update
     document.getElementById('stat-pdsa').textContent = d.pdsa.length;
     document.getElementById('stat-data').textContent = d.chartData.length;
     document.getElementById('stat-drivers').textContent = d.drivers.changes.length;
     document.getElementById('dash-aim-display').textContent = d.checklist.aim || "No aim defined yet.";
 }
 
-// --- 2. CHECKLIST & WIZARD ---
+function checkAimQuality(aim) {
+    if (!aim) return { valid: false, msg: "No aim found" };
+    const lower = aim.toLowerCase();
+    if (!/\d/.test(aim)) return { valid: false, msg: "No measurable number (Target %)" };
+    if (!lower.includes('by') && !/\d{2,4}/.test(aim)) return { valid: false, msg: "No date/deadline" };
+    return { valid: true };
+}
+
+// --- 2. CHECKLIST & SMART WIZARD ---
 function renderChecklist() {
     if(!projectData) return;
     const list = document.getElementById('checklist-container');
@@ -444,47 +433,26 @@ function renderChecklist() {
         </div>
     `).join('');
     lucide.createIcons();
+    
+    // Updated saveSmartAim to read from Mad Libs inputs
+    window.saveSmartAim = () => {
+        const v = document.getElementById('sa-verb').value;
+        const m = document.getElementById('sa-metric').value;
+        const p = document.getElementById('sa-pop').value;
+        const b = document.getElementById('sa-base').value;
+        const t = document.getElementById('sa-target').value;
+        const d = document.getElementById('sa-date').value;
+        
+        const sentence = `To ${v} the ${m} for ${p} from ${b} to ${t} by ${d}.`;
+        projectData.checklist.aim = sentence;
+        saveData();
+        document.getElementById('smart-modal').classList.add('hidden');
+        renderChecklist();
+        renderCoach();
+    };
 }
 
-// SMART Wizard Logic
-const smartInputs = ['sa-verb', 'sa-metric', 'sa-pop', 'sa-val', 'sa-date'];
-smartInputs.forEach(id => document.getElementById(id).addEventListener('input', updateSmartPreview));
-function updateSmartPreview() {
-    const txt = `To ${document.getElementById('sa-verb').value} ${document.getElementById('sa-metric').value || '...'} for ${document.getElementById('sa-pop').value || '...'} ${document.getElementById('sa-val').value || '...'} by ${document.getElementById('sa-date').value || '...'}.`;
-    document.getElementById('sa-preview').textContent = txt;
-}
-window.saveSmartAim = () => {
-    projectData.checklist.aim = document.getElementById('sa-preview').textContent;
-    saveData();
-    document.getElementById('smart-modal').classList.add('hidden');
-    renderChecklist();
-};
-
-// --- 3. DIAGRAMS & TOOLS ---
-const toolInfo = {
-    fishbone: {
-        title: "Fishbone (Ishikawa) Diagram",
-        subtitle: "Root Cause Analysis",
-        desc: "A Fishbone diagram helps you explore the underlying causes of a problem, rather than just the symptoms. It structures your brainstorming into categories (People, Process, Equipment, Environment).",
-        how: "Start with the problem on the right. Ask 'Why is this happening?' for each category. Keep asking 'Why?' (The 5 Whys) until you reach a root cause that you can actually change.",
-        tip: "Useful at the very start of a project before you decide on solutions."
-    },
-    driver: {
-        title: "Driver Diagram",
-        subtitle: "Theory of Change",
-        desc: "The Driver Diagram connects your Aim to your Actions. It visualises your strategy on one page.",
-        how: "<b>Primary Drivers:</b> Big topics that influence the aim directly (e.g. 'Staff Knowledge').<br><b>Secondary Drivers:</b> Specific components of the primary drivers (e.g. 'Training sessions').<br><b>Change Ideas:</b> The specific interventions you will test (e.g. 'Weekly simulation training').",
-        tip: "This should be your project's roadmap."
-    },
-    process: {
-        title: "Process Map",
-        subtitle: "Workflow Visualisation",
-        desc: "A Process Map lays out the steps of the current patient journey or workflow. It highlights bottlenecks, duplication, or safety gaps.",
-        how: "Map the 'As-Is' process (how it actually happens, not how it's written in policy). Walk the floor and observe.",
-        tip: "Look for steps that add no value and try to remove them."
-    }
-};
-
+// --- 3. TOOLS (5 WHYS & FISHBONE) ---
 window.setToolMode = (m) => {
     toolMode = m;
     document.querySelectorAll('.tool-tab').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-rcem-purple'));
@@ -493,14 +461,15 @@ window.setToolMode = (m) => {
 };
 
 async function renderTools() {
-    const info = toolInfo[toolMode];
+    const toolInfo = {
+        fishbone: { title: "Fishbone", desc: "Root Cause Analysis", how: "Ask 'Why?' 5 times." },
+        driver: { title: "Driver Diagram", desc: "Theory of Change", how: "Primary Drivers -> Secondary Drivers -> Changes" },
+        process: { title: "Process Map", desc: "Workflow", how: "Map the patient journey step-by-step." }
+    };
+    
     document.getElementById('tool-explainer').innerHTML = `
-        <h2 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> ${info.title} <span class="text-xs bg-indigo-200 text-indigo-800 px-2 py-0.5 rounded uppercase">${info.subtitle}</span></h2>
-        <p class="text-indigo-800 mb-3 text-sm leading-relaxed">${info.desc}</p>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-            <div class="bg-white p-3 rounded border border-indigo-100"><strong class="block text-indigo-600 mb-1">How to make it:</strong> ${info.how}</div>
-            <div class="bg-white p-3 rounded border border-indigo-100"><strong class="block text-indigo-600 mb-1">Top Tip:</strong> ${info.tip}</div>
-        </div>
+        <h2 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> ${toolInfo[toolMode].title}</h2>
+        <p class="text-indigo-800 mb-3 text-sm">${toolInfo[toolMode].desc} - ${toolInfo[toolMode].how}</p>
     `;
     
     if(!projectData) return;
@@ -510,117 +479,110 @@ async function renderTools() {
     
     let mCode = '';
     let ctrls = '';
-    let isEmpty = false;
-
-    // Helper to sanitize text for Mermaid
-    const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-
+    
     if (toolMode === 'fishbone') {
         const cats = projectData.fishbone.categories;
-        const titleSafe = clean(projectData.meta.title) || "Problem";
+        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
         
-        // [FIX] Improved indentation (2 spaces for level 1, 4 spaces for level 2)
-        mCode = `mindmap\n  root(("${titleSafe}"))\n` + 
-            cats.map(c => `    ${clean(c.text)}\n` + 
-                c.causes.map(x => `      ${clean(x)}`).join('\n')
-            ).join('\n');
+        mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
+            cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
         
-        const colors = ['bg-rose-100 text-rose-800 border-rose-200', 'bg-blue-100 text-blue-800 border-blue-200', 'bg-emerald-100 text-emerald-800 border-emerald-200', 'bg-amber-100 text-amber-800 border-amber-200'];
-        ctrls = cats.map((c, i) => `
-            <button onclick="window.addCause(${c.id})" class="whitespace-nowrap px-4 py-2 ${colors[i%4]} border rounded-lg text-sm font-bold shadow-sm hover:brightness-95 flex items-center gap-2">
+        ctrls = cats.map(c => `
+            <button onclick="window.addCauseWithWhys(${c.id})" class="whitespace-nowrap px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-200 flex items-center gap-2">
                 <i data-lucide="plus" class="w-4 h-4"></i> ${c.text}
             </button>
         `).join('');
-        isEmpty = cats.every(c => c.causes.length === 0);
+
+        if (cats.every(c => c.causes.length === 0)) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
 
     } else if (toolMode === 'driver') {
         const d = projectData.drivers;
+        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+        
         mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
         d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
         d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
         d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
         
-        ctrls = `
-            <button onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg text-sm font-bold border border-emerald-200 shadow-sm flex items-center gap-2 hover:bg-emerald-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Primary Driver</button>
-            <button onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded-lg text-sm font-bold border border-blue-200 shadow-sm flex items-center gap-2 hover:bg-blue-200"><i data-lucide="plus-circle" class="w-4 h-4"></i> Secondary Driver</button>
-            <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded-lg text-sm font-bold border border-purple-200 shadow-sm flex items-center gap-2 hover:bg-purple-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Change Idea</button>
-        `;
-        isEmpty = d.primary.length === 0 && d.secondary.length === 0 && d.changes.length === 0;
+        ctrls = `<button onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded">Add Primary</button> <button onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded">Add Secondary</button> <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded">Add Change Idea</button>`;
+        
+        if (d.primary.length === 0) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
 
     } else if (toolMode === 'process') {
-        const p = projectData.process;
-        mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
-        
-        ctrls = `
-            <button onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-bold shadow-sm hover:bg-slate-50 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4 text-slate-600"></i> Add Step</button>
-            <div class="w-px h-6 bg-slate-300 mx-2"></div>
-            <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500 text-sm font-medium hover:bg-red-50 rounded-lg flex items-center gap-2"><i data-lucide="rotate-ccw" class="w-4 h-4"></i> Reset</button>
-        `;
-        isEmpty = p.length <= 2;
+         const p = projectData.process;
+         const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+         mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
+         ctrls = `<button onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded">Add Step</button> <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500">Reset</button>`;
+         ghost.classList.add('hidden');
     }
 
-    if (canvas.dataset.code !== mCode) {
-        canvas.innerHTML = `<div class="mermaid opacity-0 transition-opacity duration-300" id="mermaid-render">${mCode}</div>`;
-        canvas.dataset.code = mCode;
-        try { 
-            await mermaid.run(); 
-            document.getElementById('mermaid-render').classList.remove('opacity-0');
-        } catch(e) { console.error("Mermaid Render Error:", e); }
-    }
-    
+    canvas.innerHTML = `<div class="mermaid">${mCode}</div>`;
     controls.innerHTML = ctrls;
-    if(isEmpty) ghost.classList.remove('hidden');
-    else ghost.classList.add('hidden');
-    
+    try { await mermaid.run(); } catch(e) {}
     lucide.createIcons();
-    setupPanZoom();
 }
 
-window.addCause = (id) => { const v=prompt("Cause:"); if(v){projectData.fishbone.categories.find(c=>c.id===id).causes.push(v); saveData(); renderTools();} }
+// EXPERT COMMITTEE: 5 Whys Interaction
+window.addCauseWithWhys = (id) => {
+    let cause = prompt("What is the cause?");
+    if (!cause) return;
+    
+    // The "5 Whys" Drill Down
+    if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
+        let root = cause;
+        for (let i = 1; i <= 3; i++) { // Limit to 3 levels for UI sanity
+            let deeper = prompt(`Why does "${root}" happen?`);
+            if (!deeper) break;
+            root = deeper;
+        }
+        if (root !== cause) {
+            if(confirm(`The root cause seems to be: "${root}". \n\nAdd "${root}" to the diagram instead of "${cause}"?`)) {
+                cause = root;
+            }
+        }
+    }
+    
+    projectData.fishbone.categories.find(c=>c.id===id).causes.push(cause);
+    saveData();
+    renderTools();
+};
+
 window.addDriver = (t) => { const v=prompt("Driver:"); if(v){projectData.drivers[t].push(v); saveData(); renderTools();} }
 window.addStep = () => { const v=prompt("Step Description:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
 window.resetProcess = () => { if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
 
-let scale = 1.3, pX = 0, pY = 0;
-function setupPanZoom() {
-    const wrap = document.getElementById('diagram-wrapper');
-    const canvas = document.getElementById('diagram-canvas');
-    let isDown = false, startX, startY;
+// --- 4. STAKEHOLDERS (SCRIPTS) ---
+const stakeholderScripts = {
+    highPowerLowInterest: { t: "Keep Satisfied", s: "Focus on Risk: 'We need your support to ensure this doesn't impact flow/safety. It won't require much of your time, but your sign-off is crucial.'" },
+    highPowerHighInterest: { t: "Manage Closely", s: "Partnership: 'You are key to this success. Can we meet weekly? I want to build this around your vision for the department.'" },
+    lowPowerHighInterest:  { t: "Keep Informed", s: "Empowerment: 'I know you care about this. Can you be our champion on the shop floor? We need your eyes and ears.'" },
+    lowPowerLowInterest:   { t: "Monitor", s: "Minimal Effort: 'Just an FYI, we are tweaking this process. No action needed from you right now.'" }
+};
 
-    wrap.onmousedown = (e) => { isDown = true; startX = e.clientX - pX; startY = e.clientY - pY; wrap.classList.add('cursor-grabbing'); };
-    window.onmouseup = () => { isDown = false; wrap.classList.remove('cursor-grabbing'); };
-    wrap.onmousemove = (e) => { if(!isDown) return; e.preventDefault(); pX = e.clientX - startX; pY = e.clientY - startY; updateTransform(); };
-    wrap.onwheel = (e) => { e.preventDefault(); scale += e.deltaY * -0.001; scale = Math.min(Math.max(.5, scale), 4); updateTransform(); };
-    updateTransform();
-}
-function updateTransform() { document.getElementById('diagram-canvas').style.transform = `translate(${pX}px, ${pY}px) scale(${scale})`; }
-window.resetZoom = () => { scale=1.3; pX=0; pY=0; updateTransform(); };
-window.zoomIn = () => { scale = Math.min(scale + 0.2, 4); updateTransform(); };
-window.zoomOut = () => { scale = Math.max(scale - 0.2, 0.5); updateTransform(); };
-
-// --- STAKEHOLDERS LOGIC ---
 function renderStakeholders() {
     if (!projectData) return;
     const container = document.getElementById('stakeholder-canvas');
     container.innerHTML = '';
     
     projectData.stakeholders.forEach((s, index) => {
-        const bottom = s.power; 
-        const left = s.interest;
-        
         const el = document.createElement('div');
-        el.className = 'absolute transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-slate-600 rounded-full px-3 py-1 text-xs font-bold shadow-lg cursor-grab active:cursor-grabbing hover:scale-110 transition-transform z-30 flex items-center gap-1';
-        el.style.bottom = `${bottom}%`;
-        el.style.left = `${left}%`;
+        el.className = 'absolute transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-slate-600 rounded-full px-3 py-1 text-xs font-bold shadow-lg cursor-grab z-30 flex items-center gap-1';
+        el.style.bottom = `${s.power}%`;
+        el.style.left = `${s.interest}%`;
         el.innerHTML = `<span class="whitespace-nowrap">${s.name}</span>`;
         
-        el.oncontextmenu = (e) => {
-            e.preventDefault();
-            if(confirm(`Remove ${s.name}?`)) {
-                projectData.stakeholders.splice(index, 1);
-                saveData();
-                renderStakeholders();
-            }
+        // Expert Committee: Click to see Script
+        el.onclick = () => {
+            let type = "";
+            if (s.power > 50 && s.interest > 50) type = "highPowerHighInterest";
+            else if (s.power > 50) type = "highPowerLowInterest";
+            else if (s.interest > 50) type = "lowPowerHighInterest";
+            else type = "lowPowerLowInterest";
+            
+            const script = stakeholderScripts[type];
+            document.getElementById('script-type').innerText = `${s.name} (${script.t})`;
+            document.getElementById('script-content').innerText = script.s;
+            document.getElementById('stakeholder-script').classList.remove('translate-y-full');
         };
 
         el.onmousedown = (e) => dragStakeholder(e, index);
@@ -635,16 +597,13 @@ function dragStakeholder(e, index) {
     
     function onMouseMove(moveEvent) {
         let x = moveEvent.clientX - rect.left;
-        let y = rect.bottom - moveEvent.clientY; // Invert Y because bottom is 0%
+        let y = rect.bottom - moveEvent.clientY; 
         
         x = Math.max(0, Math.min(x, rect.width));
         y = Math.max(0, Math.min(y, rect.height));
         
-        const xPct = (x / rect.width) * 100;
-        const yPct = (y / rect.height) * 100;
-        
-        projectData.stakeholders[index].interest = xPct;
-        projectData.stakeholders[index].power = yPct;
+        projectData.stakeholders[index].interest = (x / rect.width) * 100;
+        projectData.stakeholders[index].power = (y / rect.height) * 100;
         renderStakeholders();
     }
     
@@ -657,9 +616,8 @@ function dragStakeholder(e, index) {
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
 }
-
 window.addStakeholder = () => {
-    const name = prompt("Stakeholder Name / Group (e.g. 'Senior Nurses'):");
+    const name = prompt("Stakeholder Name:");
     if(!name) return;
     if(!projectData.stakeholders) projectData.stakeholders = [];
     projectData.stakeholders.push({ name: name, power: 50, interest: 50 });
@@ -667,46 +625,58 @@ window.addStakeholder = () => {
     renderStakeholders();
 };
 
-// --- 4. CHARTING & SPC LOGIC ---
+
+// --- 5. CHART (RIGOROUS SPC) ---
 function renderChart() {
     if(!projectData) return;
     const ctx = document.getElementById('mainChart').getContext('2d');
-    const ghost = document.getElementById('chart-ghost');
-    const resultsTxt = document.getElementById('results-text');
     const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-
-    if(projectData.checklist && projectData.checklist.results_text) {
-        resultsTxt.value = projectData.checklist.results_text;
-    }
-
-    if (data.length === 0) { 
-        ghost.classList.remove('hidden'); 
-        if(chartInstance) { chartInstance.destroy(); chartInstance = null; }
-        document.getElementById('data-history').innerHTML = '<p class="text-xs text-slate-400 italic">No data history available.</p>';
-        return; 
-    }
-    ghost.classList.add('hidden');
+    
+    if (data.length === 0) { document.getElementById('chart-ghost').classList.remove('hidden'); if(chartInstance) chartInstance.destroy(); return; }
+    document.getElementById('chart-ghost').classList.add('hidden');
 
     const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
     const values = outcomes.map(d => Number(d.value));
     const labels = outcomes.map(d => d.date);
     
-    const median = values.length ? values.slice().sort((a,b)=>a-b)[Math.floor(values.length/2)] : 0;
+    // EXPERT COMMITTEE: Rigorous Median & Shift Detection
+    // 1. Calculate Baseline Median (first 12 points or all if <12)
+    let baselinePoints = values.slice(0, 12); 
+    let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
     
-    const pointColors = values.map((v, i) => {
-        let isRun = false;
-        if (i >= 5) {
-            const subset = values.slice(i-5, i+1);
-            if (subset.every(x => x > median)) isRun = true;
+    const pointColors = [];
+    const medianLineData = [];
+    let runCount = 0;
+    let runDirection = 0; // 1 up, -1 down
+
+    values.forEach((v, i) => {
+        // Run Chart Rules
+        if (v > currentMedian) {
+            if (runDirection === 1) runCount++;
+            else { runCount = 1; runDirection = 1; }
+        } else if (v < currentMedian) {
+            if (runDirection === -1) runCount++;
+            else { runCount = 1; runDirection = -1; }
+        } else {
+            runCount = 0; 
         }
-        return isRun ? '#059669' : '#2d2e83'; // Emerald vs Purple
+
+        // Color Logic: Shift if 6+ points on one side of median
+        if (runCount >= 6) {
+             pointColors.push('#059669'); // Green (Shift)
+        } else {
+             pointColors.push('#2d2e83'); // Normal
+        }
+        
+        medianLineData.push(currentMedian);
     });
 
     if (chartInstance) chartInstance.destroy();
     
     const annotations = {
-        median: { type: 'line', yMin: median, yMax: median, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2, label: { display: true, content: 'Median', position: 'end' } }
+        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2, label: { display: true, content: 'Median', position: 'end' } }
     };
+    
     data.filter(d => d.note).forEach((d, i) => {
         annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
     });
@@ -715,23 +685,38 @@ function renderChart() {
         type: 'line',
         data: {
             labels: labels,
-            datasets: [{
-                label: 'Outcome Measure',
-                data: values,
-                borderColor: '#2d2e83',
-                backgroundColor: pointColors,
-                pointBackgroundColor: pointColors,
-                pointRadius: 6,
-                tension: 0.1
-            }]
+            datasets: [
+                {
+                    label: 'Outcome Measure',
+                    data: values,
+                    borderColor: '#2d2e83',
+                    backgroundColor: pointColors,
+                    pointBackgroundColor: pointColors,
+                    pointRadius: 6,
+                    tension: 0.1
+                }
+            ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            plugins: { annotation: { annotations } }
+            plugins: { annotation: { annotations } },
+            onClick: (e, activeEls) => {
+                if (activeEls.length > 0) {
+                    const i = activeEls[0].index;
+                    // Expert Feature: Context for Outliers
+                    const note = prompt(`Annotate data point (${labels[i]}):`, data[i].note || "");
+                    if (note !== null) {
+                        data[i].note = note;
+                        saveData();
+                        renderChart();
+                    }
+                }
+            }
         }
     });
 
+    // Render History List
     document.getElementById('data-history').innerHTML = data.slice().reverse().map(d => `
         <div class="flex justify-between border-b border-slate-100 py-2 items-center">
             <span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong> <span class="text-[10px] text-slate-400 uppercase tracking-wide ml-1">${d.type}</span></span>
@@ -759,63 +744,60 @@ window.saveResults = (val) => {
     saveData();
 }
 
-// --- 5. PDSA Logic ---
+// --- 6. PDSA (Celebrate Failure) ---
+window.addPDSA = () => {
+    const t = prompt("Cycle Title (e.g. Cycle 1: Sticker):");
+    if(t) { 
+        projectData.pdsa.unshift({id: Date.now(), title:t, plan:"", do:"", study:"", act:""}); 
+        saveData(); 
+        renderPDSA(); 
+    }
+}
 function renderPDSA() {
     if(!projectData) return;
     const container = document.getElementById('pdsa-container');
-    
     if (projectData.pdsa.length === 0) {
-        container.innerHTML = `
-            <div class="text-center py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50">
-                <div class="bg-purple-100 p-4 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4 text-purple-600">
-                    <i data-lucide="refresh-cw" class="w-8 h-8"></i>
-                </div>
-                <h3 class="text-lg font-bold text-slate-700">No Cycles Yet</h3>
-                <p class="text-slate-400 text-sm mb-6 max-w-sm mx-auto">Start your first Plan-Do-Study-Act cycle to test a change idea.</p>
-                <button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-6 py-2 rounded-lg font-bold shadow hover:bg-indigo-900 transition-all">Start Cycle 1</button>
-            </div>
-        `;
-        lucide.createIcons();
+        container.innerHTML = `<div class="text-center py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50"><button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded">Start Cycle 1</button></div>`;
         return;
     }
-
     container.innerHTML = projectData.pdsa.map((p,i) => `
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 transition-all hover:shadow-md">
+        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
             <div class="flex justify-between items-center mb-4">
                 <div class="font-bold text-lg text-slate-800">${p.title}</div>
-                <button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                <button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2"></i></button>
             </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-50 p-3 rounded-lg border border-blue-100">
-                    <div class="text-xs font-bold text-blue-800 uppercase mb-1">Plan</div>
-                    <textarea onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="3" placeholder="What are you testing?">${p.plan}</textarea>
+                <div class="bg-blue-50 p-3 rounded"><div class="text-xs font-bold text-blue-800 uppercase">Plan</div><textarea onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.plan}</textarea></div>
+                <div class="bg-orange-50 p-3 rounded"><div class="text-xs font-bold text-orange-800 uppercase">Do</div><textarea onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.do}</textarea></div>
+                <div class="bg-purple-50 p-3 rounded">
+                    <div class="text-xs font-bold text-purple-800 uppercase flex justify-between">Study <span>Did it work?</span></div>
+                    <textarea onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2" placeholder="Analyze data...">${p.study}</textarea>
                 </div>
-                <div class="bg-orange-50 p-3 rounded-lg border border-orange-100">
-                    <div class="text-xs font-bold text-orange-800 uppercase mb-1">Do</div>
-                    <textarea onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="3" placeholder="What happened?">${p.do}</textarea>
-                </div>
-                <div class="bg-purple-50 p-3 rounded-lg border border-purple-100">
-                    <div class="text-xs font-bold text-purple-800 uppercase mb-1">Study</div>
-                    <textarea onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="3" placeholder="What did the data show?">${p.study}</textarea>
-                </div>
-                <div class="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                    <div class="text-xs font-bold text-emerald-800 uppercase mb-1">Act</div>
-                    <textarea onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="3" placeholder="Adopt, Adapt, or Abandon?">${p.act}</textarea>
-                </div>
+                <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2" placeholder="Adopt, Adapt, or Abandon?">${p.act}</textarea></div>
             </div>
         </div>
     `).join('');
     lucide.createIcons();
 }
-window.addPDSA = () => {
-    const t = prompt("Cycle Title (e.g. Cycle 1: Sticker):");
-    if(t) { projectData.pdsa.unshift({id: Date.now(), title:t, plan:"", do:"", study:"", act:""}); saveData(); renderPDSA(); }
-}
-window.deletePDSA = (i) => {
-    if(confirm("Delete this cycle?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); }
-}
+window.deletePDSA = (i) => { if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } }
 
-// --- 6. EXPORTS (GOLD STANDARD) ---
+// --- 7. TOURS (Driver.js) ---
+window.startTour = () => {
+    const driver = window.driver.js.driver;
+    const tour = driver({
+        showProgress: true,
+        steps: [
+            { element: '#nav-checklist', popover: { title: 'Step 1: Define', description: 'Start here. You need a SMART Aim before you do anything else.' } },
+            { element: '#nav-tools', popover: { title: 'Step 2: Diagnose', description: 'Use the Fishbone to find the cause, and Driver Diagram to plan your strategy.' } },
+            { element: '#nav-data', popover: { title: 'Step 3: Measure', description: 'Enter your data here. The chart will automatically tell you if you are improving.' } },
+            { element: '#nav-pdsa', popover: { title: 'Step 4: Act', description: 'Record your changes (PDSA cycles) here. Even failed cycles count as portfolio evidence!' } }
+        ]
+    });
+    tour.drive();
+};
+
+// --- 8. EXPORTS & UTILS ---
+
 window.openPortfolioExport = () => {
     const d = projectData;
     const modal = document.getElementById('risr-modal');
@@ -907,7 +889,6 @@ window.exportPPTX = async () => {
 };
 
 window.printPoster = () => {
-    // Inject Poster HTML
     const d = projectData;
     const container = document.getElementById('print-container');
     container.innerHTML = `
@@ -942,21 +923,21 @@ window.printPoster = () => {
     window.print();
 };
 
-// --- HELP SYSTEM ---
-const helpData = {
-    checklist: { t: "Define & Measure", c: "<p class='mb-2'><b>Problem:</b> What is the gap between standard and reality?</p><p class='mb-2'><b>Aim:</b> Must be SMART (Specific, Measurable, Achievable, Relevant, Time-bound).</p><p class='mb-2'><b>Measures:</b><br>- Outcome: The goal.<br>- Process: Are we doing the steps?<br>- Balance: Are we safe?</p>" },
-    diagrams: { t: "Drivers & Fishbone", c: "<p class='mb-2'><b>Fishbone:</b> Use to find root causes. 'Why' does the problem exist?</p><p class='mb-2'><b>Driver Diagram:</b> Your strategy. Drivers are 'What' we need to change, Change Ideas are 'How' we do it.</p>" },
-    data: { t: "SPC & Run Charts", c: "<p class='mb-2'><b>Run Chart:</b> Plot data over time.</p><p class='mb-2'><b>Rules:</b><br>- Shift: 6+ points on one side of median.<br>- Trend: 5+ points going up or down.</p>" },
-    pdsa: { t: "PDSA Cycles", c: "<p><b>Plan:</b> Who, when, where?</p><p><b>Do:</b> Carry out the test.</p><p><b>Study:</b> Analyse data.</p><p><b>Act:</b> Adopt, Adapt, or Abandon.</p>" }
-};
-window.showHelp = (key) => {
-    document.getElementById('help-title').textContent = helpData[key].t;
-    document.getElementById('help-content').innerHTML = helpData[key].c;
-    document.getElementById('help-modal').classList.remove('hidden');
-};
-window.openHelp = () => window.showHelp('checklist');
+window.addGanttTask = () => {
+    const n = prompt("Task Name:");
+    if(!n) return;
+    const s = prompt("Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
+    if(!s) return;
+    const e = prompt("End Date (YYYY-MM-DD):", s);
+    if(!e) return;
 
-// --- GANTT CHART ---
+    if(!projectData.gantt) projectData.gantt=[];
+    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e}); 
+    saveData(); 
+    renderGantt(); 
+}
+window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
+
 function renderGantt() {
     if(!projectData) return;
     const g = projectData.gantt || [];
@@ -985,7 +966,6 @@ function renderGantt() {
         gridHTML += `<div class="gantt-header" style="grid-column: span 7; text-align: left; padding-left: 5px;">${d.toLocaleDateString(undefined, {month:'short', day:'numeric'})}</div>`;
     }
 
-    // [FIX] Added Today Line
     const today = new Date();
     if(today >= minDate && today <= maxDate) {
         const todayOffset = Math.floor((today - minDate) / dayMs);
@@ -1013,20 +993,6 @@ function renderGantt() {
     container.innerHTML = gridHTML;
     lucide.createIcons();
 }
-window.addGanttTask = () => {
-    const n = prompt("Task Name:");
-    if(!n) return;
-    const s = prompt("Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    if(!s) return;
-    const e = prompt("End Date (YYYY-MM-DD):", s);
-    if(!e) return;
-
-    if(!projectData.gantt) projectData.gantt=[];
-    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e}); 
-    saveData(); 
-    renderGantt(); 
-}
-window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); }
 
 // --- CALCULATORS ---
 window.calcGreen = () => {
@@ -1193,3 +1159,17 @@ function checkRCEMCriteria(d) {
 
     return flags;
 }
+
+// --- HELP SYSTEM ---
+const helpData = {
+    checklist: { t: "Define & Measure", c: "<p class='mb-2'><b>Problem:</b> What is the gap between standard and reality?</p><p class='mb-2'><b>Aim:</b> Must be SMART (Specific, Measurable, Achievable, Relevant, Time-bound).</p><p class='mb-2'><b>Measures:</b><br>- Outcome: The goal.<br>- Process: Are we doing the steps?<br>- Balance: Are we safe?</p>" },
+    diagrams: { t: "Drivers & Fishbone", c: "<p class='mb-2'><b>Fishbone:</b> Use to find root causes. 'Why' does the problem exist?</p><p class='mb-2'><b>Driver Diagram:</b> Your strategy. Drivers are 'What' we need to change, Change Ideas are 'How' we do it.</p>" },
+    data: { t: "SPC & Run Charts", c: "<p class='mb-2'><b>Run Chart:</b> Plot data over time.</p><p class='mb-2'><b>Rules:</b><br>- Shift: 6+ points on one side of median.<br>- Trend: 5+ points going up or down.</p>" },
+    pdsa: { t: "PDSA Cycles", c: "<p><b>Plan:</b> Who, when, where?</p><p><b>Do:</b> Carry out the test.</p><p><b>Study:</b> Analyse data.</p><p><b>Act:</b> Adopt, Adapt, or Abandon.</p>" }
+};
+window.showHelp = (key) => {
+    document.getElementById('help-title').textContent = helpData[key].t;
+    document.getElementById('help-content').innerHTML = helpData[key].c;
+    document.getElementById('help-modal').classList.remove('hidden');
+};
+window.openHelp = () => window.showHelp('checklist');
