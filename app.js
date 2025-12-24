@@ -62,7 +62,6 @@ const updateOnlineStatus = () => {
 };
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
-// Run once on load
 if(document.readyState === 'complete') updateOnlineStatus();
 
 // --- SHARE / READ-ONLY LOGIC ---
@@ -120,6 +119,7 @@ const emptyProject = {
 
 // --- AUTH & INIT ---
 onAuthStateChanged(auth, async (user) => {
+    // Check share link BEFORE showing auth screen
     const isShared = await checkShareLink();
     if (isShared) return;
 
@@ -324,6 +324,10 @@ window.openDemoProject = () => {
 window.returnToProjects = () => {
     currentProjectId = null;
     projectData = null;
+    isReadOnly = false; // RESET ReadOnly State
+    document.getElementById('readonly-indicator').classList.add('hidden');
+    document.body.classList.remove('readonly-mode');
+    
     if (unsubscribeProject) unsubscribeProject();
     loadProjectList();
 };
@@ -826,7 +830,7 @@ function renderPDSA() {
                 <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.act)}</textarea></div>
             </div>
             <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
-                <input type="checkbox" ${p.isStepChange ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].isStepChange=this.checked;saveData();renderChart()" id="step-${i}">
+                <input type="checkbox" ${p.isStepChange ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].isStepChange=this.checked;saveData()" id="step-${i}">
                 <label for="step-${i}" class="text-xs text-slate-500 font-bold">Mark as Step Change (Re-baseline Chart)</label>
             </div>
         </div>
