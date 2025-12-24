@@ -17,6 +17,17 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// --- HELPER: SECURITY (XSS PREVENTION) ---
+const escapeHtml = (unsafe) => {
+    if (!unsafe) return "";
+    return unsafe
+         .replace(/&/g, "&amp;")
+         .replace(/</g, "&lt;")
+         .replace(/>/g, "&gt;")
+         .replace(/"/g, "&quot;")
+         .replace(/'/g, "&#039;");
+};
+
 // --- INITIALISE LIBRARIES ---
 if (window.mermaid) {
     window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
@@ -111,6 +122,19 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
+// FIX: Mobile Menu Logic Added
+document.getElementById('mobile-menu-btn').addEventListener('click', () => {
+    const sidebar = document.getElementById('app-sidebar');
+    // Toggle between hidden and flex/fixed for mobile overlay
+    if (sidebar.classList.contains('hidden')) {
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+    } else {
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+    }
+});
+
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value;
@@ -165,9 +189,10 @@ async function loadProjectList() {
     snap.forEach(doc => {
         const d = doc.data();
         const date = new Date(d.meta?.created).toLocaleDateString();
+        // XSS Fix: Escaped Title
         listEl.innerHTML += `
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group relative" onclick="window.openProject('${doc.id}')">
-                <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${d.meta?.title || 'Untitled'}</h3>
+                <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${escapeHtml(d.meta?.title) || 'Untitled'}</h3>
                 <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
                 <div class="flex gap-2 text-xs font-medium text-slate-500">
                     <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200">${d.chartData?.length || 0} Points</span>
@@ -312,6 +337,13 @@ window.router = (view) => {
     currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
+    
+    // Close mobile menu if open
+    const sidebar = document.getElementById('app-sidebar');
+    if (sidebar.classList.contains('fixed')) {
+        sidebar.classList.add('hidden');
+        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+    }
     
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
     const btn = document.getElementById(`nav-${view}`);
@@ -471,7 +503,7 @@ function renderChecklist() {
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex justify-between items-center">
                             ${f.l} ${f.w ? '<button onclick="document.getElementById(\'smart-modal\').classList.remove(\'hidden\')" class="text-rcem-purple hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="wand-2" class="w-3 h-3"></i> Open Wizard</button>' : ''}
                         </label>
-                        <textarea onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${projectData.checklist[f.k]||''}</textarea>
+                        <textarea onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
                     </div>
                 `).join('')}
             </div>
@@ -600,7 +632,7 @@ function renderStakeholders() {
         el.className = 'absolute transform -translate-x-1/2 -translate-y-1/2 bg-white border-2 border-slate-600 rounded-full px-3 py-1 text-xs font-bold shadow-lg cursor-grab z-30 flex items-center gap-1';
         el.style.bottom = `${s.power}%`;
         el.style.left = `${s.interest}%`;
-        el.innerHTML = `<span class="whitespace-nowrap">${s.name}</span>`;
+        el.innerHTML = `<span class="whitespace-nowrap">${escapeHtml(s.name)}</span>`;
         el.onclick = () => {
             let type = "";
             if (s.power > 50 && s.interest > 50) type = "highPowerHighInterest";
@@ -684,8 +716,31 @@ function renderChart() {
         options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const i = activeEls[0].index; const note = prompt(`Annotate:`, data[i].note || ""); if (note !== null) { data[i].note = note; saveData(); renderChart(); } } } }
     });
     
-    document.getElementById('data-history').innerHTML = data.slice().reverse().map(d => `<div class="flex justify-between border-b border-slate-100 py-2 items-center"><span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong></span>${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full">${d.note}</span>` : ''}</div>`).join('');
+    // FIX: Added Delete Button for Data Points
+    document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => {
+        const originalIndex = data.length - 1 - i;
+        return `
+            <div class="flex justify-between border-b border-slate-100 py-2 items-center group">
+                <span>
+                    <span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> 
+                    <strong>${d.value}</strong>
+                    ${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">${escapeHtml(d.note)}</span>` : ''}
+                </span>
+                <button onclick="window.deleteDataPoint(${originalIndex})" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`;
+    }).join('');
+    lucide.createIcons();
 }
+
+// FIX: New Function to delete data points
+window.deleteDataPoint = (index) => {
+    if (confirm("Delete this data point?")) {
+        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); // Ensure order matches display
+        projectData.chartData.splice(index, 1);
+        saveData();
+        renderChart();
+    }
+};
 
 window.addDataPoint = () => {
     const d = { date: document.getElementById('chart-date').value, value: document.getElementById('chart-value').value, type: document.getElementById('chart-cat').value };
@@ -700,12 +755,12 @@ function renderPDSA() {
     if (projectData.pdsa.length === 0) { container.innerHTML = `<div class="text-center py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50"><button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded">Start Cycle 1</button></div>`; return; }
     container.innerHTML = projectData.pdsa.map((p,i) => `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <div class="flex justify-between items-center mb-4"><div class="font-bold text-lg text-slate-800">${p.title}</div><button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2"></i></button></div>
+            <div class="flex justify-between items-center mb-4"><div class="font-bold text-lg text-slate-800">${escapeHtml(p.title)}</div><button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2"></i></button></div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-50 p-3 rounded"><div class="text-xs font-bold text-blue-800 uppercase">Plan</div><textarea onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.plan}</textarea></div>
-                <div class="bg-orange-50 p-3 rounded"><div class="text-xs font-bold text-orange-800 uppercase">Do</div><textarea onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.do}</textarea></div>
-                <div class="bg-purple-50 p-3 rounded"><div class="text-xs font-bold text-purple-800 uppercase">Study</div><textarea onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.study}</textarea></div>
-                <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${p.act}</textarea></div>
+                <div class="bg-blue-50 p-3 rounded"><div class="text-xs font-bold text-blue-800 uppercase">Plan</div><textarea onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.plan)}</textarea></div>
+                <div class="bg-orange-50 p-3 rounded"><div class="text-xs font-bold text-orange-800 uppercase">Do</div><textarea onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.do)}</textarea></div>
+                <div class="bg-purple-50 p-3 rounded"><div class="text-xs font-bold text-purple-800 uppercase">Study</div><textarea onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.study)}</textarea></div>
+                <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.act)}</textarea></div>
             </div>
         </div>
     `).join('');
@@ -736,7 +791,7 @@ window.openPortfolioExport = () => {
         { t: "Learning", v: d.checklist.learning + "\n\nSustainability: " + d.checklist.sustain },
         { t: "Ethics", v: d.checklist.ethics }
     ];
-    document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${f.v || 'Not recorded'}</div></div>`).join('');
+    document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${escapeHtml(f.v) || 'Not recorded'}</div></div>`).join('');
 };
 
 // --- ROBUST ASSET GENERATOR (FAIL-SAFE) ---
@@ -1014,7 +1069,7 @@ window.printPoster = async () => {
             <!DOCTYPE html>
             <html>
             <head>
-                <title>RCEM Poster - ${d.meta.title}</title>
+                <title>RCEM Poster - ${escapeHtml(d.meta.title)}</title>
                 <script src="https://cdn.tailwindcss.com"></script>
                 <script src="https://unpkg.com/lucide@latest"></script>
                 <style>
@@ -1060,20 +1115,20 @@ window.printPoster = async () => {
                     <div class="poster-header">
                         <div class="bg-white p-4 rounded-lg"><img src="https://iili.io/KGQOvkl.md.png" style="height: 80px;"></div>
                         <div>
-                            <h1 class="text-4xl font-black leading-tight">${d.meta.title}</h1>
-                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                            <h1 class="text-4xl font-black leading-tight">${escapeHtml(d.meta.title)}</h1>
+                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
                         </div>
                     </div>
 
                     <div class="space-y-6">
                         <div class="box">
                             <h2>The Problem</h2>
-                            <p class="text-slate-700 leading-relaxed">${d.checklist.problem_desc || 'No problem defined.'}</p>
-                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${d.checklist.evidence || 'N/A'}</p>
+                            <p class="text-slate-700 leading-relaxed">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
+                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${escapeHtml(d.checklist.evidence) || 'N/A'}</p>
                         </div>
                         <div class="box bg-blue-50 border-blue-200" style="-webkit-print-color-adjust: exact;">
                             <h2 class="text-blue-900 border-blue-400">SMART Aim</h2>
-                            <p class="text-xl font-serif text-blue-800 italic font-bold">${d.checklist.aim || 'No aim defined.'}</p>
+                            <p class="text-xl font-serif text-blue-800 italic font-bold">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
                         </div>
                         <div class="box">
                             <h2>Driver Diagram</h2>
@@ -1089,7 +1144,7 @@ window.printPoster = async () => {
                             </div>
                             <div class="bg-slate-50 p-4 border-l-4 border-rcem-purple rounded" style="-webkit-print-color-adjust: exact;">
                                 <h3 class="font-bold text-rcem-purple mb-2">Analysis</h3>
-                                <p class="text-slate-700 whitespace-pre-wrap">${d.checklist.results_text || 'No analysis text provided.'}</p>
+                                <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(d.checklist.results_text) || 'No analysis text provided.'}</p>
                             </div>
                         </div>
                     </div>
@@ -1100,19 +1155,19 @@ window.printPoster = async () => {
                             <ul class="space-y-3">
                                 ${d.pdsa.map(p => `
                                     <li class="pl-4 border-l-4 border-slate-300">
-                                        <strong class="block text-slate-800">${p.title}</strong>
-                                        <span class="text-sm text-slate-600">${p.do}</span>
+                                        <strong class="block text-slate-800">${escapeHtml(p.title)}</strong>
+                                        <span class="text-sm text-slate-600">${escapeHtml(p.do)}</span>
                                     </li>
                                 `).join('')}
                             </ul>
                         </div>
                         <div class="box">
                             <h2>Learning</h2>
-                            <p class="text-slate-700 text-sm">${d.checklist.learning || 'N/A'}</p>
+                            <p class="text-slate-700 text-sm">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
                         </div>
                         <div class="box bg-emerald-50 border-emerald-200" style="-webkit-print-color-adjust: exact;">
                             <h2 class="text-emerald-900 border-emerald-400">Sustainability</h2>
-                            <p class="text-emerald-800 text-sm">${d.checklist.sustain || 'N/A'}</p>
+                            <p class="text-emerald-800 text-sm">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
@@ -1193,7 +1248,7 @@ function renderGantt() {
         html += `
             <div class="flex border-b border-slate-100 hover:bg-slate-50 transition-colors h-12 relative group">
                 <div class="w-[250px] shrink-0 p-3 text-sm font-medium text-slate-700 border-r border-slate-200 bg-white sticky left-0 z-10 truncate flex items-center justify-between">
-                    ${t.name}
+                    ${escapeHtml(t.name)}
                     <button onclick="deleteGantt('${t.id}')" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
                 <div class="absolute h-6 top-3 rounded-md shadow-sm text-[10px] text-white flex items-center px-2 whitespace-nowrap overflow-hidden ${colorClass}" 
@@ -1263,7 +1318,7 @@ async function renderFullProject() {
 
     const section = (title, content, validationKey) => {
         const isMissing = !content || (Array.isArray(content) && content.length === 0);
-        return `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">${title}</h3><div class="text-slate-600 text-sm whitespace-pre-wrap">${content || '<span class="italic text-slate-400">Not recorded</span>'}</div>${isMissing ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing</div>` : ''}</div>`;
+        return `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">${title}</h3><div class="text-slate-600 text-sm whitespace-pre-wrap">${escapeHtml(content) || '<span class="italic text-slate-400">Not recorded</span>'}</div>${isMissing ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing</div>` : ''}</div>`;
     };
 
     html += `<div class="space-y-6">`;
@@ -1280,7 +1335,7 @@ async function renderFullProject() {
     if (driverImg) {
         html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram (Strategy)</h4><img src="${driverImg}" class="w-full h-auto rounded border border-slate-100"></div>`;
     } else {
-         html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+         html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>`;
     }
     html += `</div></div>`;
 
@@ -1291,9 +1346,9 @@ async function renderFullProject() {
     } else {
          html += `<div class="text-center py-10 text-slate-400 italic">No data points available</div>`;
     }
-    html += `<p class="text-sm text-slate-600"><strong>Analysis:</strong> ${c.results_text}</p></div>`;
+    html += `<p class="text-sm text-slate-600"><strong>Analysis:</strong> ${escapeHtml(c.results_text)}</p></div>`;
 
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">6. PDSA Cycles</h3>${d.pdsa.map(p => `<div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200"><div class="font-bold text-slate-700 mb-1">${p.title}</div><div class="text-xs text-slate-500 grid grid-cols-2 gap-2"><div>Plan: ${p.plan}</div><div>Do: ${p.do}</div><div>Study: ${p.study}</div><div>Act: ${p.act}</div></div></div>`).join('')}</div>`;
+    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">6. PDSA Cycles</h3>${d.pdsa.map(p => `<div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200"><div class="font-bold text-slate-700 mb-1">${escapeHtml(p.title)}</div><div class="text-xs text-slate-500 grid grid-cols-2 gap-2"><div>Plan: ${escapeHtml(p.plan)}</div><div>Do: ${escapeHtml(p.do)}</div><div>Study: ${escapeHtml(p.study)}</div><div>Act: ${escapeHtml(p.act)}</div></div></div>`).join('')}</div>`;
     html += section("7. Learning & Sustainability", c.learning + "\n\n" + c.sustain);
     html += section("8. Ethics & Governance", c.ethics);
     html += `</div>`;
