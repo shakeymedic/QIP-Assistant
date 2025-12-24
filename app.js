@@ -43,6 +43,24 @@ let unsubscribeProject = null;
 let toolMode = 'fishbone';
 let zoomLevel = 2.0; 
 
+// --- HISTORY STACK (UNDO/REDO) ---
+let historyStack = [];
+let redoStack = [];
+const MAX_HISTORY = 20;
+
+// --- OFFLINE DETECTION ---
+const updateOnlineStatus = () => {
+    const indicator = document.getElementById('offline-indicator');
+    if (navigator.onLine) {
+        indicator.classList.add('hidden');
+    } else {
+        indicator.classList.remove('hidden');
+    }
+};
+window.addEventListener('online', updateOnlineStatus);
+window.addEventListener('offline', updateOnlineStatus);
+updateOnlineStatus(); // Check on load
+
 // --- TEMPLATES ---
 const qipTemplates = {
     pain: {
@@ -112,11 +130,9 @@ const emptyProject = {
 onAuthStateChanged(auth, (user) => {
     currentUser = user;
     if (user) {
-        // FIX: Ensure Sidebar is visible on login
         const sidebar = document.getElementById('app-sidebar');
         sidebar.classList.remove('hidden');
         sidebar.classList.add('flex');
-        
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('user-display').textContent = user.email;
         loadProjectList();
@@ -125,10 +141,8 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// FIX: Mobile Menu Logic
 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     const sidebar = document.getElementById('app-sidebar');
-    // Toggle mobile view specifically
     if (sidebar.classList.contains('hidden')) {
         sidebar.classList.remove('hidden');
         sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
@@ -151,6 +165,46 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 
 document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); location.reload(); });
 
+// --- UNDO / REDO FUNCTIONS ---
+window.undo = () => {
+    if (historyStack.length === 0) return;
+    
+    // 1. Push current state to Redo Stack
+    redoStack.push(JSON.stringify(projectData));
+    
+    // 2. Pop from History Stack
+    const prevState = historyStack.pop();
+    projectData = JSON.parse(prevState);
+    
+    // 3. Render & Save (skip adding to history)
+    renderAll();
+    saveData(true); 
+    updateUndoRedoButtons();
+};
+
+window.redo = () => {
+    if (redoStack.length === 0) return;
+    
+    // 1. Push current state to History Stack
+    historyStack.push(JSON.stringify(projectData));
+    
+    // 2. Pop from Redo Stack
+    const nextState = redoStack.pop();
+    projectData = JSON.parse(nextState);
+    
+    // 3. Render & Save (skip adding to history)
+    renderAll();
+    saveData(true);
+    updateUndoRedoButtons();
+};
+
+function updateUndoRedoButtons() {
+    const undoBtn = document.getElementById('btn-undo');
+    const redoBtn = document.getElementById('btn-redo');
+    if (undoBtn) undoBtn.disabled = historyStack.length === 0;
+    if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+}
+
 // --- PROJECT MANAGEMENT ---
 async function loadProjectList() {
     window.router('projects');
@@ -158,7 +212,6 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
-    // Force sidebar check
     const sidebar = document.getElementById('app-sidebar');
     if(sidebar.classList.contains('hidden')) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
 
@@ -196,7 +249,6 @@ async function loadProjectList() {
     snap.forEach(doc => {
         const d = doc.data();
         const date = new Date(d.meta?.created).toLocaleDateString();
-        // XSS Fix: Escaped Title
         listEl.innerHTML += `
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group relative" onclick="window.openProject('${doc.id}')">
                 <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${escapeHtml(d.meta?.title) || 'Untitled'}</h3>
@@ -249,7 +301,15 @@ window.openProject = (id) => {
     
     unsubscribeProject = onSnapshot(doc(db, `users/${currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
-            projectData = doc.data();
+            const data = doc.data();
+            // Initialize History with current state on first load
+            if (!projectData) {
+                historyStack = [JSON.stringify(data)];
+                redoStack = [];
+                updateUndoRedoButtons();
+            }
+            projectData = data;
+            
             // Schema patching
             if(!projectData.checklist) projectData.checklist = {};
             if(!projectData.drivers) projectData.drivers = {primary:[], secondary:[], changes:[]};
@@ -260,7 +320,6 @@ window.openProject = (id) => {
             if(!projectData.gantt) projectData.gantt = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
-            // Only re-render if we are NOT in full view (as full view is async and heavy)
             if (currentView !== 'full') renderAll();
         }
     });
@@ -270,57 +329,49 @@ window.openProject = (id) => {
 };
 
 window.openDemoProject = () => {
-    projectData = {
-        meta: { 
-            title: "Improving Sepsis 6 Delivery in ED", 
-            created: "2024-01-10T09:00:00.000Z" 
-        },
+    const demoData = {
+        meta: { title: "Improving Sepsis 6 Delivery in ED", created: "2024-01-10T09:00:00.000Z" },
         checklist: { 
-            problem_desc: "Audit data (Q4 2023) showed only 55% of 'Red Flag' sepsis patients received antibiotics within 60 minutes of arrival. Delays increase mortality risk by 7.6% per hour (Kumar et al).",
+            problem_desc: "Audit data (Q4 2023) showed only 55% of 'Red Flag' sepsis patients received antibiotics within 60 minutes of arrival.",
             evidence: "RCEM Sepsis Standards (2023); NICE NG51; Surviving Sepsis Campaign.",
             aim: "To increase the % of eligible sepsis patients receiving IV antibiotics within 60 minutes of arrival from 55% to 95% by 1st July 2024.",
             outcome_measures: "% of patients receiving antibiotics < 60 mins.",
             process_measures: "Screening tool completion rate; Door-to-needle time.",
             balance_measures: "Antibiotic stewardship (total consumption); C. Difficile rates.",
             team: "Dr. J Bloggs (Lead), Sr. M. Smith (Nursing Lead), Dr. X (Consultant Sponsor).",
-            ethics: "Registered with Trust Audit Dept (Ref: QIP-2024-055). No ethical approval required (service evaluation).",
-            ppi: "Discussed with Patient Liaison Group (PLG). Poster displayed in waiting room inviting feedback.",
-            learning: "Success was driven by automation (IT alerts) rather than education alone. Human factors (accessibility of equipment) were critical.",
-            sustain: "Sepsis Lead Nurse appointed to monitor monthly data. IT Alert is permanent. Annual audit scheduled.",
-            results_text: "The Run Chart shows a clear 'Shift' (8 points above the median) following PDSA Cycle 2 (Sepsis Trolleys). This improvement was sustained and further stabilised by PDSA Cycle 3 (IT Alerts), reaching a new median of 92%."
+            ethics: "Registered with Trust Audit Dept (Ref: QIP-2024-055). No ethical approval required.",
+            ppi: "Discussed with Patient Liaison Group (PLG). Poster displayed in waiting room.",
+            learning: "Success was driven by automation (IT alerts) rather than education alone.",
+            sustain: "Sepsis Lead Nurse appointed to monitor monthly data. IT Alert is permanent.",
+            results_text: "The Run Chart shows a clear 'Shift' following PDSA Cycle 2 (Sepsis Trolleys)."
         },
         drivers: { 
             primary: ["Early Recognition", "Equipment Availability", "Safety Culture"], 
             secondary: ["Triage Screening", "Access to Antibiotics", "Feedback Loops", "Staff Education"], 
             changes: ["Mandatory Sepsis Screen", "Sepsis Grab Bags", "Dedicated Trolley", "IT Best Practice Alert"] 
         },
-        fishbone: { 
-            categories: [
-                { id: 1, text: "People", causes: ["Reliance on Agency Staff", "Lack of ownership", "Fear of prescribing"] }, 
-                { id: 2, text: "Methods", causes: ["Paper screening tool lost", "No PGD for nurses", "Complex pathway"] }, 
-                { id: 3, text: "Environment", causes: ["Overcrowding", "Distance to drug cupboard", "No dedicated space"] }, 
-                { id: 4, text: "Equipment", causes: ["Cannulas missing", "Antibiotic keys missing", "Computers slow"] }
-            ] 
-        },
+        fishbone: { categories: [{ id: 1, text: "People", causes: ["Reliance on Agency Staff", "Lack of ownership"] }, { id: 2, text: "Methods", causes: ["Paper screening tool lost", "No PGD for nurses"] }, { id: 3, text: "Environment", causes: ["Overcrowding", "Distance to drug cupboard"] }, { id: 4, text: "Equipment", causes: ["Cannulas missing", "Antibiotic keys missing"] }] },
         pdsa: [
-            { id: 1705000000000, title: "Cycle 1: Education Campaign", plan: "Deliver 10-min teaching at handover for 2 weeks. Put up posters.", do: "Teaching delivered to 80% of nursing staff. Posters displayed in Resus.", study: "Compliance rose slightly to 62% but effect wore off quickly. Staff reported 'forgetting' in busy periods.", act: "Abandon (as sole intervention). Need system change, not just education." },
-            { id: 1708000000000, title: "Cycle 2: Sepsis Trolley", plan: "Introduce a dedicated 'Sepsis Trolley' in Majors with pre-made grab bags (bloods, cultures, abx).", do: "Trolley stocked and placed in Bay 1. Checked daily by HCA.", study: "Immediate improvement. Time to cannulation dropped. Staff feedback positive ('saves hunting for keys').", act: "Adopt. Roll out to Resus area as well." },
-            { id: 1712000000000, title: "Cycle 3: Electronic Alert", plan: "IT modification: 'Pop-up' alert on Cerner when NEWS2 > 5 + Infection suspected.", do: "Live on April 1st. Required clinician reason to dismiss.", study: "Compliance hit 95%. Screening tool completion 100%.", act: "Adopt. Standard operating procedure." }
+            { id: 1705000000000, title: "Cycle 1: Education Campaign", plan: "Deliver 10-min teaching.", do: "Teaching delivered.", study: "Compliance rose slightly.", act: "Abandon (as sole intervention)." },
+            { id: 1708000000000, title: "Cycle 2: Sepsis Trolley", plan: "Introduce a dedicated trolley.", do: "Trolley stocked.", study: "Immediate improvement.", act: "Adopt." },
+            { id: 1712000000000, title: "Cycle 3: Electronic Alert", plan: "IT modification.", do: "Live on April 1st.", study: "Compliance hit 95%.", act: "Adopt." }
         ],
         chartData: [
             { date: "2024-01-07", value: 52, type: "outcome" }, { date: "2024-01-14", value: 58, type: "outcome" }, { date: "2024-01-21", value: 45, type: "outcome" }, { date: "2024-01-28", value: 55, type: "outcome" }, { date: "2024-02-04", value: 50, type: "outcome" }, { date: "2024-02-11", value: 60, type: "outcome" },
-            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1: Education" }, { date: "2024-02-25", value: 62, type: "outcome" }, { date: "2024-03-03", value: 58, type: "outcome" },
-            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2: Trolleys" }, { date: "2024-03-17", value: 82, type: "outcome" }, { date: "2024-03-24", value: 79, type: "outcome" }, { date: "2024-03-31", value: 85, type: "outcome" },
-            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3: IT Alert" }, { date: "2024-04-14", value: 95, type: "outcome" }, { date: "2024-04-21", value: 94, type: "outcome" }, { date: "2024-04-28", value: 91, type: "outcome" }, { date: "2024-05-05", value: 96, type: "outcome" }, { date: "2024-05-12", value: 93, type: "outcome" }, { date: "2024-05-19", value: 95, type: "outcome" }, { date: "2024-05-26", value: 94, type: "outcome" }
+            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1" }, { date: "2024-02-25", value: 62, type: "outcome" }, { date: "2024-03-03", value: 58, type: "outcome" },
+            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2" }, { date: "2024-03-17", value: 82, type: "outcome" }, { date: "2024-03-24", value: 79, type: "outcome" }, { date: "2024-03-31", value: 85, type: "outcome" },
+            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3" }, { date: "2024-04-14", value: 95, type: "outcome" }, { date: "2024-04-21", value: 94, type: "outcome" }, { date: "2024-04-28", value: 91, type: "outcome" }, { date: "2024-05-05", value: 96, type: "outcome" }, { date: "2024-05-12", value: 93, type: "outcome" }, { date: "2024-05-19", value: 95, type: "outcome" }, { date: "2024-05-26", value: 94, type: "outcome" }
         ],
-        stakeholders: [
-            { name: "ED Consultants", power: 90, interest: 80 }, { name: "Nursing Staff", power: 60, interest: 90 }, { name: "Pharmacy", power: 40, interest: 70 }, { name: "Junior Doctors", power: 30, interest: 85 }, { name: "Hospital Mgmt", power: 80, interest: 20 }
-        ],
-        gantt: [
-            { id: 1, name: "Planning & Stakeholders", start: "2024-01-01", end: "2024-01-20", type: "plan" }, { id: 2, name: "Baseline Data Audit", start: "2024-01-15", end: "2024-02-14", type: "study" }, { id: 3, name: "Driver Diagram Workshop", start: "2024-02-10", end: "2024-02-15", type: "plan" }, { id: 4, name: "Cycle 1: Education", start: "2024-02-16", end: "2024-03-01", type: "act" }, { id: 5, name: "Cycle 2: Sepsis Trolley", start: "2024-03-05", end: "2024-04-01", type: "act" }, { id: 6, name: "Cycle 3: IT Alert Build", start: "2024-03-01", end: "2024-04-01", type: "plan" }, { id: 7, name: "Cycle 3: IT Alert Go-Live", start: "2024-04-01", end: "2024-05-15", type: "act" }, { id: 8, name: "Sustainability Audit", start: "2024-05-15", end: "2024-06-01", type: "study" }, { id: 9, name: "Write Up & Presentation", start: "2024-06-01", end: "2024-06-15", type: "plan" }
-        ],
-        process: ["Patient Arrives", "Triage (Nurse)", "Sepsis Screen +ve?", "Yes -> Trigger Alert", "Doctor Review", "Abx Prescribed", "Abx Administered"]
+        stakeholders: [{ name: "ED Consultants", power: 90, interest: 80 }, { name: "Nursing Staff", power: 60, interest: 90 }],
+        gantt: [{ id: 1, name: "Planning", start: "2024-01-01", end: "2024-01-20", type: "plan" }],
+        process: ["Patient Arrives", "Triage", "Sepsis Screen", "Alert", "Abx"]
     };
+
+    projectData = demoData;
+    // Initial Undo State for Demo
+    historyStack = [JSON.stringify(projectData)];
+    redoStack = [];
+    updateUndoRedoButtons();
 
     document.getElementById('project-header-title').textContent = projectData.meta.title + " (DEMO)";
     document.getElementById('top-bar').classList.remove('hidden');
@@ -345,7 +396,6 @@ window.router = (view) => {
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
     
-    // Close mobile menu if open
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar.classList.contains('fixed')) {
         sidebar.classList.add('hidden');
@@ -367,9 +417,26 @@ window.router = (view) => {
     lucide.createIcons();
 };
 
-async function saveData() {
-    if (isDemoMode) { renderAll(); return; }
+async function saveData(skipHistory = false) {
+    if (isDemoMode) { 
+        if(!skipHistory) {
+            historyStack.push(JSON.stringify(projectData));
+            if(historyStack.length > MAX_HISTORY) historyStack.shift();
+            redoStack = []; 
+            updateUndoRedoButtons();
+        }
+        renderAll(); 
+        return; 
+    }
     if (!currentProjectId) return;
+
+    if(!skipHistory) {
+        historyStack.push(JSON.stringify(projectData));
+        if(historyStack.length > MAX_HISTORY) historyStack.shift();
+        redoStack = []; 
+        updateUndoRedoButtons();
+    }
+
     await setDoc(doc(db, `users/${currentUser.uid}/projects`, currentProjectId), projectData, { merge: true });
     
     const s = document.getElementById('save-status');
@@ -390,7 +457,6 @@ document.getElementById('demo-toggle').addEventListener('change', (e) => {
     }
 });
 
-// FIX: Ensure Sidebar is visible when Demo Mode starts
 document.getElementById('demo-auth-btn').onclick = () => {
     isDemoMode = true;
     currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
@@ -415,14 +481,13 @@ function renderAll() {
     if(currentView === 'gantt') renderGantt();
 }
 
-// FIX: Professional QI Coach Design
 function renderCoach() {
     if(!projectData) return;
     const d = projectData;
     const banner = document.getElementById('qi-coach-banner');
     
-    const checkFields = ['problem_desc','evidence','aim','outcome_measures','process_measures','team','ethics','learning'];
     let filledCount = 0;
+    const checkFields = ['problem_desc','evidence','aim','outcome_measures','process_measures','team','ethics','learning'];
     if (d.checklist) {
         checkFields.forEach(f => {
             if(d.checklist[f] && d.checklist[f].length > 5) filledCount++;
@@ -450,7 +515,6 @@ function renderCoach() {
             c: "from-rcem-purple to-indigo-700" 
         };
     } else {
-        // Professional teal gradient for active state
         status = { 
             t: "Project Active: Measuring", 
             m: "Keep adding data points. Look for 6 points in a row above/below median.", 
@@ -741,7 +805,6 @@ function renderChart() {
         options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const i = activeEls[0].index; const note = prompt(`Annotate:`, data[i].note || ""); if (note !== null) { data[i].note = note; saveData(); renderChart(); } } } }
     });
     
-    // FIX: Added Delete Button for Data Points
     document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => {
         const originalIndex = data.length - 1 - i;
         return `
@@ -757,7 +820,6 @@ function renderChart() {
     lucide.createIcons();
 }
 
-// FIX: New Function to delete data points
 window.deleteDataPoint = (index) => {
     if (confirm("Delete this data point?")) {
         projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); 
@@ -819,7 +881,7 @@ window.openPortfolioExport = () => {
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${escapeHtml(f.v) || 'Not recorded'}</div></div>`).join('');
 };
 
-// --- ROBUST ASSET GENERATOR (FAIL-SAFE) ---
+// --- ROBUST ASSET GENERATOR ---
 async function getVisualAsset(type) {
     if (!projectData) return null;
 
@@ -830,7 +892,6 @@ async function getVisualAsset(type) {
             canvas.height = 800;
             const ctx = canvas.getContext('2d');
             
-            // 1. Draw White Background (prevents transparency issues in PPT)
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
             
@@ -859,8 +920,6 @@ async function getVisualAsset(type) {
                 median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
             };
 
-            // FIX: Explicitly wait for chart to render (onComplete)
-            // This prevents "Blank Chart" issues in Demo Mode
             await new Promise(resolve => {
                 new Chart(ctx, {
                     type: 'line',
@@ -873,12 +932,8 @@ async function getVisualAsset(type) {
                     }
                 });
             });
-            
             return canvas.toDataURL('image/png', 1.0);
-        } catch (e) {
-            console.error("Chart generation failed", e);
-            return null;
-        }
+        } catch (e) { console.error("Chart generation failed", e); return null; }
     }
 
     if (type === 'driver' || type === 'fishbone') {
@@ -903,78 +958,49 @@ async function getVisualAsset(type) {
 
             const tempId = 'temp-mermaid-' + Date.now();
             const { svg: svgString } = await mermaid.render(tempId, mCode);
-
             const el = document.createElement('div');
             el.innerHTML = svgString;
             document.body.appendChild(el);
             const svg = el.querySelector('svg');
-            
             const viewBox = svg.getAttribute('viewBox').split(' ');
-            const srcWidth = parseFloat(viewBox[2]);
-            const srcHeight = parseFloat(viewBox[3]);
-            
-            const scale = 2;
-            const width = srcWidth * scale;
-            const height = srcHeight * scale;
-            
+            const width = parseFloat(viewBox[2]) * 2;
+            const height = parseFloat(viewBox[3]) * 2;
             svg.setAttribute('width', width);
             svg.setAttribute('height', height);
-
             const svgData = new XMLSerializer().serializeToString(svg);
             document.body.removeChild(el); 
-
             const canvas = document.createElement('canvas');
             canvas.width = width;
             canvas.height = height;
             const ctx = canvas.getContext('2d');
-            
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
-
             const img = new Image();
             const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
             const url = URL.createObjectURL(svgBlob);
-
             return new Promise(resolve => {
-                img.onload = () => {
-                    ctx.drawImage(img, 0, 0);
-                    URL.revokeObjectURL(url);
-                    resolve(canvas.toDataURL('image/png'));
-                };
+                img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
                 img.onerror = () => resolve(null);
                 img.src = url;
             });
-
-        } catch (e) {
-            console.error(type + " generation failed", e);
-            return null;
-        }
+        } catch (e) { console.error(type + " generation failed", e); return null; }
     }
     return null;
 }
 
-// --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
+// --- FEATURE 1: EXPORT PPTX ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
-    
-    // Feedback to user
     const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
     const originalText = btnText.textContent;
     btnText.textContent = "Generating...";
-    
     try {
         const d = projectData;
         const pres = new PptxGenJS();
-        
-        // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
+        const RCEM_NAVY = '2d2e83'; const RCEM_ORANGE = 'f36f21';
 
-        // 1. Branding Constants
-        const RCEM_NAVY = '2d2e83';
-        const RCEM_ORANGE = 'f36f21';
-
-        // 2. Define Master Slide (Theme)
         pres.defineSlideMaster({
             title: 'RCEM_MASTER',
             background: { color: 'FFFFFF' },
@@ -985,229 +1011,149 @@ window.exportPPTX = async () => {
                 { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
             ]
         });
-
         const addSlide = (title) => {
             const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
             slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
             return slide;
         };
 
-        // --- SLIDE 1: TITLE ---
         const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
         s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
         s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
-        s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
 
-        // --- SLIDE 2: THE PROBLEM ---
         const s2 = addSlide('The Problem & Aim');
         s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
         s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
-        
         s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
         s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
 
-        // --- SLIDE 3: DRIVER DIAGRAM ---
         const s3 = addSlide('Driver Diagram (Strategy)');
-        if (driverImg) {
-            s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        } else {
-            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
-        }
+        if (driverImg) s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+        else s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
 
-        // --- SLIDE 4: INTERVENTIONS ---
         const s4 = addSlide('PDSA Cycles & Interventions');
         const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
-        d.pdsa.forEach(p => {
-            rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
-        });
-        
-        if (rows.length > 1) {
-            s4.addTable(rows, {
-                x: 0.5, y: 1.2, w: 9,
-                colW: [2, 3.5, 3.5],
-                border: { pt: 1, color: 'e2e8f0' },
-                fill: { color: 'F1F5F9' },
-                headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
-                fontSize: 10
-            });
-        } else {
-             s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
-        }
+        d.pdsa.forEach(p => { rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]); });
+        if (rows.length > 1) s4.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [2, 3.5, 3.5], border: { pt: 1, color: 'e2e8f0' }, fill: { color: 'F1F5F9' }, headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true }, fontSize: 10 });
+        else s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
 
-        // --- SLIDE 5: RESULTS ---
         const s5 = addSlide('Results & Analysis');
-        if (chartImg) {
-            s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-        } else {
-             s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
-        }
-        
+        if (chartImg) s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+        else s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
         s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
-        s5.addText(d.checklist.results_text || "No analysis recorded.", { 
-            x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
-            fontSize: 11, color: '334155', valign: 'top', 
-            fill: 'F8FAFC', border: { color: 'E2E8F0' } 
-        });
+        s5.addText(d.checklist.results_text || "No analysis recorded.", { x: 6.2, y: 1.5, w: 3.3, h: 3.2, fontSize: 11, color: '334155', valign: 'top', fill: 'F8FAFC', border: { color: 'E2E8F0' } });
 
-        // --- SLIDE 6: CONCLUSIONS ---
         const s6 = addSlide('Learning & Sustainability');
         s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
         s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
-
         s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
         s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
 
         await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
-        alert("PowerPoint downloaded successfully.");
-
-    } catch (e) {
-        console.error(e);
-        alert("Error generating PowerPoint: " + e.message);
-    } finally {
-        btnText.textContent = originalText;
-    }
+    } catch (e) { console.error(e); alert("Error generating PowerPoint: " + e.message); } 
+    finally { btnText.textContent = originalText; }
 };
 
-// --- FEATURE 2: CONFERENCE POSTER PRINTING (NEW WINDOW) ---
+// --- FEATURE 2: PDF POSTER EXPORT (IMPROVED) ---
 window.printPoster = async () => {
-    try {
-        if (!projectData) { alert("Please load a project first."); return; }
-        
-        // Notify user work is happening
-        const originalText = document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText;
-        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Building...";
+    if (!projectData) { alert("Please load a project first."); return; }
+    
+    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
+    const originalText = btn.innerText;
+    btn.innerText = "Generating PDF...";
 
+    try {
         const d = projectData;
-        
-        // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
 
-        // Create new window
-        const win = window.open('', 'RCEM_Poster', 'width=1200,height=800');
-        if (!win) { alert("Pop-up blocked! Please allow pop-ups to view the poster."); return; }
-
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>RCEM Poster - ${escapeHtml(d.meta.title)}</title>
-                <script src="https://cdn.tailwindcss.com"></script>
-                <script src="https://unpkg.com/lucide@latest"></script>
-                <style>
-                    body { background: #f1f5f9; padding: 20px; font-family: sans-serif; }
-                    .poster-container {
-                        width: 1189mm; /* A0 Width (approx) scaled down for view */
-                        max-width: 100%;
-                        aspect-ratio: 1.414;
-                        background: white;
-                        margin: 0 auto;
-                        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.3);
-                        display: grid;
-                        grid-template-columns: 25% 1fr 25%;
-                        grid-template-rows: auto 1fr;
-                        gap: 1.5rem;
-                        padding: 2rem;
-                        box-sizing: border-box;
-                    }
-                    /* Print specific overrides */
-                    @media print {
-                        body { background: white; padding: 0; }
-                        .no-print { display: none !important; }
-                        .poster-container { 
-                            width: 100%; height: 100%; box-shadow: none; margin: 0; padding: 1cm; gap: 1cm;
-                            break-inside: avoid;
-                        }
-                    }
-                    .poster-header { grid-column: 1 / -1; background: #2d2e83; color: white; padding: 2rem; border-radius: 1rem; display: flex; align-items: center; gap: 2rem; border-bottom: 0.5rem solid #f36f21; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .box { background: white; border: 2px solid #cbd5e1; padding: 1.5rem; border-radius: 1rem; height: fit-content; }
-                    .box h2 { color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; display: inline-block; text-transform: uppercase; }
-                </style>
-            </head>
-            <body>
-                <div class="fixed top-4 right-4 z-50 flex gap-2 no-print">
-                    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                        Print / Save PDF
-                    </button>
-                    <button onclick="window.close()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded shadow-lg">Close</button>
+        const posterHTML = `
+            <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
+                <div style="background: #2d2e83; color: white; padding: 30px; border-radius: 15px; display: flex; gap: 30px; align-items: center; border-bottom: 8px solid #f36f21; margin-bottom: 30px;">
+                    <div style="background: white; padding: 15px; border-radius: 10px; height: 100px; width: 100px; display: flex; align-items: center; justify-content: center;">
+                        <img src="https://iili.io/KGQOvkl.md.png" style="max-height: 80px; width: auto;">
+                    </div>
+                    <div>
+                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${d.meta.title}</h1>
+                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                    </div>
                 </div>
 
-                <div class="poster-container">
-                    <div class="poster-header">
-                        <div class="bg-white p-4 rounded-lg"><img src="https://iili.io/KGQOvkl.md.png" style="height: 80px;"></div>
-                        <div>
-                            <h1 class="text-4xl font-black leading-tight">${escapeHtml(d.meta.title)}</h1>
-                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
+                <div style="display: grid; grid-template-columns: 25% 45% 25%; gap: 25px;">
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">The Problem</h2>
+                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${d.checklist.problem_desc || 'No problem defined.'}</p>
+                        </div>
+                        <div style="border: 2px solid #3b82f6; padding: 25px; border-radius: 15px; background: #eff6ff;">
+                            <h2 style="color: #1e3a8a; border-bottom: 3px solid #60a5fa; font-size: 24px; font-weight: 800; margin-top: 0;">SMART Aim</h2>
+                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${d.checklist.aim || 'No aim defined.'}</p>
+                        </div>
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
+                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : '<p style="color: #94a3b8; font-style: italic;">No drivers defined.</p>'}
                         </div>
                     </div>
 
-                    <div class="space-y-6">
-                        <div class="box">
-                            <h2>The Problem</h2>
-                            <p class="text-slate-700 leading-relaxed">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
-                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${escapeHtml(d.checklist.evidence) || 'N/A'}</p>
-                        </div>
-                        <div class="box bg-blue-50 border-blue-200" style="-webkit-print-color-adjust: exact;">
-                            <h2 class="text-blue-900 border-blue-400">SMART Aim</h2>
-                            <p class="text-xl font-serif text-blue-800 italic font-bold">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
-                        </div>
-                        <div class="box">
-                            <h2>Driver Diagram</h2>
-                            ${driverImg ? `<img src="${driverImg}" class="w-full h-auto rounded border border-slate-100">` : '<p class="italic text-slate-400">No drivers defined.</p>'}
-                        </div>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="box h-full">
-                            <h2>Results & Data</h2>
-                            <div class="bg-white p-4 border rounded-lg mb-4 flex justify-center">
-                                ${chartImg ? `<img src="${chartImg}" class="max-w-full h-auto">` : '<p class="py-10 text-slate-400">No data available.</p>'}
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
+                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : '<p style="padding: 40px; color: #94a3b8;">No data available.</p>'}
                             </div>
-                            <div class="bg-slate-50 p-4 border-l-4 border-rcem-purple rounded" style="-webkit-print-color-adjust: exact;">
-                                <h3 class="font-bold text-rcem-purple mb-2">Analysis</h3>
-                                <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(d.checklist.results_text) || 'No analysis text provided.'}</p>
+                            <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
+                                <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
+                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${d.checklist.results_text || 'No analysis provided.'}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div class="space-y-6">
-                        <div class="box">
-                            <h2>Interventions</h2>
-                            <ul class="space-y-3">
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Interventions</h2>
+                            <ul style="list-style: none; padding: 0;">
                                 ${d.pdsa.map(p => `
-                                    <li class="pl-4 border-l-4 border-slate-300">
-                                        <strong class="block text-slate-800">${escapeHtml(p.title)}</strong>
-                                        <span class="text-sm text-slate-600">${escapeHtml(p.do)}</span>
+                                    <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
+                                        <strong style="display: block; color: #1e293b;">${p.title}</strong>
+                                        <span style="font-size: 13px; color: #64748b;">${p.do}</span>
                                     </li>
                                 `).join('')}
                             </ul>
                         </div>
-                        <div class="box">
-                            <h2>Learning</h2>
-                            <p class="text-slate-700 text-sm">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Learning</h2>
+                            <p style="font-size: 14px; color: #334155;">${d.checklist.learning || 'N/A'}</p>
                         </div>
-                        <div class="box bg-emerald-50 border-emerald-200" style="-webkit-print-color-adjust: exact;">
-                            <h2 class="text-emerald-900 border-emerald-400">Sustainability</h2>
-                            <p class="text-emerald-800 text-sm">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
+                        <div style="border: 2px solid #10b981; padding: 25px; border-radius: 15px; background: #ecfdf5;">
+                            <h2 style="color: #047857; border-bottom: 3px solid #34d399; font-size: 24px; font-weight: 800; margin-top: 0;">Sustainability</h2>
+                            <p style="font-size: 14px; color: #065f46;">${d.checklist.sustain || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
-                <script>
-                    lucide.createIcons();
-                </script>
-            </body>
-            </html>
+            </div>
         `;
 
-        win.document.write(htmlContent);
-        win.document.close();
-        
-        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Print A0 Poster";
+        // Temporary container for PDF generation
+        const container = document.createElement('div');
+        container.innerHTML = posterHTML;
+        document.body.appendChild(container);
+
+        const opt = {
+            margin: 0.2,
+            filename: `RCEM_Poster_${d.meta.title}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' }
+        };
+
+        await html2pdf().set(opt).from(container).save();
+        document.body.removeChild(container);
 
     } catch (e) {
         console.error(e);
-        alert("Error generating Poster: " + e.message);
+        alert("Error generating PDF: " + e.message);
+    } finally {
+        btn.innerText = originalText;
     }
 };
 
@@ -1326,7 +1272,6 @@ async function renderFullProject() {
     const flags = checkRCEMCriteria(d);
     
     // Generate Visual Assets (Async)
-    // This fixes the issue where charts were invisible/broken because the canvas was hidden
     const chartImg = await getVisualAsset('chart');
     const driverImg = await getVisualAsset('driver');
     const fishboneImg = await getVisualAsset('fishbone');
