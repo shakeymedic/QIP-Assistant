@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 // --- CONFIG ---
 const firebaseConfig = {
@@ -38,6 +38,7 @@ let currentUser = null;
 let currentProjectId = null;
 let projectData = null;
 let isDemoMode = false;
+let isReadOnly = false;
 let chartInstance = null;
 let unsubscribeProject = null;
 let toolMode = 'fishbone';
@@ -51,69 +52,60 @@ const MAX_HISTORY = 20;
 // --- OFFLINE DETECTION ---
 const updateOnlineStatus = () => {
     const indicator = document.getElementById('offline-indicator');
-    if (navigator.onLine) {
-        indicator.classList.add('hidden');
-    } else {
-        indicator.classList.remove('hidden');
+    if (indicator) {
+        if (navigator.onLine) {
+            indicator.classList.add('hidden');
+        } else {
+            indicator.classList.remove('hidden');
+        }
     }
 };
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
-updateOnlineStatus();
+// Run once on load
+if(document.readyState === 'complete') updateOnlineStatus();
+
+// --- SHARE / READ-ONLY LOGIC ---
+async function checkShareLink() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const sharePid = urlParams.get('share');
+    const shareUid = urlParams.get('uid');
+
+    if (sharePid && shareUid) {
+        isReadOnly = true;
+        document.getElementById('readonly-indicator').classList.remove('hidden');
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-sidebar').classList.remove('hidden');
+        document.getElementById('app-sidebar').classList.add('flex');
+        
+        document.body.classList.add('readonly-mode');
+        const saveStat = document.getElementById('save-status');
+        if(saveStat) saveStat.innerText = "Read Only";
+        
+        try {
+            const docRef = doc(db, `users/${shareUid}/projects`, sharePid);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                projectData = docSnap.data();
+                currentProjectId = sharePid;
+                document.getElementById('project-header-title').textContent = projectData.meta.title + " (Shared)";
+                // Initialize history so local undo works in session
+                historyStack = [JSON.stringify(projectData)];
+                renderAll();
+                window.router('dashboard');
+            } else {
+                alert("Shared project not found or permission denied.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Could not load shared project.");
+        }
+        return true;
+    }
+    return false;
+}
 
 // --- TEMPLATES ---
-const qipTemplates = {
-    pain: {
-        meta: { title: "Analgesia in Majors (RCEM Audit)" },
-        checklist: {
-            problem_desc: "Delays in analgesia lead to poor patient experience and physiological stress. Current performance is below the RCEM standard (50% within 20 mins).",
-            evidence: "RCEM Pain in Adults Guidelines (2023).",
-            aim: "To increase the % of patients with severe pain receiving analgesia within 20 mins from X% to 90% by [Date].",
-            outcome_measures: "% Time to Analgesia < 20 mins",
-            process_measures: "Time to Triage; Pain Score recorded at Triage",
-            drivers: { primary: ["Identification", "Prescribing", "Administration"], secondary: ["Pain Scoring", "Nurse PGDs", "Drug Availability"], changes: ["Mandatory Pain Score at Triage", "Intranasal Fentanyl PGD"] }
-        }
-    },
-    sepsis: {
-        meta: { title: "Sepsis 6 Compliance" },
-        checklist: {
-            problem_desc: "Sepsis mortality increases by 7.6% for every hour delay in antibiotics. Current compliance with the 'Sepsis 6' bundle in our ED is variable.",
-            evidence: "RCEM Sepsis Standards & NICE NG51.",
-            aim: "To increase the % of Red Flag Sepsis patients receiving antibiotics within 60 mins from X% to 95% by [Date].",
-            drivers: { 
-                primary: ["Recognition", "Equipment", "Culture"], 
-                secondary: ["Screening Tool Use", "Grab Bags", "Feedback loops"], 
-                changes: ["Sepsis Trolley in Resus", "Automated Triage Prompt"] 
-            }
-        }
-    },
-    falls: {
-        meta: { title: "Falls Assessment in Elderly" },
-        checklist: {
-            problem_desc: "Elderly patients with mechanical falls are often not screened for lying/standing BP, leading to missed syncope diagnoses.",
-            evidence: "NICE CG161 Falls Assessment.",
-            aim: "To increase the completion of lying/standing BP in patients >65 presenting with falls from X% to 80% by [Date].",
-            drivers: { primary: ["Staff Education", "Equipment", "Documentation"], secondary: ["Lying/Standing Protocol", "Orthostatic BP Machine", "Cerner PowerForm"], changes: ["Poster in Majors", "Dedicated BP machine"] }
-        }
-    },
-    vte: {
-        meta: { title: "VTE Risk Assessment" },
-        checklist: {
-            problem_desc: "Hospital acquired thrombosis is preventable. VTE risk assessment is mandatory but often missed in busy ED flow.",
-            aim: "To increase VTE risk assessment completion for admitted patients from X% to 95% by [Date].",
-            drivers: { primary: ["Prompting", "Ease of Use"], secondary: ["Digital Reminder", "Paper Chart Integration"], changes: ["Doctor sticker in notes"] }
-        }
-    },
-    flow: {
-        meta: { title: "Ambulance Handover Delays" },
-        checklist: {
-            problem_desc: "Ambulance crews are delayed in the corridor, reducing community availability.",
-            aim: "To decrease average ambulance handover time from X mins to 15 mins by [Date].",
-            drivers: { primary: ["Space", "Staffing", "Process"], secondary: ["Fit-to-sit zone", "Cohorting", "Rapid Triage"], changes: ["Halo Nurse Role", "Chairs in corridor"] }
-        }
-    }
-};
-
 const emptyProject = {
     meta: { title: "New Project", created: new Date().toISOString() },
     checklist: { results_text: "", aim: "" },
@@ -127,7 +119,10 @@ const emptyProject = {
 };
 
 // --- AUTH & INIT ---
-onAuthStateChanged(auth, (user) => {
+onAuthStateChanged(auth, async (user) => {
+    const isShared = await checkShareLink();
+    if (isShared) return;
+
     currentUser = user;
     if (user) {
         const sidebar = document.getElementById('app-sidebar');
@@ -141,6 +136,7 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
+// --- NAVIGATION & UI HANDLERS ---
 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar.classList.contains('hidden')) {
@@ -163,11 +159,11 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     }
 });
 
-document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); location.reload(); });
+document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); window.location.href = window.location.origin; });
 
-// --- UNDO / REDO FUNCTIONS ---
+// --- UNDO / REDO ---
 window.undo = () => {
-    if (historyStack.length === 0) return;
+    if (historyStack.length === 0 || isReadOnly) return;
     redoStack.push(JSON.stringify(projectData));
     const prevState = historyStack.pop();
     projectData = JSON.parse(prevState);
@@ -177,7 +173,7 @@ window.undo = () => {
 };
 
 window.redo = () => {
-    if (redoStack.length === 0) return;
+    if (redoStack.length === 0 || isReadOnly) return;
     historyStack.push(JSON.stringify(projectData));
     const nextState = redoStack.pop();
     projectData = JSON.parse(nextState);
@@ -195,17 +191,16 @@ function updateUndoRedoButtons() {
 
 // --- PROJECT MANAGEMENT ---
 async function loadProjectList() {
+    if(isReadOnly) return;
     window.router('projects');
     document.getElementById('top-bar').classList.add('hidden');
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
-    // Force sidebar check
     const sidebar = document.getElementById('app-sidebar');
     if(sidebar.classList.contains('hidden')) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
 
     if (isDemoMode) {
-        // FIX: Ensure no project is selected when loading list
         currentProjectId = null;
         projectData = null; 
         
@@ -219,10 +214,6 @@ async function loadProjectList() {
                     <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 3 Cycles</span>
                 </div>
             </div>
-            <div class="opacity-50 pointer-events-none grayscale bg-white p-6 rounded-xl border border-slate-200 border-dashed">
-                <h3 class="font-bold text-lg text-slate-400 mb-1">Pain Scoring in Triage</h3>
-                <p class="text-xs text-slate-400 mb-4">Example Project 2</p>
-            </div>
         `;
         lucide.createIcons();
         return;
@@ -234,7 +225,6 @@ async function loadProjectList() {
     if (snap.empty) {
         listEl.innerHTML = `<div class="col-span-3 text-center border-2 border-dashed border-slate-300 rounded-xl p-10 bg-slate-50">
             <h3 class="font-bold text-slate-600 mb-2">No Projects Yet</h3>
-            <p class="text-slate-400 text-sm mb-4">Start your journey towards Quality Improvement.</p>
             <button onclick="window.createNewProject()" class="text-rcem-purple font-bold hover:underline flex items-center justify-center gap-2 mx-auto"><i data-lucide="plus-circle" class="w-4 h-4"></i> Create your first QIP</button>
         </div>`;
     }
@@ -258,31 +248,16 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
-    const choice = prompt("Choose a template:\n1. Blank Project\n2. Sepsis (Sepsis 6)\n3. Pain (Analgesia)\n4. Falls (Elderly)\n5. VTE Assessment\n6. Ambulance Flow\n\nEnter Number:", "1");
-    if (!choice) return;
-
-    let template = JSON.parse(JSON.stringify(emptyProject));
-    const map = { '2':'sepsis', '3':'pain', '4':'falls', '5':'vte', '6':'flow' };
-    
-    if (map[choice]) {
-        const t = qipTemplates[map[choice]];
-        Object.assign(template.meta, t.meta);
-        Object.assign(template.checklist, t.checklist);
-        template.drivers = t.checklist.drivers || template.drivers;
-    }
-
-    const title = prompt("Project Title:", template.meta.title || "My New QIP");
+    const title = prompt("Project Title:", "My New QIP");
     if (!title) return;
-    
+    let template = JSON.parse(JSON.stringify(emptyProject));
     template.meta.title = title;
-    template.meta.created = new Date().toISOString();
-    
     await addDoc(collection(db, `users/${currentUser.uid}/projects`), template);
     loadProjectList();
 };
 
 window.deleteProject = async (id) => {
-    if (confirm("Are you sure? This cannot be undone.")) {
+    if (confirm("Are you sure?")) {
         await deleteDoc(doc(db, `users/${currentUser.uid}/projects`, id));
         loadProjectList();
     }
@@ -301,7 +276,6 @@ window.openProject = (id) => {
                 updateUndoRedoButtons();
             }
             projectData = data;
-            
             // Schema patching
             if(!projectData.checklist) projectData.checklist = {};
             if(!projectData.drivers) projectData.drivers = {primary:[], secondary:[], changes:[]};
@@ -315,53 +289,24 @@ window.openProject = (id) => {
             if (currentView !== 'full') renderAll();
         }
     });
-
     document.getElementById('top-bar').classList.remove('hidden');
     window.router('dashboard');
 };
 
 window.openDemoProject = () => {
-    const demoData = {
-        meta: { title: "Improving Sepsis 6 Delivery in ED", created: "2024-01-10T09:00:00.000Z" },
-        checklist: { 
-            problem_desc: "Audit data (Q4 2023) showed only 55% of 'Red Flag' sepsis patients received antibiotics within 60 minutes of arrival.",
-            evidence: "RCEM Sepsis Standards (2023); NICE NG51; Surviving Sepsis Campaign.",
-            aim: "To increase the % of eligible sepsis patients receiving IV antibiotics within 60 minutes of arrival from 55% to 95% by 1st July 2024.",
-            outcome_measures: "% of patients receiving antibiotics < 60 mins.",
-            process_measures: "Screening tool completion rate; Door-to-needle time.",
-            balance_measures: "Antibiotic stewardship (total consumption); C. Difficile rates.",
-            team: "Dr. J Bloggs (Lead), Sr. M. Smith (Nursing Lead), Dr. X (Consultant Sponsor).",
-            ethics: "Registered with Trust Audit Dept (Ref: QIP-2024-055). No ethical approval required.",
-            ppi: "Discussed with Patient Liaison Group (PLG). Poster displayed in waiting room.",
-            learning: "Success was driven by automation (IT alerts) rather than education alone.",
-            sustain: "Sepsis Lead Nurse appointed to monitor monthly data. IT Alert is permanent.",
-            results_text: "The Run Chart shows a clear 'Shift' following PDSA Cycle 2 (Sepsis Trolleys)."
-        },
-        drivers: { 
-            primary: ["Early Recognition", "Equipment Availability", "Safety Culture"], 
-            secondary: ["Triage Screening", "Access to Antibiotics", "Feedback Loops", "Staff Education"], 
-            changes: ["Mandatory Sepsis Screen", "Sepsis Grab Bags", "Dedicated Trolley", "IT Best Practice Alert"] 
-        },
-        fishbone: { categories: [{ id: 1, text: "People", causes: ["Reliance on Agency Staff", "Lack of ownership"] }, { id: 2, text: "Methods", causes: ["Paper screening tool lost", "No PGD for nurses"] }, { id: 3, text: "Environment", causes: ["Overcrowding", "Distance to drug cupboard"] }, { id: 4, text: "Equipment", causes: ["Cannulas missing", "Antibiotic keys missing"] }] },
-        pdsa: [
-            { id: 1705000000000, title: "Cycle 1: Education Campaign", plan: "Deliver 10-min teaching.", do: "Teaching delivered.", study: "Compliance rose slightly.", act: "Abandon (as sole intervention)." },
-            { id: 1708000000000, title: "Cycle 2: Sepsis Trolley", plan: "Introduce a dedicated trolley.", do: "Trolley stocked.", study: "Immediate improvement.", act: "Adopt." },
-            { id: 1712000000000, title: "Cycle 3: Electronic Alert", plan: "IT modification.", do: "Live on April 1st.", study: "Compliance hit 95%.", act: "Adopt." }
-        ],
-        chartData: [
-            { date: "2024-01-07", value: 52, type: "outcome" }, { date: "2024-01-14", value: 58, type: "outcome" }, { date: "2024-01-21", value: 45, type: "outcome" }, { date: "2024-01-28", value: 55, type: "outcome" }, { date: "2024-02-04", value: 50, type: "outcome" }, { date: "2024-02-11", value: 60, type: "outcome" },
-            { date: "2024-02-18", value: 65, type: "outcome", note: "Cycle 1" }, { date: "2024-02-25", value: 62, type: "outcome" }, { date: "2024-03-03", value: 58, type: "outcome" },
-            { date: "2024-03-10", value: 75, type: "outcome", note: "Cycle 2" }, { date: "2024-03-17", value: 82, type: "outcome" }, { date: "2024-03-24", value: 79, type: "outcome" }, { date: "2024-03-31", value: 85, type: "outcome" },
-            { date: "2024-04-07", value: 92, type: "outcome", note: "Cycle 3" }, { date: "2024-04-14", value: 95, type: "outcome" }, { date: "2024-04-21", value: 94, type: "outcome" }, { date: "2024-04-28", value: 91, type: "outcome" }, { date: "2024-05-05", value: 96, type: "outcome" }, { date: "2024-05-12", value: 93, type: "outcome" }, { date: "2024-05-19", value: 95, type: "outcome" }, { date: "2024-05-26", value: 94, type: "outcome" }
-        ],
-        stakeholders: [{ name: "ED Consultants", power: 90, interest: 80 }, { name: "Nursing Staff", power: 60, interest: 90 }],
-        gantt: [{ id: 1, name: "Planning", start: "2024-01-01", end: "2024-01-20", type: "plan" }],
-        process: ["Patient Arrives", "Triage", "Sepsis Screen", "Alert", "Abx"]
-    };
-
+    const demoData = JSON.parse(JSON.stringify(emptyProject));
+    demoData.meta.title = "Improving Sepsis 6 (DEMO)";
+    demoData.checklist = { problem_desc: "Sepsis delays in ED.", aim: "Increase abx <1hr to 90% by July.", evidence: "RCEM Standards.", team: "Dr. Bloggs, Sr. Smith" };
+    demoData.chartData = [
+        {date:"2024-01-01", value:50, type:'outcome'}, {date:"2024-01-08", value:55, type:'outcome'}, {date:"2024-01-15", value:45, type:'outcome'},
+        {date:"2024-01-22", value:60, type:'outcome'}, {date:"2024-01-29", value:65, type:'outcome'}, {date:"2024-02-05", value:70, type:'outcome'},
+        {date:"2024-02-12", value:85, type:'outcome', note:"Cycle 1"}, {date:"2024-02-19", value:88, type:'outcome'}, {date:"2024-02-26", value:92, type:'outcome'}
+    ];
+    demoData.pdsa = [{title:"Cycle 1", plan:"Sepsis Trolley", do:"Implemented in Majors", study:"Time to abx reduced", act:"Adopt", isStepChange: true}];
+    demoData.drivers = { primary: ["Recognition", "Equipment"], secondary: ["Training", "Stock"], changes: ["Trolley", "Poster"] };
+    
     projectData = demoData;
     currentProjectId = 'DEMO';
-    // Initial Undo State for Demo
     historyStack = [JSON.stringify(projectData)];
     redoStack = [];
     updateUndoRedoButtons();
@@ -385,12 +330,7 @@ window.returnToProjects = () => {
 
 let currentView = 'dashboard';
 window.router = (view) => {
-    // FIX: Navigation Guard to prevent errors in Demo Mode
-    if (view !== 'projects' && !projectData) {
-        alert("Please select a project from the list first.");
-        return;
-    }
-
+    if (view !== 'projects' && !projectData) { alert("Please select a project."); return; }
     currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
@@ -412,11 +352,11 @@ window.router = (view) => {
     if (view === 'pdsa') renderPDSA();
     if (view === 'gantt') renderGantt();
     if (view === 'full') renderFullProject();
-    
     lucide.createIcons();
 };
 
 async function saveData(skipHistory = false) {
+    if (isReadOnly) return;
     if (isDemoMode) { 
         if(!skipHistory) {
             historyStack.push(JSON.stringify(projectData));
@@ -435,9 +375,7 @@ async function saveData(skipHistory = false) {
         redoStack = []; 
         updateUndoRedoButtons();
     }
-
     await setDoc(doc(db, `users/${currentUser.uid}/projects`, currentProjectId), projectData, { merge: true });
-    
     const s = document.getElementById('save-status');
     s.classList.remove('opacity-0');
     setTimeout(() => s.classList.add('opacity-0'), 2000);
@@ -445,34 +383,61 @@ async function saveData(skipHistory = false) {
 
 document.getElementById('demo-toggle').addEventListener('change', (e) => {
     isDemoMode = e.target.checked;
-    // FIX: Clear project data on toggle so user must select again
-    currentProjectId = null;
-    projectData = null;
+    currentProjectId = null; projectData = null;
     const wm = document.getElementById('demo-watermark');
-    if (isDemoMode) {
-        wm.classList.remove('hidden');
-        loadProjectList();
-    } else {
-        wm.classList.add('hidden');
-        if (currentUser) loadProjectList();
-        else document.getElementById('auth-screen').classList.remove('hidden');
-    }
+    if (isDemoMode) { wm.classList.remove('hidden'); loadProjectList(); } 
+    else { wm.classList.add('hidden'); if (currentUser) loadProjectList(); else document.getElementById('auth-screen').classList.remove('hidden'); }
 });
 
 document.getElementById('demo-auth-btn').onclick = () => {
     isDemoMode = true;
     currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
-    
-    const sidebar = document.getElementById('app-sidebar');
-    sidebar.classList.remove('hidden');
-    sidebar.classList.add('flex');
-    
+    document.getElementById('app-sidebar').classList.remove('hidden');
+    document.getElementById('app-sidebar').classList.add('flex');
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('demo-watermark').classList.remove('hidden');
     document.getElementById('demo-toggle').checked = true;
     loadProjectList();
 };
 
+// --- FEATURE: SHARE PROJECT ---
+window.shareProject = () => {
+    if(isDemoMode) { alert("Cannot share demo projects."); return; }
+    const url = `${window.location.origin}${window.location.pathname}?share=${currentProjectId}&uid=${currentUser.uid}`;
+    navigator.clipboard.writeText(url).then(() => alert("Read-only link copied to clipboard!"));
+};
+
+// --- FEATURE: CSV IMPORT ---
+window.importCSV = (input) => {
+    if(isReadOnly) return;
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const rows = text.split('\n');
+        let count = 0;
+        historyStack.push(JSON.stringify(projectData));
+        rows.forEach(row => {
+            const cols = row.split(',');
+            if (cols.length >= 2) {
+                const date = cols[0].trim();
+                const value = parseFloat(cols[1].trim());
+                if (!isNaN(value) && !isNaN(Date.parse(date))) {
+                    projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, type: 'outcome' });
+                    count++;
+                }
+            }
+        });
+        saveData();
+        renderChart();
+        alert(`Imported ${count} points.`);
+    };
+    reader.readAsText(file);
+    input.value = '';
+};
+
+// --- RENDER FUNCTIONS ---
 function renderAll() {
     renderCoach();
     if(currentView === 'data') renderChart();
@@ -541,12 +506,12 @@ function renderCoach() {
         </div>
     `;
     document.getElementById('coach-action-btn').onclick = status.a;
-    lucide.createIcons();
     
     document.getElementById('stat-pdsa').textContent = d.pdsa.length;
     document.getElementById('stat-data').textContent = d.chartData.length;
     document.getElementById('stat-drivers').textContent = d.drivers.changes.length;
     document.getElementById('dash-aim-display').textContent = d.checklist.aim || "No aim defined yet.";
+    lucide.createIcons();
 }
 
 function checkAimQuality(aim) {
@@ -594,7 +559,7 @@ function renderChecklist() {
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex justify-between items-center">
                             ${f.l} ${f.w ? '<button onclick="document.getElementById(\'smart-modal\').classList.remove(\'hidden\')" class="text-rcem-purple hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="wand-2" class="w-3 h-3"></i> Open Wizard</button>' : ''}
                         </label>
-                        <textarea onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
+                        <textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
                     </div>
                 `).join('')}
             </div>
@@ -603,6 +568,7 @@ function renderChecklist() {
     lucide.createIcons();
     
     window.saveSmartAim = () => {
+        if(isReadOnly) return;
         const v = document.getElementById('sa-verb').value;
         const m = document.getElementById('sa-metric').value;
         const p = document.getElementById('sa-pop').value;
@@ -660,7 +626,7 @@ async function renderTools() {
         mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
             cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
         
-        ctrls = cats.map(c => `<button onclick="window.addCauseWithWhys(${c.id})" class="whitespace-nowrap px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-200 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> ${c.text}</button>`).join('');
+        ctrls = cats.map(c => `<button ${isReadOnly?'disabled':''} onclick="window.addCauseWithWhys(${c.id})" class="whitespace-nowrap px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-200 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> ${c.text}</button>`).join('');
         if (cats.every(c => c.causes.length === 0)) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
 
     } else if (toolMode === 'driver') {
@@ -670,14 +636,14 @@ async function renderTools() {
         d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
         d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
         d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-        ctrls = `<button onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded">Add Primary</button> <button onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded">Add Secondary</button> <button onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded">Add Change Idea</button>`;
+        ctrls = `<button ${isReadOnly?'disabled':''} onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded">Add Primary</button> <button ${isReadOnly?'disabled':''} onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded">Add Secondary</button> <button ${isReadOnly?'disabled':''} onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded">Add Change Idea</button>`;
         if (d.primary.length === 0) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
 
     } else if (toolMode === 'process') {
          const p = projectData.process;
          const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
          mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
-         ctrls = `<button onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded">Add Step</button> <button onclick="window.resetProcess()" class="px-4 py-2 text-red-500">Reset</button>`;
+         ctrls = `<button ${isReadOnly?'disabled':''} onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded">Add Step</button> <button ${isReadOnly?'disabled':''} onclick="window.resetProcess()" class="px-4 py-2 text-red-500">Reset</button>`;
          ghost.classList.add('hidden');
     }
 
@@ -689,6 +655,7 @@ async function renderTools() {
 }
 
 window.addCauseWithWhys = (id) => {
+    if(isReadOnly) return;
     let cause = prompt("What is the cause?");
     if (!cause) return;
     if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
@@ -703,9 +670,9 @@ window.addCauseWithWhys = (id) => {
     projectData.fishbone.categories.find(c=>c.id===id).causes.push(cause);
     saveData(); renderTools();
 };
-window.addDriver = (t) => { const v=prompt("Driver:"); if(v){projectData.drivers[t].push(v); saveData(); renderTools();} }
-window.addStep = () => { const v=prompt("Step Description:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
-window.resetProcess = () => { if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
+window.addDriver = (t) => { if(isReadOnly) return; const v=prompt("Driver:"); if(v){projectData.drivers[t].push(v); saveData(); renderTools();} }
+window.addStep = () => { if(isReadOnly) return; const v=prompt("Step Description:"); if(v){projectData.process.push(v); saveData(); renderTools();} }
+window.resetProcess = () => { if(isReadOnly) return; if(confirm("Start over?")){projectData.process=["Start","End"]; saveData(); renderTools();} }
 
 const stakeholderScripts = {
     highPowerLowInterest: { t: "Keep Satisfied", s: "Focus on Risk: 'We need your support to ensure this doesn't impact flow/safety. It won't require much of your time, but your sign-off is crucial.'" },
@@ -735,7 +702,7 @@ function renderStakeholders() {
             document.getElementById('script-content').innerText = script.s;
             document.getElementById('stakeholder-script').classList.remove('translate-y-full');
         };
-        el.onmousedown = (e) => dragStakeholder(e, index);
+        if(!isReadOnly) el.onmousedown = (e) => dragStakeholder(e, index);
         container.appendChild(el);
     });
 }
@@ -762,6 +729,7 @@ function dragStakeholder(e, index) {
     document.addEventListener('mouseup', onMouseUp);
 }
 window.addStakeholder = () => {
+    if(isReadOnly) return;
     const name = prompt("Stakeholder Name:");
     if(!name) return;
     if(!projectData.stakeholders) projectData.stakeholders = [];
@@ -776,55 +744,54 @@ function renderChart() {
     if (data.length === 0) { document.getElementById('chart-ghost').classList.remove('hidden'); if(chartInstance) chartInstance.destroy(); return; }
     document.getElementById('chart-ghost').classList.add('hidden');
 
-    const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
-    const values = outcomes.map(d => Number(d.value));
-    const labels = outcomes.map(d => d.date);
+    const values = data.map(d => Number(d.value));
+    const labels = data.map(d => d.date);
+    
+    // Standard Median (First 12 points)
     let baselinePoints = values.slice(0, 12); 
     let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
     
-    const pointColors = [];
-    let runCount = 0; let runDirection = 0;
-    values.forEach((v) => {
-        if (v > currentMedian) {
-            if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
-        } else if (v < currentMedian) {
-            if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
-        } else runCount = 0;
-        pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
-    });
+    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83')); // Simple color logic
 
     if (chartInstance) chartInstance.destroy();
+    
     const annotations = {
-        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2, label: { display: true, content: 'Median', position: 'end' } }
+        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
     };
+    
     data.filter(d => d.note).forEach((d, i) => {
         annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
     });
 
     chartInstance = new Chart(ctx, {
         type: 'line',
-        data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 6, tension: 0.1 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const i = activeEls[0].index; const note = prompt(`Annotate:`, data[i].note || ""); if (note !== null) { data[i].note = note; saveData(); renderChart(); } } } }
+        data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 6, tension: 0.1 }] },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { annotation: { annotations } },
+            onClick: (e, activeEls) => {
+                if (isReadOnly || activeEls.length === 0) return;
+                const i = activeEls[0].index;
+                const note = prompt(`Annotate point:`, data[i].note || "");
+                if (note !== null) { data[i].note = note; saveData(); renderChart(); }
+            }
+        }
     });
     
-    document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => {
-        const originalIndex = data.length - 1 - i;
-        return `
-            <div class="flex justify-between border-b border-slate-100 py-2 items-center group">
-                <span>
-                    <span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> 
-                    <strong>${d.value}</strong>
-                    ${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">${escapeHtml(d.note)}</span>` : ''}
-                </span>
-                <button onclick="window.deleteDataPoint(${originalIndex})" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </div>`;
-    }).join('');
+    // Render History List
+    document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => `
+        <div class="flex justify-between border-b border-slate-100 py-2 items-center group">
+            <span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong>${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">${escapeHtml(d.note)}</span>` : ''}</span>
+            ${!isReadOnly ? `<button onclick="window.deleteDataPoint(${data.length - 1 - i})" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+        </div>`).join('');
     lucide.createIcons();
 }
 
 window.deleteDataPoint = (index) => {
-    if (confirm("Delete this data point?")) {
-        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); 
+    if (isReadOnly) return;
+    if (confirm("Delete?")) {
+        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
         projectData.chartData.splice(index, 1);
         saveData();
         renderChart();
@@ -832,30 +799,72 @@ window.deleteDataPoint = (index) => {
 };
 
 window.addDataPoint = () => {
+    if (isReadOnly) return;
     const d = { date: document.getElementById('chart-date').value, value: document.getElementById('chart-value').value, type: document.getElementById('chart-cat').value };
     if (d.date && d.value) { projectData.chartData.push(d); saveData(); renderChart(); }
 };
-window.saveResults = (val) => { if(!projectData.checklist) projectData.checklist={}; projectData.checklist.results_text = val; saveData(); }
 
-window.addPDSA = () => { const t = prompt("Cycle Title:"); if(t) { projectData.pdsa.unshift({id: Date.now(), title:t, plan:"", do:"", study:"", act:""}); saveData(); renderPDSA(); } }
+window.addPDSA = () => { 
+    if (isReadOnly) return;
+    const t = prompt("Cycle Title:"); 
+    if(t) { projectData.pdsa.unshift({id: Date.now(), title:t, plan:"", do:"", study:"", act:"", isStepChange: false}); saveData(); renderPDSA(); } 
+};
+
 function renderPDSA() {
     if(!projectData) return;
     const container = document.getElementById('pdsa-container');
-    if (projectData.pdsa.length === 0) { container.innerHTML = `<div class="text-center py-10 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50"><button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded">Start Cycle 1</button></div>`; return; }
     container.innerHTML = projectData.pdsa.map((p,i) => `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <div class="flex justify-between items-center mb-4"><div class="font-bold text-lg text-slate-800">${escapeHtml(p.title)}</div><button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2"></i></button></div>
+            <div class="flex justify-between items-center mb-4">
+                <div class="font-bold text-lg text-slate-800">${escapeHtml(p.title)}</div>
+                ${!isReadOnly ? `<button onclick="window.deletePDSA(${i})" class="text-slate-400 hover:text-red-500"><i data-lucide="trash-2"></i></button>` : ''}
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div class="bg-blue-50 p-3 rounded"><div class="text-xs font-bold text-blue-800 uppercase">Plan</div><textarea onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.plan)}</textarea></div>
-                <div class="bg-orange-50 p-3 rounded"><div class="text-xs font-bold text-orange-800 uppercase">Do</div><textarea onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.do)}</textarea></div>
-                <div class="bg-purple-50 p-3 rounded"><div class="text-xs font-bold text-purple-800 uppercase">Study</div><textarea onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.study)}</textarea></div>
-                <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.act)}</textarea></div>
+                <div class="bg-blue-50 p-3 rounded"><div class="text-xs font-bold text-blue-800 uppercase">Plan</div><textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].plan=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.plan)}</textarea></div>
+                <div class="bg-orange-50 p-3 rounded"><div class="text-xs font-bold text-orange-800 uppercase">Do</div><textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].do=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.do)}</textarea></div>
+                <div class="bg-purple-50 p-3 rounded"><div class="text-xs font-bold text-purple-800 uppercase">Study</div><textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].study=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.study)}</textarea></div>
+                <div class="bg-emerald-50 p-3 rounded"><div class="text-xs font-bold text-emerald-800 uppercase">Act</div><textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].act=this.value;saveData()" class="w-full bg-transparent text-sm resize-none outline-none" rows="2">${escapeHtml(p.act)}</textarea></div>
+            </div>
+            <div class="mt-2 pt-2 border-t border-slate-100 flex items-center gap-2">
+                <input type="checkbox" ${p.isStepChange ? 'checked' : ''} ${isReadOnly ? 'disabled' : ''} onchange="projectData.pdsa[${i}].isStepChange=this.checked;saveData();renderChart()" id="step-${i}">
+                <label for="step-${i}" class="text-xs text-slate-500 font-bold">Mark as Step Change (Re-baseline Chart)</label>
             </div>
         </div>
     `).join('');
     lucide.createIcons();
 }
-window.deletePDSA = (i) => { if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } }
+window.deletePDSA = (i) => { if(isReadOnly) return; if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } };
+
+window.saveResults = (val) => { if(isReadOnly) return; if(!projectData.checklist) projectData.checklist={}; projectData.checklist.results_text = val; saveData(); };
+window.showHelp = (key) => { document.getElementById('help-title').textContent = helpData[key].t; document.getElementById('help-content').innerHTML = helpData[key].c; document.getElementById('help-modal').classList.remove('hidden'); };
+window.openHelp = () => window.showHelp('checklist');
+
+window.calcGreen = () => {
+    const v = document.getElementById('green-type').value;
+    const q = document.getElementById('green-qty').value;
+    document.getElementById('green-res').innerHTML = `<span class="text-2xl text-emerald-600">${(v*q).toFixed(2)} kg</span> CO2e`;
+    document.getElementById('green-res').classList.remove('hidden');
+}
+window.calcMoney = () => {
+    const unit = parseFloat(document.getElementById('money-unit').value) || 0;
+    const qty = parseFloat(document.getElementById('money-qty').value) || 0;
+    document.getElementById('money-res').innerHTML = `<span class="text-2xl text-emerald-600">£${(unit * qty).toFixed(2)}</span> total saved`;
+    document.getElementById('money-res').classList.remove('hidden');
+}
+window.calcTime = () => {
+    const unit = parseFloat(document.getElementById('time-unit').value) || 0;
+    const qty = parseFloat(document.getElementById('time-qty').value) || 0;
+    const total = unit * qty;
+    document.getElementById('time-res').innerHTML = `<span class="text-2xl text-blue-600">${Math.floor(total/60)}h ${total%60}m</span> total saved`;
+    document.getElementById('time-res').classList.remove('hidden');
+}
+window.calcEdu = () => {
+    const pre = parseFloat(document.getElementById('edu-pre').value) || 0;
+    const post = parseFloat(document.getElementById('edu-post').value) || 0;
+    const n = parseFloat(document.getElementById('edu-n').value) || 1;
+    document.getElementById('edu-res').innerHTML = `Confidence improved by <span class="text-2xl text-indigo-600">${(((post - pre) / pre) * 100).toFixed(0)}%</span> across ${n} staff members.`;
+    document.getElementById('edu-res').classList.remove('hidden');
+}
 
 window.startTour = () => {
     const driver = window.driver.js.driver;
@@ -881,381 +890,6 @@ window.openPortfolioExport = () => {
         { t: "Ethics", v: d.checklist.ethics }
     ];
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${escapeHtml(f.v) || 'Not recorded'}</div></div>`).join('');
-};
-
-// --- ROBUST ASSET GENERATOR (FIXED for PowerPoint) ---
-async function getVisualAsset(type) {
-    if (!projectData) return null;
-
-    // Timeout safety to prevent hanging (max 3 seconds)
-    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 3000));
-
-    const generator = (async () => {
-        if (type === 'chart') {
-            try {
-                const canvas = document.createElement('canvas');
-                canvas.width = 1600; 
-                canvas.height = 800;
-                const ctx = canvas.getContext('2d');
-                
-                // IMPORTANT: Fill background explicitly so it's not transparent in PPT
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-                if(data.length === 0) return null;
-
-                const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
-                const values = outcomes.map(d => Number(d.value));
-                const labels = outcomes.map(d => d.date);
-                
-                let baselinePoints = values.slice(0, 12); 
-                let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
-                
-                const pointColors = [];
-                let runCount = 0; let runDirection = 0;
-                values.forEach((v) => {
-                    if (v > currentMedian) {
-                        if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
-                    } else if (v < currentMedian) {
-                        if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
-                    } else runCount = 0;
-                    pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
-                });
-
-                const annotations = {
-                    median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
-                };
-
-                await new Promise(resolve => {
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
-                        options: { 
-                            animation: false, // CRITICAL: Disable animation for synchronous export
-                            responsive: false, 
-                            plugins: { annotation: { annotations }, legend: { display: false } },
-                            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
-                        }
-                    });
-                    resolve();
-                });
-                return canvas.toDataURL('image/png', 1.0);
-            } catch (e) { console.error("Chart gen error", e); return null; }
-        }
-
-        if (type === 'driver' || type === 'fishbone') {
-            try {
-                const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-                let mCode = "";
-                
-                if (type === 'driver') {
-                    const d = projectData.drivers;
-                    if(!d || (!d.primary.length && !d.secondary.length)) return null;
-                    mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-                    if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
-                    d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-                    d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-                    d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-                } else if (type === 'fishbone') {
-                    const cats = projectData.fishbone.categories;
-                    if (cats.every(c => c.causes.length === 0)) return null;
-                    mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
-                        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
-                }
-
-                const tempId = 'temp-mermaid-' + Date.now();
-                const { svg: svgString } = await mermaid.render(tempId, mCode);
-                const el = document.createElement('div');
-                el.innerHTML = svgString;
-                document.body.appendChild(el);
-                const svg = el.querySelector('svg');
-                const viewBox = svg.getAttribute('viewBox').split(' ');
-                const width = parseFloat(viewBox[2]) * 2;
-                const height = parseFloat(viewBox[3]) * 2;
-                svg.setAttribute('width', width);
-                svg.setAttribute('height', height);
-                const svgData = new XMLSerializer().serializeToString(svg);
-                document.body.removeChild(el); 
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, width, height);
-                const img = new Image();
-                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-                const url = URL.createObjectURL(svgBlob);
-                return new Promise(resolve => {
-                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
-                    img.onerror = () => resolve(null);
-                    img.src = url;
-                });
-            } catch (e) { console.error("Diagram gen error", e); return null; }
-        }
-        return null;
-    })();
-
-    // Race between generator and timeout
-    return Promise.race([generator, timeout]);
-}
-
-// --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
-window.exportPPTX = async () => {
-    if (!projectData) { alert("Please load a project first."); return; }
-    
-    // Feedback to user
-    const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
-    const originalText = btnText.textContent;
-    btnText.textContent = "Generating...";
-    
-    try {
-        const d = projectData;
-        const pres = new PptxGenJS();
-        
-        // Load Assets
-        const driverImg = await getVisualAsset('driver');
-        const chartImg = await getVisualAsset('chart');
-
-        // 1. Branding Constants
-        const RCEM_NAVY = '2d2e83';
-        const RCEM_ORANGE = 'f36f21';
-
-        // 2. Define Master Slide (Theme)
-        pres.defineSlideMaster({
-            title: 'RCEM_MASTER',
-            background: { color: 'FFFFFF' },
-            objects: [
-                { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
-                { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
-                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
-                { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
-            ]
-        });
-
-        const addSlide = (title) => {
-            const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
-            slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
-            return slide;
-        };
-
-        // --- SLIDE 1: TITLE ---
-        const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
-        s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
-        s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
-        s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
-
-        // --- SLIDE 2: THE PROBLEM ---
-        const s2 = addSlide('The Problem & Aim');
-        s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
-        
-        s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
-
-        // --- SLIDE 3: DRIVER DIAGRAM ---
-        const s3 = addSlide('Driver Diagram (Strategy)');
-        if (driverImg) {
-            s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        } else {
-            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
-        }
-
-        // --- SLIDE 4: INTERVENTIONS ---
-        const s4 = addSlide('PDSA Cycles & Interventions');
-        const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
-        d.pdsa.forEach(p => {
-            rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
-        });
-        
-        if (rows.length > 1) {
-            s4.addTable(rows, {
-                x: 0.5, y: 1.2, w: 9,
-                colW: [2, 3.5, 3.5],
-                border: { pt: 1, color: 'e2e8f0' },
-                fill: { color: 'F1F5F9' },
-                headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
-                fontSize: 10
-            });
-        } else {
-             s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
-        }
-
-        // --- SLIDE 5: RESULTS ---
-        const s5 = addSlide('Results & Analysis');
-        if (chartImg) {
-            s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-        } else {
-             s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
-        }
-        
-        s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
-        s5.addText(d.checklist.results_text || "No analysis recorded.", { 
-            x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
-            fontSize: 11, color: '334155', valign: 'top', 
-            fill: 'F8FAFC', border: { color: 'E2E8F0' } 
-        });
-
-        // --- SLIDE 6: CONCLUSIONS ---
-        const s6 = addSlide('Learning & Sustainability');
-        s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
-        s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
-
-        s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
-        s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
-
-        await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
-        alert("PowerPoint downloaded successfully.");
-
-    } catch (e) {
-        console.error(e);
-        alert("Error generating PowerPoint: " + e.message);
-    } finally {
-        btnText.textContent = originalText;
-    }
-};
-
-// --- FEATURE 2: CONFERENCE POSTER PRINTING (NEW WINDOW) ---
-window.printPoster = async () => {
-    try {
-        if (!projectData) { alert("Please load a project first."); return; }
-        
-        // Notify user work is happening
-        const originalText = document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText;
-        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Building...";
-
-        const d = projectData;
-        
-        // Load Assets
-        const driverImg = await getVisualAsset('driver');
-        const chartImg = await getVisualAsset('chart');
-
-        // Create new window
-        const win = window.open('', 'RCEM_Poster', 'width=1200,height=800');
-        if (!win) { alert("Pop-up blocked! Please allow pop-ups to view the poster."); return; }
-
-        const htmlContent = `
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>RCEM Poster - ${escapeHtml(d.meta.title)}</title>
-                <script src="https://cdn.tailwindcss.com"></script>
-                <script src="https://unpkg.com/lucide@latest"></script>
-                <style>
-                    body { background: #f1f5f9; padding: 20px; font-family: sans-serif; }
-                    .poster-container {
-                        width: 1189mm; /* A0 Width (approx) scaled down for view */
-                        max-width: 100%;
-                        aspect-ratio: 1.414;
-                        background: white;
-                        margin: 0 auto;
-                        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.3);
-                        display: grid;
-                        grid-template-columns: 25% 1fr 25%;
-                        grid-template-rows: auto 1fr;
-                        gap: 1.5rem;
-                        padding: 2rem;
-                        box-sizing: border-box;
-                    }
-                    /* Print specific overrides */
-                    @media print {
-                        body { background: white; padding: 0; }
-                        .no-print { display: none !important; }
-                        .poster-container { 
-                            width: 100%; height: 100%; box-shadow: none; margin: 0; padding: 1cm; gap: 1cm;
-                            break-inside: avoid;
-                        }
-                    }
-                    .poster-header { grid-column: 1 / -1; background: #2d2e83; color: white; padding: 2rem; border-radius: 1rem; display: flex; align-items: center; gap: 2rem; border-bottom: 0.5rem solid #f36f21; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    .box { background: white; border: 2px solid #cbd5e1; padding: 1.5rem; border-radius: 1rem; height: fit-content; }
-                    .box h2 { color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; display: inline-block; text-transform: uppercase; }
-                </style>
-            </head>
-            <body>
-                <div class="fixed top-4 right-4 z-50 flex gap-2 no-print">
-                    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
-                        Print / Save PDF
-                    </button>
-                    <button onclick="window.close()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded shadow-lg">Close</button>
-                </div>
-
-                <div class="poster-container">
-                    <div class="poster-header">
-                        <div class="bg-white p-4 rounded-lg"><img src="https://iili.io/KGQOvkl.md.png" style="height: 80px;"></div>
-                        <div>
-                            <h1 class="text-4xl font-black leading-tight">${escapeHtml(d.meta.title)}</h1>
-                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
-                        </div>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="box">
-                            <h2>The Problem</h2>
-                            <p class="text-slate-700 leading-relaxed">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
-                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${escapeHtml(d.checklist.evidence) || 'N/A'}</p>
-                        </div>
-                        <div class="box bg-blue-50 border-blue-200" style="-webkit-print-color-adjust: exact;">
-                            <h2 class="text-blue-900 border-blue-400">SMART Aim</h2>
-                            <p class="text-xl font-serif text-blue-800 italic font-bold">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
-                        </div>
-                        <div class="box">
-                            <h2>Driver Diagram</h2>
-                            ${driverImg ? `<img src="${driverImg}" class="w-full h-auto rounded border border-slate-100">` : '<p class="italic text-slate-400">No drivers defined.</p>'}
-                        </div>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="box h-full">
-                            <h2>Results & Data</h2>
-                            <div class="bg-white p-4 border rounded-lg mb-4 flex justify-center">
-                                ${chartImg ? `<img src="${chartImg}" class="max-w-full h-auto">` : '<p class="py-10 text-slate-400">No data available.</p>'}
-                            </div>
-                            <div class="bg-slate-50 p-4 border-l-4 border-rcem-purple rounded" style="-webkit-print-color-adjust: exact;">
-                                <h3 class="font-bold text-rcem-purple mb-2">Analysis</h3>
-                                <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(d.checklist.results_text) || 'No analysis text provided.'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="box">
-                            <h2>Interventions</h2>
-                            <ul class="space-y-3">
-                                ${d.pdsa.map(p => `
-                                    <li class="pl-4 border-l-4 border-slate-300">
-                                        <strong class="block text-slate-800">${escapeHtml(p.title)}</strong>
-                                        <span class="text-sm text-slate-600">${escapeHtml(p.do)}</span>
-                                    </li>
-                                `).join('')}
-                            </ul>
-                        </div>
-                        <div class="box">
-                            <h2>Learning</h2>
-                            <p class="text-slate-700 text-sm">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
-                        </div>
-                        <div class="box bg-emerald-50 border-emerald-200" style="-webkit-print-color-adjust: exact;">
-                            <h2 class="text-emerald-900 border-emerald-400">Sustainability</h2>
-                            <p class="text-emerald-800 text-sm">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
-                        </div>
-                    </div>
-                </div>
-                <script>
-                    lucide.createIcons();
-                </script>
-            </body>
-            </html>
-        `;
-
-        win.document.write(htmlContent);
-        win.document.close();
-        
-        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Print A0 Poster";
-
-    } catch (e) {
-        console.error(e);
-        alert("Error generating Poster: " + e.message);
-    }
 };
 
 window.addGanttTask = () => {
@@ -1336,115 +970,382 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-window.calcGreen = () => {
-    const v = document.getElementById('green-type').value;
-    const q = document.getElementById('green-qty').value;
-    document.getElementById('green-res').innerHTML = `<span class="text-2xl text-emerald-600">${(v*q).toFixed(2)} kg</span> CO2e`;
-    document.getElementById('green-res').classList.remove('hidden');
-}
-window.calcMoney = () => {
-    const unit = parseFloat(document.getElementById('money-unit').value) || 0;
-    const qty = parseFloat(document.getElementById('money-qty').value) || 0;
-    document.getElementById('money-res').innerHTML = `<span class="text-2xl text-emerald-600">£${(unit * qty).toFixed(2)}</span> total saved`;
-    document.getElementById('money-res').classList.remove('hidden');
-}
-window.calcTime = () => {
-    const unit = parseFloat(document.getElementById('time-unit').value) || 0;
-    const qty = parseFloat(document.getElementById('time-qty').value) || 0;
-    const total = unit * qty;
-    document.getElementById('time-res').innerHTML = `<span class="text-2xl text-blue-600">${Math.floor(total/60)}h ${total%60}m</span> total saved`;
-    document.getElementById('time-res').classList.remove('hidden');
-}
-window.calcEdu = () => {
-    const pre = parseFloat(document.getElementById('edu-pre').value) || 0;
-    const post = parseFloat(document.getElementById('edu-post').value) || 0;
-    const n = parseFloat(document.getElementById('edu-n').value) || 1;
-    document.getElementById('edu-res').innerHTML = `Confidence improved by <span class="text-2xl text-indigo-600">${(((post - pre) / pre) * 100).toFixed(0)}%</span> across ${n} staff members.`;
-    document.getElementById('edu-res').classList.remove('hidden');
+// --- ASSET GENERATOR (FIXED for PowerPoint & Poster) ---
+async function getVisualAsset(type) {
+    if (!projectData) return null;
+
+    // Create invisible container in DOM to ensure rendering
+    const container = document.createElement('div');
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '-9999px';
+    document.body.appendChild(container);
+
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 3000));
+
+    const generator = (async () => {
+        if (type === 'chart') {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1600; 
+                canvas.height = 800;
+                container.appendChild(canvas);
+                const ctx = canvas.getContext('2d');
+                
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+                if(data.length === 0) return null;
+
+                const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
+                const values = outcomes.map(d => Number(d.value));
+                const labels = outcomes.map(d => d.date);
+                
+                let baselinePoints = values.slice(0, 12); 
+                let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+                
+                const pointColors = [];
+                let runCount = 0; let runDirection = 0;
+                values.forEach((v) => {
+                    if (v > currentMedian) {
+                        if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
+                    } else if (v < currentMedian) {
+                        if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
+                    } else runCount = 0;
+                    pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
+                });
+
+                const annotations = {
+                    median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+                };
+
+                await new Promise(resolve => {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+                        options: { 
+                            animation: false,
+                            responsive: false, 
+                            plugins: { annotation: { annotations }, legend: { display: false } },
+                            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                        }
+                    });
+                    setTimeout(resolve, 100);
+                });
+                return canvas.toDataURL('image/png', 1.0);
+            } catch (e) { console.error("Chart gen error", e); return null; }
+        }
+
+        if (type === 'driver' || type === 'fishbone') {
+            try {
+                const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+                let mCode = "";
+                
+                if (type === 'driver') {
+                    const d = projectData.drivers;
+                    if(!d || (!d.primary.length && !d.secondary.length)) return null;
+                    mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+                    if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
+                    d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+                    d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+                    d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+                } else if (type === 'fishbone') {
+                    const cats = projectData.fishbone.categories;
+                    if (cats.every(c => c.causes.length === 0)) return null;
+                    mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
+                        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+                }
+
+                const tempId = 'temp-mermaid-' + Date.now();
+                const { svg: svgString } = await mermaid.render(tempId, mCode);
+                const el = document.createElement('div');
+                el.innerHTML = svgString;
+                container.appendChild(el);
+                
+                const svg = el.querySelector('svg');
+                const viewBox = svg.getAttribute('viewBox').split(' ');
+                const width = parseFloat(viewBox[2]) * 2;
+                const height = parseFloat(viewBox[3]) * 2;
+                svg.setAttribute('width', width);
+                svg.setAttribute('height', height);
+                
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                
+                const img = new Image();
+                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                const url = URL.createObjectURL(svgBlob);
+                
+                return new Promise(resolve => {
+                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                });
+            } catch (e) { console.error("Diagram gen error", e); return null; }
+        }
+        return null;
+    })();
+
+    const result = await Promise.race([generator, timeout]);
+    document.body.removeChild(container);
+    return result;
 }
 
+// --- FEATURE 1: EXPORT PPTX ---
+window.exportPPTX = async () => {
+    if (!projectData) { alert("Please load a project first."); return; }
+    
+    const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
+    const originalText = btnText.textContent;
+    btnText.textContent = "Generating...";
+    
+    try {
+        const d = projectData;
+        const pres = new PptxGenJS();
+        
+        const driverImg = await getVisualAsset('driver');
+        const chartImg = await getVisualAsset('chart');
+
+        const RCEM_NAVY = '2d2e83';
+        const RCEM_ORANGE = 'f36f21';
+
+        pres.defineSlideMaster({
+            title: 'RCEM_MASTER',
+            background: { color: 'FFFFFF' },
+            objects: [
+                { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
+                { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
+                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
+                { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
+            ]
+        });
+
+        const addSlide = (title) => {
+            const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
+            slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
+            return slide;
+        };
+
+        const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
+        s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
+        s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+
+        const s2 = addSlide('The Problem & Aim');
+        s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
+        s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
+        s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
+        s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
+
+        const s3 = addSlide('Driver Diagram (Strategy)');
+        if (driverImg) s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+        else s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
+
+        const s4 = addSlide('PDSA Cycles & Interventions');
+        const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
+        d.pdsa.forEach(p => { rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]); });
+        if (rows.length > 1) s4.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [2, 3.5, 3.5], border: { pt: 1, color: 'e2e8f0' }, fill: { color: 'F1F5F9' }, headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true }, fontSize: 10 });
+        else s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
+
+        const s5 = addSlide('Results & Analysis');
+        if (chartImg) s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+        else s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
+        s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
+        s5.addText(d.checklist.results_text || "No analysis recorded.", { x: 6.2, y: 1.5, w: 3.3, h: 3.2, fontSize: 11, color: '334155', valign: 'top', fill: 'F8FAFC', border: { color: 'E2E8F0' } });
+
+        const s6 = addSlide('Learning & Sustainability');
+        s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
+        s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
+        s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
+        s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
+
+        await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+    } catch (e) { console.error(e); alert("Error generating PowerPoint: " + e.message); } 
+    finally { btnText.textContent = originalText; }
+};
+
+// --- FEATURE 2: PDF POSTER EXPORT ---
+window.printPoster = async () => {
+    if (!projectData) { alert("Please load a project first."); return; }
+    
+    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
+    const originalText = btn.innerText;
+    btn.innerText = "Generating PDF...";
+
+    try {
+        const d = projectData;
+        const driverImg = await getVisualAsset('driver');
+        const chartImg = await getVisualAsset('chart');
+
+        const posterHTML = `
+            <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
+                <div style="background: #2d2e83; color: white; padding: 30px; border-radius: 15px; display: flex; gap: 30px; align-items: center; border-bottom: 8px solid #f36f21; margin-bottom: 30px;">
+                    <div style="background: white; padding: 15px; border-radius: 10px; height: 100px; width: 100px; display: flex; align-items: center; justify-content: center;">
+                        <img src="https://iili.io/KGQOvkl.md.png" style="max-height: 80px; width: auto;">
+                    </div>
+                    <div>
+                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${d.meta.title}</h1>
+                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 25% 45% 25%; gap: 25px;">
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">The Problem</h2>
+                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${d.checklist.problem_desc || 'No problem defined.'}</p>
+                        </div>
+                        <div style="border: 2px solid #3b82f6; padding: 25px; border-radius: 15px; background: #eff6ff;">
+                            <h2 style="color: #1e3a8a; border-bottom: 3px solid #60a5fa; font-size: 24px; font-weight: 800; margin-top: 0;">SMART Aim</h2>
+                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${d.checklist.aim || 'No aim defined.'}</p>
+                        </div>
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
+                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : '<p style="color: #94a3b8; font-style: italic;">No drivers defined.</p>'}
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
+                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
+                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : '<p style="padding: 40px; color: #94a3b8;">No data available.</p>'}
+                            </div>
+                            <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
+                                <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
+                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${d.checklist.results_text || 'No analysis provided.'}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 25px;">
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Interventions</h2>
+                            <ul style="list-style: none; padding: 0;">
+                                ${d.pdsa.map(p => `
+                                    <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
+                                        <strong style="display: block; color: #1e293b;">${p.title}</strong>
+                                        <span style="font-size: 13px; color: #64748b;">${p.do}</span>
+                                    </li>
+                                `).join('')}
+                            </ul>
+                        </div>
+                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
+                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Learning</h2>
+                            <p style="font-size: 14px; color: #334155;">${d.checklist.learning || 'N/A'}</p>
+                        </div>
+                        <div style="border: 2px solid #10b981; padding: 25px; border-radius: 15px; background: #ecfdf5;">
+                            <h2 style="color: #047857; border-bottom: 3px solid #34d399; font-size: 24px; font-weight: 800; margin-top: 0;">Sustainability</h2>
+                            <p style="font-size: 14px; color: #065f46;">${d.checklist.sustain || 'N/A'}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        const container = document.createElement('div');
+        container.innerHTML = posterHTML;
+        document.body.appendChild(container);
+
+        const opt = {
+            margin: 0.2,
+            filename: `RCEM_Poster_${d.meta.title}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' }
+        };
+
+        await html2pdf().set(opt).from(container).save();
+        document.body.removeChild(container);
+
+    } catch (e) {
+        console.error(e);
+        alert("Error generating PDF: " + e.message);
+    } finally {
+        btn.innerText = originalText;
+    }
+};
+
+// --- FULL VIEW ---
 async function renderFullProject() {
     if(!projectData) return;
     const container = document.getElementById('full-project-container');
-    container.innerHTML = `<div class="text-center py-10 flex flex-col items-center justify-center space-y-3"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rcem-purple"></div><div class="text-slate-500 font-medium">Generating Full Project Report...</div></div>`;
-
-    const d = projectData;
-    const c = d.checklist;
-    const flags = checkRCEMCriteria(d);
+    container.innerHTML = `<div class="text-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rcem-purple inline-block"></div><br>Generating Report...</div>`;
     
-    // Generate Visual Assets (Async)
     const chartImg = await getVisualAsset('chart');
     const driverImg = await getVisualAsset('driver');
     const fishboneImg = await getVisualAsset('fishbone');
-
-    let html = '';
-    if(flags.length > 0) {
-        html += `<div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-8 rounded shadow-sm"><div class="flex items-center gap-2 mb-2"><i data-lucide="alert-triangle" class="text-amber-600"></i><h3 class="font-bold text-amber-900">Action Points</h3></div><ul class="list-disc list-inside text-sm text-amber-800 space-y-1">${flags.map(f => `<li>${f}</li>`).join('')}</ul></div>`;
-    } else {
-        html += `<div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 mb-8 rounded shadow-sm flex items-center gap-3"><i data-lucide="check-circle-2" class="text-emerald-600 w-6 h-6"></i><div><h3 class="font-bold text-emerald-900">RCEM Gold Standard Met</h3><p class="text-xs text-emerald-700">Excellent work!</p></div></div>`;
-    }
-
-    const section = (title, content, validationKey) => {
-        const isMissing = !content || (Array.isArray(content) && content.length === 0);
-        return `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">${title}</h3><div class="text-slate-600 text-sm whitespace-pre-wrap">${escapeHtml(content) || '<span class="italic text-slate-400">Not recorded</span>'}</div>${isMissing ? `<div class="bg-red-50 text-red-600 text-xs font-bold px-2 py-1 rounded border border-red-200 mt-2 inline-flex items-center gap-1"><i data-lucide="alert-circle" class="w-3 h-3"></i> Missing</div>` : ''}</div>`;
-    };
-
-    html += `<div class="space-y-6">`;
-    html += section("1. Problem & Reason", c.problem_desc);
-    html += section("2. Evidence & Guidelines", c.evidence);
-    html += section("3. SMART Aim", c.aim);
     
-    // DIAGRAMS SECTION
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">4. Diagnostics & Drivers</h3>`;
-    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
-    if (fishboneImg) {
-        html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Fishbone (Root Cause)</h4><img src="${fishboneImg}" class="w-full h-auto rounded border border-slate-100"></div>`;
-    }
-    if (driverImg) {
-        html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram (Strategy)</h4><img src="${driverImg}" class="w-full h-auto rounded border border-slate-100"></div>`;
-    } else {
-         html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>`;
-    }
-    html += `</div></div>`;
-
-    // DATA SECTION
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">5. Data & Results</h3>`;
-    if (chartImg) {
-         html += `<div class="h-auto relative mb-4"><img src="${chartImg}" class="w-full max-h-[400px] object-contain rounded border border-slate-100"></div>`;
-    } else {
-         html += `<div class="text-center py-10 text-slate-400 italic">No data points available</div>`;
-    }
-    html += `<p class="text-sm text-slate-600"><strong>Analysis:</strong> ${escapeHtml(c.results_text)}</p></div>`;
-
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">6. PDSA Cycles</h3>${d.pdsa.map(p => `<div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200"><div class="font-bold text-slate-700 mb-1">${escapeHtml(p.title)}</div><div class="text-xs text-slate-500 grid grid-cols-2 gap-2"><div>Plan: ${escapeHtml(p.plan)}</div><div>Do: ${escapeHtml(p.do)}</div><div>Study: ${escapeHtml(p.study)}</div><div>Act: ${escapeHtml(p.act)}</div></div></div>`).join('')}</div>`;
-    html += section("7. Learning & Sustainability", c.learning + "\n\n" + c.sustain);
-    html += section("8. Ethics & Governance", c.ethics);
-    html += `</div>`;
-    
-    container.innerHTML = html;
-    lucide.createIcons();
-}
-
-function checkRCEMCriteria(d) {
-    const flags = [];
+    const d = projectData;
     const c = d.checklist;
-    if(!c.aim) flags.push("Missing SMART Aim.");
-    if(d.drivers.secondary.length === 0) flags.push("Driver Diagram incomplete.");
-    if(d.chartData.length < 10) flags.push("Insufficient data (<10 points).");
-    if(d.pdsa.length === 0) flags.push("No PDSA cycles.");
-    if(!c.ethics) flags.push("Ethics missing.");
-    return flags;
+    
+    container.innerHTML = `
+        <div class="space-y-8">
+            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
+                <h1 class="text-3xl font-bold text-slate-900 mb-6 border-b pb-4">${escapeHtml(d.meta.title)}</h1>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div><h3 class="font-bold text-slate-500 uppercase text-xs mb-2">Problem</h3><p class="text-slate-800">${escapeHtml(c.problem_desc)}</p></div>
+                    <div><h3 class="font-bold text-slate-500 uppercase text-xs mb-2">Aim</h3><p class="text-slate-800 font-medium">${escapeHtml(c.aim)}</p></div>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">Diagnostic Phase</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Driver Diagram</h4>
+                        ${driverImg ? `<img src="${driverImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic">No diagram.</p>'}
+                    </div>
+                    <div>
+                        <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Fishbone Analysis</h4>
+                        ${fishboneImg ? `<img src="${fishboneImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic">No diagram.</p>'}
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">Measurement & Results</h3>
+                <div class="mb-6">
+                    ${chartImg ? `<img src="${chartImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic py-10 text-center">No data points recorded.</p>'}
+                </div>
+                <div class="bg-slate-50 p-4 rounded border-l-4 border-rcem-purple">
+                    <h4 class="font-bold text-sm text-rcem-purple uppercase mb-1">Analysis</h4>
+                    <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(c.results_text)}</p>
+                </div>
+            </div>
+
+            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">PDSA Cycles</h3>
+                <div class="space-y-4">
+                    ${d.pdsa.map(p => `
+                        <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                            <div class="flex justify-between items-center mb-2">
+                                <h4 class="font-bold text-lg text-slate-800">${escapeHtml(p.title)}</h4>
+                                ${p.isStepChange ? '<span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-bold">Step Change</span>' : ''}
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 text-sm">
+                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Plan</span>${escapeHtml(p.plan)}</div>
+                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Do</span>${escapeHtml(p.do)}</div>
+                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Study</span>${escapeHtml(p.study)}</div>
+                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Act</span>${escapeHtml(p.act)}</div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
 }
 
+// --- HELPERS ---
 const helpData = {
     checklist: { t: "Define & Measure", c: "<p>Problem, Aim (SMART), and Measures.</p>" },
     diagrams: { t: "Drivers & Fishbone", c: "<p>Fishbone = Root Cause. Drivers = Strategy.</p>" },
     data: { t: "SPC & Run Charts", c: "<p>Look for Shifts (6+ points) and Trends (5+ points).</p>" },
     pdsa: { t: "PDSA Cycles", c: "<p>Plan, Do, Study, Act.</p>" }
 };
-window.showHelp = (key) => {
-    document.getElementById('help-title').textContent = helpData[key].t;
-    document.getElementById('help-content').innerHTML = helpData[key].c;
-    document.getElementById('help-modal').classList.remove('hidden');
-};
-window.openHelp = () => window.showHelp('checklist');
