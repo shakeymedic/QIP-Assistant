@@ -20,7 +20,7 @@ const db = getFirestore(app);
 // --- HELPER: SECURITY (XSS PREVENTION) ---
 const escapeHtml = (unsafe) => {
     if (!unsafe) return "";
-    return unsafe
+    return String(unsafe)
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;")
@@ -112,9 +112,12 @@ const emptyProject = {
 onAuthStateChanged(auth, (user) => {
     currentUser = user;
     if (user) {
+        // FIX: Ensure Sidebar is visible on login
+        const sidebar = document.getElementById('app-sidebar');
+        sidebar.classList.remove('hidden');
+        sidebar.classList.add('flex');
+        
         document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-sidebar').classList.remove('hidden');
-        document.getElementById('app-sidebar').classList.add('flex');
         document.getElementById('user-display').textContent = user.email;
         loadProjectList();
     } else {
@@ -122,10 +125,10 @@ onAuthStateChanged(auth, (user) => {
     }
 });
 
-// FIX: Mobile Menu Logic Added
+// FIX: Mobile Menu Logic
 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     const sidebar = document.getElementById('app-sidebar');
-    // Toggle between hidden and flex/fixed for mobile overlay
+    // Toggle mobile view specifically
     if (sidebar.classList.contains('hidden')) {
         sidebar.classList.remove('hidden');
         sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
@@ -383,12 +386,16 @@ document.getElementById('demo-toggle').addEventListener('change', (e) => {
     }
 });
 
+// FIX: Ensure Sidebar is visible when Demo Mode starts
 document.getElementById('demo-auth-btn').onclick = () => {
     isDemoMode = true;
     currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+    
+    const sidebar = document.getElementById('app-sidebar');
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('flex');
+    
     document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('app-sidebar').classList.remove('hidden');
-    document.getElementById('app-sidebar').classList.add('flex');
     document.getElementById('demo-watermark').classList.remove('hidden');
     document.getElementById('demo-toggle').checked = true;
     loadProjectList();
@@ -404,6 +411,7 @@ function renderAll() {
     if(currentView === 'gantt') renderGantt();
 }
 
+// FIX: Improved QI Coach Design
 function renderCoach() {
     if(!projectData) return;
     const d = projectData;
@@ -430,23 +438,36 @@ function renderCoach() {
     }
 
     if (!d.checklist.aim) {
-        status = { t: "Step 1: Define your Aim", m: "A project without an aim is just a hobby.", b: "Build SMART Aim", a: () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); }, c: "from-purple-600 to-indigo-700" };
+        status = { 
+            t: "Step 1: Define your Aim", 
+            m: "Every QIP needs a clear aim. Use the SMART wizard.", 
+            b: "Start Wizard", 
+            a: () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); }, 
+            c: "from-purple-600 to-indigo-700" 
+        };
     } else {
-        status = { t: "Project Active", m: "Keep measuring. Look for 'Shifts' (6 points above median).", b: "Review Data", a: () => window.router('data'), c: "from-slate-700 to-slate-800" };
+        // FIX: Brighter, better colors for active project
+        status = { 
+            t: "Project Active: Measuring", 
+            m: "Keep adding data points. Look for 6 points in a row above/below median.", 
+            b: "Enter Data", 
+            a: () => window.router('data'), 
+            c: "from-teal-600 to-emerald-600" 
+        };
     }
 
-    banner.className = `bg-gradient-to-r ${status.c} shadow-lg relative overflow-hidden transition-all duration-500`;
+    banner.className = `bg-gradient-to-r ${status.c} rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500`;
     banner.innerHTML = `
         <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-32 h-32"></i></div>
         <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div>
-                <div class="flex items-center gap-2 mb-1">
-                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider">QI Coach</span>
-                    <h3 class="font-bold text-lg">${status.t}</h3>
+                <div class="flex items-center gap-2 mb-2">
+                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-white/30">QI Coach</span>
                 </div>
-                <p class="text-white/90 text-sm max-w-2xl">${status.m}</p>
+                <h3 class="font-bold text-xl mb-1">${status.t}</h3>
+                <p class="text-white/90 text-sm max-w-2xl leading-relaxed">${status.m}</p>
             </div>
-            <button id="coach-action-btn" class="bg-white text-slate-900 px-4 py-2 rounded-lg text-sm font-bold shadow hover:bg-slate-50 transition-colors whitespace-nowrap flex items-center gap-2">${status.b} <i data-lucide="arrow-right" class="w-4 h-4"></i></button>
+            <button id="coach-action-btn" class="bg-white text-slate-900 px-6 py-2.5 rounded-lg text-sm font-bold shadow hover:bg-slate-50 transition-colors whitespace-nowrap flex items-center gap-2 group">${status.b} <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i></button>
         </div>
     `;
     document.getElementById('coach-action-btn').onclick = status.a;
@@ -716,7 +737,6 @@ function renderChart() {
         options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const i = activeEls[0].index; const note = prompt(`Annotate:`, data[i].note || ""); if (note !== null) { data[i].note = note; saveData(); renderChart(); } } } }
     });
     
-    // FIX: Added Delete Button for Data Points
     document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => {
         const originalIndex = data.length - 1 - i;
         return `
@@ -732,7 +752,6 @@ function renderChart() {
     lucide.createIcons();
 }
 
-// FIX: New Function to delete data points
 window.deleteDataPoint = (index) => {
     if (confirm("Delete this data point?")) {
         projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); // Ensure order matches display
@@ -834,18 +853,19 @@ async function getVisualAsset(type) {
                 median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
             };
 
-            // 2. Render with a Promise to ensure it's fully drawn
+            // FIX: Disable animation for synchronous capture
             await new Promise(resolve => {
                 new Chart(ctx, {
                     type: 'line',
                     data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
                     options: { 
-                        animation: { onComplete: resolve }, 
+                        animation: false,
                         responsive: false, 
                         plugins: { annotation: { annotations }, legend: { display: false } },
                         scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
                     }
                 });
+                resolve();
             });
             
             return canvas.toDataURL('image/png', 1.0);
@@ -876,17 +896,13 @@ async function getVisualAsset(type) {
             }
 
             const tempId = 'temp-mermaid-' + Date.now();
-            
-            // 3. Render Mermaid to SVG string
             const { svg: svgString } = await mermaid.render(tempId, mCode);
 
-            // 4. Create a temporary element to read accurate dimensions
             const el = document.createElement('div');
             el.innerHTML = svgString;
             document.body.appendChild(el);
             const svg = el.querySelector('svg');
             
-            // Critical Fix: SVG to Canvas requires explicit width/height in pixels
             const viewBox = svg.getAttribute('viewBox').split(' ');
             const srcWidth = parseFloat(viewBox[2]);
             const srcHeight = parseFloat(viewBox[3]);
@@ -899,7 +915,7 @@ async function getVisualAsset(type) {
             svg.setAttribute('height', height);
 
             const svgData = new XMLSerializer().serializeToString(svg);
-            document.body.removeChild(el); // Clean up DOM
+            document.body.removeChild(el); 
 
             const canvas = document.createElement('canvas');
             canvas.width = width;
@@ -1304,7 +1320,6 @@ async function renderFullProject() {
     const flags = checkRCEMCriteria(d);
     
     // Generate Visual Assets (Async)
-    // This fixes the issue where charts were invisible/broken because the canvas was hidden
     const chartImg = await getVisualAsset('chart');
     const driverImg = await getVisualAsset('driver');
     const fishboneImg = await getVisualAsset('fishbone');
