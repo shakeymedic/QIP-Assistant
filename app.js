@@ -59,7 +59,7 @@ const updateOnlineStatus = () => {
 };
 window.addEventListener('online', updateOnlineStatus);
 window.addEventListener('offline', updateOnlineStatus);
-updateOnlineStatus(); // Check on load
+updateOnlineStatus();
 
 // --- TEMPLATES ---
 const qipTemplates = {
@@ -168,15 +168,9 @@ document.getElementById('logout-btn').addEventListener('click', () => { signOut(
 // --- UNDO / REDO FUNCTIONS ---
 window.undo = () => {
     if (historyStack.length === 0) return;
-    
-    // 1. Push current state to Redo Stack
     redoStack.push(JSON.stringify(projectData));
-    
-    // 2. Pop from History Stack
     const prevState = historyStack.pop();
     projectData = JSON.parse(prevState);
-    
-    // 3. Render & Save (skip adding to history)
     renderAll();
     saveData(true); 
     updateUndoRedoButtons();
@@ -184,15 +178,9 @@ window.undo = () => {
 
 window.redo = () => {
     if (redoStack.length === 0) return;
-    
-    // 1. Push current state to History Stack
     historyStack.push(JSON.stringify(projectData));
-    
-    // 2. Pop from Redo Stack
     const nextState = redoStack.pop();
     projectData = JSON.parse(nextState);
-    
-    // 3. Render & Save (skip adding to history)
     renderAll();
     saveData(true);
     updateUndoRedoButtons();
@@ -212,10 +200,15 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
+    // Force sidebar check
     const sidebar = document.getElementById('app-sidebar');
     if(sidebar.classList.contains('hidden')) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
 
     if (isDemoMode) {
+        // FIX: Ensure no project is selected when loading list
+        currentProjectId = null;
+        projectData = null; 
+        
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple border-y border-r border-slate-200 relative overflow-hidden cursor-pointer hover:shadow-md transition-all group" onclick="window.openDemoProject()">
                  <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide">Gold Standard</div>
@@ -302,7 +295,6 @@ window.openProject = (id) => {
     unsubscribeProject = onSnapshot(doc(db, `users/${currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
-            // Initialize History with current state on first load
             if (!projectData) {
                 historyStack = [JSON.stringify(data)];
                 redoStack = [];
@@ -368,6 +360,7 @@ window.openDemoProject = () => {
     };
 
     projectData = demoData;
+    currentProjectId = 'DEMO';
     // Initial Undo State for Demo
     historyStack = [JSON.stringify(projectData)];
     redoStack = [];
@@ -392,6 +385,12 @@ window.returnToProjects = () => {
 
 let currentView = 'dashboard';
 window.router = (view) => {
+    // FIX: Navigation Guard to prevent errors in Demo Mode
+    if (view !== 'projects' && !projectData) {
+        alert("Please select a project from the list first.");
+        return;
+    }
+
     currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
@@ -446,6 +445,9 @@ async function saveData(skipHistory = false) {
 
 document.getElementById('demo-toggle').addEventListener('change', (e) => {
     isDemoMode = e.target.checked;
+    // FIX: Clear project data on toggle so user must select again
+    currentProjectId = null;
+    projectData = null;
     const wm = document.getElementById('demo-watermark');
     if (isDemoMode) {
         wm.classList.remove('hidden');
@@ -881,126 +883,145 @@ window.openPortfolioExport = () => {
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${escapeHtml(f.v) || 'Not recorded'}</div></div>`).join('');
 };
 
-// --- ROBUST ASSET GENERATOR ---
+// --- ROBUST ASSET GENERATOR (FIXED for PowerPoint) ---
 async function getVisualAsset(type) {
     if (!projectData) return null;
 
-    if (type === 'chart') {
-        try {
-            const canvas = document.createElement('canvas');
-            canvas.width = 1600; 
-            canvas.height = 800;
-            const ctx = canvas.getContext('2d');
-            
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-            if(data.length === 0) return null;
+    // Timeout safety to prevent hanging (max 3 seconds)
+    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 3000));
 
-            const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
-            const values = outcomes.map(d => Number(d.value));
-            const labels = outcomes.map(d => d.date);
-            
-            let baselinePoints = values.slice(0, 12); 
-            let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
-            
-            const pointColors = [];
-            let runCount = 0; let runDirection = 0;
-            values.forEach((v) => {
-                if (v > currentMedian) {
-                    if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
-                } else if (v < currentMedian) {
-                    if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
-                } else runCount = 0;
-                pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
-            });
+    const generator = (async () => {
+        if (type === 'chart') {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = 1600; 
+                canvas.height = 800;
+                const ctx = canvas.getContext('2d');
+                
+                // IMPORTANT: Fill background explicitly so it's not transparent in PPT
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+                if(data.length === 0) return null;
 
-            const annotations = {
-                median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
-            };
-
-            await new Promise(resolve => {
-                new Chart(ctx, {
-                    type: 'line',
-                    data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
-                    options: { 
-                        animation: { duration: 0, onComplete: resolve },
-                        responsive: false, 
-                        plugins: { annotation: { annotations }, legend: { display: false } },
-                        scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
-                    }
+                const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
+                const values = outcomes.map(d => Number(d.value));
+                const labels = outcomes.map(d => d.date);
+                
+                let baselinePoints = values.slice(0, 12); 
+                let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+                
+                const pointColors = [];
+                let runCount = 0; let runDirection = 0;
+                values.forEach((v) => {
+                    if (v > currentMedian) {
+                        if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
+                    } else if (v < currentMedian) {
+                        if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
+                    } else runCount = 0;
+                    pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
                 });
-            });
-            return canvas.toDataURL('image/png', 1.0);
-        } catch (e) { console.error("Chart generation failed", e); return null; }
-    }
 
-    if (type === 'driver' || type === 'fishbone') {
-        try {
-            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-            let mCode = "";
-            
-            if (type === 'driver') {
-                const d = projectData.drivers;
-                if(!d || (!d.primary.length && !d.secondary.length)) return null;
-                mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-                if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
-                d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-                d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-                d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-            } else if (type === 'fishbone') {
-                const cats = projectData.fishbone.categories;
-                 if (cats.every(c => c.causes.length === 0)) return null;
-                mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
-                    cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
-            }
+                const annotations = {
+                    median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+                };
 
-            const tempId = 'temp-mermaid-' + Date.now();
-            const { svg: svgString } = await mermaid.render(tempId, mCode);
-            const el = document.createElement('div');
-            el.innerHTML = svgString;
-            document.body.appendChild(el);
-            const svg = el.querySelector('svg');
-            const viewBox = svg.getAttribute('viewBox').split(' ');
-            const width = parseFloat(viewBox[2]) * 2;
-            const height = parseFloat(viewBox[3]) * 2;
-            svg.setAttribute('width', width);
-            svg.setAttribute('height', height);
-            const svgData = new XMLSerializer().serializeToString(svg);
-            document.body.removeChild(el); 
-            const canvas = document.createElement('canvas');
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, width, height);
-            const img = new Image();
-            const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-            const url = URL.createObjectURL(svgBlob);
-            return new Promise(resolve => {
-                img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
-                img.onerror = () => resolve(null);
-                img.src = url;
-            });
-        } catch (e) { console.error(type + " generation failed", e); return null; }
-    }
-    return null;
+                await new Promise(resolve => {
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+                        options: { 
+                            animation: false, // CRITICAL: Disable animation for synchronous export
+                            responsive: false, 
+                            plugins: { annotation: { annotations }, legend: { display: false } },
+                            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
+                        }
+                    });
+                    resolve();
+                });
+                return canvas.toDataURL('image/png', 1.0);
+            } catch (e) { console.error("Chart gen error", e); return null; }
+        }
+
+        if (type === 'driver' || type === 'fishbone') {
+            try {
+                const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+                let mCode = "";
+                
+                if (type === 'driver') {
+                    const d = projectData.drivers;
+                    if(!d || (!d.primary.length && !d.secondary.length)) return null;
+                    mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+                    if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
+                    d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+                    d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+                    d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+                } else if (type === 'fishbone') {
+                    const cats = projectData.fishbone.categories;
+                    if (cats.every(c => c.causes.length === 0)) return null;
+                    mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
+                        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+                }
+
+                const tempId = 'temp-mermaid-' + Date.now();
+                const { svg: svgString } = await mermaid.render(tempId, mCode);
+                const el = document.createElement('div');
+                el.innerHTML = svgString;
+                document.body.appendChild(el);
+                const svg = el.querySelector('svg');
+                const viewBox = svg.getAttribute('viewBox').split(' ');
+                const width = parseFloat(viewBox[2]) * 2;
+                const height = parseFloat(viewBox[3]) * 2;
+                svg.setAttribute('width', width);
+                svg.setAttribute('height', height);
+                const svgData = new XMLSerializer().serializeToString(svg);
+                document.body.removeChild(el); 
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+                const img = new Image();
+                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
+                const url = URL.createObjectURL(svgBlob);
+                return new Promise(resolve => {
+                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                });
+            } catch (e) { console.error("Diagram gen error", e); return null; }
+        }
+        return null;
+    })();
+
+    // Race between generator and timeout
+    return Promise.race([generator, timeout]);
 }
 
-// --- FEATURE 1: EXPORT PPTX ---
+// --- FEATURE 1: GOLD STANDARD POWERPOINT EXPORT ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
+    
+    // Feedback to user
     const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
     const originalText = btnText.textContent;
     btnText.textContent = "Generating...";
+    
     try {
         const d = projectData;
         const pres = new PptxGenJS();
+        
+        // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
-        const RCEM_NAVY = '2d2e83'; const RCEM_ORANGE = 'f36f21';
 
+        // 1. Branding Constants
+        const RCEM_NAVY = '2d2e83';
+        const RCEM_ORANGE = 'f36f21';
+
+        // 2. Define Master Slide (Theme)
         pres.defineSlideMaster({
             title: 'RCEM_MASTER',
             background: { color: 'FFFFFF' },
@@ -1011,149 +1032,229 @@ window.exportPPTX = async () => {
                 { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
             ]
         });
+
         const addSlide = (title) => {
             const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
             slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
             return slide;
         };
 
+        // --- SLIDE 1: TITLE ---
         const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
         s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
         s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+        s1.addText(`Generated: ${new Date().toLocaleDateString()}`, { x: 1, y: 4, w: 8, fontSize: 12, color: '94a3b8', align: 'center' });
 
+        // --- SLIDE 2: THE PROBLEM ---
         const s2 = addSlide('The Problem & Aim');
         s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
         s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
+        
         s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
         s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
 
+        // --- SLIDE 3: DRIVER DIAGRAM ---
         const s3 = addSlide('Driver Diagram (Strategy)');
-        if (driverImg) s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        else s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
+        if (driverImg) {
+            s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+        } else {
+            s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
+        }
 
+        // --- SLIDE 4: INTERVENTIONS ---
         const s4 = addSlide('PDSA Cycles & Interventions');
         const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
-        d.pdsa.forEach(p => { rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]); });
-        if (rows.length > 1) s4.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [2, 3.5, 3.5], border: { pt: 1, color: 'e2e8f0' }, fill: { color: 'F1F5F9' }, headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true }, fontSize: 10 });
-        else s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
+        d.pdsa.forEach(p => {
+            rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]);
+        });
+        
+        if (rows.length > 1) {
+            s4.addTable(rows, {
+                x: 0.5, y: 1.2, w: 9,
+                colW: [2, 3.5, 3.5],
+                border: { pt: 1, color: 'e2e8f0' },
+                fill: { color: 'F1F5F9' },
+                headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true },
+                fontSize: 10
+            });
+        } else {
+             s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
+        }
 
+        // --- SLIDE 5: RESULTS ---
         const s5 = addSlide('Results & Analysis');
-        if (chartImg) s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-        else s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
+        if (chartImg) {
+            s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
+        } else {
+             s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
+        }
+        
         s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
-        s5.addText(d.checklist.results_text || "No analysis recorded.", { x: 6.2, y: 1.5, w: 3.3, h: 3.2, fontSize: 11, color: '334155', valign: 'top', fill: 'F8FAFC', border: { color: 'E2E8F0' } });
+        s5.addText(d.checklist.results_text || "No analysis recorded.", { 
+            x: 6.2, y: 1.5, w: 3.3, h: 3.2, 
+            fontSize: 11, color: '334155', valign: 'top', 
+            fill: 'F8FAFC', border: { color: 'E2E8F0' } 
+        });
 
+        // --- SLIDE 6: CONCLUSIONS ---
         const s6 = addSlide('Learning & Sustainability');
         s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
         s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
+
         s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
         s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
 
         await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
-    } catch (e) { console.error(e); alert("Error generating PowerPoint: " + e.message); } 
-    finally { btnText.textContent = originalText; }
+        alert("PowerPoint downloaded successfully.");
+
+    } catch (e) {
+        console.error(e);
+        alert("Error generating PowerPoint: " + e.message);
+    } finally {
+        btnText.textContent = originalText;
+    }
 };
 
-// --- FEATURE 2: PDF POSTER EXPORT (IMPROVED) ---
+// --- FEATURE 2: CONFERENCE POSTER PRINTING (NEW WINDOW) ---
 window.printPoster = async () => {
-    if (!projectData) { alert("Please load a project first."); return; }
-    
-    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
-    const originalText = btn.innerText;
-    btn.innerText = "Generating PDF...";
-
     try {
+        if (!projectData) { alert("Please load a project first."); return; }
+        
+        // Notify user work is happening
+        const originalText = document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText;
+        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Building...";
+
         const d = projectData;
+        
+        // Load Assets
         const driverImg = await getVisualAsset('driver');
         const chartImg = await getVisualAsset('chart');
 
-        const posterHTML = `
-            <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
-                <div style="background: #2d2e83; color: white; padding: 30px; border-radius: 15px; display: flex; gap: 30px; align-items: center; border-bottom: 8px solid #f36f21; margin-bottom: 30px;">
-                    <div style="background: white; padding: 15px; border-radius: 10px; height: 100px; width: 100px; display: flex; align-items: center; justify-content: center;">
-                        <img src="https://iili.io/KGQOvkl.md.png" style="max-height: 80px; width: auto;">
-                    </div>
-                    <div>
-                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${d.meta.title}</h1>
-                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
-                    </div>
+        // Create new window
+        const win = window.open('', 'RCEM_Poster', 'width=1200,height=800');
+        if (!win) { alert("Pop-up blocked! Please allow pop-ups to view the poster."); return; }
+
+        const htmlContent = `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>RCEM Poster - ${escapeHtml(d.meta.title)}</title>
+                <script src="https://cdn.tailwindcss.com"></script>
+                <script src="https://unpkg.com/lucide@latest"></script>
+                <style>
+                    body { background: #f1f5f9; padding: 20px; font-family: sans-serif; }
+                    .poster-container {
+                        width: 1189mm; /* A0 Width (approx) scaled down for view */
+                        max-width: 100%;
+                        aspect-ratio: 1.414;
+                        background: white;
+                        margin: 0 auto;
+                        box-shadow: 0 10px 30px -10px rgba(0,0,0,0.3);
+                        display: grid;
+                        grid-template-columns: 25% 1fr 25%;
+                        grid-template-rows: auto 1fr;
+                        gap: 1.5rem;
+                        padding: 2rem;
+                        box-sizing: border-box;
+                    }
+                    /* Print specific overrides */
+                    @media print {
+                        body { background: white; padding: 0; }
+                        .no-print { display: none !important; }
+                        .poster-container { 
+                            width: 100%; height: 100%; box-shadow: none; margin: 0; padding: 1cm; gap: 1cm;
+                            break-inside: avoid;
+                        }
+                    }
+                    .poster-header { grid-column: 1 / -1; background: #2d2e83; color: white; padding: 2rem; border-radius: 1rem; display: flex; align-items: center; gap: 2rem; border-bottom: 0.5rem solid #f36f21; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    .box { background: white; border: 2px solid #cbd5e1; padding: 1.5rem; border-radius: 1rem; height: fit-content; }
+                    .box h2 { color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 1.5rem; font-weight: 800; margin-bottom: 1rem; display: inline-block; text-transform: uppercase; }
+                </style>
+            </head>
+            <body>
+                <div class="fixed top-4 right-4 z-50 flex gap-2 no-print">
+                    <button onclick="window.print()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded shadow-lg flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                        Print / Save PDF
+                    </button>
+                    <button onclick="window.close()" class="bg-slate-700 hover:bg-slate-800 text-white font-bold py-2 px-4 rounded shadow-lg">Close</button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 25% 45% 25%; gap: 25px;">
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">The Problem</h2>
-                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${d.checklist.problem_desc || 'No problem defined.'}</p>
-                        </div>
-                        <div style="border: 2px solid #3b82f6; padding: 25px; border-radius: 15px; background: #eff6ff;">
-                            <h2 style="color: #1e3a8a; border-bottom: 3px solid #60a5fa; font-size: 24px; font-weight: 800; margin-top: 0;">SMART Aim</h2>
-                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${d.checklist.aim || 'No aim defined.'}</p>
-                        </div>
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
-                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : '<p style="color: #94a3b8; font-style: italic;">No drivers defined.</p>'}
+                <div class="poster-container">
+                    <div class="poster-header">
+                        <div class="bg-white p-4 rounded-lg"><img src="https://iili.io/KGQOvkl.md.png" style="height: 80px;"></div>
+                        <div>
+                            <h1 class="text-4xl font-black leading-tight">${escapeHtml(d.meta.title)}</h1>
+                            <p class="text-xl opacity-90 mt-2"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
                         </div>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
-                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : '<p style="padding: 40px; color: #94a3b8;">No data available.</p>'}
+                    <div class="space-y-6">
+                        <div class="box">
+                            <h2>The Problem</h2>
+                            <p class="text-slate-700 leading-relaxed">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
+                            <p class="mt-4 text-sm text-slate-500"><strong>Evidence:</strong> ${escapeHtml(d.checklist.evidence) || 'N/A'}</p>
+                        </div>
+                        <div class="box bg-blue-50 border-blue-200" style="-webkit-print-color-adjust: exact;">
+                            <h2 class="text-blue-900 border-blue-400">SMART Aim</h2>
+                            <p class="text-xl font-serif text-blue-800 italic font-bold">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
+                        </div>
+                        <div class="box">
+                            <h2>Driver Diagram</h2>
+                            ${driverImg ? `<img src="${driverImg}" class="w-full h-auto rounded border border-slate-100">` : '<p class="italic text-slate-400">No drivers defined.</p>'}
+                        </div>
+                    </div>
+
+                    <div class="space-y-6">
+                        <div class="box h-full">
+                            <h2>Results & Data</h2>
+                            <div class="bg-white p-4 border rounded-lg mb-4 flex justify-center">
+                                ${chartImg ? `<img src="${chartImg}" class="max-w-full h-auto">` : '<p class="py-10 text-slate-400">No data available.</p>'}
                             </div>
-                            <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
-                                <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
-                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${d.checklist.results_text || 'No analysis provided.'}</p>
+                            <div class="bg-slate-50 p-4 border-l-4 border-rcem-purple rounded" style="-webkit-print-color-adjust: exact;">
+                                <h3 class="font-bold text-rcem-purple mb-2">Analysis</h3>
+                                <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(d.checklist.results_text) || 'No analysis text provided.'}</p>
                             </div>
                         </div>
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Interventions</h2>
-                            <ul style="list-style: none; padding: 0;">
+                    <div class="space-y-6">
+                        <div class="box">
+                            <h2>Interventions</h2>
+                            <ul class="space-y-3">
                                 ${d.pdsa.map(p => `
-                                    <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
-                                        <strong style="display: block; color: #1e293b;">${p.title}</strong>
-                                        <span style="font-size: 13px; color: #64748b;">${p.do}</span>
+                                    <li class="pl-4 border-l-4 border-slate-300">
+                                        <strong class="block text-slate-800">${escapeHtml(p.title)}</strong>
+                                        <span class="text-sm text-slate-600">${escapeHtml(p.do)}</span>
                                     </li>
                                 `).join('')}
                             </ul>
                         </div>
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Learning</h2>
-                            <p style="font-size: 14px; color: #334155;">${d.checklist.learning || 'N/A'}</p>
+                        <div class="box">
+                            <h2>Learning</h2>
+                            <p class="text-slate-700 text-sm">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
                         </div>
-                        <div style="border: 2px solid #10b981; padding: 25px; border-radius: 15px; background: #ecfdf5;">
-                            <h2 style="color: #047857; border-bottom: 3px solid #34d399; font-size: 24px; font-weight: 800; margin-top: 0;">Sustainability</h2>
-                            <p style="font-size: 14px; color: #065f46;">${d.checklist.sustain || 'N/A'}</p>
+                        <div class="box bg-emerald-50 border-emerald-200" style="-webkit-print-color-adjust: exact;">
+                            <h2 class="text-emerald-900 border-emerald-400">Sustainability</h2>
+                            <p class="text-emerald-800 text-sm">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
-            </div>
+                <script>
+                    lucide.createIcons();
+                </script>
+            </body>
+            </html>
         `;
 
-        // Temporary container for PDF generation
-        const container = document.createElement('div');
-        container.innerHTML = posterHTML;
-        document.body.appendChild(container);
-
-        const opt = {
-            margin: 0.2,
-            filename: `RCEM_Poster_${d.meta.title}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' }
-        };
-
-        await html2pdf().set(opt).from(container).save();
-        document.body.removeChild(container);
+        win.document.write(htmlContent);
+        win.document.close();
+        
+        document.querySelector("#view-dashboard button i[data-lucide='printer']").parentElement.nextElementSibling.innerText = "Print A0 Poster";
 
     } catch (e) {
         console.error(e);
-        alert("Error generating PDF: " + e.message);
-    } finally {
-        btn.innerText = originalText;
+        alert("Error generating Poster: " + e.message);
     }
 };
 
