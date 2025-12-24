@@ -228,7 +228,8 @@ window.openProject = (id) => {
             if(!projectData.gantt) projectData.gantt = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
-            renderAll();
+            // Only re-render if we are NOT in full view (as full view is async and heavy)
+            if (currentView !== 'full') renderAll();
         }
     });
 
@@ -369,7 +370,6 @@ function renderAll() {
     if(currentView === 'checklist') renderChecklist();
     if(currentView === 'pdsa') renderPDSA();
     if(currentView === 'gantt') renderGantt();
-    if(currentView === 'full') renderFullProject();
 }
 
 function renderCoach() {
@@ -800,18 +800,25 @@ async function getVisualAsset(type) {
         }
     }
 
-    if (type === 'driver') {
+    if (type === 'driver' || type === 'fishbone') {
         try {
-            const d = projectData.drivers;
-            if(!d || (!d.primary.length && !d.secondary.length)) return null;
-
             const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-            let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+            let mCode = "";
             
-            if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
-            d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-            d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-            d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+            if (type === 'driver') {
+                const d = projectData.drivers;
+                if(!d || (!d.primary.length && !d.secondary.length)) return null;
+                mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+                if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
+                d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+                d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+                d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+            } else if (type === 'fishbone') {
+                const cats = projectData.fishbone.categories;
+                 if (cats.every(c => c.causes.length === 0)) return null;
+                mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
+                    cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+            }
 
             const tempId = 'temp-mermaid-' + Date.now();
             
@@ -862,7 +869,7 @@ async function getVisualAsset(type) {
             });
 
         } catch (e) {
-            console.error("Driver Diagram generation failed", e);
+            console.error(type + " generation failed", e);
             return null;
         }
     }
@@ -1232,13 +1239,21 @@ window.calcEdu = () => {
     document.getElementById('edu-res').classList.remove('hidden');
 }
 
-function renderFullProject() {
+async function renderFullProject() {
     if(!projectData) return;
+    const container = document.getElementById('full-project-container');
+    container.innerHTML = `<div class="text-center py-10 flex flex-col items-center justify-center space-y-3"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rcem-purple"></div><div class="text-slate-500 font-medium">Generating Full Project Report...</div></div>`;
+
     const d = projectData;
     const c = d.checklist;
-    const container = document.getElementById('full-project-container');
     const flags = checkRCEMCriteria(d);
     
+    // Generate Visual Assets (Async)
+    // This fixes the issue where charts were invisible/broken because the canvas was hidden
+    const chartImg = await getVisualAsset('chart');
+    const driverImg = await getVisualAsset('driver');
+    const fishboneImg = await getVisualAsset('fishbone');
+
     let html = '';
     if(flags.length > 0) {
         html += `<div class="bg-amber-50 border-l-4 border-amber-500 p-4 mb-8 rounded shadow-sm"><div class="flex items-center gap-2 mb-2"><i data-lucide="alert-triangle" class="text-amber-600"></i><h3 class="font-bold text-amber-900">Action Points</h3></div><ul class="list-disc list-inside text-sm text-amber-800 space-y-1">${flags.map(f => `<li>${f}</li>`).join('')}</ul></div>`;
@@ -1255,8 +1270,29 @@ function renderFullProject() {
     html += section("1. Problem & Reason", c.problem_desc);
     html += section("2. Evidence & Guidelines", c.evidence);
     html += section("3. SMART Aim", c.aim);
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">4. Driver Diagram Summary</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-6"><div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Primary Drivers</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.map(x=>`<li>${x}</li>`).join('')}</ul></div><div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Changes</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.changes.map(x=>`<li>${x}</li>`).join('')}</ul></div></div></div>`;
-    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">5. Data & Results</h3><div class="h-64 relative mb-4"><img src="${document.getElementById('mainChart').toDataURL()}" class="w-full h-full object-contain"></div><p class="text-sm text-slate-600"><strong>Analysis:</strong> ${c.results_text}</p></div>`;
+    
+    // DIAGRAMS SECTION
+    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">4. Diagnostics & Drivers</h3>`;
+    html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-6">`;
+    if (fishboneImg) {
+        html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Fishbone (Root Cause)</h4><img src="${fishboneImg}" class="w-full h-auto rounded border border-slate-100"></div>`;
+    }
+    if (driverImg) {
+        html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram (Strategy)</h4><img src="${driverImg}" class="w-full h-auto rounded border border-slate-100"></div>`;
+    } else {
+         html += `<div><h4 class="font-bold text-xs uppercase text-slate-500 mb-2">Driver Diagram</h4><ul class="list-disc list-inside text-sm text-slate-700">${d.drivers.primary.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+    }
+    html += `</div></div>`;
+
+    // DATA SECTION
+    html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">5. Data & Results</h3>`;
+    if (chartImg) {
+         html += `<div class="h-auto relative mb-4"><img src="${chartImg}" class="w-full max-h-[400px] object-contain rounded border border-slate-100"></div>`;
+    } else {
+         html += `<div class="text-center py-10 text-slate-400 italic">No data points available</div>`;
+    }
+    html += `<p class="text-sm text-slate-600"><strong>Analysis:</strong> ${c.results_text}</p></div>`;
+
     html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 text-lg border-b border-slate-100 pb-2 mb-4">6. PDSA Cycles</h3>${d.pdsa.map(p => `<div class="mb-4 p-3 bg-slate-50 rounded border border-slate-200"><div class="font-bold text-slate-700 mb-1">${p.title}</div><div class="text-xs text-slate-500 grid grid-cols-2 gap-2"><div>Plan: ${p.plan}</div><div>Do: ${p.do}</div><div>Study: ${p.study}</div><div>Act: ${p.act}</div></div></div>`).join('')}</div>`;
     html += section("7. Learning & Sustainability", c.learning + "\n\n" + c.sustain);
     html += section("8. Ethics & Governance", c.ethics);
