@@ -158,6 +158,10 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
+    // Force sidebar check
+    const sidebar = document.getElementById('app-sidebar');
+    if(sidebar.classList.contains('hidden')) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
+
     if (isDemoMode) {
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple border-y border-r border-slate-200 relative overflow-hidden cursor-pointer hover:shadow-md transition-all group" onclick="window.openDemoProject()">
@@ -411,7 +415,7 @@ function renderAll() {
     if(currentView === 'gantt') renderGantt();
 }
 
-// FIX: Improved QI Coach Design
+// FIX: Professional QI Coach Design
 function renderCoach() {
     if(!projectData) return;
     const d = projectData;
@@ -443,31 +447,31 @@ function renderCoach() {
             m: "Every QIP needs a clear aim. Use the SMART wizard.", 
             b: "Start Wizard", 
             a: () => { window.router('checklist'); document.getElementById('smart-modal').classList.remove('hidden'); }, 
-            c: "from-purple-600 to-indigo-700" 
+            c: "from-rcem-purple to-indigo-700" 
         };
     } else {
-        // FIX: Brighter, better colors for active project
+        // Professional teal gradient for active state
         status = { 
             t: "Project Active: Measuring", 
             m: "Keep adding data points. Look for 6 points in a row above/below median.", 
             b: "Enter Data", 
             a: () => window.router('data'), 
-            c: "from-teal-600 to-emerald-600" 
+            c: "from-teal-600 to-emerald-700" 
         };
     }
 
-    banner.className = `bg-gradient-to-r ${status.c} rounded-xl p-6 text-white shadow-lg relative overflow-hidden transition-all duration-500`;
+    banner.className = `bg-gradient-to-r ${status.c} rounded-xl p-8 text-white shadow-lg relative overflow-hidden transition-all duration-500`;
     banner.innerHTML = `
-        <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-32 h-32"></i></div>
-        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+        <div class="absolute right-0 top-0 opacity-10 p-4"><i data-lucide="compass" class="w-48 h-48"></i></div>
+        <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
             <div>
-                <div class="flex items-center gap-2 mb-2">
-                    <span class="bg-white/20 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider border border-white/30">QI Coach</span>
+                <div class="flex items-center gap-2 mb-3">
+                    <span class="bg-white/20 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider border border-white/20 flex items-center gap-2"><i data-lucide="sparkles" class="w-3 h-3"></i> QI Coach</span>
                 </div>
-                <h3 class="font-bold text-xl mb-1">${status.t}</h3>
-                <p class="text-white/90 text-sm max-w-2xl leading-relaxed">${status.m}</p>
+                <h3 class="font-bold text-2xl mb-2 font-serif tracking-tight">${status.t}</h3>
+                <p class="text-white/90 text-base max-w-2xl leading-relaxed font-light">${status.m}</p>
             </div>
-            <button id="coach-action-btn" class="bg-white text-slate-900 px-6 py-2.5 rounded-lg text-sm font-bold shadow hover:bg-slate-50 transition-colors whitespace-nowrap flex items-center gap-2 group">${status.b} <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i></button>
+            <button id="coach-action-btn" class="bg-white text-slate-900 px-6 py-3 rounded-lg text-sm font-bold shadow-lg hover:bg-slate-50 transition-all whitespace-nowrap flex items-center gap-2 group transform hover:translate-y-[-2px]">${status.b} <i data-lucide="arrow-right" class="w-4 h-4 group-hover:translate-x-1 transition-transform"></i></button>
         </div>
     `;
     document.getElementById('coach-action-btn').onclick = status.a;
@@ -737,6 +741,7 @@ function renderChart() {
         options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations } }, onClick: (e, activeEls) => { if (activeEls.length > 0) { const i = activeEls[0].index; const note = prompt(`Annotate:`, data[i].note || ""); if (note !== null) { data[i].note = note; saveData(); renderChart(); } } } }
     });
     
+    // FIX: Added Delete Button for Data Points
     document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => {
         const originalIndex = data.length - 1 - i;
         return `
@@ -752,9 +757,10 @@ function renderChart() {
     lucide.createIcons();
 }
 
+// FIX: New Function to delete data points
 window.deleteDataPoint = (index) => {
     if (confirm("Delete this data point?")) {
-        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); // Ensure order matches display
+        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date)); 
         projectData.chartData.splice(index, 1);
         saveData();
         renderChart();
@@ -853,19 +859,19 @@ async function getVisualAsset(type) {
                 median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
             };
 
-            // FIX: Disable animation for synchronous capture
+            // FIX: Explicitly wait for chart to render (onComplete)
+            // This prevents "Blank Chart" issues in Demo Mode
             await new Promise(resolve => {
                 new Chart(ctx, {
                     type: 'line',
                     data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
                     options: { 
-                        animation: false,
+                        animation: { duration: 0, onComplete: resolve },
                         responsive: false, 
                         plugins: { annotation: { annotations }, legend: { display: false } },
                         scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
                     }
                 });
-                resolve();
             });
             
             return canvas.toDataURL('image/png', 1.0);
@@ -1320,6 +1326,7 @@ async function renderFullProject() {
     const flags = checkRCEMCriteria(d);
     
     // Generate Visual Assets (Async)
+    // This fixes the issue where charts were invisible/broken because the canvas was hidden
     const chartImg = await getVisualAsset('chart');
     const driverImg = await getVisualAsset('driver');
     const fishboneImg = await getVisualAsset('fishbone');
