@@ -10,16 +10,15 @@ const ASSETS = [
   'https://cdn.jsdelivr.net/npm/chart.js',
   'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
-  'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',  // FIX: Aligned with index.html (was 10.6.1)
+  'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
   'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
-  'https://www.transparenttextures.com/patterns/graphy.png',  // FIX: Aligned pattern (was cubes.png)
+  'https://www.transparenttextures.com/patterns/graphy.png',
   'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css',
   'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap'
 ];
 
 self.addEventListener('install', (e) => {
-  // Skip waiting to activate immediately
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS)));
 });
@@ -30,7 +29,6 @@ self.addEventListener('fetch', (e) => {
   );
 });
 
-// Cleanup old caches on activation
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys().then((keyList) => {
@@ -42,6 +40,5 @@ self.addEventListener('activate', (e) => {
       }));
     })
   );
-  // Take control of all clients immediately
   return self.clients.claim();
 });
