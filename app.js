@@ -30,7 +30,7 @@ const escapeHtml = (unsafe) => {
 
 // --- INITIALISE LIBRARIES ---
 if (window.mermaid) {
-    window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'loose' });
+    window.mermaid.initialize({ startOnLoad: false, theme: 'neutral', securityLevel: 'strict' });
 }
 
 // --- STATE ---
@@ -1132,7 +1132,9 @@ function renderGantt() {
     html += `</div>`;
     container.innerHTML = html;
     lucide.createIcons();
-// --- RENDER FULL PROJECT (was missing) ---
+}
+
+// --- RENDER FULL PROJECT ---
 function renderFullProject() {
     if (!projectData) return;
     
@@ -1461,81 +1463,748 @@ async function getVisualAsset(type) {
     } catch (e) {
         console.error('getVisualAsset error:', e);
         return { success: false, error: e.message };
+    } finally {
+        // Clean up staging area
+        const stagingArea = document.getElementById('asset-staging-area');
+        if (stagingArea) stagingArea.innerHTML = '';
     }
     return { success: false, error: "Unknown type" };
 }
 
-// --- EXPORT PPTX ---
+// --- EXPORT PPTX (COMPREHENSIVE VERSION) ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
     if (typeof PptxGenJS === 'undefined') { alert("PowerPoint library (PptxGenJS) not loaded. Check connection."); return; }
 
-    const btn = document.querySelector("#view-dashboard button i[data-lucide='presentation']")?.parentElement?.nextElementSibling;
-    const originalText = btn ? btn.textContent : '';
-    if (btn) btn.textContent = "Generating Assets...";
+    // Find button and show progress
+    const exportBtn = document.querySelector("button[onclick='exportPPTX()']");
+    const originalHTML = exportBtn ? exportBtn.innerHTML : '';
+    if (exportBtn) {
+        exportBtn.disabled = true;
+        exportBtn.innerHTML = '<i data-lucide="loader" class="w-4 h-4 animate-spin"></i> Generating...';
+        lucide.createIcons();
+    }
 
     try {
         const d = projectData;
         const pres = new PptxGenJS();
+        pres.layout = 'LAYOUT_16x9';
+        pres.author = 'RCEM QIP Assistant';
+        pres.title = d.meta.title;
+        pres.subject = 'Quality Improvement Project';
         
-        // 1. Get Assets
+        // Generate all visual assets
         const driverRes = await getVisualAsset('driver');
+        const fishboneRes = await getVisualAsset('fishbone');
         const chartRes = await getVisualAsset('chart');
 
-        if (!driverRes.success && driverRes.error !== "No drivers defined.") console.warn(`Driver Diagram: ${driverRes.error}`);
-        if (!chartRes.success && chartRes.error !== "No data points to chart.") console.warn(`Chart: ${chartRes.error}`);
-
-        // 2. Setup Master Slide
+        // Brand Colours
         const RCEM_NAVY = '2d2e83';
         const RCEM_ORANGE = 'f36f21';
+        const RCEM_TEAL = '0d9488';
+        const SLATE_700 = '334155';
+        const SLATE_500 = '64748b';
+        const SLATE_100 = 'f1f5f9';
+
+        // ============================================
+        // SLIDE MASTER DEFINITIONS
+        // ============================================
         pres.defineSlideMaster({
             title: 'RCEM_MASTER',
             background: { color: 'FFFFFF' },
             objects: [
-                { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
-                { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
-                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } }
+                { rect: { x: 0, y: 0, w: '100%', h: 0.12, fill: { color: RCEM_NAVY } } },
+                { rect: { x: 0, y: 5.45, w: '100%', h: 0.18, fill: { color: RCEM_NAVY } } },
+                { text: { text: d.meta.title, options: { x: 0.3, y: 5.48, w: 7, fontSize: 9, color: 'FFFFFF', fontFace: 'Arial' } } },
+                { text: { text: 'RCEM QIP Assistant', options: { x: 8.5, y: 5.48, w: 1.5, fontSize: 9, color: 'FFFFFF', fontFace: 'Arial', align: 'right' } } }
             ]
         });
 
-        // 3. Slides
-        const addSlide = (t) => {
+        pres.defineSlideMaster({
+            title: 'TITLE_SLIDE',
+            background: { color: RCEM_NAVY },
+            objects: [
+                { rect: { x: 0, y: 4.8, w: '100%', h: 0.08, fill: { color: RCEM_ORANGE } } }
+            ]
+        });
+
+        pres.defineSlideMaster({
+            title: 'SECTION_SLIDE',
+            background: { color: RCEM_NAVY },
+            objects: [
+                { rect: { x: 0, y: 0, w: 0.15, h: '100%', fill: { color: RCEM_ORANGE } } }
+            ]
+        });
+
+        // Helper function for content slides
+        const addContentSlide = (title, subtitle = null) => {
             const s = pres.addSlide({ masterName: 'RCEM_MASTER' });
-            s.addText(t, { x: 0.5, y: 0.4, w: 9, fontSize: 24, bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
+            s.addText(title, { 
+                x: 0.4, y: 0.25, w: 9.2, h: 0.5,
+                fontSize: 24, bold: true, color: RCEM_NAVY, fontFace: 'Arial'
+            });
+            if (subtitle) {
+                s.addText(subtitle, { 
+                    x: 0.4, y: 0.7, w: 9.2, h: 0.3,
+                    fontSize: 12, color: SLATE_500, fontFace: 'Arial'
+                });
+            }
+            s.addShape(pres.ShapeType.rect, { x: 0.4, y: 0.95, w: 1.5, h: 0.04, fill: { color: RCEM_ORANGE } });
             return s;
         };
 
-        // Title Slide
-        const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
-        s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
-        s1.addText(d.checklist.team || "QI Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+        // Helper for text boxes with background
+        const addTextBox = (slide, text, x, y, w, h, options = {}) => {
+            const defaultOpts = {
+                fontSize: 11,
+                color: SLATE_700,
+                fontFace: 'Arial',
+                valign: 'top',
+                fill: { color: SLATE_100 },
+                margin: [8, 10, 8, 10]
+            };
+            slide.addText(text || 'Not specified', { x, y, w, h, ...defaultOpts, ...options });
+        };
 
-        // Problem & Aim
-        const s2 = addSlide('Problem & Aim');
-        s2.addText('Problem', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.problem_desc || "N/A", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 12, color: '334155', fill: 'F8FAFC' });
-        s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.aim || "N/A", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 14, color: RCEM_NAVY, fill: 'EFF6FF', italic: true });
+        // ============================================
+        // SLIDE 1: TITLE SLIDE
+        // ============================================
+        const s1 = pres.addSlide({ masterName: 'TITLE_SLIDE' });
+        s1.addText(d.meta.title, { 
+            x: 0.8, y: 1.8, w: 8.4, h: 1.2,
+            fontSize: 40, bold: true, color: 'FFFFFF', fontFace: 'Arial',
+            align: 'center', valign: 'middle'
+        });
+        s1.addText('Quality Improvement Project', { 
+            x: 0.8, y: 3.0, w: 8.4, h: 0.4,
+            fontSize: 18, color: 'CCCCCC', fontFace: 'Arial',
+            align: 'center'
+        });
+        
+        // Team info
+        const teamLines = (d.checklist.team || 'QI Team').split('\n').slice(0, 3);
+        s1.addText(teamLines.join('\n'), { 
+            x: 0.8, y: 3.8, w: 8.4, h: 0.8,
+            fontSize: 14, color: 'FFFFFF', fontFace: 'Arial',
+            align: 'center', valign: 'top'
+        });
+        
+        // Date
+        s1.addText(new Date(d.meta.created).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }), { 
+            x: 0.8, y: 5.0, w: 8.4, h: 0.3,
+            fontSize: 12, color: RCEM_ORANGE, fontFace: 'Arial',
+            align: 'center'
+        });
 
-        // Driver
-        const s3 = addSlide('Driver Diagram');
-        if (driverRes.success) s3.addImage({ data: driverRes.img, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        else s3.addText("Diagram not available", { x: 4, y: 3, color: '94a3b8' });
+        // ============================================
+        // SLIDE 2: EXECUTIVE SUMMARY / OVERVIEW
+        // ============================================
+        const s2 = addContentSlide('Executive Summary', 'Project Overview at a Glance');
+        
+        // Stats boxes
+        const stats = [
+            { label: 'PDSA Cycles', value: d.pdsa.length.toString(), color: RCEM_NAVY },
+            { label: 'Data Points', value: d.chartData.length.toString(), color: RCEM_TEAL },
+            { label: 'Change Ideas', value: d.drivers.changes.length.toString(), color: RCEM_ORANGE },
+            { label: 'Stakeholders', value: (d.stakeholders?.length || 0).toString(), color: SLATE_500 }
+        ];
+        
+        stats.forEach((stat, i) => {
+            const xPos = 0.4 + (i * 2.4);
+            s2.addShape(pres.ShapeType.rect, { x: xPos, y: 1.2, w: 2.2, h: 1.0, fill: { color: stat.color } });
+            s2.addText(stat.value, { x: xPos, y: 1.25, w: 2.2, h: 0.6, fontSize: 32, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+            s2.addText(stat.label, { x: xPos, y: 1.8, w: 2.2, h: 0.35, fontSize: 10, color: 'FFFFFF', align: 'center', valign: 'top' });
+        });
 
-        // Chart
-        const s4 = addSlide('Results (SPC Chart)');
-        if (chartRes.success) s4.addImage({ data: chartRes.img, x: 0.5, y: 1.2, w: 8, h: 3.5, sizing: { type: 'contain' } });
-        else s4.addText("Chart not available", { x: 4, y: 3, color: '94a3b8' });
-        s4.addText(d.checklist.results_text || "No analysis.", { x: 0.5, y: 4.8, w: 9, h: 0.5, fontSize: 11 });
+        // SMART Aim box
+        s2.addText('SMART Aim', { x: 0.4, y: 2.5, w: 9.2, fontSize: 12, bold: true, color: SLATE_500 });
+        s2.addText(d.checklist.aim || 'No aim defined', { 
+            x: 0.4, y: 2.8, w: 9.2, h: 0.9,
+            fontSize: 14, italic: true, color: RCEM_NAVY, fontFace: 'Arial',
+            fill: { color: 'EFF6FF' }, margin: [10, 12, 10, 12], valign: 'middle'
+        });
 
-        // Save
-        await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
+        // Key Results
+        s2.addText('Key Results', { x: 0.4, y: 3.9, w: 9.2, fontSize: 12, bold: true, color: SLATE_500 });
+        const resultsPreview = (d.checklist.results_text || 'No results recorded').substring(0, 400) + (d.checklist.results_text?.length > 400 ? '...' : '');
+        addTextBox(s2, resultsPreview, 0.4, 4.2, 9.2, 1.1, { fontSize: 10 });
+
+        // ============================================
+        // SLIDE 3: THE PROBLEM
+        // ============================================
+        const s3 = addContentSlide('The Problem', 'Why This Project Matters');
+        
+        s3.addText('Problem Description', { x: 0.4, y: 1.1, w: 5.6, fontSize: 11, bold: true, color: SLATE_500 });
+        addTextBox(s3, d.checklist.problem_desc, 0.4, 1.35, 5.6, 2.5);
+
+        s3.addText('Evidence & Standards', { x: 6.2, y: 1.1, w: 3.6, fontSize: 11, bold: true, color: SLATE_500 });
+        addTextBox(s3, d.checklist.evidence, 6.2, 1.35, 3.4, 2.5);
+
+        // Impact callout
+        s3.addShape(pres.ShapeType.rect, { x: 0.4, y: 4.0, w: 9.2, h: 1.2, fill: { color: 'FEF3C7' }, line: { color: 'F59E0B', pt: 1 } });
+        s3.addText('⚠️ Impact', { x: 0.6, y: 4.1, w: 1.5, fontSize: 11, bold: true, color: '92400E' });
+        const impactText = d.checklist.problem_desc ? 
+            'This performance gap represents a significant patient safety concern and opportunity for improvement.' :
+            'Define the problem to understand its impact on patient care.';
+        s3.addText(impactText, { x: 0.6, y: 4.4, w: 8.8, h: 0.7, fontSize: 10, color: '78350F', valign: 'top' });
+
+        // ============================================
+        // SLIDE 4: SMART AIM
+        // ============================================
+        const s4 = addContentSlide('SMART Aim', 'Specific, Measurable, Achievable, Relevant, Time-bound');
+
+        // Big aim statement
+        s4.addShape(pres.ShapeType.rect, { x: 0.4, y: 1.2, w: 9.2, h: 1.8, fill: { color: 'EFF6FF' }, line: { color: '3B82F6', pt: 2 } });
+        s4.addText(d.checklist.aim || 'No SMART aim defined yet', { 
+            x: 0.6, y: 1.4, w: 8.8, h: 1.4,
+            fontSize: 18, italic: true, color: RCEM_NAVY, fontFace: 'Arial',
+            valign: 'middle', align: 'center'
+        });
+
+        // SMART breakdown
+        const smartElements = [
+            { letter: 'S', word: 'Specific', desc: 'Clear target population and outcome' },
+            { letter: 'M', word: 'Measurable', desc: 'Quantifiable metrics' },
+            { letter: 'A', word: 'Achievable', desc: 'Realistic with available resources' },
+            { letter: 'R', word: 'Relevant', desc: 'Aligns with organisational priorities' },
+            { letter: 'T', word: 'Time-bound', desc: 'Clear deadline for achievement' }
+        ];
+
+        smartElements.forEach((el, i) => {
+            const xPos = 0.4 + (i * 1.92);
+            s4.addShape(pres.ShapeType.rect, { x: xPos, y: 3.3, w: 1.8, h: 1.8, fill: { color: SLATE_100 } });
+            s4.addText(el.letter, { x: xPos, y: 3.35, w: 1.8, h: 0.6, fontSize: 28, bold: true, color: RCEM_NAVY, align: 'center' });
+            s4.addText(el.word, { x: xPos, y: 3.9, w: 1.8, h: 0.35, fontSize: 10, bold: true, color: SLATE_700, align: 'center' });
+            s4.addText(el.desc, { x: xPos, y: 4.25, w: 1.8, h: 0.7, fontSize: 8, color: SLATE_500, align: 'center', valign: 'top' });
+        });
+
+        // ============================================
+        // SLIDE 5: MEASURES
+        // ============================================
+        const s5 = addContentSlide('Measurement Strategy', 'Outcome, Process & Balancing Measures');
+
+        // Three measure boxes
+        const measures = [
+            { title: 'Outcome Measure', content: d.checklist.outcome_measures, color: '059669', bg: 'ECFDF5', icon: '📊' },
+            { title: 'Process Measures', content: d.checklist.process_measures, color: '2563EB', bg: 'EFF6FF', icon: '⚙️' },
+            { title: 'Balancing Measures', content: d.checklist.balance_measures, color: 'D97706', bg: 'FFFBEB', icon: '⚖️' }
+        ];
+
+        measures.forEach((m, i) => {
+            const xPos = 0.4 + (i * 3.15);
+            s5.addShape(pres.ShapeType.rect, { x: xPos, y: 1.2, w: 3.0, h: 4.0, fill: { color: m.bg }, line: { color: m.color, pt: 1 } });
+            s5.addText(m.icon + ' ' + m.title, { x: xPos + 0.1, y: 1.3, w: 2.8, h: 0.4, fontSize: 11, bold: true, color: m.color });
+            s5.addText(m.content || 'Not defined', { x: xPos + 0.1, y: 1.75, w: 2.8, h: 3.3, fontSize: 10, color: SLATE_700, valign: 'top' });
+        });
+
+        // ============================================
+        // SLIDE 6: DRIVER DIAGRAM
+        // ============================================
+        const s6 = addContentSlide('Driver Diagram', 'Theory of Change');
+        
+        if (driverRes.success) {
+            s6.addImage({ data: driverRes.img, x: 0.4, y: 1.2, w: 9.2, h: 4.0, sizing: { type: 'contain' } });
+        } else {
+            // Fallback: text-based driver diagram
+            s6.addText('Primary Drivers', { x: 0.4, y: 1.2, w: 3.0, fontSize: 11, bold: true, color: '059669' });
+            s6.addShape(pres.ShapeType.rect, { x: 0.4, y: 1.45, w: 3.0, h: 2.5, fill: { color: 'ECFDF5' } });
+            s6.addText(d.drivers.primary.map((p, i) => `${i+1}. ${p}`).join('\n') || 'None defined', { 
+                x: 0.5, y: 1.55, w: 2.8, h: 2.3, fontSize: 10, color: SLATE_700, valign: 'top'
+            });
+
+            s6.addText('Secondary Drivers', { x: 3.6, y: 1.2, w: 3.0, fontSize: 11, bold: true, color: '2563EB' });
+            s6.addShape(pres.ShapeType.rect, { x: 3.6, y: 1.45, w: 3.0, h: 2.5, fill: { color: 'EFF6FF' } });
+            s6.addText(d.drivers.secondary.map((s, i) => `${i+1}. ${s}`).join('\n') || 'None defined', { 
+                x: 3.7, y: 1.55, w: 2.8, h: 2.3, fontSize: 10, color: SLATE_700, valign: 'top'
+            });
+
+            s6.addText('Change Ideas', { x: 6.8, y: 1.2, w: 3.0, fontSize: 11, bold: true, color: RCEM_ORANGE });
+            s6.addShape(pres.ShapeType.rect, { x: 6.8, y: 1.45, w: 2.8, h: 2.5, fill: { color: 'FFF7ED' } });
+            s6.addText(d.drivers.changes.map((c, i) => `${i+1}. ${c}`).join('\n') || 'None defined', { 
+                x: 6.9, y: 1.55, w: 2.6, h: 2.3, fontSize: 10, color: SLATE_700, valign: 'top'
+            });
+        }
+
+        // ============================================
+        // SLIDE 7: FISHBONE DIAGRAM
+        // ============================================
+        const s7 = addContentSlide('Root Cause Analysis', 'Fishbone / Ishikawa Diagram');
+        
+        if (fishboneRes.success) {
+            s7.addImage({ data: fishboneRes.img, x: 0.4, y: 1.2, w: 9.2, h: 4.0, sizing: { type: 'contain' } });
+        } else {
+            // Fallback: category boxes
+            const cats = d.fishbone?.categories || [];
+            cats.forEach((cat, i) => {
+                const xPos = 0.4 + ((i % 2) * 4.8);
+                const yPos = 1.2 + (Math.floor(i / 2) * 2.0);
+                s7.addShape(pres.ShapeType.rect, { x: xPos, y: yPos, w: 4.6, h: 1.8, fill: { color: SLATE_100 } });
+                s7.addText(cat.text, { x: xPos + 0.1, y: yPos + 0.05, w: 4.4, h: 0.35, fontSize: 12, bold: true, color: RCEM_NAVY });
+                s7.addText(cat.causes.map(c => '• ' + c).join('\n') || 'No causes identified', { 
+                    x: xPos + 0.1, y: yPos + 0.4, w: 4.4, h: 1.3, fontSize: 9, color: SLATE_700, valign: 'top'
+                });
+            });
+        }
+
+        // ============================================
+        // SLIDE 8: PROCESS MAP
+        // ============================================
+        if (d.process && d.process.length > 2) {
+            const sProcess = addContentSlide('Process Map', 'Patient Journey / Workflow');
+            
+            const steps = d.process;
+            const maxStepsPerRow = 4;
+            const stepWidth = 2.0;
+            const stepHeight = 0.8;
+            const arrowWidth = 0.4;
+            
+            steps.forEach((step, i) => {
+                const row = Math.floor(i / maxStepsPerRow);
+                const col = i % maxStepsPerRow;
+                const xPos = 0.6 + (col * (stepWidth + arrowWidth + 0.1));
+                const yPos = 1.4 + (row * 1.4);
+                
+                // Determine step color based on position
+                let fillColor = SLATE_100;
+                let borderColor = SLATE_500;
+                if (i === 0) { fillColor = 'DCFCE7'; borderColor = '22C55E'; }
+                else if (i === steps.length - 1) { fillColor = 'DBEAFE'; borderColor = '3B82F6'; }
+                else if (step.toLowerCase().includes('?')) { fillColor = 'FEF3C7'; borderColor = 'F59E0B'; }
+                
+                // Draw step box
+                sProcess.addShape(pres.ShapeType.rect, { 
+                    x: xPos, y: yPos, w: stepWidth, h: stepHeight, 
+                    fill: { color: fillColor }, line: { color: borderColor, pt: 1.5 } 
+                });
+                sProcess.addText(step, { 
+                    x: xPos + 0.05, y: yPos + 0.1, w: stepWidth - 0.1, h: stepHeight - 0.2, 
+                    fontSize: 9, color: SLATE_700, align: 'center', valign: 'middle'
+                });
+                
+                // Draw arrow (except after last step and at row ends)
+                if (i < steps.length - 1 && col < maxStepsPerRow - 1) {
+                    sProcess.addShape(pres.ShapeType.rect, { 
+                        x: xPos + stepWidth + 0.05, y: yPos + (stepHeight/2) - 0.03, 
+                        w: arrowWidth - 0.1, h: 0.06, 
+                        fill: { color: SLATE_500 }
+                    });
+                    // Arrow head
+                    sProcess.addText('▶', { 
+                        x: xPos + stepWidth + arrowWidth - 0.15, y: yPos + (stepHeight/2) - 0.15, 
+                        w: 0.3, h: 0.3, fontSize: 10, color: SLATE_500, align: 'center', valign: 'middle'
+                    });
+                }
+                
+                // Draw downward arrow at row end if more steps
+                if (col === maxStepsPerRow - 1 && i < steps.length - 1) {
+                    sProcess.addText('↓', { 
+                        x: xPos + (stepWidth/2) - 0.15, y: yPos + stepHeight + 0.1, 
+                        w: 0.3, h: 0.3, fontSize: 14, color: SLATE_500, align: 'center'
+                    });
+                }
+            });
+            
+            // Legend
+            sProcess.addText('Legend:', { x: 0.4, y: 4.8, w: 1, fontSize: 9, bold: true, color: SLATE_500 });
+            const legends = [
+                { color: 'DCFCE7', label: 'Start' },
+                { color: SLATE_100, label: 'Process Step' },
+                { color: 'FEF3C7', label: 'Decision' },
+                { color: 'DBEAFE', label: 'End' }
+            ];
+            legends.forEach((leg, i) => {
+                sProcess.addShape(pres.ShapeType.rect, { x: 1.4 + (i * 1.8), y: 4.85, w: 0.25, h: 0.25, fill: { color: leg.color }, line: { color: '94A3B8', pt: 0.5 } });
+                sProcess.addText(leg.label, { x: 1.7 + (i * 1.8), y: 4.85, w: 1.4, h: 0.25, fontSize: 8, color: SLATE_500, valign: 'middle' });
+            });
+        }
+
+        // ============================================
+        // SLIDE 9: PROJECT TIMELINE (GANTT)
+        // ============================================
+        if (d.gantt && d.gantt.length > 0) {
+            const sGantt = addContentSlide('Project Timeline', 'Key Milestones and Phases');
+            
+            const tasks = d.gantt;
+            const dates = tasks.flatMap(t => [new Date(t.start), new Date(t.end)]);
+            const minDate = new Date(Math.min(...dates));
+            const maxDate = new Date(Math.max(...dates));
+            
+            // Calculate timeline span in months
+            const monthSpan = (maxDate.getFullYear() - minDate.getFullYear()) * 12 + (maxDate.getMonth() - minDate.getMonth()) + 1;
+            const timelineWidth = 7.5;
+            const pxPerMonth = timelineWidth / Math.max(monthSpan, 1);
+            
+            // Draw timeline header
+            const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+            for (let i = 0; i < monthSpan && i < 12; i++) {
+                const monthDate = new Date(minDate.getFullYear(), minDate.getMonth() + i, 1);
+                const xPos = 2.0 + (i * pxPerMonth);
+                sGantt.addText(`${monthNames[monthDate.getMonth()]}`, { 
+                    x: xPos, y: 1.15, w: pxPerMonth, h: 0.25, 
+                    fontSize: 7, color: SLATE_500, align: 'center'
+                });
+                // Vertical gridline
+                sGantt.addShape(pres.ShapeType.rect, { 
+                    x: xPos, y: 1.4, w: 0.01, h: Math.min(tasks.length, 6) * 0.65 + 0.2, 
+                    fill: { color: 'E2E8F0' }
+                });
+            }
+            
+            // Draw tasks
+            tasks.slice(0, 6).forEach((task, i) => {
+                const yPos = 1.5 + (i * 0.65);
+                const taskStart = new Date(task.start);
+                const taskEnd = new Date(task.end);
+                
+                // Task name
+                sGantt.addText(task.name, { 
+                    x: 0.4, y: yPos, w: 1.5, h: 0.5, 
+                    fontSize: 9, color: SLATE_700, valign: 'middle'
+                });
+                
+                // Calculate bar position
+                const startMonths = (taskStart.getFullYear() - minDate.getFullYear()) * 12 + (taskStart.getMonth() - minDate.getMonth()) + (taskStart.getDate() / 30);
+                const endMonths = (taskEnd.getFullYear() - minDate.getFullYear()) * 12 + (taskEnd.getMonth() - minDate.getMonth()) + (taskEnd.getDate() / 30);
+                const barX = 2.0 + (startMonths * pxPerMonth);
+                const barWidth = Math.max(0.2, (endMonths - startMonths) * pxPerMonth);
+                
+                // Task type color
+                let barColor = SLATE_500;
+                if (task.type === 'plan') barColor = '3B82F6';
+                else if (task.type === 'study') barColor = '8B5CF6';
+                else if (task.type === 'act') barColor = RCEM_ORANGE;
+                
+                // Draw bar
+                sGantt.addShape(pres.ShapeType.rect, { 
+                    x: barX, y: yPos + 0.1, w: barWidth, h: 0.35, 
+                    fill: { color: barColor }
+                });
+            });
+            
+            // Legend
+            sGantt.addText('Phase:', { x: 0.4, y: 5.0, w: 0.8, fontSize: 9, bold: true, color: SLATE_500 });
+            const ganttLegends = [
+                { color: '3B82F6', label: 'Planning' },
+                { color: '8B5CF6', label: 'Study' },
+                { color: RCEM_ORANGE, label: 'Action' }
+            ];
+            ganttLegends.forEach((leg, i) => {
+                sGantt.addShape(pres.ShapeType.rect, { x: 1.3 + (i * 2.0), y: 5.05, w: 0.3, h: 0.2, fill: { color: leg.color } });
+                sGantt.addText(leg.label, { x: 1.65 + (i * 2.0), y: 5.0, w: 1.5, h: 0.3, fontSize: 8, color: SLATE_500, valign: 'middle' });
+            });
+            
+            if (tasks.length > 6) {
+                sGantt.addText(`+ ${tasks.length - 6} more tasks...`, { x: 0.4, y: 4.6, w: 3, fontSize: 9, italic: true, color: SLATE_500 });
+            }
+        }
+
+        // ============================================
+        // SLIDE 10: DATA STATISTICS
+        // ============================================
+        if (d.chartData && d.chartData.length >= 3) {
+            const sStats = addContentSlide('Data Analysis', 'Statistical Summary of Results');
+            
+            // Sort data by date
+            const sortedData = [...d.chartData].sort((a, b) => new Date(a.date) - new Date(b.date));
+            const values = sortedData.map(dp => Number(dp.value));
+            
+            // Calculate statistics
+            const n = values.length;
+            const sum = values.reduce((a, b) => a + b, 0);
+            const mean = sum / n;
+            const sortedValues = [...values].sort((a, b) => a - b);
+            const median = n % 2 === 0 
+                ? (sortedValues[n/2 - 1] + sortedValues[n/2]) / 2 
+                : sortedValues[Math.floor(n/2)];
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            const range = max - min;
+            const variance = values.reduce((acc, val) => acc + Math.pow(val - mean, 2), 0) / n;
+            const stdDev = Math.sqrt(variance);
+            
+            // First vs Last comparison
+            const firstValue = values[0];
+            const lastValue = values[values.length - 1];
+            const absoluteChange = lastValue - firstValue;
+            const percentChange = firstValue !== 0 ? ((lastValue - firstValue) / firstValue * 100) : 0;
+            
+            // Baseline median (first 12 points)
+            const baselineValues = values.slice(0, Math.min(12, n));
+            const sortedBaseline = [...baselineValues].sort((a, b) => a - b);
+            const baselineMedian = sortedBaseline.length % 2 === 0
+                ? (sortedBaseline[sortedBaseline.length/2 - 1] + sortedBaseline[sortedBaseline.length/2]) / 2
+                : sortedBaseline[Math.floor(sortedBaseline.length/2)];
+            
+            // Statistics boxes
+            const statsData = [
+                { label: 'Data Points', value: n.toString(), color: RCEM_NAVY },
+                { label: 'Mean', value: mean.toFixed(1), color: '3B82F6' },
+                { label: 'Median', value: median.toFixed(1), color: '8B5CF6' },
+                { label: 'Std Dev', value: stdDev.toFixed(1), color: '059669' }
+            ];
+            
+            statsData.forEach((stat, i) => {
+                const xPos = 0.4 + (i * 2.4);
+                sStats.addShape(pres.ShapeType.rect, { x: xPos, y: 1.2, w: 2.2, h: 0.9, fill: { color: stat.color } });
+                sStats.addText(stat.value, { x: xPos, y: 1.25, w: 2.2, h: 0.55, fontSize: 24, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+                sStats.addText(stat.label, { x: xPos, y: 1.7, w: 2.2, h: 0.3, fontSize: 9, color: 'FFFFFF', align: 'center' });
+            });
+            
+            // Range box
+            sStats.addShape(pres.ShapeType.rect, { x: 0.4, y: 2.3, w: 4.6, h: 1.5, fill: { color: SLATE_100 } });
+            sStats.addText('📊 Data Range', { x: 0.5, y: 2.4, w: 4.4, h: 0.3, fontSize: 11, bold: true, color: SLATE_700 });
+            sStats.addText(`Minimum: ${min.toFixed(1)}\nMaximum: ${max.toFixed(1)}\nRange: ${range.toFixed(1)}\nBaseline Median (first 12): ${baselineMedian.toFixed(1)}`, { 
+                x: 0.5, y: 2.75, w: 4.4, h: 1.0, fontSize: 10, color: SLATE_700, valign: 'top'
+            });
+            
+            // Change analysis box
+            const changeColor = absoluteChange >= 0 ? '059669' : 'DC2626';
+            const changeBg = absoluteChange >= 0 ? 'ECFDF5' : 'FEF2F2';
+            const changeIcon = absoluteChange >= 0 ? '📈' : '📉';
+            
+            sStats.addShape(pres.ShapeType.rect, { x: 5.2, y: 2.3, w: 4.4, h: 1.5, fill: { color: changeBg }, line: { color: changeColor, pt: 1 } });
+            sStats.addText(`${changeIcon} Change Analysis`, { x: 5.3, y: 2.4, w: 4.2, h: 0.3, fontSize: 11, bold: true, color: changeColor });
+            sStats.addText(`First Value: ${firstValue.toFixed(1)}\nLatest Value: ${lastValue.toFixed(1)}\nAbsolute Change: ${absoluteChange >= 0 ? '+' : ''}${absoluteChange.toFixed(1)}\nPercentage Change: ${percentChange >= 0 ? '+' : ''}${percentChange.toFixed(1)}%`, { 
+                x: 5.3, y: 2.75, w: 4.2, h: 1.0, fontSize: 10, color: SLATE_700, valign: 'top'
+            });
+            
+            // SPC interpretation
+            sStats.addShape(pres.ShapeType.rect, { x: 0.4, y: 4.0, w: 9.2, h: 1.2, fill: { color: 'EFF6FF' }, line: { color: '3B82F6', pt: 1 } });
+            sStats.addText('🎯 SPC Interpretation Guide', { x: 0.5, y: 4.1, w: 9.0, h: 0.3, fontSize: 11, bold: true, color: '1E40AF' });
+            sStats.addText('• SHIFT: 6+ consecutive points above or below the median indicates significant change\n• TREND: 5+ consecutive points continuously increasing or decreasing\n• SPECIAL CAUSE: Points outside control limits (±3σ) require investigation', { 
+                x: 0.5, y: 4.45, w: 9.0, h: 0.7, fontSize: 9, color: SLATE_700, valign: 'top'
+            });
+        }
+
+        // ============================================
+        // SLIDE 8: PDSA OVERVIEW
+        // ============================================
+        if (d.pdsa.length > 0) {
+            const s8 = addContentSlide('PDSA Cycles', `${d.pdsa.length} Improvement Cycles Completed`);
+            
+            // Timeline visual
+            const cycleWidth = Math.min(2.2, 9.0 / d.pdsa.length);
+            d.pdsa.slice(0, 4).forEach((cycle, i) => {
+                const xPos = 0.4 + (i * cycleWidth);
+                const isStepChange = cycle.isStepChange;
+                
+                // Circle
+                s8.addShape(pres.ShapeType.ellipse, { 
+                    x: xPos + (cycleWidth/2) - 0.3, y: 1.3, w: 0.6, h: 0.6, 
+                    fill: { color: isStepChange ? '059669' : RCEM_NAVY }
+                });
+                s8.addText((i + 1).toString(), { 
+                    x: xPos + (cycleWidth/2) - 0.3, y: 1.35, w: 0.6, h: 0.5, 
+                    fontSize: 16, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle'
+                });
+                
+                // Connecting line
+                if (i < d.pdsa.length - 1 && i < 3) {
+                    s8.addShape(pres.ShapeType.rect, { 
+                        x: xPos + (cycleWidth/2) + 0.3, y: 1.55, w: cycleWidth - 0.6, h: 0.04, 
+                        fill: { color: SLATE_500 }
+                    });
+                }
+                
+                // Title
+                s8.addText(cycle.title, { 
+                    x: xPos, y: 2.0, w: cycleWidth - 0.1, h: 0.5, 
+                    fontSize: 10, bold: true, color: RCEM_NAVY, align: 'center', valign: 'top'
+                });
+                
+                // Badge
+                if (isStepChange) {
+                    s8.addShape(pres.ShapeType.rect, { x: xPos + 0.2, y: 2.45, w: cycleWidth - 0.5, h: 0.25, fill: { color: '059669' } });
+                    s8.addText('STEP CHANGE', { x: xPos + 0.2, y: 2.45, w: cycleWidth - 0.5, h: 0.25, fontSize: 7, bold: true, color: 'FFFFFF', align: 'center', valign: 'middle' });
+                }
+            });
+
+            // PDSA details table
+            const tableRows = [['Cycle', 'Plan', 'Do', 'Study', 'Act']];
+            d.pdsa.slice(0, 4).forEach(cycle => {
+                tableRows.push([
+                    cycle.title.substring(0, 20),
+                    (cycle.plan || '-').substring(0, 40),
+                    (cycle.do || '-').substring(0, 40),
+                    (cycle.study || '-').substring(0, 40),
+                    (cycle.act || '-').substring(0, 25)
+                ]);
+            });
+
+            s8.addTable(tableRows, {
+                x: 0.4, y: 2.9, w: 9.2,
+                fontFace: 'Arial',
+                fontSize: 8,
+                color: SLATE_700,
+                border: { pt: 0.5, color: 'CBD5E1' },
+                colW: [1.2, 2.2, 2.0, 2.0, 1.8],
+                fill: { color: 'FFFFFF' },
+                valign: 'top',
+                rowH: 0.5
+            });
+        }
+
+        // ============================================
+        // SLIDE 9+: INDIVIDUAL PDSA CYCLES (if detailed)
+        // ============================================
+        d.pdsa.forEach((cycle, i) => {
+            const sP = addContentSlide(`PDSA Cycle ${i + 1}: ${cycle.title}`, cycle.isStepChange ? '⭐ Step Change Achieved' : 'Improvement Cycle');
+            
+            // Four quadrants
+            const quadrants = [
+                { title: 'PLAN', content: cycle.plan, color: '2563EB', bg: 'EFF6FF', x: 0.4, y: 1.2 },
+                { title: 'DO', content: cycle.do, color: 'D97706', bg: 'FFFBEB', x: 5.0, y: 1.2 },
+                { title: 'STUDY', content: cycle.study, color: '7C3AED', bg: 'F5F3FF', x: 0.4, y: 3.0 },
+                { title: 'ACT', content: cycle.act, color: '059669', bg: 'ECFDF5', x: 5.0, y: 3.0 }
+            ];
+
+            quadrants.forEach(q => {
+                sP.addShape(pres.ShapeType.rect, { x: q.x, y: q.y, w: 4.4, h: 1.6, fill: { color: q.bg }, line: { color: q.color, pt: 1 } });
+                sP.addText(q.title, { x: q.x + 0.1, y: q.y + 0.05, w: 4.2, h: 0.3, fontSize: 12, bold: true, color: q.color });
+                sP.addText(q.content || 'Not documented', { x: q.x + 0.1, y: q.y + 0.4, w: 4.2, h: 1.1, fontSize: 10, color: SLATE_700, valign: 'top' });
+            });
+        });
+
+        // ============================================
+        // SLIDE: RESULTS (SPC CHART)
+        // ============================================
+        const sChart = addContentSlide('Results', 'Statistical Process Control Chart');
+        
+        if (chartRes.success) {
+            sChart.addImage({ data: chartRes.img, x: 0.4, y: 1.1, w: 9.2, h: 3.2, sizing: { type: 'contain' } });
+        } else {
+            sChart.addShape(pres.ShapeType.rect, { x: 2.5, y: 2.0, w: 5, h: 2, fill: { color: SLATE_100 } });
+            sChart.addText('📊 Chart not available\n\nAdd data points to generate the SPC chart', { 
+                x: 2.5, y: 2.2, w: 5, h: 1.6, fontSize: 12, color: SLATE_500, align: 'center', valign: 'middle'
+            });
+        }
+
+        // Results summary
+        sChart.addText('Analysis', { x: 0.4, y: 4.4, w: 1, fontSize: 10, bold: true, color: SLATE_500 });
+        sChart.addText((d.checklist.results_text || 'No analysis documented').substring(0, 300), { 
+            x: 0.4, y: 4.65, w: 9.2, h: 0.65, fontSize: 9, color: SLATE_700, valign: 'top'
+        });
+
+        // ============================================
+        // SLIDE: STAKEHOLDER ANALYSIS (if data exists)
+        // ============================================
+        if (d.stakeholders && d.stakeholders.length > 0) {
+            const sSH = addContentSlide('Stakeholder Analysis', 'Power vs Interest Matrix');
+            
+            // Grid
+            sSH.addShape(pres.ShapeType.rect, { x: 1.5, y: 1.2, w: 3.5, h: 1.8, fill: { color: 'FEF3C7' }, line: { color: 'F59E0B', pt: 1 } });
+            sSH.addShape(pres.ShapeType.rect, { x: 5.0, y: 1.2, w: 3.5, h: 1.8, fill: { color: 'DCFCE7' }, line: { color: '22C55E', pt: 1 } });
+            sSH.addShape(pres.ShapeType.rect, { x: 1.5, y: 3.0, w: 3.5, h: 1.8, fill: { color: SLATE_100 }, line: { color: '94A3B8', pt: 1 } });
+            sSH.addShape(pres.ShapeType.rect, { x: 5.0, y: 3.0, w: 3.5, h: 1.8, fill: { color: 'DBEAFE' }, line: { color: '3B82F6', pt: 1 } });
+
+            // Labels
+            sSH.addText('Keep Satisfied', { x: 1.5, y: 1.25, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: 'B45309', align: 'center' });
+            sSH.addText('Manage Closely', { x: 5.0, y: 1.25, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: '15803D', align: 'center' });
+            sSH.addText('Monitor', { x: 1.5, y: 3.05, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: SLATE_500, align: 'center' });
+            sSH.addText('Keep Informed', { x: 5.0, y: 3.05, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: '1D4ED8', align: 'center' });
+
+            // Axis labels
+            sSH.addText('POWER →', { x: 0.2, y: 2.5, w: 1.2, h: 0.3, fontSize: 9, bold: true, color: SLATE_500, rotate: 270 });
+            sSH.addText('INTEREST →', { x: 4.0, y: 5.0, w: 2, h: 0.3, fontSize: 9, bold: true, color: SLATE_500, align: 'center' });
+
+            // Plot stakeholders
+            d.stakeholders.forEach(sh => {
+                const xPos = 1.5 + (sh.interest / 100) * 7.0 - 0.4;
+                const yPos = 4.8 - (sh.power / 100) * 3.6 - 0.15;
+                sSH.addShape(pres.ShapeType.ellipse, { x: xPos, y: yPos, w: 0.8, h: 0.3, fill: { color: RCEM_NAVY } });
+                sSH.addText(sh.name.substring(0, 15), { x: xPos, y: yPos, w: 0.8, h: 0.3, fontSize: 7, color: 'FFFFFF', align: 'center', valign: 'middle' });
+            });
+        }
+
+        // ============================================
+        // SLIDE: KEY LEARNING
+        // ============================================
+        const sLearn = addContentSlide('Key Learning', 'What We Discovered');
+        
+        sLearn.addText('💡 Insights', { x: 0.4, y: 1.15, w: 5.6, fontSize: 12, bold: true, color: RCEM_NAVY });
+        addTextBox(sLearn, d.checklist.learning, 0.4, 1.4, 5.6, 3.5);
+
+        sLearn.addText('🎯 What Worked', { x: 6.2, y: 1.15, w: 3.4, fontSize: 12, bold: true, color: '059669' });
+        const successCycles = d.pdsa.filter(p => p.isStepChange).map(p => '✓ ' + p.title).join('\n') || 'No step changes recorded';
+        addTextBox(sLearn, successCycles, 6.2, 1.4, 3.4, 1.6, { fill: { color: 'ECFDF5' } });
+
+        sLearn.addText('⚠️ Challenges', { x: 6.2, y: 3.2, w: 3.4, fontSize: 12, bold: true, color: 'D97706' });
+        const challengeCycles = d.pdsa.filter(p => !p.isStepChange && p.act?.toLowerCase().includes('abandon')).map(p => '✗ ' + p.title).join('\n') || 'All cycles contributed to improvement';
+        addTextBox(sLearn, challengeCycles, 6.2, 3.45, 3.4, 1.45, { fill: { color: 'FEF3C7' } });
+
+        // ============================================
+        // SLIDE: SUSTAINABILITY
+        // ============================================
+        const sSust = addContentSlide('Sustainability', 'How We Will Maintain the Gains');
+        
+        sSust.addShape(pres.ShapeType.rect, { x: 0.4, y: 1.2, w: 9.2, h: 3.0, fill: { color: 'ECFDF5' }, line: { color: '059669', pt: 2 } });
+        sSust.addText('📌 Sustainability Plan', { x: 0.6, y: 1.35, w: 8.8, h: 0.4, fontSize: 14, bold: true, color: '047857' });
+        sSust.addText(d.checklist.sustain || 'No sustainability plan documented', { 
+            x: 0.6, y: 1.8, w: 8.8, h: 2.2, fontSize: 12, color: SLATE_700, valign: 'top'
+        });
+
+        // Key sustainability elements
+        const sustElements = ['Standard Operating Procedure', 'Training & Competencies', 'Monitoring & Reporting', 'Ownership & Accountability'];
+        sustElements.forEach((el, i) => {
+            const xPos = 0.4 + (i * 2.4);
+            sSust.addShape(pres.ShapeType.rect, { x: xPos, y: 4.4, w: 2.2, h: 0.8, fill: { color: SLATE_100 } });
+            sSust.addText(el, { x: xPos, y: 4.5, w: 2.2, h: 0.6, fontSize: 9, color: SLATE_700, align: 'center', valign: 'middle' });
+        });
+
+        // ============================================
+        // SLIDE: TEAM & ACKNOWLEDGEMENTS
+        // ============================================
+        const sTeam = addContentSlide('Team & Governance', 'Project Team and Ethical Approval');
+        
+        sTeam.addText('👥 Project Team', { x: 0.4, y: 1.15, w: 4.8, fontSize: 12, bold: true, color: RCEM_NAVY });
+        addTextBox(sTeam, d.checklist.team, 0.4, 1.4, 4.8, 2.0);
+
+        sTeam.addText('📋 Ethics & Registration', { x: 5.4, y: 1.15, w: 4.2, fontSize: 12, bold: true, color: RCEM_NAVY });
+        addTextBox(sTeam, d.checklist.ethics, 5.4, 1.4, 4.2, 2.0);
+
+        sTeam.addText('🗣️ Patient & Public Involvement', { x: 0.4, y: 3.6, w: 9.2, fontSize: 12, bold: true, color: RCEM_NAVY });
+        addTextBox(sTeam, d.checklist.ppi, 0.4, 3.85, 9.2, 1.3);
+
+        // ============================================
+        // SLIDE: THANK YOU / QUESTIONS
+        // ============================================
+        const sEnd = pres.addSlide({ masterName: 'SECTION_SLIDE' });
+        sEnd.addText('Thank You', { 
+            x: 0.5, y: 2.0, w: 9, h: 1,
+            fontSize: 48, bold: true, color: 'FFFFFF', fontFace: 'Arial', align: 'center'
+        });
+        sEnd.addText('Questions?', { 
+            x: 0.5, y: 3.2, w: 9, h: 0.6,
+            fontSize: 24, color: 'CCCCCC', fontFace: 'Arial', align: 'center'
+        });
+        sEnd.addText(d.checklist.team?.split('\n')[0] || 'QI Team', { 
+            x: 0.5, y: 4.2, w: 9, h: 0.4,
+            fontSize: 14, color: RCEM_ORANGE, fontFace: 'Arial', align: 'center'
+        });
+
+        // ============================================
+        // SAVE FILE
+        // ============================================
+        const safeFileName = d.meta.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
+        await pres.writeFile({ fileName: `RCEM_QIP_${safeFileName}.pptx` });
+
+        // Success notification
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
+        toast.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i> PowerPoint exported successfully!';
+        document.body.appendChild(toast);
+        lucide.createIcons();
+        setTimeout(() => toast.remove(), 3000);
 
     } catch (e) {
         alert("Export Error: " + e.message);
-        console.error(e);
+        console.error('PPTX Export Error:', e);
     } finally {
-        if (btn) btn.textContent = originalText;
+        if (exportBtn) {
+            exportBtn.disabled = false;
+            exportBtn.innerHTML = originalHTML;
+            lucide.createIcons();
+        }
     }
 };
 
