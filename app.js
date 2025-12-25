@@ -937,6 +937,66 @@ function renderPDSA() {
     `).join('');
     lucide.createIcons();
 }
+
+// --- HELP DATA (was missing) ---
+const helpData = {
+    checklist: {
+        t: "RCEM QIP Checklist Guide",
+        c: `<div class="space-y-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="font-bold text-blue-800 mb-2">Problem & Evidence</h4>
+                <p class="text-sm text-blue-700">Clearly define the gap between current practice and the desired standard. Reference RCEM, NICE, or local guidelines.</p>
+            </div>
+            <div class="bg-amber-50 p-4 rounded-lg border border-amber-200">
+                <h4 class="font-bold text-amber-800 mb-2">SMART Aim</h4>
+                <p class="text-sm text-amber-700"><strong>S</strong>pecific, <strong>M</strong>easurable, <strong>A</strong>chievable, <strong>R</strong>elevant, <strong>T</strong>ime-bound.</p>
+            </div>
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                <h4 class="font-bold text-emerald-800 mb-2">Measures</h4>
+                <ul class="text-sm text-emerald-700 list-disc pl-4 space-y-1">
+                    <li><strong>Outcome:</strong> Your primary aim metric</li>
+                    <li><strong>Process:</strong> Are staff following the steps?</li>
+                    <li><strong>Balancing:</strong> Safety/unintended consequences</li>
+                </ul>
+            </div>
+        </div>`
+    },
+    data: {
+        t: "SPC Chart Guide",
+        c: `<div class="space-y-4">
+            <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                <h4 class="font-bold text-slate-800 mb-2">What is SPC?</h4>
+                <p class="text-sm text-slate-700">Statistical Process Control helps distinguish between random variation and true improvement.</p>
+            </div>
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                <h4 class="font-bold text-emerald-800 mb-2">Detecting a Shift</h4>
+                <p class="text-sm text-emerald-700"><strong>6 or more consecutive points</strong> on one side of the median indicates a significant shift.</p>
+            </div>
+        </div>`
+    },
+    pdsa: {
+        t: "PDSA Cycle Guide",
+        c: `<div class="space-y-4">
+            <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                <h4 class="font-bold text-blue-800 mb-2">Plan</h4>
+                <p class="text-sm text-blue-700">What change will you test? Who, what, when, where?</p>
+            </div>
+            <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                <h4 class="font-bold text-orange-800 mb-2">Do</h4>
+                <p class="text-sm text-orange-700">Carry out the test on a small scale. Document what happened.</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg border border-purple-200">
+                <h4 class="font-bold text-purple-800 mb-2">Study</h4>
+                <p class="text-sm text-purple-700">Analyse the results. Did it work?</p>
+            </div>
+            <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200">
+                <h4 class="font-bold text-emerald-800 mb-2">Act</h4>
+                <p class="text-sm text-emerald-700">Adopt, Adapt, or Abandon.</p>
+            </div>
+        </div>`
+    }
+};
+
 window.deletePDSA = (i) => { if(isReadOnly) return; if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } };
 
 window.saveResults = (val) => { if(isReadOnly) return; if(!projectData.checklist) projectData.checklist={}; projectData.checklist.results_text = val; saveData(); };
@@ -1072,6 +1132,123 @@ function renderGantt() {
     html += `</div>`;
     container.innerHTML = html;
     lucide.createIcons();
+// --- RENDER FULL PROJECT (was missing) ---
+function renderFullProject() {
+    if (!projectData) return;
+    
+    const container = document.getElementById('full-project-container');
+    const d = projectData;
+    
+    const checkField = (val) => val && val.length > 5;
+    const statusBadge = (complete) => complete 
+        ? '<span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded-full">✓ Complete</span>'
+        : '<span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">⚠ Incomplete</span>';
+
+    container.innerHTML = `
+        <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 rounded-xl p-8 text-white shadow-lg">
+            <h1 class="text-3xl font-bold font-serif">${escapeHtml(d.meta.title)}</h1>
+            <p class="text-white/80 mt-2">Created: ${new Date(d.meta.created).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4">Completion Status</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Problem</span>${statusBadge(checkField(d.checklist.problem_desc))}</div>
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Aim</span>${statusBadge(checkField(d.checklist.aim))}</div>
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Measures</span>${statusBadge(checkField(d.checklist.outcome_measures))}</div>
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Team</span>${statusBadge(checkField(d.checklist.team))}</div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">1. Problem & Evidence</h2>
+            <div class="space-y-4">
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Problem Description</h3>
+                <p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.problem_desc) || '<span class="text-slate-400 italic">Not yet defined</span>'}</p></div>
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Evidence / Standards</h3>
+                <p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.evidence) || '<span class="text-slate-400 italic">Not yet defined</span>'}</p></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border-2 border-blue-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">2. SMART Aim</h2>
+            <div class="bg-blue-50 p-6 rounded-lg border border-blue-200">
+                <p class="text-xl font-serif italic text-blue-900">${escapeHtml(d.checklist.aim) || '<span class="text-blue-400">No aim defined yet</span>'}</p>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">3. Measures</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200"><h3 class="text-xs font-bold text-emerald-800 uppercase mb-2">Outcome</h3><p class="text-sm text-emerald-900">${escapeHtml(d.checklist.outcome_measures) || 'Not defined'}</p></div>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h3 class="text-xs font-bold text-blue-800 uppercase mb-2">Process</h3><p class="text-sm text-blue-900">${escapeHtml(d.checklist.process_measures) || 'Not defined'}</p></div>
+                <div class="bg-amber-50 p-4 rounded-lg border border-amber-200"><h3 class="text-xs font-bold text-amber-800 uppercase mb-2">Balancing</h3><p class="text-sm text-amber-900">${escapeHtml(d.checklist.balance_measures) || 'Not defined'}</p></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">4. Team & Governance</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Team Members</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.team) || 'Not defined'}</p></div>
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Ethics / Registration</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.ethics) || 'Not defined'}</p></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">5. Driver Diagram</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200"><h3 class="text-xs font-bold text-emerald-800 uppercase mb-2">Primary Drivers (${d.drivers.primary.length})</h3><ul class="text-sm text-emerald-900 space-y-1">${d.drivers.primary.map(p => '<li>• ' + escapeHtml(p) + '</li>').join('') || '<li class="text-emerald-400 italic">None defined</li>'}</ul></div>
+                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h3 class="text-xs font-bold text-blue-800 uppercase mb-2">Secondary Drivers (${d.drivers.secondary.length})</h3><ul class="text-sm text-blue-900 space-y-1">${d.drivers.secondary.map(s => '<li>• ' + escapeHtml(s) + '</li>').join('') || '<li class="text-blue-400 italic">None defined</li>'}</ul></div>
+                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200"><h3 class="text-xs font-bold text-purple-800 uppercase mb-2">Change Ideas (${d.drivers.changes.length})</h3><ul class="text-sm text-purple-900 space-y-1">${d.drivers.changes.map(c => '<li>• ' + escapeHtml(c) + '</li>').join('') || '<li class="text-purple-400 italic">None defined</li>'}</ul></div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">6. PDSA Cycles (${d.pdsa.length})</h2>
+            <div class="space-y-4">
+                ${d.pdsa.length === 0 ? '<p class="text-slate-400 italic">No PDSA cycles recorded yet</p>' : 
+                d.pdsa.map((p, i) => `
+                    <div class="border border-slate-200 rounded-lg overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-2 font-bold text-slate-700 flex items-center gap-2">
+                            <span class="bg-rcem-purple text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">${i + 1}</span>
+                            ${escapeHtml(p.title)}
+                            ${p.isStepChange ? '<span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-0.5 rounded-full ml-auto">Step Change</span>' : ''}
+                        </div>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-y md:divide-y-0 divide-slate-200">
+                            <div class="p-3 bg-blue-50"><span class="text-xs font-bold text-blue-800 block mb-1">PLAN</span><p class="text-xs text-blue-900">${escapeHtml(p.plan) || '-'}</p></div>
+                            <div class="p-3 bg-orange-50"><span class="text-xs font-bold text-orange-800 block mb-1">DO</span><p class="text-xs text-orange-900">${escapeHtml(p.do) || '-'}</p></div>
+                            <div class="p-3 bg-purple-50"><span class="text-xs font-bold text-purple-800 block mb-1">STUDY</span><p class="text-xs text-purple-900">${escapeHtml(p.study) || '-'}</p></div>
+                            <div class="p-3 bg-emerald-50"><span class="text-xs font-bold text-emerald-800 block mb-1">ACT</span><p class="text-xs text-emerald-900">${escapeHtml(p.act) || '-'}</p></div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">7. Data & Results</h2>
+            <div class="bg-slate-50 p-4 rounded-lg border mb-4"><p class="text-sm text-slate-600"><strong>Data Points:</strong> ${d.chartData.length}</p></div>
+            <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Results Interpretation</h3>
+            <p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.results_text) || '<span class="text-slate-400 italic">No analysis written yet</span>'}</p></div>
+        </div>
+
+        <div class="bg-white rounded-xl p-6 shadow-sm border-2 border-emerald-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">8. Learning & Sustainability</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Key Learning</h3><p class="text-slate-700 whitespace-pre-wrap bg-amber-50 p-4 rounded-lg border border-amber-200">${escapeHtml(d.checklist.learning) || 'Not yet documented'}</p></div>
+                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Sustainability Plan</h3><p class="text-slate-700 whitespace-pre-wrap bg-emerald-50 p-4 rounded-lg border border-emerald-200">${escapeHtml(d.checklist.sustain) || 'Not yet documented'}</p></div>
+            </div>
+        </div>
+
+        <div class="flex justify-center gap-4 py-8 no-print">
+            <button onclick="window.print()" class="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold hover:bg-slate-900 flex items-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> Print This View</button>
+            <button onclick="window.router('dashboard')" class="bg-white text-slate-800 px-6 py-3 rounded-lg font-bold border border-slate-300 hover:bg-slate-50 flex items-center gap-2"><i data-lucide="arrow-left" class="w-4 h-4"></i> Back to Dashboard</button>
+        </div>
+    `;
+    
+    lucide.createIcons();
+}
+
 }
 
 // --- FIX: CORRECTED ASSET GENERATOR ---
