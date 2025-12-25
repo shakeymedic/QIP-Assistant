@@ -326,6 +326,18 @@ window.openDemoProject = () => {
             { id: 4, text: "Equipment", causes: ["Cannulas missing from trolleys", "Antibiotic cupboard keys missing", "Computers slow to load", "Blood culture bottles expired"] }
         ] 
     };
+    
+    // --- FIX: Added Process Map Demo Data ---
+    demoData.process = [
+        "Patient Arrives in ED", 
+        "Triage Assessment (15 mins)", 
+        "Sepsis Screening Tool Applied", 
+        "Red Flag Sepsis Triggered?", 
+        "Medical Review (Immediate)", 
+        "Sepsis 6 Bundle Initiated", 
+        "IV Antibiotics Administered", 
+        "Transfer to Ward/ICU"
+    ];
 
     demoData.pdsa = [
         {id: 1, title: "Cycle 1: Education", plan: "Deliver 10-min teaching at handover for 2 weeks. Display posters in staff room.", do: "Teaching delivered to 80% of nursing staff. Posters up.", study: "Compliance rose slightly to 48% but effect wore off quickly. Staff reported 'forgetting' in busy periods.", act: "Abandon as sole intervention. Education is necessary but not sufficient.", isStepChange: false},
@@ -1048,22 +1060,25 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-// --- ASSET GENERATOR (FIXED for PowerPoint & Poster) ---
+// --- ASSET GENERATOR (FIXED with Error Reporting) ---
 async function getVisualAsset(type) {
-    if (!projectData) return null;
+    if (!projectData) return { success: false, error: "No project loaded." };
 
     // Create invisible container in DOM to ensure rendering
     const container = document.createElement('div');
     container.style.position = 'absolute';
     container.style.left = '-9999px';
     container.style.top = '-9999px';
+    container.style.width = '2000px'; 
     document.body.appendChild(container);
 
-    const timeout = new Promise(resolve => setTimeout(() => resolve(null), 3000));
+    const timeoutMs = 15000; // Increased to 15s
 
     const generator = (async () => {
-        if (type === 'chart') {
-            try {
+        try {
+            if (type === 'chart') {
+                if(typeof Chart === 'undefined') throw new Error("Chart.js library not loaded.");
+
                 const canvas = document.createElement('canvas');
                 canvas.width = 1600; 
                 canvas.height = 800;
@@ -1074,7 +1089,7 @@ async function getVisualAsset(type) {
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 
                 const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-                if(data.length === 0) return null;
+                if(data.length === 0) throw new Error("Dataset is empty. Add data points first.");
 
                 const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
                 const values = outcomes.map(d => Number(d.value));
@@ -1109,20 +1124,20 @@ async function getVisualAsset(type) {
                             scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
                         }
                     });
-                    setTimeout(resolve, 100);
+                    setTimeout(resolve, 500);
                 });
-                return canvas.toDataURL('image/png', 1.0);
-            } catch (e) { console.error("Chart gen error", e); return null; }
-        }
+                return { success: true, img: canvas.toDataURL('image/png', 1.0) };
+            }
 
-        if (type === 'driver' || type === 'fishbone') {
-            try {
+            if (type === 'driver' || type === 'fishbone') {
+                if(typeof mermaid === 'undefined') throw new Error("Mermaid.js library not loaded.");
+
                 const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
                 let mCode = "";
                 
                 if (type === 'driver') {
                     const d = projectData.drivers;
-                    if(!d || (!d.primary.length && !d.secondary.length)) return null;
+                    if(!d || (!d.primary.length && !d.secondary.length)) throw new Error("No drivers defined.");
                     mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
                     if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
                     d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
@@ -1130,7 +1145,7 @@ async function getVisualAsset(type) {
                     d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
                 } else if (type === 'fishbone') {
                     const cats = projectData.fishbone.categories;
-                    if (cats.every(c => c.causes.length === 0)) return null;
+                    if (cats.every(c => c.causes.length === 0)) throw new Error("Fishbone diagram is empty.");
                     mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
                         cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
                 }
@@ -1142,9 +1157,14 @@ async function getVisualAsset(type) {
                 container.appendChild(el);
                 
                 const svg = el.querySelector('svg');
-                const viewBox = svg.getAttribute('viewBox').split(' ');
-                const width = parseFloat(viewBox[2]) * 2;
-                const height = parseFloat(viewBox[3]) * 2;
+                let width = 1600;
+                let height = 800;
+
+                if(svg.hasAttribute('viewBox')) {
+                    const viewBox = svg.getAttribute('viewBox').split(' ');
+                    width = parseFloat(viewBox[2]) * 2;
+                    height = parseFloat(viewBox[3]) * 2;
+                }
                 svg.setAttribute('width', width);
                 svg.setAttribute('height', height);
                 
@@ -1161,23 +1181,33 @@ async function getVisualAsset(type) {
                 const url = URL.createObjectURL(svgBlob);
                 
                 return new Promise(resolve => {
-                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve(canvas.toDataURL('image/png')); };
-                    img.onerror = () => resolve(null);
+                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve({ success: true, img: canvas.toDataURL('image/png') }); };
+                    img.onerror = () => resolve({ success: false, error: "SVG to Canvas conversion failed." });
                     img.src = url;
                 });
-            } catch (e) { console.error("Diagram gen error", e); return null; }
+            }
+        } catch (e) {
+            console.error(e);
+            return { success: false, error: e.message || e.toString() };
         }
-        return null;
+        return { success: false, error: "Unknown asset type." };
     })();
 
-    const result = await Promise.race([generator, timeout]);
-    document.body.removeChild(container);
-    return result;
+    try {
+        const result = await Promise.race([
+            generator, 
+            new Promise(resolve => setTimeout(() => resolve({ success: false, error: "Generation timed out (>15s)." }), timeoutMs))
+        ]);
+        return result;
+    } finally {
+        if(container && container.parentElement) document.body.removeChild(container);
+    }
 }
 
 // --- FEATURE 1: EXPORT PPTX ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
+    if (typeof PptxGenJS === 'undefined') { alert("PowerPoint library (PptxGenJS) not loaded. Please check your internet connection."); return; }
     
     const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
     const originalText = btnText.textContent;
@@ -1187,8 +1217,20 @@ window.exportPPTX = async () => {
         const d = projectData;
         const pres = new PptxGenJS();
         
-        const driverImg = await getVisualAsset('driver');
-        const chartImg = await getVisualAsset('chart');
+        // --- FETCH ASSETS WITH ERROR CHECKING ---
+        const driverRes = await getVisualAsset('driver');
+        if(!driverRes.success && driverRes.error !== "No drivers defined.") console.warn("Driver Gen Error:", driverRes.error);
+
+        const chartRes = await getVisualAsset('chart');
+        if(!chartRes.success && chartRes.error !== "Dataset is empty.") console.warn("Chart Gen Error:", chartRes.error);
+        
+        // If critical assets fail with timeout/library error, warn user
+        if((!driverRes.success && driverRes.error.includes("timeout")) || (!chartRes.success && chartRes.error.includes("timeout"))) {
+            alert("Warning: Some visual assets timed out. The PowerPoint will be generated without them. Try refreshing the page.");
+        }
+
+        const driverImg = driverRes.success ? driverRes.img : null;
+        const chartImg = chartRes.success ? chartRes.img : null;
 
         const RCEM_NAVY = '2d2e83';
         const RCEM_ORANGE = 'f36f21';
@@ -1222,7 +1264,7 @@ window.exportPPTX = async () => {
 
         const s3 = addSlide('Driver Diagram (Strategy)');
         if (driverImg) s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        else s3.addText("[Driver Diagram Not Available]", { x: 3, y: 2.5, color: '94a3b8' });
+        else s3.addText(`[Driver Diagram Not Available]\nReason: ${driverRes.error || 'Unknown'}`, { x: 3, y: 2.5, color: '94a3b8' });
 
         const s4 = addSlide('PDSA Cycles & Interventions');
         const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
@@ -1232,7 +1274,7 @@ window.exportPPTX = async () => {
 
         const s5 = addSlide('Results & Analysis');
         if (chartImg) s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-        else s5.addText("No data chart available.", { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
+        else s5.addText(`[Chart Not Available]\nReason: ${chartRes.error || 'Unknown'}`, { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
         s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
         s5.addText(d.checklist.results_text || "No analysis recorded.", { x: 6.2, y: 1.5, w: 3.3, h: 3.2, fontSize: 11, color: '334155', valign: 'top', fill: 'F8FAFC', border: { color: 'E2E8F0' } });
 
@@ -1243,13 +1285,17 @@ window.exportPPTX = async () => {
         s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
 
         await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
-    } catch (e) { console.error(e); alert("Error generating PowerPoint: " + e.message); } 
+    } catch (e) { 
+        console.error(e); 
+        alert("Critical Error generating PowerPoint: " + e.message + "\nCheck console for details."); 
+    } 
     finally { btnText.textContent = originalText; }
 };
 
 // --- FEATURE 2: PDF POSTER EXPORT ---
 window.printPoster = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
+    if (typeof html2pdf === 'undefined') { alert("PDF library (html2pdf) not loaded. Please check your internet connection."); return; }
     
     const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
     const originalText = btn.innerText;
@@ -1257,8 +1303,14 @@ window.printPoster = async () => {
 
     try {
         const d = projectData;
-        const driverImg = await getVisualAsset('driver');
-        const chartImg = await getVisualAsset('chart');
+        const driverRes = await getVisualAsset('driver');
+        const chartRes = await getVisualAsset('chart');
+
+        const driverImg = driverRes.success ? driverRes.img : null;
+        const chartImg = chartRes.success ? chartRes.img : null;
+
+        if(!driverRes.success && driverRes.error.includes("timeout")) alert("Warning: Driver Diagram timed out generation.");
+        if(!chartRes.success && chartRes.error.includes("timeout")) alert("Warning: Chart timed out generation.");
 
         const posterHTML = `
             <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
@@ -1284,7 +1336,7 @@ window.printPoster = async () => {
                         </div>
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
-                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : '<p style="color: #94a3b8; font-style: italic;">No drivers defined.</p>'}
+                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : `<p style="color: #94a3b8; font-style: italic;">Diagram unavailable: ${driverRes.error || 'None'}</p>`}
                         </div>
                     </div>
 
@@ -1292,7 +1344,7 @@ window.printPoster = async () => {
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
                             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
-                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : '<p style="padding: 40px; color: #94a3b8;">No data available.</p>'}
+                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : `<p style="padding: 40px; color: #94a3b8;">Chart unavailable: ${chartRes.error || 'No Data'}</p>`}
                             </div>
                             <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
                                 <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
@@ -1343,7 +1395,7 @@ window.printPoster = async () => {
 
     } catch (e) {
         console.error(e);
-        alert("Error generating PDF: " + e.message);
+        alert("Critical Error generating PDF: " + e.message);
     } finally {
         btn.innerText = originalText;
     }
@@ -1355,9 +1407,13 @@ async function renderFullProject() {
     const container = document.getElementById('full-project-container');
     container.innerHTML = `<div class="text-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rcem-purple inline-block"></div><br>Generating Report...</div>`;
     
-    const chartImg = await getVisualAsset('chart');
-    const driverImg = await getVisualAsset('driver');
-    const fishboneImg = await getVisualAsset('fishbone');
+    const chartRes = await getVisualAsset('chart');
+    const driverRes = await getVisualAsset('driver');
+    const fishboneRes = await getVisualAsset('fishbone');
+
+    const chartImg = chartRes.success ? chartRes.img : null;
+    const driverImg = driverRes.success ? driverRes.img : null;
+    const fishboneImg = fishboneRes.success ? fishboneRes.img : null;
     
     const d = projectData;
     const c = d.checklist;
@@ -1377,11 +1433,11 @@ async function renderFullProject() {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div>
                         <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Driver Diagram</h4>
-                        ${driverImg ? `<img src="${driverImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic">No diagram.</p>'}
+                        ${driverImg ? `<img src="${driverImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic">Diagram unavailable: ${driverRes.error}</p>`}
                     </div>
                     <div>
                         <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Fishbone Analysis</h4>
-                        ${fishboneImg ? `<img src="${fishboneImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic">No diagram.</p>'}
+                        ${fishboneImg ? `<img src="${fishboneImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic">Diagram unavailable: ${fishboneRes.error}</p>`}
                     </div>
                 </div>
             </div>
@@ -1389,7 +1445,7 @@ async function renderFullProject() {
             <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
                 <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">Measurement & Results</h3>
                 <div class="mb-6">
-                    ${chartImg ? `<img src="${chartImg}" class="w-full border rounded shadow-sm">` : '<p class="text-slate-400 italic py-10 text-center">No data points recorded.</p>'}
+                    ${chartImg ? `<img src="${chartImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic py-10 text-center">Chart unavailable: ${chartRes.error}</p>`}
                 </div>
                 <div class="bg-slate-50 p-4 rounded border-l-4 border-rcem-purple">
                     <h4 class="font-bold text-sm text-rcem-purple uppercase mb-1">Analysis</h4>
