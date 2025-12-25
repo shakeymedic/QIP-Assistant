@@ -146,14 +146,49 @@ document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     }
 });
 
+// 1. SIGN IN (Triggered by the 'Sign In' button or pressing Enter)
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
+    
     try {
         await signInWithEmailAndPassword(auth, email, pass);
-    } catch {
-        try { await createUserWithEmailAndPassword(auth, email, pass); } catch (err) { alert(err.message); }
+        // Success is handled by the onAuthStateChanged listener automatically
+    } catch (error) {
+        console.error("Login error:", error);
+        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+             alert("Incorrect email or password.");
+        } else if (error.code === 'auth/too-many-requests') {
+             alert("Too many failed attempts. Please try again later.");
+        } else {
+             alert("Login failed: " + error.message);
+        }
+    }
+});
+
+// 2. REGISTER (Triggered only by clicking the 'Register' button)
+document.getElementById('btn-register').addEventListener('click', async () => {
+    const email = document.getElementById('email').value;
+    const pass = document.getElementById('password').value;
+
+    if (!email || !pass) {
+        alert("Please enter an email and password to register.");
+        return;
+    }
+
+    try {
+        await createUserWithEmailAndPassword(auth, email, pass);
+        alert("Account created successfully!");
+    } catch (error) {
+        console.error("Registration error:", error);
+        if (error.code === 'auth/email-already-in-use') {
+            alert("This email is already registered. Please Sign In instead.");
+        } else if (error.code === 'auth/weak-password') {
+            alert("Password is too weak. It should be at least 6 characters.");
+        } else {
+            alert("Registration failed: " + error.message);
+        }
     }
 });
 
@@ -2053,253 +2088,3 @@ window.exportPPTX = async () => {
             // Four quadrants
             const quadrants = [
                 { title: 'PLAN', content: cycle.plan, color: '2563EB', bg: 'EFF6FF', x: 0.4, y: 1.2 },
-                { title: 'DO', content: cycle.do, color: 'D97706', bg: 'FFFBEB', x: 5.0, y: 1.2 },
-                { title: 'STUDY', content: cycle.study, color: '7C3AED', bg: 'F5F3FF', x: 0.4, y: 3.0 },
-                { title: 'ACT', content: cycle.act, color: '059669', bg: 'ECFDF5', x: 5.0, y: 3.0 }
-            ];
-
-            quadrants.forEach(q => {
-                sP.addShape(pres.ShapeType.rect, { x: q.x, y: q.y, w: 4.4, h: 1.6, fill: { color: q.bg }, line: { color: q.color, pt: 1 } });
-                sP.addText(q.title, { x: q.x + 0.1, y: q.y + 0.05, w: 4.2, h: 0.3, fontSize: 12, bold: true, color: q.color });
-                sP.addText(q.content || 'Not documented', { x: q.x + 0.1, y: q.y + 0.4, w: 4.2, h: 1.1, fontSize: 10, color: SLATE_700, valign: 'top' });
-            });
-        });
-
-        // ============================================
-        // SLIDE: RESULTS (SPC CHART)
-        // ============================================
-        const sChart = addContentSlide('Results', 'Statistical Process Control Chart');
-        
-        if (chartRes.success) {
-            sChart.addImage({ data: chartRes.img, x: 0.4, y: 1.1, w: 9.2, h: 3.2, sizing: { type: 'contain' } });
-        } else {
-            sChart.addShape(pres.ShapeType.rect, { x: 2.5, y: 2.0, w: 5, h: 2, fill: { color: SLATE_100 } });
-            sChart.addText('📊 Chart not available\n\nAdd data points to generate the SPC chart', { 
-                x: 2.5, y: 2.2, w: 5, h: 1.6, fontSize: 12, color: SLATE_500, align: 'center', valign: 'middle'
-            });
-        }
-
-        // Results summary
-        sChart.addText('Analysis', { x: 0.4, y: 4.4, w: 1, fontSize: 10, bold: true, color: SLATE_500 });
-        sChart.addText((d.checklist.results_text || 'No analysis documented').substring(0, 300), { 
-            x: 0.4, y: 4.65, w: 9.2, h: 0.65, fontSize: 9, color: SLATE_700, valign: 'top'
-        });
-
-        // ============================================
-        // SLIDE: STAKEHOLDER ANALYSIS (if data exists)
-        // ============================================
-        if (d.stakeholders && d.stakeholders.length > 0) {
-            const sSH = addContentSlide('Stakeholder Analysis', 'Power vs Interest Matrix');
-            
-            // Grid
-            sSH.addShape(pres.ShapeType.rect, { x: 1.5, y: 1.2, w: 3.5, h: 1.8, fill: { color: 'FEF3C7' }, line: { color: 'F59E0B', pt: 1 } });
-            sSH.addShape(pres.ShapeType.rect, { x: 5.0, y: 1.2, w: 3.5, h: 1.8, fill: { color: 'DCFCE7' }, line: { color: '22C55E', pt: 1 } });
-            sSH.addShape(pres.ShapeType.rect, { x: 1.5, y: 3.0, w: 3.5, h: 1.8, fill: { color: SLATE_100 }, line: { color: '94A3B8', pt: 1 } });
-            sSH.addShape(pres.ShapeType.rect, { x: 5.0, y: 3.0, w: 3.5, h: 1.8, fill: { color: 'DBEAFE' }, line: { color: '3B82F6', pt: 1 } });
-
-            // Labels
-            sSH.addText('Keep Satisfied', { x: 1.5, y: 1.25, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: 'B45309', align: 'center' });
-            sSH.addText('Manage Closely', { x: 5.0, y: 1.25, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: '15803D', align: 'center' });
-            sSH.addText('Monitor', { x: 1.5, y: 3.05, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: SLATE_500, align: 'center' });
-            sSH.addText('Keep Informed', { x: 5.0, y: 3.05, w: 3.5, h: 0.3, fontSize: 10, bold: true, color: '1D4ED8', align: 'center' });
-
-            // Axis labels
-            sSH.addText('POWER →', { x: 0.2, y: 2.5, w: 1.2, h: 0.3, fontSize: 9, bold: true, color: SLATE_500, rotate: 270 });
-            sSH.addText('INTEREST →', { x: 4.0, y: 5.0, w: 2, h: 0.3, fontSize: 9, bold: true, color: SLATE_500, align: 'center' });
-
-            // Plot stakeholders
-            d.stakeholders.forEach(sh => {
-                const xPos = 1.5 + (sh.interest / 100) * 7.0 - 0.4;
-                const yPos = 4.8 - (sh.power / 100) * 3.6 - 0.15;
-                sSH.addShape(pres.ShapeType.ellipse, { x: xPos, y: yPos, w: 0.8, h: 0.3, fill: { color: RCEM_NAVY } });
-                sSH.addText(sh.name.substring(0, 15), { x: xPos, y: yPos, w: 0.8, h: 0.3, fontSize: 7, color: 'FFFFFF', align: 'center', valign: 'middle' });
-            });
-        }
-
-        // ============================================
-        // SLIDE: KEY LEARNING
-        // ============================================
-        const sLearn = addContentSlide('Key Learning', 'What We Discovered');
-        
-        sLearn.addText('💡 Insights', { x: 0.4, y: 1.15, w: 5.6, fontSize: 12, bold: true, color: RCEM_NAVY });
-        addTextBox(sLearn, d.checklist.learning, 0.4, 1.4, 5.6, 3.5);
-
-        sLearn.addText('🎯 What Worked', { x: 6.2, y: 1.15, w: 3.4, fontSize: 12, bold: true, color: '059669' });
-        const successCycles = d.pdsa.filter(p => p.isStepChange).map(p => '✓ ' + p.title).join('\n') || 'No step changes recorded';
-        addTextBox(sLearn, successCycles, 6.2, 1.4, 3.4, 1.6, { fill: { color: 'ECFDF5' } });
-
-        sLearn.addText('⚠️ Challenges', { x: 6.2, y: 3.2, w: 3.4, fontSize: 12, bold: true, color: 'D97706' });
-        const challengeCycles = d.pdsa.filter(p => !p.isStepChange && p.act?.toLowerCase().includes('abandon')).map(p => '✗ ' + p.title).join('\n') || 'All cycles contributed to improvement';
-        addTextBox(sLearn, challengeCycles, 6.2, 3.45, 3.4, 1.45, { fill: { color: 'FEF3C7' } });
-
-        // ============================================
-        // SLIDE: SUSTAINABILITY
-        // ============================================
-        const sSust = addContentSlide('Sustainability', 'How We Will Maintain the Gains');
-        
-        sSust.addShape(pres.ShapeType.rect, { x: 0.4, y: 1.2, w: 9.2, h: 3.0, fill: { color: 'ECFDF5' }, line: { color: '059669', pt: 2 } });
-        sSust.addText('📌 Sustainability Plan', { x: 0.6, y: 1.35, w: 8.8, h: 0.4, fontSize: 14, bold: true, color: '047857' });
-        sSust.addText(d.checklist.sustain || 'No sustainability plan documented', { 
-            x: 0.6, y: 1.8, w: 8.8, h: 2.2, fontSize: 12, color: SLATE_700, valign: 'top'
-        });
-
-        // Key sustainability elements
-        const sustElements = ['Standard Operating Procedure', 'Training & Competencies', 'Monitoring & Reporting', 'Ownership & Accountability'];
-        sustElements.forEach((el, i) => {
-            const xPos = 0.4 + (i * 2.4);
-            sSust.addShape(pres.ShapeType.rect, { x: xPos, y: 4.4, w: 2.2, h: 0.8, fill: { color: SLATE_100 } });
-            sSust.addText(el, { x: xPos, y: 4.5, w: 2.2, h: 0.6, fontSize: 9, color: SLATE_700, align: 'center', valign: 'middle' });
-        });
-
-        // ============================================
-        // SLIDE: TEAM & ACKNOWLEDGEMENTS
-        // ============================================
-        const sTeam = addContentSlide('Team & Governance', 'Project Team and Ethical Approval');
-        
-        sTeam.addText('👥 Project Team', { x: 0.4, y: 1.15, w: 4.8, fontSize: 12, bold: true, color: RCEM_NAVY });
-        addTextBox(sTeam, d.checklist.team, 0.4, 1.4, 4.8, 2.0);
-
-        sTeam.addText('📋 Ethics & Registration', { x: 5.4, y: 1.15, w: 4.2, fontSize: 12, bold: true, color: RCEM_NAVY });
-        addTextBox(sTeam, d.checklist.ethics, 5.4, 1.4, 4.2, 2.0);
-
-        sTeam.addText('🗣️ Patient & Public Involvement', { x: 0.4, y: 3.6, w: 9.2, fontSize: 12, bold: true, color: RCEM_NAVY });
-        addTextBox(sTeam, d.checklist.ppi, 0.4, 3.85, 9.2, 1.3);
-
-        // ============================================
-        // SLIDE: THANK YOU / QUESTIONS
-        // ============================================
-        const sEnd = pres.addSlide({ masterName: 'SECTION_SLIDE' });
-        sEnd.addText('Thank You', { 
-            x: 0.5, y: 2.0, w: 9, h: 1,
-            fontSize: 48, bold: true, color: 'FFFFFF', fontFace: 'Arial', align: 'center'
-        });
-        sEnd.addText('Questions?', { 
-            x: 0.5, y: 3.2, w: 9, h: 0.6,
-            fontSize: 24, color: 'CCCCCC', fontFace: 'Arial', align: 'center'
-        });
-        sEnd.addText(d.checklist.team?.split('\n')[0] || 'QI Team', { 
-            x: 0.5, y: 4.2, w: 9, h: 0.4,
-            fontSize: 14, color: RCEM_ORANGE, fontFace: 'Arial', align: 'center'
-        });
-
-        // ============================================
-        // SAVE FILE
-        // ============================================
-        const safeFileName = d.meta.title.replace(/[^a-z0-9]/gi, '_').substring(0, 50);
-        await pres.writeFile({ fileName: `RCEM_QIP_${safeFileName}.pptx` });
-
-        // Success notification
-        const toast = document.createElement('div');
-        toast.className = 'fixed bottom-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg z-50 flex items-center gap-2';
-        toast.innerHTML = '<i data-lucide="check-circle" class="w-5 h-5"></i> PowerPoint exported successfully!';
-        document.body.appendChild(toast);
-        lucide.createIcons();
-        setTimeout(() => toast.remove(), 3000);
-
-    } catch (e) {
-        alert("Export Error: " + e.message);
-        console.error('PPTX Export Error:', e);
-    } finally {
-        if (exportBtn) {
-            exportBtn.disabled = false;
-            exportBtn.innerHTML = originalHTML;
-            lucide.createIcons();
-        }
-    }
-};
-
-// --- PDF POSTER ---
-window.printPoster = async () => {
-    if (!projectData) return;
-    if (typeof html2pdf === 'undefined') { alert("PDF library missing."); return; }
-    
-    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']")?.parentElement?.nextElementSibling;
-    const originalText = btn ? btn.textContent : '';
-    if (btn) btn.textContent = "Rendering...";
-
-    try {
-        const driverRes = await getVisualAsset('driver');
-        const chartRes = await getVisualAsset('chart');
-        
-        // Build HTML string (Full)
-        const d = projectData;
-        const driverImgHTML = driverRes.success ? `<img src="${driverRes.img}" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;">` : `<div style="padding: 20px; background: #eee; text-align: center; color: #666;">Diagram Unavailable</div>`;
-        const chartImgHTML = chartRes.success ? `<img src="${chartRes.img}" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;">` : `<div style="padding: 20px; background: #eee; text-align: center; color: #666;">Chart Unavailable</div>`;
-
-        const pdsaHTML = d.pdsa.map(p => `
-            <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
-                <strong style="display: block; color: #1e293b;">${escapeHtml(p.title)}</strong>
-                <span style="font-size: 13px; color: #64748b;">${escapeHtml(p.do)}</span>
-            </li>`).join('');
-
-        const html = `
-            <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
-                <div style="background: #2d2e83; color: white; padding: 30px; border-radius: 15px; display: flex; gap: 30px; align-items: center; border-bottom: 8px solid #f36f21; margin-bottom: 30px;">
-                    <div style="background: white; padding: 15px; border-radius: 10px; height: 100px; width: 100px; display: flex; align-items: center; justify-content: center;">
-                        <img src="https://iili.io/KGQOvkl.md.png" style="max-height: 80px; width: auto;">
-                    </div>
-                    <div>
-                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${escapeHtml(d.meta.title)}</h1>
-                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 25% 45% 25%; gap: 25px;">
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">The Problem</h2>
-                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
-                        </div>
-                        <div style="border: 2px solid #3b82f6; padding: 25px; border-radius: 15px; background: #eff6ff;">
-                            <h2 style="color: #1e3a8a; border-bottom: 3px solid #60a5fa; font-size: 24px; font-weight: 800; margin-top: 0;">SMART Aim</h2>
-                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
-                        </div>
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
-                            ${driverImgHTML}
-                        </div>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
-                            <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
-                                ${chartImgHTML}
-                            </div>
-                            <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
-                                <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
-                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${escapeHtml(d.checklist.results_text) || 'No analysis provided.'}</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; flex-direction: column; gap: 25px;">
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Interventions</h2>
-                            <ul style="list-style: none; padding: 0;">
-                                ${pdsaHTML}
-                            </ul>
-                        </div>
-                        <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
-                            <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Learning</h2>
-                            <p style="font-size: 14px; color: #334155;">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
-                        </div>
-                        <div style="border: 2px solid #10b981; padding: 25px; border-radius: 15px; background: #ecfdf5;">
-                            <h2 style="color: #047857; border-bottom: 3px solid #34d399; font-size: 24px; font-weight: 800; margin-top: 0;">Sustainability</h2>
-                            <p style="font-size: 14px; color: #065f46;">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        const element = document.createElement('div');
-        element.innerHTML = html;
-        document.body.appendChild(element);
-
-        await html2pdf().set({ margin: 0.2, filename: `RCEM_Poster_${d.meta.title}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' } }).from(element).save();
-        document.body.removeChild(element);
-
-    } catch(e) { alert("PDF Error: " + e.message); }
-    finally { if (btn) btn.textContent = originalText; }
-};
