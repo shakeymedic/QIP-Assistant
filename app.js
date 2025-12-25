@@ -327,7 +327,7 @@ window.openDemoProject = () => {
         ] 
     };
     
-    // --- FIX: Added Process Map Demo Data ---
+    // --- UPDATED PROCESS MAP FOR DEMO ---
     demoData.process = [
         "Patient Arrives in ED", 
         "Triage Assessment (15 mins)", 
@@ -1060,267 +1060,239 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-// --- ASSET GENERATOR (FIXED with Error Reporting) ---
+// --- ASSET GENERATOR RE-WRITTEN FOR ROBUSTNESS ---
+// Instead of a hidden div, we use a fixed "staging area" to ensuring rendering happens
 async function getVisualAsset(type) {
-    if (!projectData) return { success: false, error: "No project loaded." };
+    if (!projectData) return { success: false, error: "No project data." };
 
-    // Create invisible container in DOM to ensure rendering
-    const container = document.createElement('div');
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.top = '-9999px';
-    container.style.width = '2000px'; 
-    document.body.appendChild(container);
-
-    const timeoutMs = 15000; // Increased to 15s
-
-    const generator = (async () => {
-        try {
-            if (type === 'chart') {
-                if(typeof Chart === 'undefined') throw new Error("Chart.js library not loaded.");
-
-                const canvas = document.createElement('canvas');
-                canvas.width = 1600; 
-                canvas.height = 800;
-                container.appendChild(canvas);
-                const ctx = canvas.getContext('2d');
-                
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                
-                const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-                if(data.length === 0) throw new Error("Dataset is empty. Add data points first.");
-
-                const outcomes = data.filter(d => d.type === 'outcome' || !d.type);
-                const values = outcomes.map(d => Number(d.value));
-                const labels = outcomes.map(d => d.date);
-                
-                let baselinePoints = values.slice(0, 12); 
-                let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
-                
-                const pointColors = [];
-                let runCount = 0; let runDirection = 0;
-                values.forEach((v) => {
-                    if (v > currentMedian) {
-                        if (runDirection === 1) runCount++; else { runCount = 1; runDirection = 1; }
-                    } else if (v < currentMedian) {
-                        if (runDirection === -1) runCount++; else { runCount = 1; runDirection = -1; }
-                    } else runCount = 0;
-                    pointColors.push(runCount >= 6 ? '#059669' : '#2d2e83');
-                });
-
-                const annotations = {
-                    median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
-                };
-
-                await new Promise(resolve => {
-                    new Chart(ctx, {
-                        type: 'line',
-                        data: { labels: labels, datasets: [{ label: 'Outcome Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
-                        options: { 
-                            animation: false,
-                            responsive: false, 
-                            plugins: { annotation: { annotations }, legend: { display: false } },
-                            scales: { y: { beginAtZero: true, grid: { color: '#f1f5f9' } }, x: { grid: { display: false } } }
-                        }
-                    });
-                    setTimeout(resolve, 500);
-                });
-                return { success: true, img: canvas.toDataURL('image/png', 1.0) };
-            }
-
-            if (type === 'driver' || type === 'fishbone') {
-                if(typeof mermaid === 'undefined') throw new Error("Mermaid.js library not loaded.");
-
-                const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-                let mCode = "";
-                
-                if (type === 'driver') {
-                    const d = projectData.drivers;
-                    if(!d || (!d.primary.length && !d.secondary.length)) throw new Error("No drivers defined.");
-                    mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-                    if(d.primary.length === 0) mCode += ` P --> P1[No Drivers Yet]`;
-                    d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-                    d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-                    d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-                } else if (type === 'fishbone') {
-                    const cats = projectData.fishbone.categories;
-                    if (cats.every(c => c.causes.length === 0)) throw new Error("Fishbone diagram is empty.");
-                    mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
-                        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
-                }
-
-                const tempId = 'temp-mermaid-' + Date.now();
-                const { svg: svgString } = await mermaid.render(tempId, mCode);
-                const el = document.createElement('div');
-                el.innerHTML = svgString;
-                container.appendChild(el);
-                
-                const svg = el.querySelector('svg');
-                let width = 1600;
-                let height = 800;
-
-                if(svg.hasAttribute('viewBox')) {
-                    const viewBox = svg.getAttribute('viewBox').split(' ');
-                    width = parseFloat(viewBox[2]) * 2;
-                    height = parseFloat(viewBox[3]) * 2;
-                }
-                svg.setAttribute('width', width);
-                svg.setAttribute('height', height);
-                
-                const svgData = new XMLSerializer().serializeToString(svg);
-                const canvas = document.createElement('canvas');
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = '#ffffff';
-                ctx.fillRect(0, 0, width, height);
-                
-                const img = new Image();
-                const svgBlob = new Blob([svgData], {type: 'image/svg+xml;charset=utf-8'});
-                const url = URL.createObjectURL(svgBlob);
-                
-                return new Promise(resolve => {
-                    img.onload = () => { ctx.drawImage(img, 0, 0); URL.revokeObjectURL(url); resolve({ success: true, img: canvas.toDataURL('image/png') }); };
-                    img.onerror = () => resolve({ success: false, error: "SVG to Canvas conversion failed." });
-                    img.src = url;
-                });
-            }
-        } catch (e) {
-            console.error(e);
-            return { success: false, error: e.message || e.toString() };
-        }
-        return { success: false, error: "Unknown asset type." };
-    })();
+    // 1. Create Staging Area (Visible but off-screen)
+    let container = document.getElementById('asset-staging-area');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'asset-staging-area';
+        container.style.position = 'fixed'; // Fixed ensures it doesn't mess up layout
+        container.style.top = '0';
+        container.style.left = '-10000px'; // Off-screen
+        container.style.width = '1600px';
+        container.style.height = '1200px';
+        container.style.zIndex = '-9999';
+        container.style.visibility = 'visible'; // MUST be visible for canvas to render
+        container.style.backgroundColor = 'white';
+        document.body.appendChild(container);
+    }
+    container.innerHTML = ''; // Clear previous
 
     try {
-        const result = await Promise.race([
-            generator, 
-            new Promise(resolve => setTimeout(() => resolve({ success: false, error: "Generation timed out (>15s)." }), timeoutMs))
-        ]);
-        return result;
-    } finally {
-        if(container && container.parentElement) document.body.removeChild(container);
+        // --- CHART GENERATION ---
+        if (type === 'chart') {
+            if (typeof Chart === 'undefined') throw new Error("Chart.js library missing.");
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1600;
+            canvas.height = 900;
+            container.appendChild(canvas);
+
+            const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+            if (data.length === 0) throw new Error("No data points to chart.");
+
+            const values = data.map(d => Number(d.value));
+            const labels = data.map(d => d.date);
+            
+            // SPC Logic (Simple)
+            let baselinePoints = values.slice(0, 12); 
+            let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+            const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83')); 
+            const annotations = { median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 } };
+
+            const chart = new Chart(canvas.getContext('2d'), {
+                type: 'line',
+                data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+                options: { 
+                    animation: false, // CRITICAL: Disable animation for snapshot
+                    responsive: false, 
+                    plugins: { annotation: { annotations }, legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+
+            // CRITICAL DELAY: Wait for render cycle
+            await new Promise(resolve => setTimeout(resolve, 500));
+            return { success: true, img: canvas.toDataURL('image/png') };
+        }
+
+        // --- MERMAID GENERATION (Driver / Fishbone) ---
+        if (type === 'driver' || type === 'fishbone') {
+            if (typeof mermaid === 'undefined') throw new Error("Mermaid library missing.");
+            
+            // Build Code
+            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+            let mCode = "";
+            if (type === 'driver') {
+                const d = projectData.drivers;
+                if(!d.primary.length && !d.secondary.length) throw new Error("No drivers defined.");
+                mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+                d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+                d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+                d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+            } else {
+                const cats = projectData.fishbone.categories;
+                if (cats.every(c => c.causes.length === 0)) throw new Error("Fishbone empty.");
+                mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
+                        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+            }
+
+            // Render SVG
+            const { svg } = await mermaid.render(`mermaid-${type}-${Date.now()}`, mCode);
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = svg;
+            const svgEl = wrapper.querySelector('svg');
+            
+            // Fix SVG Dimensions for Canvas
+            const viewBox = svgEl.getAttribute('viewBox').split(' ');
+            const w = parseFloat(viewBox[2]); 
+            const h = parseFloat(viewBox[3]);
+            // Scale up for better quality
+            const scale = 3; 
+            svgEl.setAttribute('width', w * scale);
+            svgEl.setAttribute('height', h * scale);
+            
+            const svgString = new XMLSerializer().serializeToString(svgEl);
+            const canvas = document.createElement('canvas');
+            canvas.width = w * scale;
+            canvas.height = h * scale;
+            const ctx = canvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+
+            const img = new Image();
+            const blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(blob);
+
+            return new Promise((resolve) => {
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+                    resolve({ success: true, img: canvas.toDataURL('image/png') });
+                };
+                img.onerror = (e) => resolve({ success: false, error: "SVG conversion failed." });
+                img.src = url;
+            });
+        }
+
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: e.message };
     }
+    return { success: false, error: "Unknown type" };
 }
 
-// --- FEATURE 1: EXPORT PPTX ---
+// --- EXPORT PPTX (RE-WRITTEN) ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
-    if (typeof PptxGenJS === 'undefined') { alert("PowerPoint library (PptxGenJS) not loaded. Please check your internet connection."); return; }
-    
-    const btnText = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
-    const originalText = btnText.textContent;
-    btnText.textContent = "Generating...";
-    
+    if (typeof PptxGenJS === 'undefined') { alert("PowerPoint library (PptxGenJS) not loaded. Check connection."); return; }
+
+    const btn = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
+    const originalText = btn.textContent;
+    btn.textContent = "Generating Assets...";
+
     try {
         const d = projectData;
         const pres = new PptxGenJS();
         
-        // --- FETCH ASSETS WITH ERROR CHECKING ---
+        // 1. Get Assets
         const driverRes = await getVisualAsset('driver');
-        if(!driverRes.success && driverRes.error !== "No drivers defined.") console.warn("Driver Gen Error:", driverRes.error);
-
         const chartRes = await getVisualAsset('chart');
-        if(!chartRes.success && chartRes.error !== "Dataset is empty.") console.warn("Chart Gen Error:", chartRes.error);
-        
-        // If critical assets fail with timeout/library error, warn user
-        if((!driverRes.success && driverRes.error.includes("timeout")) || (!chartRes.success && chartRes.error.includes("timeout"))) {
-            alert("Warning: Some visual assets timed out. The PowerPoint will be generated without them. Try refreshing the page.");
-        }
 
-        const driverImg = driverRes.success ? driverRes.img : null;
-        const chartImg = chartRes.success ? chartRes.img : null;
+        if (!driverRes.success && driverRes.error !== "No drivers defined.") alert(`Warning: Driver Diagram failed (${driverRes.error})`);
+        if (!chartRes.success && chartRes.error !== "No data points to chart.") alert(`Warning: Chart failed (${chartRes.error})`);
 
+        // 2. Setup Master Slide
         const RCEM_NAVY = '2d2e83';
         const RCEM_ORANGE = 'f36f21';
-
         pres.defineSlideMaster({
             title: 'RCEM_MASTER',
             background: { color: 'FFFFFF' },
             objects: [
                 { rect: { x: 0, y: 0, w: '100%', h: 0.15, fill: RCEM_NAVY } },
                 { rect: { x: 0, y: 5.4, w: '100%', h: 0.225, fill: RCEM_NAVY } },
-                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } },
-                { text: { text: { type: 'number' }, options: { x: 9.0, y: 5.45, w: 0.5, fontSize: 10, color: 'FFFFFF', align: 'right' } } }
+                { text: { text: `RCEM QIP Assistant | ${d.meta.title}`, options: { x: 0.2, y: 5.45, w: 6, fontSize: 10, color: 'FFFFFF' } } }
             ]
         });
 
-        const addSlide = (title) => {
-            const slide = pres.addSlide({ masterName: 'RCEM_MASTER' });
-            slide.addText(title, { x: 0.5, y: 0.4, w: 9, fontSize: 24, fontFace: 'Arial', bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
-            return slide;
+        // 3. Slides
+        const addSlide = (t) => {
+            const s = pres.addSlide({ masterName: 'RCEM_MASTER' });
+            s.addText(t, { x: 0.5, y: 0.4, w: 9, fontSize: 24, bold: true, color: RCEM_NAVY, border: { pt: 0, color: 'FFFFFF', bottom: { pt: 2, color: RCEM_ORANGE } } });
+            return s;
         };
 
+        // Title Slide
         const s1 = pres.addSlide({ masterName: 'RCEM_MASTER' });
-        s1.addText(d.meta.title || "Untitled Project", { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
-        s1.addText((d.checklist && d.checklist.team) || "QIP Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
+        s1.addText(d.meta.title, { x: 1, y: 2, w: 8, fontSize: 36, bold: true, color: RCEM_NAVY, align: 'center' });
+        s1.addText(d.checklist.team || "QI Team", { x: 1, y: 3.5, w: 8, fontSize: 18, color: '64748b', align: 'center' });
 
-        const s2 = addSlide('The Problem & Aim');
-        s2.addText('Problem Definition', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.problem_desc || "No problem defined.", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 14, color: '334155', fill: 'F8FAFC' });
+        // Problem & Aim
+        const s2 = addSlide('Problem & Aim');
+        s2.addText('Problem', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '475569' });
+        s2.addText(d.checklist.problem_desc || "N/A", { x: 0.5, y: 1.5, w: 9, h: 1, fontSize: 12, color: '334155', fill: 'F8FAFC' });
         s2.addText('SMART Aim', { x: 0.5, y: 3.0, fontSize: 14, bold: true, color: '475569' });
-        s2.addText(d.checklist.aim || "No aim defined.", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 16, color: RCEM_NAVY, italic: true, fill: 'EFF6FF', border: { color: 'BFDBFE' } });
+        s2.addText(d.checklist.aim || "N/A", { x: 0.5, y: 3.3, w: 9, h: 1, fontSize: 14, color: RCEM_NAVY, fill: 'EFF6FF', italic: true });
 
-        const s3 = addSlide('Driver Diagram (Strategy)');
-        if (driverImg) s3.addImage({ data: driverImg, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
-        else s3.addText(`[Driver Diagram Not Available]\nReason: ${driverRes.error || 'Unknown'}`, { x: 3, y: 2.5, color: '94a3b8' });
+        // Driver
+        const s3 = addSlide('Driver Diagram');
+        if (driverRes.success) s3.addImage({ data: driverRes.img, x: 0.5, y: 1.2, w: 9, h: 3.8, sizing: { type: 'contain' } });
+        else s3.addText("Diagram not available", { x: 4, y: 3, color: '94a3b8' });
 
-        const s4 = addSlide('PDSA Cycles & Interventions');
-        const rows = [['Cycle', 'Plan / Intervention', 'Outcome / Act']];
-        d.pdsa.forEach(p => { rows.push([p.title, p.plan, `Study: ${p.study}\nAct: ${p.act}`]); });
-        if (rows.length > 1) s4.addTable(rows, { x: 0.5, y: 1.2, w: 9, colW: [2, 3.5, 3.5], border: { pt: 1, color: 'e2e8f0' }, fill: { color: 'F1F5F9' }, headerStyles: { fill: RCEM_NAVY, color: 'FFFFFF', bold: true }, fontSize: 10 });
-        else s4.addText("No PDSA cycles recorded.", { x: 0.5, y: 1.2, color: '64748b' });
+        // Chart
+        const s4 = addSlide('Results (SPC Chart)');
+        if (chartRes.success) s4.addImage({ data: chartRes.img, x: 0.5, y: 1.2, w: 8, h: 3.5, sizing: { type: 'contain' } });
+        else s4.addText("Chart not available", { x: 4, y: 3, color: '94a3b8' });
+        s4.addText(d.checklist.results_text || "No analysis.", { x: 0.5, y: 4.8, w: 9, h: 0.5, fontSize: 11 });
 
-        const s5 = addSlide('Results & Analysis');
-        if (chartImg) s5.addImage({ data: chartImg, x: 0.5, y: 1.2, w: 5.5, h: 3.5, sizing: { type: 'contain' } });
-        else s5.addText(`[Chart Not Available]\nReason: ${chartRes.error || 'Unknown'}`, { x: 0.5, y: 2, w: 5, align: 'center', color: '94a3b8' });
-        s5.addText("Interpretation:", { x: 6.2, y: 1.2, fontSize: 12, bold: true });
-        s5.addText(d.checklist.results_text || "No analysis recorded.", { x: 6.2, y: 1.5, w: 3.3, h: 3.2, fontSize: 11, color: '334155', valign: 'top', fill: 'F8FAFC', border: { color: 'E2E8F0' } });
-
-        const s6 = addSlide('Learning & Sustainability');
-        s6.addText('Key Learning Points', { x: 0.5, y: 1.2, fontSize: 14, bold: true, color: '15803d' }); 
-        s6.addText(d.checklist.learning || "Not recorded.", { x: 0.5, y: 1.5, w: 4.2, h: 3, fontSize: 12, fill: 'F0FDF4' });
-        s6.addText('Sustainability Plan', { x: 5.0, y: 1.2, fontSize: 14, bold: true, color: '1e40af' }); 
-        s6.addText(d.checklist.sustain || "Not recorded.", { x: 5.0, y: 1.5, w: 4.5, h: 3, fontSize: 12, fill: 'EFF6FF' });
-
+        // Save
         await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
-    } catch (e) { 
-        console.error(e); 
-        alert("Critical Error generating PowerPoint: " + e.message + "\nCheck console for details."); 
-    } 
-    finally { btnText.textContent = originalText; }
+
+    } catch (e) {
+        alert("CRITICAL ERROR: " + e.message);
+        console.error(e);
+    } finally {
+        btn.textContent = originalText;
+    }
 };
 
-// --- FEATURE 2: PDF POSTER EXPORT ---
+// --- PDF POSTER (RE-WRITTEN) ---
 window.printPoster = async () => {
-    if (!projectData) { alert("Please load a project first."); return; }
-    if (typeof html2pdf === 'undefined') { alert("PDF library (html2pdf) not loaded. Please check your internet connection."); return; }
+    if (!projectData) return;
+    if (typeof html2pdf === 'undefined') { alert("PDF library missing."); return; }
     
     const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
-    const originalText = btn.innerText;
-    btn.innerText = "Generating PDF...";
+    const originalText = btn.textContent;
+    btn.textContent = "Rendering...";
 
     try {
-        const d = projectData;
         const driverRes = await getVisualAsset('driver');
         const chartRes = await getVisualAsset('chart');
+        
+        // Build HTML string (Full)
+        const d = projectData;
+        const driverImgHTML = driverRes.success ? `<img src="${driverRes.img}" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;">` : `<div style="padding: 20px; background: #eee; text-align: center; color: #666;">Diagram Unavailable</div>`;
+        const chartImgHTML = chartRes.success ? `<img src="${chartRes.img}" style="width: 100%; border-radius: 8px; border: 1px solid #ddd;">` : `<div style="padding: 20px; background: #eee; text-align: center; color: #666;">Chart Unavailable</div>`;
 
-        const driverImg = driverRes.success ? driverRes.img : null;
-        const chartImg = chartRes.success ? chartRes.img : null;
+        const pdsaHTML = d.pdsa.map(p => `
+            <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
+                <strong style="display: block; color: #1e293b;">${escapeHtml(p.title)}</strong>
+                <span style="font-size: 13px; color: #64748b;">${escapeHtml(p.do)}</span>
+            </li>`).join('');
 
-        if(!driverRes.success && driverRes.error.includes("timeout")) alert("Warning: Driver Diagram timed out generation.");
-        if(!chartRes.success && chartRes.error.includes("timeout")) alert("Warning: Chart timed out generation.");
-
-        const posterHTML = `
+        const html = `
             <div style="font-family: 'Inter', sans-serif; padding: 20px; background: white; width: 1200px;">
                 <div style="background: #2d2e83; color: white; padding: 30px; border-radius: 15px; display: flex; gap: 30px; align-items: center; border-bottom: 8px solid #f36f21; margin-bottom: 30px;">
                     <div style="background: white; padding: 15px; border-radius: 10px; height: 100px; width: 100px; display: flex; align-items: center; justify-content: center;">
                         <img src="https://iili.io/KGQOvkl.md.png" style="max-height: 80px; width: auto;">
                     </div>
                     <div>
-                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${d.meta.title}</h1>
-                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${d.checklist.team || 'Unspecified'}</p>
+                        <h1 style="font-size: 48px; font-weight: 800; margin: 0; line-height: 1.1;">${escapeHtml(d.meta.title)}</h1>
+                        <p style="font-size: 24px; opacity: 0.9; margin: 10px 0 0;"><strong>Team:</strong> ${escapeHtml(d.checklist.team) || 'Unspecified'}</p>
                     </div>
                 </div>
 
@@ -1328,15 +1300,15 @@ window.printPoster = async () => {
                     <div style="display: flex; flex-direction: column; gap: 25px;">
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">The Problem</h2>
-                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${d.checklist.problem_desc || 'No problem defined.'}</p>
+                            <p style="font-size: 14px; line-height: 1.5; color: #334155;">${escapeHtml(d.checklist.problem_desc) || 'No problem defined.'}</p>
                         </div>
                         <div style="border: 2px solid #3b82f6; padding: 25px; border-radius: 15px; background: #eff6ff;">
                             <h2 style="color: #1e3a8a; border-bottom: 3px solid #60a5fa; font-size: 24px; font-weight: 800; margin-top: 0;">SMART Aim</h2>
-                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${d.checklist.aim || 'No aim defined.'}</p>
+                            <p style="font-size: 18px; font-weight: bold; font-style: italic; color: #1e40af;">${escapeHtml(d.checklist.aim) || 'No aim defined.'}</p>
                         </div>
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Driver Diagram</h2>
-                            ${driverImg ? `<img src="${driverImg}" style="width: 100%; border-radius: 8px;">` : `<p style="color: #94a3b8; font-style: italic;">Diagram unavailable: ${driverRes.error || 'None'}</p>`}
+                            ${driverImgHTML}
                         </div>
                     </div>
 
@@ -1344,11 +1316,11 @@ window.printPoster = async () => {
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white; height: 100%;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Results & Data</h2>
                             <div style="background: white; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; margin-bottom: 20px; display: flex; justify-content: center;">
-                                ${chartImg ? `<img src="${chartImg}" style="max-width: 100%; height: auto;">` : `<p style="padding: 40px; color: #94a3b8;">Chart unavailable: ${chartRes.error || 'No Data'}</p>`}
+                                ${chartImgHTML}
                             </div>
                             <div style="background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px;">
                                 <h3 style="color: #2d2e83; font-weight: bold; margin-top: 0;">Analysis</h3>
-                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${d.checklist.results_text || 'No analysis provided.'}</p>
+                                <p style="font-size: 14px; color: #334155; white-space: pre-wrap;">${escapeHtml(d.checklist.results_text) || 'No analysis provided.'}</p>
                             </div>
                         </div>
                     </div>
@@ -1357,129 +1329,29 @@ window.printPoster = async () => {
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Interventions</h2>
                             <ul style="list-style: none; padding: 0;">
-                                ${d.pdsa.map(p => `
-                                    <li style="margin-bottom: 15px; padding-left: 15px; border-left: 4px solid #94a3b8;">
-                                        <strong style="display: block; color: #1e293b;">${p.title}</strong>
-                                        <span style="font-size: 13px; color: #64748b;">${p.do}</span>
-                                    </li>
-                                `).join('')}
+                                ${pdsaHTML}
                             </ul>
                         </div>
                         <div style="border: 2px solid #cbd5e1; padding: 25px; border-radius: 15px; background: white;">
                             <h2 style="color: #2d2e83; border-bottom: 3px solid #f36f21; font-size: 24px; font-weight: 800; margin-top: 0; text-transform: uppercase;">Learning</h2>
-                            <p style="font-size: 14px; color: #334155;">${d.checklist.learning || 'N/A'}</p>
+                            <p style="font-size: 14px; color: #334155;">${escapeHtml(d.checklist.learning) || 'N/A'}</p>
                         </div>
                         <div style="border: 2px solid #10b981; padding: 25px; border-radius: 15px; background: #ecfdf5;">
                             <h2 style="color: #047857; border-bottom: 3px solid #34d399; font-size: 24px; font-weight: 800; margin-top: 0;">Sustainability</h2>
-                            <p style="font-size: 14px; color: #065f46;">${d.checklist.sustain || 'N/A'}</p>
+                            <p style="font-size: 14px; color: #065f46;">${escapeHtml(d.checklist.sustain) || 'N/A'}</p>
                         </div>
                     </div>
                 </div>
             </div>
         `;
+        
+        const element = document.createElement('div');
+        element.innerHTML = html;
+        document.body.appendChild(element);
 
-        const container = document.createElement('div');
-        container.innerHTML = posterHTML;
-        document.body.appendChild(container);
+        await html2pdf().set({ margin: 0.2, filename: `RCEM_Poster_${d.meta.title}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' } }).from(element).save();
+        document.body.removeChild(element);
 
-        const opt = {
-            margin: 0.2,
-            filename: `RCEM_Poster_${d.meta.title}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a0', orientation: 'landscape' }
-        };
-
-        await html2pdf().set(opt).from(container).save();
-        document.body.removeChild(container);
-
-    } catch (e) {
-        console.error(e);
-        alert("Critical Error generating PDF: " + e.message);
-    } finally {
-        btn.innerText = originalText;
-    }
-};
-
-// --- FULL VIEW ---
-async function renderFullProject() {
-    if(!projectData) return;
-    const container = document.getElementById('full-project-container');
-    container.innerHTML = `<div class="text-center py-10"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-rcem-purple inline-block"></div><br>Generating Report...</div>`;
-    
-    const chartRes = await getVisualAsset('chart');
-    const driverRes = await getVisualAsset('driver');
-    const fishboneRes = await getVisualAsset('fishbone');
-
-    const chartImg = chartRes.success ? chartRes.img : null;
-    const driverImg = driverRes.success ? driverRes.img : null;
-    const fishboneImg = fishboneRes.success ? fishboneRes.img : null;
-    
-    const d = projectData;
-    const c = d.checklist;
-    
-    container.innerHTML = `
-        <div class="space-y-8">
-            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
-                <h1 class="text-3xl font-bold text-slate-900 mb-6 border-b pb-4">${escapeHtml(d.meta.title)}</h1>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div><h3 class="font-bold text-slate-500 uppercase text-xs mb-2">Problem</h3><p class="text-slate-800">${escapeHtml(c.problem_desc)}</p></div>
-                    <div><h3 class="font-bold text-slate-500 uppercase text-xs mb-2">Aim</h3><p class="text-slate-800 font-medium">${escapeHtml(c.aim)}</p></div>
-                </div>
-            </div>
-
-            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
-                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">Diagnostic Phase</h3>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div>
-                        <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Driver Diagram</h4>
-                        ${driverImg ? `<img src="${driverImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic">Diagram unavailable: ${driverRes.error}</p>`}
-                    </div>
-                    <div>
-                        <h4 class="font-bold text-sm text-slate-500 uppercase mb-3">Fishbone Analysis</h4>
-                        ${fishboneImg ? `<img src="${fishboneImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic">Diagram unavailable: ${fishboneRes.error}</p>`}
-                    </div>
-                </div>
-            </div>
-
-            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
-                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">Measurement & Results</h3>
-                <div class="mb-6">
-                    ${chartImg ? `<img src="${chartImg}" class="w-full border rounded shadow-sm">` : `<p class="text-slate-400 italic py-10 text-center">Chart unavailable: ${chartRes.error}</p>`}
-                </div>
-                <div class="bg-slate-50 p-4 rounded border-l-4 border-rcem-purple">
-                    <h4 class="font-bold text-sm text-rcem-purple uppercase mb-1">Analysis</h4>
-                    <p class="text-slate-700 whitespace-pre-wrap">${escapeHtml(c.results_text)}</p>
-                </div>
-            </div>
-
-            <div class="bg-white p-8 rounded shadow-sm border border-slate-200">
-                <h3 class="font-bold text-xl mb-6 text-slate-800 border-b pb-2">PDSA Cycles</h3>
-                <div class="space-y-4">
-                    ${d.pdsa.map(p => `
-                        <div class="border border-slate-200 rounded-lg p-4 hover:shadow-md transition-shadow">
-                            <div class="flex justify-between items-center mb-2">
-                                <h4 class="font-bold text-lg text-slate-800">${escapeHtml(p.title)}</h4>
-                                ${p.isStepChange ? '<span class="bg-emerald-100 text-emerald-800 text-xs px-2 py-1 rounded font-bold">Step Change</span>' : ''}
-                            </div>
-                            <div class="grid grid-cols-2 gap-4 text-sm">
-                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Plan</span>${escapeHtml(p.plan)}</div>
-                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Do</span>${escapeHtml(p.do)}</div>
-                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Study</span>${escapeHtml(p.study)}</div>
-                                <div><span class="font-bold text-slate-500 block text-xs uppercase">Act</span>${escapeHtml(p.act)}</div>
-                            </div>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-// --- HELPERS ---
-const helpData = {
-    checklist: { t: "Define & Measure", c: "<p>Problem, Aim (SMART), and Measures.</p>" },
-    diagrams: { t: "Drivers & Fishbone", c: "<p>Fishbone = Root Cause. Drivers = Strategy.</p>" },
-    data: { t: "SPC & Run Charts", c: "<p>Look for Shifts (6+ points) and Trends (5+ points).</p>" },
-    pdsa: { t: "PDSA Cycles", c: "<p>Plan, Do, Study, Act.</p>" }
+    } catch(e) { alert("PDF Error: " + e.message); }
+    finally { btn.textContent = originalText; }
 };
