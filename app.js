@@ -827,21 +827,30 @@ window.addStakeholder = () => {
     saveData(); renderStakeholders();
 };
 
+// --- FIX: CORRECTED renderChart function ---
 function renderChart() {
     if(!projectData) return;
     const ctx = document.getElementById('mainChart').getContext('2d');
-    const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-    if (data.length === 0) { document.getElementById('chart-ghost').classList.remove('hidden'); if(chartInstance) chartInstance.destroy(); return; }
+    
+    // FIX: Create a copy before sorting to avoid mutating projectData
+    const data = [...projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    if (data.length === 0) { 
+        document.getElementById('chart-ghost').classList.remove('hidden'); 
+        if(chartInstance) chartInstance.destroy(); 
+        return; 
+    }
     document.getElementById('chart-ghost').classList.add('hidden');
 
     const values = data.map(d => Number(d.value));
     const labels = data.map(d => d.date);
     
-    // Standard Median (First 12 points)
+    // FIX: Standard Median (First 12 points) - create copy before sorting
     let baselinePoints = values.slice(0, 12); 
-    let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+    let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
+    let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
     
-    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83')); // Simple color logic
+    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83'));
 
     if (chartInstance) chartInstance.destroy();
     
@@ -881,8 +890,13 @@ function renderChart() {
 window.deleteDataPoint = (index) => {
     if (isReadOnly) return;
     if (confirm("Delete?")) {
-        projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-        projectData.chartData.splice(index, 1);
+        // FIX: Sort a copy, then modify the original based on the sorted order
+        const sortedData = [...projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
+        const itemToDelete = sortedData[index];
+        const originalIndex = projectData.chartData.findIndex(d => d.date === itemToDelete.date && d.value === itemToDelete.value);
+        if (originalIndex !== -1) {
+            projectData.chartData.splice(originalIndex, 1);
+        }
         saveData();
         renderChart();
     }
@@ -1060,8 +1074,7 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-// --- ASSET GENERATOR RE-WRITTEN FOR ROBUSTNESS ---
-// Instead of a hidden div, we use a fixed "staging area" to ensuring rendering happens
+// --- FIX: CORRECTED ASSET GENERATOR ---
 async function getVisualAsset(type) {
     if (!projectData) return { success: false, error: "No project data." };
 
@@ -1070,14 +1083,17 @@ async function getVisualAsset(type) {
     if (!container) {
         container = document.createElement('div');
         container.id = 'asset-staging-area';
-        container.style.position = 'fixed'; // Fixed ensures it doesn't mess up layout
-        container.style.top = '0';
-        container.style.left = '-10000px'; // Off-screen
-        container.style.width = '1600px';
-        container.style.height = '1200px';
-        container.style.zIndex = '-9999';
-        container.style.visibility = 'visible'; // MUST be visible for canvas to render
-        container.style.backgroundColor = 'white';
+        container.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: -9999px;
+            width: 1600px;
+            height: 1200px;
+            z-index: -9999;
+            visibility: visible;
+            background-color: white;
+            opacity: 1;
+        `;
         document.body.appendChild(container);
     }
     container.innerHTML = ''; // Clear previous
@@ -1090,46 +1106,107 @@ async function getVisualAsset(type) {
             const canvas = document.createElement('canvas');
             canvas.width = 1600;
             canvas.height = 900;
+            canvas.style.width = '1600px';
+            canvas.style.height = '900px';
             container.appendChild(canvas);
 
-            const data = projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+            // FIX: Create a copy before sorting
+            const data = [...projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
             if (data.length === 0) throw new Error("No data points to chart.");
 
             const values = data.map(d => Number(d.value));
             const labels = data.map(d => d.date);
             
-            // SPC Logic (Simple)
-            let baselinePoints = values.slice(0, 12); 
-            let currentMedian = baselinePoints.length ? baselinePoints.sort((a,b)=>a-b)[Math.floor(baselinePoints.length/2)] : 0;
+            // FIX: SPC Logic - create copy before sorting
+            let baselinePoints = values.slice(0, 12);
+            let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
+            let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
             const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83')); 
-            const annotations = { median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 } };
+            
+            const annotations = { 
+                median: { 
+                    type: 'line', 
+                    yMin: currentMedian, 
+                    yMax: currentMedian, 
+                    borderColor: '#94a3b8', 
+                    borderDash: [5,5], 
+                    borderWidth: 2 
+                } 
+            };
 
-            const chart = new Chart(canvas.getContext('2d'), {
+            // Add PDSA annotations
+            data.filter(d => d.note).forEach((d, i) => {
+                annotations[`pdsa${i}`] = { 
+                    type: 'line', 
+                    xMin: d.date, 
+                    xMax: d.date, 
+                    borderColor: '#f36f21', 
+                    borderWidth: 2, 
+                    label: { 
+                        display: true, 
+                        content: d.note, 
+                        position: 'start', 
+                        backgroundColor: '#f36f21', 
+                        color: 'white' 
+                    } 
+                };
+            });
+
+            const ctx = canvas.getContext('2d');
+            const chart = new Chart(ctx, {
                 type: 'line',
-                data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
+                data: { 
+                    labels: labels, 
+                    datasets: [{ 
+                        label: 'Measure', 
+                        data: values, 
+                        borderColor: '#2d2e83', 
+                        backgroundColor: pointColors, 
+                        pointBackgroundColor: pointColors, 
+                        pointRadius: 8, 
+                        tension: 0.1, 
+                        borderWidth: 3 
+                    }] 
+                },
                 options: { 
-                    animation: false, // CRITICAL: Disable animation for snapshot
+                    animation: false,
                     responsive: false, 
-                    plugins: { annotation: { annotations }, legend: { display: false } },
-                    scales: { y: { beginAtZero: true } }
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        annotation: { annotations }, 
+                        legend: { display: false } 
+                    },
+                    scales: { 
+                        y: { beginAtZero: true },
+                        x: { display: true }
+                    }
                 }
             });
 
-            // CRITICAL DELAY: Wait for render cycle
-            await new Promise(resolve => setTimeout(resolve, 500));
-            return { success: true, img: canvas.toDataURL('image/png') };
+            // FIX: Force chart update and use requestAnimationFrame
+            chart.update('none');
+            await new Promise(resolve => requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    setTimeout(resolve, 200);
+                });
+            }));
+            
+            const imgData = canvas.toDataURL('image/png');
+            chart.destroy(); // Clean up
+            return { success: true, img: imgData };
         }
 
         // --- MERMAID GENERATION (Driver / Fishbone) ---
         if (type === 'driver' || type === 'fishbone') {
             if (typeof mermaid === 'undefined') throw new Error("Mermaid library missing.");
             
-            // Build Code
-            const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+            // FIX: More thorough sanitisation
+            const clean = (t) => t ? String(t).replace(/["()[\]{}#]/g, '').replace(/\n/g, ' ').trim() : '...';
             let mCode = "";
+            
             if (type === 'driver') {
                 const d = projectData.drivers;
-                if(!d.primary.length && !d.secondary.length) throw new Error("No drivers defined.");
+                if(!d.primary.length && !d.secondary.length && !d.changes.length) throw new Error("No drivers defined.");
                 mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
                 d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
                 d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
@@ -1141,20 +1218,36 @@ async function getVisualAsset(type) {
                         cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
             }
 
+            // FIX: Generate unique ID
+            const renderId = `mermaid-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+            
             // Render SVG
-            const { svg } = await mermaid.render(`mermaid-${type}-${Date.now()}`, mCode);
+            const { svg } = await mermaid.render(renderId, mCode);
             const wrapper = document.createElement('div');
             wrapper.innerHTML = svg;
             const svgEl = wrapper.querySelector('svg');
             
-            // Fix SVG Dimensions for Canvas
-            const viewBox = svgEl.getAttribute('viewBox').split(' ');
-            const w = parseFloat(viewBox[2]); 
-            const h = parseFloat(viewBox[3]);
-            // Scale up for better quality
-            const scale = 3; 
+            if (!svgEl) throw new Error("Mermaid did not produce SVG output.");
+            
+            // FIX: Handle missing viewBox
+            let w, h;
+            const viewBoxAttr = svgEl.getAttribute('viewBox');
+            if (viewBoxAttr) {
+                const viewBox = viewBoxAttr.split(/[\s,]+/);
+                w = parseFloat(viewBox[2]) || 800;
+                h = parseFloat(viewBox[3]) || 600;
+            } else {
+                w = parseFloat(svgEl.getAttribute('width')) || 800;
+                h = parseFloat(svgEl.getAttribute('height')) || 600;
+            }
+            
+            w = Math.max(w, 100);
+            h = Math.max(h, 100);
+            
+            const scale = 2; 
             svgEl.setAttribute('width', w * scale);
             svgEl.setAttribute('height', h * scale);
+            svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
             
             const svgString = new XMLSerializer().serializeToString(svgEl);
             const canvas = document.createElement('canvas');
@@ -1162,38 +1255,47 @@ async function getVisualAsset(type) {
             canvas.height = h * scale;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = 'white';
-            ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             const img = new Image();
-            const blob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
-            const url = URL.createObjectURL(blob);
+            
+            // FIX: Use base64 data URL instead of blob URL
+            const base64Svg = btoa(unescape(encodeURIComponent(svgString)));
+            const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
 
             return new Promise((resolve) => {
                 img.onload = () => {
-                    ctx.drawImage(img, 0, 0);
-                    URL.revokeObjectURL(url);
-                    resolve({ success: true, img: canvas.toDataURL('image/png') });
+                    try {
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        resolve({ success: true, img: canvas.toDataURL('image/png') });
+                    } catch (drawError) {
+                        console.error('Canvas draw error:', drawError);
+                        resolve({ success: false, error: "Canvas drawing failed." });
+                    }
                 };
-                img.onerror = (e) => resolve({ success: false, error: "SVG conversion failed." });
-                img.src = url;
+                img.onerror = (e) => {
+                    console.error('Image load error:', e);
+                    resolve({ success: false, error: "SVG to image conversion failed." });
+                };
+                img.src = dataUrl;
             });
         }
 
     } catch (e) {
-        console.error(e);
+        console.error('getVisualAsset error:', e);
         return { success: false, error: e.message };
     }
     return { success: false, error: "Unknown type" };
 }
 
-// --- EXPORT PPTX (RE-WRITTEN) ---
+// --- EXPORT PPTX ---
 window.exportPPTX = async () => {
     if (!projectData) { alert("Please load a project first."); return; }
     if (typeof PptxGenJS === 'undefined') { alert("PowerPoint library (PptxGenJS) not loaded. Check connection."); return; }
 
-    const btn = document.querySelector("#view-dashboard button i[data-lucide='presentation']").parentElement.nextElementSibling;
-    const originalText = btn.textContent;
-    btn.textContent = "Generating Assets...";
+    const btn = document.querySelector("#view-dashboard button i[data-lucide='presentation']")?.parentElement?.nextElementSibling;
+    const originalText = btn ? btn.textContent : '';
+    if (btn) btn.textContent = "Generating Assets...";
 
     try {
         const d = projectData;
@@ -1203,8 +1305,8 @@ window.exportPPTX = async () => {
         const driverRes = await getVisualAsset('driver');
         const chartRes = await getVisualAsset('chart');
 
-        if (!driverRes.success && driverRes.error !== "No drivers defined.") alert(`Warning: Driver Diagram failed (${driverRes.error})`);
-        if (!chartRes.success && chartRes.error !== "No data points to chart.") alert(`Warning: Chart failed (${chartRes.error})`);
+        if (!driverRes.success && driverRes.error !== "No drivers defined.") console.warn(`Driver Diagram: ${driverRes.error}`);
+        if (!chartRes.success && chartRes.error !== "No data points to chart.") console.warn(`Chart: ${chartRes.error}`);
 
         // 2. Setup Master Slide
         const RCEM_NAVY = '2d2e83';
@@ -1253,21 +1355,21 @@ window.exportPPTX = async () => {
         await pres.writeFile({ fileName: `RCEM_QIP_${d.meta.title.replace(/[^a-z0-9]/gi, '_')}.pptx` });
 
     } catch (e) {
-        alert("CRITICAL ERROR: " + e.message);
+        alert("Export Error: " + e.message);
         console.error(e);
     } finally {
-        btn.textContent = originalText;
+        if (btn) btn.textContent = originalText;
     }
 };
 
-// --- PDF POSTER (RE-WRITTEN) ---
+// --- PDF POSTER ---
 window.printPoster = async () => {
     if (!projectData) return;
     if (typeof html2pdf === 'undefined') { alert("PDF library missing."); return; }
     
-    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']").parentElement.nextElementSibling;
-    const originalText = btn.textContent;
-    btn.textContent = "Rendering...";
+    const btn = document.querySelector("#view-dashboard button i[data-lucide='file-down']")?.parentElement?.nextElementSibling;
+    const originalText = btn ? btn.textContent : '';
+    if (btn) btn.textContent = "Rendering...";
 
     try {
         const driverRes = await getVisualAsset('driver');
@@ -1353,5 +1455,5 @@ window.printPoster = async () => {
         document.body.removeChild(element);
 
     } catch(e) { alert("PDF Error: " + e.message); }
-    finally { btn.textContent = originalText; }
+    finally { if (btn) btn.textContent = originalText; }
 };
