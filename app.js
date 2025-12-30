@@ -1697,7 +1697,7 @@ window.exportPPTX = async () => {
 
         // SLIDE 10: LEARNING
         const sLearn = addContentSlide('Key Learning & Sustainability');
-        s7.addText('Key Learning', { x: 0.4, y: 1.2, w: 4.4, fontSize: 11, bold: true, color: SLATE_500 });
+        sLearn.addText('Key Learning', { x: 0.4, y: 1.2, w: 4.4, fontSize: 11, bold: true, color: SLATE_500 });
         addTextBox(sLearn, d.checklist.learning, 0.4, 1.45, 4.4, 2.5);
         sLearn.addText('Sustainability Plan', { x: 5.0, y: 1.2, w: 4.6, fontSize: 11, bold: true, color: SLATE_500 });
         addTextBox(sLearn, d.checklist.sustain, 5.0, 1.45, 4.6, 2.5);
