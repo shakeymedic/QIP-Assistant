@@ -40,6 +40,7 @@ let projectData = null;
 let isDemoMode = false;
 let isReadOnly = false;
 let chartInstance = null;
+let fullViewChartInstance = null; // Separate instance for the full view
 let unsubscribeProject = null;
 let toolMode = 'fishbone';
 let zoomLevel = 2.0; 
@@ -106,7 +107,7 @@ async function checkShareLink() {
 // --- TEMPLATES ---
 const emptyProject = {
     meta: { title: "New Project", created: new Date().toISOString() },
-    checklist: { results_text: "", aim: "" },
+    checklist: { results_text: "", aim: "", leadership_evidence: "" },
     drivers: { primary: [], secondary: [], changes: [] },
     fishbone: { categories: [{ id: 1, text: "People", causes: [] }, { id: 2, text: "Methods", causes: [] }, { id: 3, text: "Environment", causes: [] }, { id: 4, text: "Equipment", causes: [] }] },
     process: ["Start", "End"],
@@ -146,7 +147,7 @@ document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     }
 });
 
-// 1. SIGN IN (Triggered by the 'Sign In' button or pressing Enter)
+// 1. SIGN IN
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const email = document.getElementById('email').value;
@@ -154,7 +155,6 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     
     try {
         await signInWithEmailAndPassword(auth, email, pass);
-        // Success is handled by the onAuthStateChanged listener automatically
     } catch (error) {
         console.error("Login error:", error);
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -167,7 +167,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
     }
 });
 
-// 2. REGISTER (Triggered only by clicking the 'Register' button)
+// 2. REGISTER
 document.getElementById('btn-register').addEventListener('click', async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
@@ -319,14 +319,15 @@ window.openProject = (id) => {
             if(!projectData.gantt) projectData.gantt = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
-            if (currentView !== 'full') renderAll();
+            if (currentView === 'full') renderFullProject(); // Rerender full view on update
+            else if (currentView !== 'full') renderAll();
         }
     });
     document.getElementById('top-bar').classList.remove('hidden');
     window.router('dashboard');
 };
 
-// --- MASSIVE DEMO DATA ---
+// --- DEMO DATA ---
 window.openDemoProject = () => {
     const demoData = JSON.parse(JSON.stringify(emptyProject));
     demoData.meta.title = "Improving Sepsis 6 Delivery in ED";
@@ -340,13 +341,14 @@ window.openDemoProject = () => {
         process_measures: "1. Time from arrival to Triage.\n2. Percentage of patients with 'Sepsis Screen' completed at Triage.\n3. Time from medical review to antibiotic prescription.",
         balance_measures: "1. Rate of C. Difficile infections (Antibiotic stewardship).\n2. Percentage of patients triggered as 'Sepsis' who did not have infection (False positives).",
         team: "Project Lead: Dr. J. Bloggs (ST4)\nSponsor: Dr. A. Consultant (Sepsis Lead)\nNursing Lead: Sr. M. Smith\nPharmacist: P. Jones",
+        leadership_evidence: "1. Chaired weekly 'Sepsis Taskforce' meetings with MDT.\n2. Delegated data collection to junior doctors (Mentoring).\n3. Presented business case for new trolleys to Clinical Director.\n4. Resolved conflict between nursing/medical staff regarding cannulation roles.",
         ethics: "Registered with Trust Clinical Audit Department (Ref: QIP-24-055). This project is a service evaluation against national standards and does not require Research Ethics Committee approval.",
         ppi: "The project plan was presented to the Patient Liaison Group (PLG). They highlighted that 'waiting for a doctor' was a key frustration. We incorporated this feedback by empowering nurses to cannulate immediately via PGD.",
         learning: "The biggest barrier was not knowledge, but 'cognitive load'. Staff knew *what* to do, but the environment made it hard. \n\nThe 'Sepsis Trolley' (Cycle 2) worked because it reduced the friction of finding equipment. \n\nThe IT Alert (Cycle 3) was the most effective intervention because it functioned as a 'forcing function', preventing the doctor from closing the file without addressing the sepsis risk.",
-        sustain: "1. The IT Alert is now a permanent feature of the EPR.\n2. Sepsis Trolley checklist added to HCA daily duties.\n3. Monthly data reporting automated to the governance dashboard.",
+        sustain: "1. The IT Alert is now a permanent feature of the EPR (Forcing Function).\n2. Sepsis Trolley checklist added to HCA daily duties (Process).\n3. Monthly data reporting automated to the governance dashboard (Automation).\n4. Sepsis induction training updated for new rotators.",
         results_text: "The Run Chart demonstrates a robust improvement.\n\n- Baseline median was 42%.\n- Following Cycle 2 (Trolleys), a 'Shift' occurred (6 points above median), indicating a non-random improvement.\n- Cycle 3 (IT Alert) pushed compliance to >90% consistently.\n- The new median is established at 92%.\n- Special cause variation is evident and sustained."
     };
-
+    // ... rest of demo data ...
     demoData.drivers = { 
         primary: ["Early Recognition", "Equipment Availability", "Safety Culture", "Efficient Pathways"], 
         secondary: ["Triage Screening Accuracy", "Nursing Empowerment", "Access to Antibiotics", "Feedback Loops"], 
@@ -647,15 +649,16 @@ function renderChecklist() {
             {k:"process_measures", l:"Process Measures", p:"Are staff doing steps?"},
             {k:"balance_measures", l:"Balancing Measures", p:"Safety checks"}
         ]},
-        { id: "team", title: "Team & Ethics", fields: [
+        { id: "team", title: "Team, Leadership & Governance", fields: [
             {k:"lead", l:"Project Lead", p:"Name"},
             {k:"team", l:"Team Members", p:"Names"},
+            {k:"leadership_evidence", l:"Leadership & Management Evidence", p:"How did you demonstrate leadership? (Meetings, delegation, conflict res...)", h: "leadership"},
             {k:"ethics", l:"Ethical / Governance", p:"Ref Number"},
             {k:"ppi", l:"Patient Public Involvement", p:"Feedback"}
         ]},
         { id: "conc", title: "Conclusions", fields: [
             {k:"learning", l:"Key Learning / Analysis", p:"What worked?"},
-            {k:"sustain", l:"Sustainability Plan", p:"How will it stick?"}
+            {k:"sustain", l:"Sustainability Plan", p:"How will it stick?", h: "sustain"}
         ]}
     ];
 
@@ -669,7 +672,11 @@ function renderChecklist() {
                 ${s.fields.map(f => `
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex justify-between items-center">
-                            ${f.l} ${f.w ? '<button onclick="document.getElementById(\'smart-modal\').classList.remove(\'hidden\')" class="text-rcem-purple hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="wand-2" class="w-3 h-3"></i> Open Wizard</button>' : ''}
+                            ${f.l} 
+                            <div class="flex gap-2">
+                                ${f.w ? '<button onclick="document.getElementById(\'smart-modal\').classList.remove(\'hidden\')" class="text-rcem-purple hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="wand-2" class="w-3 h-3"></i> Open Wizard</button>' : ''}
+                                ${f.h ? `<button onclick="window.showHelp('${f.h}')" class="text-emerald-600 hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="lightbulb" class="w-3 h-3"></i> Ideas</button>` : ''}
+                            </div>
                         </label>
                         <textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
                     </div>
@@ -905,6 +912,47 @@ function renderChart() {
     lucide.createIcons();
 }
 
+// Helper to render chart in Full Project View
+function renderFullViewChart() {
+    if(!projectData) return;
+    const canvas = document.getElementById('fullProjectChart');
+    if(!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    const data = [...projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
+    if (data.length === 0) return;
+
+    const values = data.map(d => Number(d.value));
+    const labels = data.map(d => d.date);
+    
+    let baselinePoints = values.slice(0, 12); 
+    let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
+    let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
+    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83'));
+
+    if (fullViewChartInstance) fullViewChartInstance.destroy();
+    
+    const annotations = {
+        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+    };
+    
+    data.filter(d => d.note).forEach((d, i) => {
+        annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
+    });
+
+    fullViewChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 4, tension: 0.1 }] },
+        options: { 
+            responsive: true, 
+            maintainAspectRatio: false, 
+            plugins: { annotation: { annotations }, legend: { display: false } },
+            scales: { x: { ticks: { maxTicksLimit: 10 } } }
+        }
+    });
+}
+
+
 window.deleteDataPoint = (index) => {
     if (isReadOnly) return;
     if (confirm("Delete?")) {
@@ -977,6 +1025,31 @@ const helpData = {
             </div>
         </div>`
     },
+    leadership: {
+        t: "Demonstrating Leadership & Management",
+        c: `<div class="space-y-4">
+            <p class="text-slate-600 text-sm">As part of the curriculum, you must demonstrate leadership skills within your QIP. Use these prompts to evidence your involvement:</p>
+            <div class="grid grid-cols-1 gap-2">
+                <div class="bg-slate-50 p-3 rounded border flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-indigo-500 mt-0.5"></i> <div><strong>Chairing Meetings:</strong> Did you organize and lead regular QI team meetings?</div></div>
+                <div class="bg-slate-50 p-3 rounded border flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-indigo-500 mt-0.5"></i> <div><strong>Stakeholder Engagement:</strong> Did you present data to the Governance meeting or consultants?</div></div>
+                <div class="bg-slate-50 p-3 rounded border flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-indigo-500 mt-0.5"></i> <div><strong>Conflict Resolution:</strong> Did you manage disagreement between different staff groups (e.g., Nursing vs Medical)?</div></div>
+                <div class="bg-slate-50 p-3 rounded border flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-indigo-500 mt-0.5"></i> <div><strong>Delegation & Mentoring:</strong> Did you supervise a junior trainee or student in data collection?</div></div>
+                <div class="bg-slate-50 p-3 rounded border flex items-start gap-3"><i data-lucide="check-circle" class="w-5 h-5 text-indigo-500 mt-0.5"></i> <div><strong>Resource Management:</strong> Did you use the 'Value & Outcomes' calculator to demonstrate efficiency?</div></div>
+            </div>
+        </div>`
+    },
+    sustain: {
+        t: "Sustainability & Hierarchy of Controls",
+        c: `<div class="space-y-4">
+            <p class="text-slate-600 text-sm">To ensure your QIP lasts after you leave, aim for interventions at the top of the hierarchy:</p>
+            <div class="space-y-2">
+                <div class="bg-emerald-100 p-3 rounded border border-emerald-200"><strong class="text-emerald-800">1. Forcing Functions (Strongest):</strong> Making it impossible to do the wrong thing (e.g., removing old equipment, IT hard-stops).</div>
+                <div class="bg-emerald-50 p-3 rounded border border-emerald-100"><strong class="text-emerald-800">2. Automation:</strong> Computerized reporting, automated alerts.</div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-200"><strong class="text-slate-700">3. Simplification:</strong> Standardization, checklists, grab-bags.</div>
+                <div class="bg-orange-50 p-3 rounded border border-orange-100"><strong class="text-orange-800">4. Education (Weakest):</strong> Posters, email reminders, teaching sessions (these rely on memory and often fail).</div>
+            </div>
+        </div>`
+    },
     data: {
         t: "SPC Chart Guide",
         c: `<div class="space-y-4">
@@ -1016,7 +1089,12 @@ const helpData = {
 window.deletePDSA = (i) => { if(isReadOnly) return; if(confirm("Delete?")) { projectData.pdsa.splice(i,1); saveData(); renderPDSA(); } };
 
 window.saveResults = (val) => { if(isReadOnly) return; if(!projectData.checklist) projectData.checklist={}; projectData.checklist.results_text = val; saveData(); };
-window.showHelp = (key) => { document.getElementById('help-title').textContent = helpData[key].t; document.getElementById('help-content').innerHTML = helpData[key].c; document.getElementById('help-modal').classList.remove('hidden'); };
+window.showHelp = (key) => { 
+    document.getElementById('help-title').textContent = helpData[key].t; 
+    document.getElementById('help-content').innerHTML = helpData[key].c; 
+    document.getElementById('help-modal').classList.remove('hidden'); 
+    lucide.createIcons();
+};
 window.openHelp = () => window.showHelp('checklist');
 
 window.calcGreen = () => {
@@ -1062,6 +1140,7 @@ window.openPortfolioExport = () => {
         { t: "Evidence", v: d.checklist.evidence },
         { t: "Aim", v: d.checklist.aim },
         { t: "Team", v: d.checklist.team },
+        { t: "Leadership & Mgmt", v: d.checklist.leadership_evidence },
         { t: "Drivers", v: `Primary: ${d.drivers.primary.join(', ')}\nChanges: ${d.drivers.changes.join(', ')}` },
         { t: "Measures", v: `Outcome: ${d.checklist.outcome_measures}\nProcess: ${d.checklist.process_measures}` },
         { t: "PDSA", v: d.pdsa.map(p => `[${p.title}] Study: ${p.study} Act: ${p.act}`).join('\n\n') },
@@ -1150,7 +1229,8 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-function renderFullProject() {
+// --- UPDATED FULL PROJECT RENDERER ---
+async function renderFullProject() {
     if (!projectData) return;
     
     const container = document.getElementById('full-project-container');
@@ -1160,6 +1240,20 @@ function renderFullProject() {
     const statusBadge = (complete) => complete 
         ? '<span class="bg-emerald-100 text-emerald-800 text-xs font-bold px-2 py-1 rounded-full">✓ Complete</span>'
         : '<span class="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded-full">⚠ Incomplete</span>';
+
+    // Prepare Visuals
+    const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+    
+    // Fishbone Code
+    const cats = d.fishbone.categories;
+    const fishboneCode = `mindmap\n  root(("${clean(d.meta.title || 'Problem')}"))\n` + 
+        cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+    
+    // Driver Code
+    let driverCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+    d.drivers.primary.forEach((x,i) => driverCode += `  P --> P${i}["${clean(x)}"]\n`);
+    d.drivers.secondary.forEach((x,i) => driverCode += `  S --> S${i}["${clean(x)}"]\n`);
+    d.drivers.changes.forEach((x,i) => driverCode += `  C --> C${i}["${clean(x)}"]\n`);
 
     container.innerHTML = `
         <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 rounded-xl p-8 text-white shadow-lg">
@@ -1204,24 +1298,36 @@ function renderFullProject() {
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">4. Team & Governance</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Team Members</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.team) || 'Not defined'}</p></div>
-                <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Ethics / Registration</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.ethics) || 'Not defined'}</p></div>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">4. Team, Leadership & Governance</h2>
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Team Members</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.team) || 'Not defined'}</p></div>
+                    <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Ethics / Registration</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.ethics) || 'Not defined'}</p></div>
+                </div>
+                <div>
+                    <h3 class="text-xs font-bold text-indigo-500 uppercase mb-2 flex items-center gap-1"><i data-lucide="award" class="w-3 h-3"></i> Leadership & Management</h3>
+                    <p class="text-slate-700 whitespace-pre-wrap bg-indigo-50 p-4 rounded-lg border border-indigo-100">${escapeHtml(d.checklist.leadership_evidence) || '<span class="text-slate-400 italic">No leadership evidence recorded yet.</span>'}</p>
+                </div>
             </div>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
             <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">5. Driver Diagram</h2>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="bg-emerald-50 p-4 rounded-lg border border-emerald-200"><h3 class="text-xs font-bold text-emerald-800 uppercase mb-2">Primary Drivers (${d.drivers.primary.length})</h3><ul class="text-sm text-emerald-900 space-y-1">${d.drivers.primary.map(p => '<li>• ' + escapeHtml(p) + '</li>').join('') || '<li class="text-emerald-400 italic">None defined</li>'}</ul></div>
-                <div class="bg-blue-50 p-4 rounded-lg border border-blue-200"><h3 class="text-xs font-bold text-blue-800 uppercase mb-2">Secondary Drivers (${d.drivers.secondary.length})</h3><ul class="text-sm text-blue-900 space-y-1">${d.drivers.secondary.map(s => '<li>• ' + escapeHtml(s) + '</li>').join('') || '<li class="text-blue-400 italic">None defined</li>'}</ul></div>
-                <div class="bg-purple-50 p-4 rounded-lg border border-purple-200"><h3 class="text-xs font-bold text-purple-800 uppercase mb-2">Change Ideas (${d.drivers.changes.length})</h3><ul class="text-sm text-purple-900 space-y-1">${d.drivers.changes.map(c => '<li>• ' + escapeHtml(c) + '</li>').join('') || '<li class="text-purple-400 italic">None defined</li>'}</ul></div>
+            <div class="mermaid bg-slate-50 p-4 rounded border overflow-x-auto">${driverCode}</div>
+            <div class="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="text-xs text-slate-500"><strong>Primary:</strong> ${d.drivers.primary.join(', ')}</div>
+                <div class="text-xs text-slate-500"><strong>Secondary:</strong> ${d.drivers.secondary.join(', ')}</div>
+                <div class="text-xs text-slate-500"><strong>Changes:</strong> ${d.drivers.changes.join(', ')}</div>
             </div>
+        </div>
+        
+        <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">6. Fishbone Analysis</h2>
+             <div class="mermaid bg-slate-50 p-4 rounded border overflow-x-auto">${fishboneCode}</div>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">6. PDSA Cycles (${d.pdsa.length})</h2>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">7. PDSA Cycles (${d.pdsa.length})</h2>
             <div class="space-y-4">
                 ${d.pdsa.length === 0 ? '<p class="text-slate-400 italic">No PDSA cycles recorded yet</p>' : 
                 d.pdsa.map((p, i) => `
@@ -1243,14 +1349,18 @@ function renderFullProject() {
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border border-slate-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">7. Data & Results</h2>
-            <div class="bg-slate-50 p-4 rounded-lg border mb-4"><p class="text-sm text-slate-600"><strong>Data Points:</strong> ${d.chartData.length}</p></div>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">8. Data & Results</h2>
+            <div class="bg-slate-50 p-4 rounded-lg border mb-4">
+                 <div class="h-80 w-full relative">
+                    <canvas id="fullProjectChart"></canvas>
+                 </div>
+            </div>
             <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Results Interpretation</h3>
             <p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.results_text) || '<span class="text-slate-400 italic">No analysis written yet</span>'}</p></div>
         </div>
 
         <div class="bg-white rounded-xl p-6 shadow-sm border-2 border-emerald-200">
-            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">8. Learning & Sustainability</h2>
+            <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">9. Learning & Sustainability</h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Key Learning</h3><p class="text-slate-700 whitespace-pre-wrap bg-amber-50 p-4 rounded-lg border border-amber-200">${escapeHtml(d.checklist.learning) || 'Not yet documented'}</p></div>
                 <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Sustainability Plan</h3><p class="text-slate-700 whitespace-pre-wrap bg-emerald-50 p-4 rounded-lg border border-emerald-200">${escapeHtml(d.checklist.sustain) || 'Not yet documented'}</p></div>
@@ -1264,6 +1374,9 @@ function renderFullProject() {
     `;
     
     lucide.createIcons();
+    // Render Visuals after insertion
+    renderFullViewChart();
+    try { await mermaid.run({ querySelector: '.mermaid' }); } catch(e) { console.error("Mermaid full render error", e); }
 }
 
 // --- ASSET GENERATOR ---
