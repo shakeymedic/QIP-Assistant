@@ -40,7 +40,7 @@ let projectData = null;
 let isDemoMode = false;
 let isReadOnly = false;
 let chartInstance = null;
-let fullViewChartInstance = null; // Separate instance for the full view
+let fullViewChartInstance = null; 
 let unsubscribeProject = null;
 let toolMode = 'fishbone';
 let zoomLevel = 2.0; 
@@ -114,7 +114,9 @@ const emptyProject = {
     pdsa: [],
     chartData: [],
     gantt: [],
-    stakeholders: []
+    stakeholders: [],
+    teamMembers: [], 
+    leadershipLogs: []
 };
 
 // --- AUTH & INIT ---
@@ -157,13 +159,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         await signInWithEmailAndPassword(auth, email, pass);
     } catch (error) {
         console.error("Login error:", error);
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-             alert("Incorrect email or password.");
-        } else if (error.code === 'auth/too-many-requests') {
-             alert("Too many failed attempts. Please try again later.");
-        } else {
-             alert("Login failed: " + error.message);
-        }
+        alert("Login failed: " + error.message);
     }
 });
 
@@ -182,13 +178,7 @@ document.getElementById('btn-register').addEventListener('click', async () => {
         alert("Account created successfully!");
     } catch (error) {
         console.error("Registration error:", error);
-        if (error.code === 'auth/email-already-in-use') {
-            alert("This email is already registered. Please Sign In instead.");
-        } else if (error.code === 'auth/weak-password') {
-            alert("Password is too weak. It should be at least 6 characters.");
-        } else {
-            alert("Registration failed: " + error.message);
-        }
+        alert("Registration failed: " + error.message);
     }
 });
 
@@ -317,9 +307,11 @@ window.openProject = (id) => {
             if(!projectData.chartData) projectData.chartData = [];
             if(!projectData.stakeholders) projectData.stakeholders = [];
             if(!projectData.gantt) projectData.gantt = [];
+            if(!projectData.teamMembers) projectData.teamMembers = [];
+            if(!projectData.leadershipLogs) projectData.leadershipLogs = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
-            if (currentView === 'full') renderFullProject(); // Rerender full view on update
+            if (currentView === 'full') renderFullProject(); 
             else if (currentView !== 'full') renderAll();
         }
     });
@@ -340,15 +332,15 @@ window.openDemoProject = () => {
         outcome_measures: "Percentage of Red Flag Sepsis patients receiving IV antibiotics < 60 mins from arrival.",
         process_measures: "1. Time from arrival to Triage.\n2. Percentage of patients with 'Sepsis Screen' completed at Triage.\n3. Time from medical review to antibiotic prescription.",
         balance_measures: "1. Rate of C. Difficile infections (Antibiotic stewardship).\n2. Percentage of patients triggered as 'Sepsis' who did not have infection (False positives).",
-        team: "Project Lead: Dr. J. Bloggs (ST4)\nSponsor: Dr. A. Consultant (Sepsis Lead)\nNursing Lead: Sr. M. Smith\nPharmacist: P. Jones",
-        leadership_evidence: "1. Chaired weekly 'Sepsis Taskforce' meetings with MDT.\n2. Delegated data collection to junior doctors (Mentoring).\n3. Presented business case for new trolleys to Clinical Director.\n4. Resolved conflict between nursing/medical staff regarding cannulation roles.",
+        team: "", // Auto-generated now
+        leadership_evidence: "", // Auto-generated now
         ethics: "Registered with Trust Clinical Audit Department (Ref: QIP-24-055). This project is a service evaluation against national standards and does not require Research Ethics Committee approval.",
         ppi: "The project plan was presented to the Patient Liaison Group (PLG). They highlighted that 'waiting for a doctor' was a key frustration. We incorporated this feedback by empowering nurses to cannulate immediately via PGD.",
         learning: "The biggest barrier was not knowledge, but 'cognitive load'. Staff knew *what* to do, but the environment made it hard. \n\nThe 'Sepsis Trolley' (Cycle 2) worked because it reduced the friction of finding equipment. \n\nThe IT Alert (Cycle 3) was the most effective intervention because it functioned as a 'forcing function', preventing the doctor from closing the file without addressing the sepsis risk.",
         sustain: "1. The IT Alert is now a permanent feature of the EPR (Forcing Function).\n2. Sepsis Trolley checklist added to HCA daily duties (Process).\n3. Monthly data reporting automated to the governance dashboard (Automation).\n4. Sepsis induction training updated for new rotators.",
         results_text: "The Run Chart demonstrates a robust improvement.\n\n- Baseline median was 42%.\n- Following Cycle 2 (Trolleys), a 'Shift' occurred (6 points above median), indicating a non-random improvement.\n- Cycle 3 (IT Alert) pushed compliance to >90% consistently.\n- The new median is established at 92%.\n- Special cause variation is evident and sustained."
     };
-    // ... rest of demo data ...
+    
     demoData.drivers = { 
         primary: ["Early Recognition", "Equipment Availability", "Safety Culture", "Efficient Pathways"], 
         secondary: ["Triage Screening Accuracy", "Nursing Empowerment", "Access to Antibiotics", "Feedback Loops"], 
@@ -364,16 +356,7 @@ window.openDemoProject = () => {
         ] 
     };
     
-    demoData.process = [
-        "Patient Arrives in ED", 
-        "Triage Assessment (15 mins)", 
-        "Sepsis Screening Tool Applied", 
-        "Red Flag Sepsis Triggered?", 
-        "Medical Review (Immediate)", 
-        "Sepsis 6 Bundle Initiated", 
-        "IV Antibiotics Administered", 
-        "Transfer to Ward/ICU"
-    ];
+    demoData.process = ["Patient Arrives in ED", "Triage Assessment (15 mins)", "Sepsis Screening Tool Applied", "Red Flag Sepsis Triggered?", "Medical Review (Immediate)", "Sepsis 6 Bundle Initiated", "IV Antibiotics Administered", "Transfer to Ward/ICU"];
 
     demoData.pdsa = [
         {id: 1, title: "Cycle 1: Education", plan: "Deliver 10-min teaching at handover for 2 weeks. Display posters in staff room.", do: "Teaching delivered to 80% of nursing staff. Posters up.", study: "Compliance rose slightly to 48% but effect wore off quickly. Staff reported 'forgetting' in busy periods.", act: "Abandon as sole intervention. Education is necessary but not sufficient.", isStepChange: false},
@@ -403,14 +386,28 @@ window.openDemoProject = () => {
         { name: "Pharmacy", power: 50, interest: 60 }
     ];
 
+    demoData.teamMembers = [
+        { id: 't1', name: 'Dr. J. Bloggs', role: 'Project Lead', initials: 'JB' },
+        { id: 't2', name: 'Dr. A. Consultant', role: 'Sponsor', initials: 'AC' },
+        { id: 't3', name: 'Sr. M. Smith', role: 'Nursing Lead', initials: 'MS' },
+        { id: 't4', name: 'P. Jones', role: 'Pharmacist', initials: 'PJ' }
+    ];
+
+    demoData.leadershipLogs = [
+        "Chaired weekly 'Sepsis Taskforce' meetings with MDT.",
+        "Delegated data collection to junior doctors (Mentoring).",
+        "Presented business case for new trolleys to Clinical Director.",
+        "Resolved conflict between nursing/medical staff regarding cannulation roles."
+    ];
+
     demoData.gantt = [
-        { id: 1, name: "Planning & Stakeholders", start: "2023-09-01", end: "2023-09-30", type: "plan" },
-        { id: 2, name: "Baseline Data Collection", start: "2023-10-01", end: "2023-11-30", type: "study" },
-        { id: 3, name: "Driver Diagram Workshop", start: "2023-11-15", end: "2023-11-20", type: "plan" },
-        { id: 4, name: "Cycle 1: Education", start: "2023-12-01", end: "2023-12-20", type: "act" },
-        { id: 5, name: "Cycle 2: Sepsis Trolleys", start: "2024-01-05", end: "2024-02-01", type: "act" },
-        { id: 6, name: "Cycle 4: IT Alert Go-Live", start: "2024-03-01", end: "2024-05-01", type: "act" },
-        { id: 7, name: "Write Up & Presentation", start: "2024-05-01", end: "2024-06-01", type: "plan" }
+        { id: 1, name: "Planning & Stakeholders", start: "2023-09-01", end: "2023-09-30", type: "plan", ownerId: 't1' },
+        { id: 2, name: "Baseline Data Collection", start: "2023-10-01", end: "2023-11-30", type: "study", ownerId: 't3' },
+        { id: 3, name: "Driver Diagram Workshop", start: "2023-11-15", end: "2023-11-20", type: "plan", ownerId: 't1' },
+        { id: 4, name: "Cycle 1: Education", start: "2023-12-01", end: "2023-12-20", type: "act", ownerId: 't3' },
+        { id: 5, name: "Cycle 2: Sepsis Trolleys", start: "2024-01-05", end: "2024-02-01", type: "act", ownerId: 't2' },
+        { id: 6, name: "Cycle 4: IT Alert Go-Live", start: "2024-03-01", end: "2024-05-01", type: "act", ownerId: 't1' },
+        { id: 7, name: "Write Up & Presentation", start: "2024-05-01", end: "2024-06-01", type: "plan", ownerId: 't1' }
     ];
     
     projectData = demoData;
@@ -467,6 +464,7 @@ window.router = (view) => {
     if (view === 'data') renderChart();
     if (view === 'pdsa') renderPDSA();
     if (view === 'gantt') renderGantt();
+    if (view === 'team') renderTeam();
     if (view === 'full') renderFullProject();
     lucide.createIcons();
 };
@@ -560,6 +558,7 @@ function renderAll() {
     if(currentView === 'checklist') renderChecklist();
     if(currentView === 'pdsa') renderPDSA();
     if(currentView === 'gantt') renderGantt();
+    if(currentView === 'team') renderTeam();
 }
 
 function renderCoach() {
@@ -635,6 +634,96 @@ function checkAimQuality(aim) {
     return { valid: true };
 }
 
+// --- TEAM & LEADERSHIP MODULE ---
+function renderTeam() {
+    if(!projectData) return;
+    const team = projectData.teamMembers || [];
+    const container = document.getElementById('team-list');
+    
+    // Auto-update the text summary in checklist
+    projectData.checklist.team = team.map(t => `${t.name} (${t.role})`).join('\n');
+    
+    if (team.length === 0) {
+        container.innerHTML = `<div class="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-lg text-slate-500 text-sm">No team members added. Click "Add Member" to build your team.</div>`;
+    } else {
+        container.innerHTML = team.map((t, index) => `
+            <div class="bg-white p-4 rounded-lg shadow-sm border border-slate-200 flex items-center justify-between group">
+                <div class="flex items-center gap-4">
+                    <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-700 font-bold border border-slate-200">${escapeHtml(t.initials)}</div>
+                    <div>
+                        <div class="font-bold text-slate-800">${escapeHtml(t.name)}</div>
+                        <div class="text-xs text-slate-500 uppercase font-bold">${escapeHtml(t.role)}</div>
+                    </div>
+                </div>
+                ${!isReadOnly ? `<button onclick="window.deleteMember('${t.id}')" class="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+            </div>
+        `).join('');
+    }
+
+    // Leadership Logs
+    const logs = projectData.leadershipLogs || [];
+    const logContainer = document.getElementById('leadership-log-list');
+    logContainer.innerHTML = logs.map((l, i) => `
+        <div class="text-xs p-2 bg-slate-50 rounded border border-slate-100 flex justify-between group">
+            <span>${escapeHtml(l)}</span>
+            ${!isReadOnly ? `<button onclick="window.deleteLeadershipLog(${i})" class="text-slate-300 hover:text-red-500 hidden group-hover:block"><i data-lucide="x" class="w-3 h-3"></i></button>` : ''}
+        </div>
+    `).join('');
+    
+    // Auto-update text summary for Leadership
+    if(logs.length > 0) {
+        projectData.checklist.leadership_evidence = logs.map((l,i) => `${i+1}. ${l}`).join('\n');
+    }
+
+    lucide.createIcons();
+}
+
+window.openMemberModal = () => {
+    document.getElementById('member-name').value = '';
+    document.getElementById('member-role').value = '';
+    document.getElementById('member-init').value = '';
+    document.getElementById('member-modal').classList.remove('hidden');
+};
+
+window.saveMember = () => {
+    const name = document.getElementById('member-name').value;
+    const role = document.getElementById('member-role').value;
+    const init = document.getElementById('member-init').value;
+    
+    if (name && role && init) {
+        if (!projectData.teamMembers) projectData.teamMembers = [];
+        projectData.teamMembers.push({ id: `tm-${Date.now()}`, name, role, initials: init.toUpperCase().substring(0,3) });
+        saveData();
+        document.getElementById('member-modal').classList.add('hidden');
+        renderTeam();
+    }
+};
+
+window.deleteMember = (id) => {
+    if(confirm('Remove this team member?')) {
+        projectData.teamMembers = projectData.teamMembers.filter(t => t.id !== id);
+        saveData();
+        renderTeam();
+    }
+};
+
+window.addLeadershipLog = () => {
+    const txt = document.getElementById('lead-log-input').value;
+    if(txt) {
+        if(!projectData.leadershipLogs) projectData.leadershipLogs = [];
+        projectData.leadershipLogs.push(txt);
+        document.getElementById('lead-log-input').value = '';
+        saveData();
+        renderTeam();
+    }
+};
+
+window.deleteLeadershipLog = (index) => {
+    projectData.leadershipLogs.splice(index, 1);
+    saveData();
+    renderTeam();
+};
+
 function renderChecklist() {
     if(!projectData) return;
     const list = document.getElementById('checklist-container');
@@ -650,9 +739,8 @@ function renderChecklist() {
             {k:"balance_measures", l:"Balancing Measures", p:"Safety checks"}
         ]},
         { id: "team", title: "Team, Leadership & Governance", fields: [
-            {k:"lead", l:"Project Lead", p:"Name"},
-            {k:"team", l:"Team Members", p:"Names"},
-            {k:"leadership_evidence", l:"Leadership & Management Evidence", p:"How did you demonstrate leadership? (Meetings, delegation, conflict res...)", h: "leadership"},
+            {k:"team", l:"Team Members", p:"(Auto-generated from Team tab)", readonly: true},
+            {k:"leadership_evidence", l:"Leadership & Management Evidence", p:"(Auto-generated from Leadership Log)", h: "leadership", readonly: true},
             {k:"ethics", l:"Ethical / Governance", p:"Ref Number"},
             {k:"ppi", l:"Patient Public Involvement", p:"Feedback"}
         ]},
@@ -678,7 +766,7 @@ function renderChecklist() {
                                 ${f.h ? `<button onclick="window.showHelp('${f.h}')" class="text-emerald-600 hover:underline text-[10px] ml-2 flex items-center gap-1"><i data-lucide="lightbulb" class="w-3 h-3"></i> Ideas</button>` : ''}
                             </div>
                         </label>
-                        <textarea ${isReadOnly ? 'disabled' : ''} onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
+                        <textarea ${isReadOnly || f.readonly ? 'disabled' : ''} onchange="projectData.checklist['${f.k}']=this.value;saveData()" class="w-full rounded border-slate-300 p-2 text-sm focus:ring-2 focus:ring-rcem-purple outline-none transition-shadow ${f.readonly ? 'bg-slate-50 text-slate-500' : ''}" rows="2" placeholder="${f.p}">${escapeHtml(projectData.checklist[f.k])||''}</textarea>
                     </div>
                 `).join('')}
             </div>
@@ -912,7 +1000,6 @@ function renderChart() {
     lucide.createIcons();
 }
 
-// Helper to render chart in Full Project View
 function renderFullViewChart() {
     if(!projectData) return;
     const canvas = document.getElementById('fullProjectChart');
@@ -1151,15 +1238,48 @@ window.openPortfolioExport = () => {
     document.getElementById('risr-content').innerHTML = fields.map(f => `<div class="bg-white p-4 rounded border border-slate-200 shadow-sm"><div class="flex justify-between items-center mb-2"><h4 class="font-bold text-slate-700 text-sm uppercase tracking-wide">${f.t}</h4><button class="text-xs text-rcem-purple font-bold hover:underline" onclick="navigator.clipboard.writeText(this.nextElementSibling.innerText)">Copy</button></div><div class="bg-slate-50 p-3 rounded text-sm whitespace-pre-wrap font-mono text-slate-600 select-all border border-slate-100">${escapeHtml(f.v) || 'Not recorded'}</div></div>`).join('');
 };
 
-window.addGanttTask = () => {
-    const n = prompt("Task Name:");
-    if(!n) return;
-    const s = prompt("Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
-    const e = prompt("End Date:", s);
-    if(!projectData.gantt) projectData.gantt=[];
-    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e, type:'plan'}); 
-    saveData(); renderGantt(); 
+window.openGanttModal = () => {
+    document.getElementById('task-name').value = '';
+    document.getElementById('task-start').value = new Date().toISOString().split('T')[0];
+    document.getElementById('task-end').value = '';
+    
+    // Populate the dropdown with current team members
+    const sel = document.getElementById('task-owner');
+    sel.innerHTML = '<option value="">-- Unassigned --</option>';
+    if(projectData.teamMembers) {
+        projectData.teamMembers.forEach(m => {
+            sel.innerHTML += `<option value="${m.id}">${escapeHtml(m.name)}</option>`;
+        });
+    }
+    
+    document.getElementById('task-modal').classList.remove('hidden');
 };
+
+window.saveGanttTask = () => {
+    const n = document.getElementById('task-name').value;
+    const s = document.getElementById('task-start').value;
+    const e = document.getElementById('task-end').value;
+    const t = document.getElementById('task-type').value;
+    const o = document.getElementById('task-owner').value; // Get assigned owner ID
+
+    if(!n || !s || !e) return;
+    
+    if(!projectData.gantt) projectData.gantt=[];
+    
+    projectData.gantt.push({
+        id: Date.now(), 
+        name: n, 
+        start: s, 
+        end: e, 
+        type: t,
+        ownerId: o // Save the owner
+    }); 
+    
+    saveData(); 
+    document.getElementById('task-modal').classList.add('hidden');
+    renderGantt(); 
+};
+
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); };
 
 function renderGantt() {
@@ -1168,7 +1288,7 @@ function renderGantt() {
     const container = document.getElementById('gantt-container');
     
     if (g.length === 0) {
-        container.innerHTML = `<div class="text-center py-12"><button onclick="window.addGanttTask()" class="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">Add First Task</button></div>`;
+        container.innerHTML = `<div class="text-center py-12"><button onclick="window.openGanttModal()" class="bg-slate-800 text-white px-6 py-2 rounded-lg font-bold">Add First Task</button></div>`;
         return;
     }
 
@@ -1207,15 +1327,25 @@ function renderGantt() {
         if(t.type === 'study') colorClass = "bg-blue-500";
         if(t.type === 'act') colorClass = "bg-rcem-purple";
 
+        // Find Owner Initials
+        let avatarHtml = '';
+        if (t.ownerId && projectData.teamMembers) {
+            const owner = projectData.teamMembers.find(m => m.id === t.ownerId);
+            if (owner) {
+                avatarHtml = `<div class="gantt-avatar" title="Assigned to ${escapeHtml(owner.name)}">${escapeHtml(owner.initials)}</div>`;
+            }
+        }
+
         html += `
             <div class="flex border-b border-slate-100 hover:bg-slate-50 transition-colors h-12 relative group">
                 <div class="w-[250px] shrink-0 p-3 text-sm font-medium text-slate-700 border-r border-slate-200 bg-white sticky left-0 z-10 truncate flex items-center justify-between">
                     ${escapeHtml(t.name)}
                     <button onclick="deleteGantt('${t.id}')" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
-                <div class="absolute h-6 top-3 rounded-md shadow-sm text-[10px] text-white flex items-center px-2 whitespace-nowrap overflow-hidden ${colorClass}" 
+                <div class="gantt-bar ${colorClass}" 
                      style="left: ${250 + leftPos}px; width: ${width}px;">
-                     ${Math.round((end - start)/(1000*60*60*24))}d
+                     ${avatarHtml}
+                     <span>${Math.round((end - start)/(1000*60*60*24))}d</span>
                 </div>
                 ${Array(monthDiff).fill(0).map((_, i) => 
                     `<div class="absolute top-0 bottom-0 border-r border-slate-100 border-dashed pointer-events-none" style="left: ${250 + ((i+1) * pxPerMonth)}px"></div>`
