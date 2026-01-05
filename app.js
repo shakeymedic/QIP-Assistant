@@ -40,7 +40,7 @@ let projectData = null;
 let isDemoMode = false;
 let isReadOnly = false;
 let chartInstance = null;
-let fullViewChartInstance = null; // Separate instance for the full view
+let fullViewChartInstance = null;
 let unsubscribeProject = null;
 let toolMode = 'fishbone';
 let zoomLevel = 2.0; 
@@ -108,6 +108,7 @@ async function checkShareLink() {
 const emptyProject = {
     meta: { title: "New Project", created: new Date().toISOString() },
     checklist: { results_text: "", aim: "", leadership_evidence: "" },
+    teamMembers: [], // { id, name, role }
     drivers: { primary: [], secondary: [], changes: [] },
     fishbone: { categories: [{ id: 1, text: "People", causes: [] }, { id: 2, text: "Methods", causes: [] }, { id: 3, text: "Environment", causes: [] }, { id: 4, text: "Equipment", causes: [] }] },
     process: ["Start", "End"],
@@ -157,13 +158,7 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
         await signInWithEmailAndPassword(auth, email, pass);
     } catch (error) {
         console.error("Login error:", error);
-        if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
-             alert("Incorrect email or password.");
-        } else if (error.code === 'auth/too-many-requests') {
-             alert("Too many failed attempts. Please try again later.");
-        } else {
-             alert("Login failed: " + error.message);
-        }
+        alert("Login failed: " + error.message);
     }
 });
 
@@ -171,24 +166,13 @@ document.getElementById('auth-form').addEventListener('submit', async (e) => {
 document.getElementById('btn-register').addEventListener('click', async () => {
     const email = document.getElementById('email').value;
     const pass = document.getElementById('password').value;
-
-    if (!email || !pass) {
-        alert("Please enter an email and password to register.");
-        return;
-    }
-
+    if (!email || !pass) { alert("Please enter an email and password."); return; }
     try {
         await createUserWithEmailAndPassword(auth, email, pass);
         alert("Account created successfully!");
     } catch (error) {
         console.error("Registration error:", error);
-        if (error.code === 'auth/email-already-in-use') {
-            alert("This email is already registered. Please Sign In instead.");
-        } else if (error.code === 'auth/weak-password') {
-            alert("Password is too weak. It should be at least 6 characters.");
-        } else {
-            alert("Registration failed: " + error.message);
-        }
+        alert("Registration failed: " + error.message);
     }
 });
 
@@ -230,21 +214,16 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     listEl.innerHTML = '<div class="col-span-3 text-center text-slate-400 py-10 animate-pulse">Loading projects...</div>';
     
-    const sidebar = document.getElementById('app-sidebar');
-    if(sidebar.classList.contains('hidden')) { sidebar.classList.remove('hidden'); sidebar.classList.add('flex'); }
-
     if (isDemoMode) {
         currentProjectId = null;
         projectData = null; 
-        
         listEl.innerHTML = `
             <div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple border-y border-r border-slate-200 relative overflow-hidden cursor-pointer hover:shadow-md transition-all group" onclick="window.openDemoProject()">
                  <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide">Gold Standard</div>
                  <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery</h3>
                  <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ED Registrar)</p>
                  <div class="flex gap-2 text-xs font-medium text-slate-500">
-                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> 40 Data Points</span>
-                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 4 Cycles</span>
+                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> ${5} Data Points</span>
                 </div>
             </div>
         `;
@@ -271,7 +250,6 @@ async function loadProjectList() {
                 <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
                 <div class="flex gap-2 text-xs font-medium text-slate-500">
                     <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200">${d.chartData?.length || 0} Points</span>
-                    <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200">${d.pdsa?.length || 0} Cycles</span>
                 </div>
                 <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             </div>
@@ -317,9 +295,10 @@ window.openProject = (id) => {
             if(!projectData.chartData) projectData.chartData = [];
             if(!projectData.stakeholders) projectData.stakeholders = [];
             if(!projectData.gantt) projectData.gantt = [];
+            if(!projectData.teamMembers) projectData.teamMembers = [];
             
             document.getElementById('project-header-title').textContent = projectData.meta.title;
-            if (currentView === 'full') renderFullProject(); // Rerender full view on update
+            if (currentView === 'full') renderFullProject(); 
             else if (currentView !== 'full') renderAll();
         }
     });
@@ -331,86 +310,38 @@ window.openProject = (id) => {
 window.openDemoProject = () => {
     const demoData = JSON.parse(JSON.stringify(emptyProject));
     demoData.meta.title = "Improving Sepsis 6 Delivery in ED";
-    demoData.meta.created = new Date().toISOString();
-    
+    demoData.teamMembers = [
+        {id: 1, name: "Dr. J. Bloggs", role: "Project Lead (ST4)"},
+        {id: 2, name: "Dr. A. Consultant", role: "Sponsor"},
+        {id: 3, name: "Sr. M. Smith", role: "Nursing Lead"},
+        {id: 4, name: "P. Jones", role: "Pharmacist"}
+    ];
     demoData.checklist = {
-        problem_desc: "A baseline audit of 50 patients (Oct-Dec 2023) presenting with 'Red Flag' sepsis revealed that only 42% received the complete Sepsis 6 bundle within 1 hour of arrival. \n\nDelayed antibiotic administration in sepsis increases mortality by 7.6% per hour (Kumar et al., 2006). This performance is significantly below the RCEM quality standard (90%).",
-        evidence: "1. RCEM Sepsis Quality Improvement Guide (2023)\n2. NICE NG51: Sepsis: recognition, diagnosis and early management\n3. Surviving Sepsis Campaign Guidelines",
+        problem_desc: "A baseline audit of 50 patients (Oct-Dec 2023) presenting with 'Red Flag' sepsis revealed that only 42% received the complete Sepsis 6 bundle within 1 hour of arrival.",
+        evidence: "1. RCEM Sepsis Quality Improvement Guide (2023)\n2. NICE NG51: Sepsis: recognition, diagnosis and early management",
         aim: "To increase the percentage of eligible 'Red Flag' sepsis patients receiving IV antibiotics within 60 minutes of arrival from 42% to 90% by 1st August 2024.",
         outcome_measures: "Percentage of Red Flag Sepsis patients receiving IV antibiotics < 60 mins from arrival.",
-        process_measures: "1. Time from arrival to Triage.\n2. Percentage of patients with 'Sepsis Screen' completed at Triage.\n3. Time from medical review to antibiotic prescription.",
-        balance_measures: "1. Rate of C. Difficile infections (Antibiotic stewardship).\n2. Percentage of patients triggered as 'Sepsis' who did not have infection (False positives).",
-        team: "Project Lead: Dr. J. Bloggs (ST4)\nSponsor: Dr. A. Consultant (Sepsis Lead)\nNursing Lead: Sr. M. Smith\nPharmacist: P. Jones",
-        leadership_evidence: "1. Chaired weekly 'Sepsis Taskforce' meetings with MDT.\n2. Delegated data collection to junior doctors (Mentoring).\n3. Presented business case for new trolleys to Clinical Director.\n4. Resolved conflict between nursing/medical staff regarding cannulation roles.",
-        ethics: "Registered with Trust Clinical Audit Department (Ref: QIP-24-055). This project is a service evaluation against national standards and does not require Research Ethics Committee approval.",
-        ppi: "The project plan was presented to the Patient Liaison Group (PLG). They highlighted that 'waiting for a doctor' was a key frustration. We incorporated this feedback by empowering nurses to cannulate immediately via PGD.",
-        learning: "The biggest barrier was not knowledge, but 'cognitive load'. Staff knew *what* to do, but the environment made it hard. \n\nThe 'Sepsis Trolley' (Cycle 2) worked because it reduced the friction of finding equipment. \n\nThe IT Alert (Cycle 3) was the most effective intervention because it functioned as a 'forcing function', preventing the doctor from closing the file without addressing the sepsis risk.",
-        sustain: "1. The IT Alert is now a permanent feature of the EPR (Forcing Function).\n2. Sepsis Trolley checklist added to HCA daily duties (Process).\n3. Monthly data reporting automated to the governance dashboard (Automation).\n4. Sepsis induction training updated for new rotators.",
-        results_text: "The Run Chart demonstrates a robust improvement.\n\n- Baseline median was 42%.\n- Following Cycle 2 (Trolleys), a 'Shift' occurred (6 points above median), indicating a non-random improvement.\n- Cycle 3 (IT Alert) pushed compliance to >90% consistently.\n- The new median is established at 92%.\n- Special cause variation is evident and sustained."
+        process_measures: "1. Time from arrival to Triage.\n2. Percentage of patients with 'Sepsis Screen' completed at Triage.",
+        balance_measures: "1. Rate of C. Difficile infections (Antibiotic stewardship).",
+        leadership_evidence: "1. Chaired weekly 'Sepsis Taskforce' meetings with MDT.\n2. Delegated data collection to junior doctors (Mentoring).",
+        ethics: "Registered with Trust Clinical Audit Department (Ref: QIP-24-055).",
+        ppi: "The project plan was presented to the Patient Liaison Group (PLG).",
+        learning: "The biggest barrier was not knowledge, but 'cognitive load'.",
+        sustain: "1. The IT Alert is now a permanent feature of the EPR (Forcing Function).",
+        results_text: "The Run Chart demonstrates a robust improvement."
     };
-    // ... rest of demo data ...
     demoData.drivers = { 
-        primary: ["Early Recognition", "Equipment Availability", "Safety Culture", "Efficient Pathways"], 
-        secondary: ["Triage Screening Accuracy", "Nursing Empowerment", "Access to Antibiotics", "Feedback Loops"], 
-        changes: ["Mandatory Sepsis Screen at Triage", "Sepsis Grab Bags in Resus", "Dedicated Sepsis Trolley", "PGD for Nurse Initiation", "IT Best Practice Alert", "Daily Safety Huddle Feedback"] 
+        primary: ["Early Recognition", "Equipment Availability", "Safety Culture"], 
+        secondary: ["Triage Screening Accuracy", "Nursing Empowerment", "Access to Antibiotics"], 
+        changes: ["Mandatory Sepsis Screen at Triage", "Sepsis Grab Bags in Resus", "PGD for Nurse Initiation"] 
     };
-
-    demoData.fishbone = { 
-        categories: [
-            { id: 1, text: "People", causes: ["Reliance on Agency Staff", "Lack of ownership", "Fear of prescribing broad spectrum", "Junior doctor rotation turnover"] }, 
-            { id: 2, text: "Methods", causes: ["Paper screening tool often lost", "No PGD for nurses (must wait for doctor)", "Complex pathway for blood cultures"] }, 
-            { id: 3, text: "Environment", causes: ["Overcrowding in Majors", "Distance to drug cupboard", "No dedicated space for septic patients", "Poor lighting in triage"] }, 
-            { id: 4, text: "Equipment", causes: ["Cannulas missing from trolleys", "Antibiotic cupboard keys missing", "Computers slow to load", "Blood culture bottles expired"] }
-        ] 
-    };
-    
-    demoData.process = [
-        "Patient Arrives in ED", 
-        "Triage Assessment (15 mins)", 
-        "Sepsis Screening Tool Applied", 
-        "Red Flag Sepsis Triggered?", 
-        "Medical Review (Immediate)", 
-        "Sepsis 6 Bundle Initiated", 
-        "IV Antibiotics Administered", 
-        "Transfer to Ward/ICU"
-    ];
-
-    demoData.pdsa = [
-        {id: 1, title: "Cycle 1: Education", plan: "Deliver 10-min teaching at handover for 2 weeks. Display posters in staff room.", do: "Teaching delivered to 80% of nursing staff. Posters up.", study: "Compliance rose slightly to 48% but effect wore off quickly. Staff reported 'forgetting' in busy periods.", act: "Abandon as sole intervention. Education is necessary but not sufficient.", isStepChange: false},
-        {id: 2, title: "Cycle 2: Sepsis Trolley", plan: "Introduce a bright yellow 'Sepsis Trolley' in Majors containing everything needed (bloods, cultures, fluids, abx).", do: "Trolley stocked and placed in Bay 1. Checked daily by HCA.", study: "Immediate improvement. Time to cannulation dropped by 15 mins. Staff feedback positive ('saves hunting for keys').", act: "Adopt. Roll out to Resus area as well.", isStepChange: true},
-        {id: 3, title: "Cycle 3: PGD & Nurse Empowerment", plan: "Introduce Patient Group Direction (PGD) allowing Band 6 nurses to give first dose antibiotics.", do: "Approved by Pharmacy committee. Training rolled out.", study: "Mixed results. Some nurses confident, others reluctant. Process measure improved but variation remained.", act: "Adapt. focus on 'Sepsis Champions' on each shift.", isStepChange: false},
-        {id: 4, title: "Cycle 4: Electronic Alert", plan: "IT modification: 'Pop-up' alert on Cerner when NEWS2 > 5 + Infection suspected.", do: "Live on April 1st. Required clinician reason to dismiss.", study: "Compliance hit 95%. Screening tool completion 100%.", act: "Adopt. Standard operating procedure.", isStepChange: true}
-    ];
-
     demoData.chartData = [
-        {date:"2023-10-01", value:40, type:'outcome'}, {date:"2023-10-08", value:45, type:'outcome'}, {date:"2023-10-15", value:35, type:'outcome'},
-        {date:"2023-10-22", value:50, type:'outcome'}, {date:"2023-10-29", value:42, type:'outcome'}, {date:"2023-11-05", value:38, type:'outcome'},
-        {date:"2023-11-12", value:48, type:'outcome'}, {date:"2023-11-19", value:41, type:'outcome'}, {date:"2023-11-26", value:44, type:'outcome'},
-        {date:"2023-12-03", value:55, type:'outcome', note:"Cycle 1: Education"}, {date:"2023-12-10", value:52, type:'outcome'}, {date:"2023-12-17", value:45, type:'outcome'},
-        {date:"2024-01-07", value:65, type:'outcome', note:"Cycle 2: Trolleys"}, {date:"2024-01-14", value:72, type:'outcome'}, {date:"2024-01-21", value:68, type:'outcome'},
-        {date:"2024-01-28", value:75, type:'outcome'}, {date:"2024-02-04", value:70, type:'outcome'}, {date:"2024-02-11", value:78, type:'outcome'},
-        {date:"2024-02-18", value:76, type:'outcome', note:"Cycle 3: PGD"}, {date:"2024-02-25", value:80, type:'outcome'}, {date:"2024-03-03", value:75, type:'outcome'},
-        {date:"2024-03-10", value:92, type:'outcome', note:"Cycle 4: IT Alert"}, {date:"2024-03-17", value:95, type:'outcome'}, {date:"2024-03-24", value:94, type:'outcome'},
-        {date:"2024-03-31", value:91, type:'outcome'}, {date:"2024-04-07", value:96, type:'outcome'}, {date:"2024-04-14", value:93, type:'outcome'},
-        {date:"2024-04-21", value:95, type:'outcome'}, {date:"2024-04-28", value:94, type:'outcome'}, {date:"2024-05-05", value:97, type:'outcome'}
+        {date:"2023-10-01", value:40, type:'outcome'}, {date:"2023-11-01", value:45, type:'outcome'}, 
+        {date:"2023-12-01", value:65, type:'outcome', note:"Cycle 1: Trolleys"}, {date:"2024-01-01", value:85, type:'outcome'}
     ];
-
-    demoData.stakeholders = [
-        { name: "ED Consultants", power: 90, interest: 80 }, 
-        { name: "Nursing Staff", power: 60, interest: 90 },
-        { name: "Junior Doctors", power: 30, interest: 85 },
-        { name: "Hospital Mgmt", power: 80, interest: 20 },
-        { name: "Pharmacy", power: 50, interest: 60 }
-    ];
-
     demoData.gantt = [
-        { id: 1, name: "Planning & Stakeholders", start: "2023-09-01", end: "2023-09-30", type: "plan" },
-        { id: 2, name: "Baseline Data Collection", start: "2023-10-01", end: "2023-11-30", type: "study" },
-        { id: 3, name: "Driver Diagram Workshop", start: "2023-11-15", end: "2023-11-20", type: "plan" },
-        { id: 4, name: "Cycle 1: Education", start: "2023-12-01", end: "2023-12-20", type: "act" },
-        { id: 5, name: "Cycle 2: Sepsis Trolleys", start: "2024-01-05", end: "2024-02-01", type: "act" },
-        { id: 6, name: "Cycle 4: IT Alert Go-Live", start: "2024-03-01", end: "2024-05-01", type: "act" },
-        { id: 7, name: "Write Up & Presentation", start: "2024-05-01", end: "2024-06-01", type: "plan" }
+        { id: 1, name: "Planning", start: "2023-09-01", end: "2023-09-30", type: "plan", owner: "Dr. J. Bloggs" },
+        { id: 2, name: "Data Collection", start: "2023-10-01", end: "2023-11-30", type: "study", owner: "Sr. M. Smith" }
     ];
     
     projectData = demoData;
@@ -423,10 +354,7 @@ window.openDemoProject = () => {
     document.getElementById('top-bar').classList.remove('hidden');
     renderAll();
     window.router('dashboard');
-    
-    const s = document.getElementById('save-status');
-    s.innerHTML = `<i data-lucide="info" class="w-3 h-3"></i> Demo Loaded`;
-    s.classList.remove('opacity-0');
+    document.getElementById('save-status').classList.remove('opacity-0');
 };
 
 window.returnToProjects = () => {
@@ -442,10 +370,7 @@ window.returnToProjects = () => {
 
 let currentView = 'dashboard';
 window.router = (view) => {
-    if (view !== 'projects' && !projectData) {
-        alert("Please select a project from the list first.");
-        return;
-    }
+    if (view !== 'projects' && !projectData) { alert("Please select a project first."); return; }
 
     currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
@@ -522,35 +447,6 @@ window.shareProject = () => {
     navigator.clipboard.writeText(url).then(() => alert("Read-only link copied to clipboard!"));
 };
 
-window.importCSV = (input) => {
-    if(isReadOnly) return;
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result;
-        const rows = text.split('\n');
-        let count = 0;
-        historyStack.push(JSON.stringify(projectData));
-        rows.forEach(row => {
-            const cols = row.split(',');
-            if (cols.length >= 2) {
-                const date = cols[0].trim();
-                const value = parseFloat(cols[1].trim());
-                if (!isNaN(value) && !isNaN(Date.parse(date))) {
-                    projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, type: 'outcome' });
-                    count++;
-                }
-            }
-        });
-        saveData();
-        renderChart();
-        alert(`Imported ${count} points.`);
-    };
-    reader.readAsText(file);
-    input.value = '';
-};
-
 // --- RENDER FUNCTIONS ---
 function renderAll() {
     renderCoach();
@@ -568,7 +464,7 @@ function renderCoach() {
     const banner = document.getElementById('qi-coach-banner');
     
     let filledCount = 0;
-    const checkFields = ['problem_desc','evidence','aim','outcome_measures','process_measures','team','ethics','learning'];
+    const checkFields = ['problem_desc','evidence','aim','outcome_measures','process_measures','ethics','learning'];
     if (d.checklist) {
         checkFields.forEach(f => {
             if(d.checklist[f] && d.checklist[f].length > 5) filledCount++;
@@ -578,7 +474,6 @@ function renderCoach() {
     const progEl = document.getElementById('stat-progress');
     if(progEl) progEl.textContent = `${progress}%`;
 
-    let status = { t: "", m: "", b: "", c: "" };
     const aimQuality = checkAimQuality(d.checklist.aim);
     const badgeEl = document.getElementById('aim-quality-badge');
     if(badgeEl) {
@@ -587,6 +482,7 @@ function renderCoach() {
         : `<span class="text-amber-600 font-bold flex items-center gap-1"><i data-lucide="alert-triangle" class="w-3 h-3"></i> Weak Aim: ${aimQuality.msg}</span>`;
     }
 
+    let status = { t: "", m: "", b: "", c: "" };
     if (!d.checklist.aim) {
         status = { 
             t: "Step 1: Define your Aim", 
@@ -638,6 +534,32 @@ function checkAimQuality(aim) {
 function renderChecklist() {
     if(!projectData) return;
     const list = document.getElementById('checklist-container');
+    
+    // Team Table HTML
+    const team = projectData.teamMembers || [];
+    const teamHtml = `
+        <div class="overflow-x-auto border border-slate-200 rounded-lg">
+            <table class="w-full text-sm text-left text-slate-600">
+                <thead class="text-xs text-slate-700 uppercase bg-slate-50 border-b border-slate-200">
+                    <tr><th class="px-4 py-3">Name</th><th class="px-4 py-3">Role</th><th class="px-4 py-3 text-right">Action</th></tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    ${team.length === 0 ? '<tr><td colspan="3" class="px-4 py-4 text-center text-slate-400 italic">No team members added yet.</td></tr>' : 
+                      team.map(m => `
+                        <tr class="bg-white hover:bg-slate-50">
+                            <td class="px-4 py-2 font-medium text-slate-900">${escapeHtml(m.name)}</td>
+                            <td class="px-4 py-2">${escapeHtml(m.role)}</td>
+                            <td class="px-4 py-2 text-right">
+                                <button onclick="window.deleteTeamMember(${m.id})" class="text-slate-400 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                            </td>
+                        </tr>
+                      `).join('')}
+                </tbody>
+            </table>
+        </div>
+        <button onclick="window.addTeamMember()" class="mt-3 text-sm text-rcem-purple font-bold hover:underline flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Team Member</button>
+    `;
+
     const sections = [
         { id: "def", title: "Problem & Evidence", fields: [
             {k:"problem_desc", l:"Reason for Project (Problem)", p:"What is the gap?"},
@@ -649,9 +571,7 @@ function renderChecklist() {
             {k:"process_measures", l:"Process Measures", p:"Are staff doing steps?"},
             {k:"balance_measures", l:"Balancing Measures", p:"Safety checks"}
         ]},
-        { id: "team", title: "Team, Leadership & Governance", fields: [
-            {k:"lead", l:"Project Lead", p:"Name"},
-            {k:"team", l:"Team Members", p:"Names"},
+        { id: "team", title: "Team, Leadership & Governance", customContent: teamHtml, fields: [
             {k:"leadership_evidence", l:"Leadership & Management Evidence", p:"How did you demonstrate leadership? (Meetings, delegation, conflict res...)", h: "leadership"},
             {k:"ethics", l:"Ethical / Governance", p:"Ref Number"},
             {k:"ppi", l:"Patient Public Involvement", p:"Feedback"}
@@ -669,6 +589,7 @@ function renderChecklist() {
                 ${s.id === 'meas' ? '<span class="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded border border-amber-200">Gold Standard</span>' : ''}
             </div>
             <div class="p-6 space-y-4">
+                ${s.customContent ? `<div class="mb-6"><label class="block text-xs font-bold text-slate-500 uppercase mb-2">Team Members</label>${s.customContent}</div>` : ''}
                 ${s.fields.map(f => `
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1 flex justify-between items-center">
@@ -701,6 +622,27 @@ function renderChecklist() {
         renderCoach();
     };
 }
+
+// --- TEAM MANAGEMENT ---
+window.addTeamMember = () => {
+    if(isReadOnly) return;
+    const name = prompt("Name:");
+    if(!name) return;
+    const role = prompt("Role:", "Team Member");
+    if(!projectData.teamMembers) projectData.teamMembers = [];
+    projectData.teamMembers.push({ id: Date.now(), name, role });
+    saveData();
+    renderChecklist();
+};
+
+window.deleteTeamMember = (id) => {
+    if(isReadOnly) return;
+    if(confirm("Remove this team member?")) {
+        projectData.teamMembers = projectData.teamMembers.filter(m => m.id !== id);
+        saveData();
+        renderChecklist();
+    }
+};
 
 window.setToolMode = (m) => {
     toolMode = m;
@@ -912,7 +854,6 @@ function renderChart() {
     lucide.createIcons();
 }
 
-// Helper to render chart in Full Project View
 function renderFullViewChart() {
     if(!projectData) return;
     const canvas = document.getElementById('fullProjectChart');
@@ -1134,12 +1075,13 @@ window.openPortfolioExport = () => {
     const d = projectData;
     const modal = document.getElementById('risr-modal');
     modal.classList.remove('hidden');
+    const teamString = (d.teamMembers || []).map(m => `${m.name} (${m.role})`).join(', ');
     const fields = [
         { t: "Title", v: d.meta.title },
         { t: "Reason", v: d.checklist.problem_desc },
         { t: "Evidence", v: d.checklist.evidence },
         { t: "Aim", v: d.checklist.aim },
-        { t: "Team", v: d.checklist.team },
+        { t: "Team", v: teamString || d.checklist.team },
         { t: "Leadership & Mgmt", v: d.checklist.leadership_evidence },
         { t: "Drivers", v: `Primary: ${d.drivers.primary.join(', ')}\nChanges: ${d.drivers.changes.join(', ')}` },
         { t: "Measures", v: `Outcome: ${d.checklist.outcome_measures}\nProcess: ${d.checklist.process_measures}` },
@@ -1156,8 +1098,22 @@ window.addGanttTask = () => {
     if(!n) return;
     const s = prompt("Start Date (YYYY-MM-DD):", new Date().toISOString().split('T')[0]);
     const e = prompt("End Date:", s);
+    
+    // Assignee selection
+    let owner = "";
+    if (projectData.teamMembers && projectData.teamMembers.length > 0) {
+        const teamList = projectData.teamMembers.map((m, i) => `${i+1}. ${m.name}`).join('\n');
+        const choice = prompt(`Assign to team member? (Enter number, or leave blank):\n${teamList}`);
+        if (choice) {
+            const index = parseInt(choice) - 1;
+            if (projectData.teamMembers[index]) {
+                owner = projectData.teamMembers[index].name;
+            }
+        }
+    }
+    
     if(!projectData.gantt) projectData.gantt=[];
-    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e, type:'plan'}); 
+    projectData.gantt.push({id:Date.now(), name:n, start: s, end: e, type:'plan', owner: owner}); 
     saveData(); renderGantt(); 
 };
 window.deleteGantt = (id) => { projectData.gantt = projectData.gantt.filter(x=>x.id!=id); saveData(); renderGantt(); };
@@ -1208,12 +1164,15 @@ function renderGantt() {
         if(t.type === 'act') colorClass = "bg-rcem-purple";
 
         html += `
-            <div class="flex border-b border-slate-100 hover:bg-slate-50 transition-colors h-12 relative group">
-                <div class="w-[250px] shrink-0 p-3 text-sm font-medium text-slate-700 border-r border-slate-200 bg-white sticky left-0 z-10 truncate flex items-center justify-between">
-                    ${escapeHtml(t.name)}
+            <div class="flex border-b border-slate-100 hover:bg-slate-50 transition-colors h-14 relative group">
+                <div class="w-[250px] shrink-0 px-3 py-2 text-sm text-slate-700 border-r border-slate-200 bg-white sticky left-0 z-10 truncate flex items-center justify-between">
+                    <div>
+                        <div class="font-medium">${escapeHtml(t.name)}</div>
+                        ${t.owner ? `<div class="text-[10px] text-slate-400 flex items-center gap-1"><i data-lucide="user" class="w-3 h-3"></i> ${escapeHtml(t.owner)}</div>` : ''}
+                    </div>
                     <button onclick="deleteGantt('${t.id}')" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
-                <div class="absolute h-6 top-3 rounded-md shadow-sm text-[10px] text-white flex items-center px-2 whitespace-nowrap overflow-hidden ${colorClass}" 
+                <div class="absolute h-8 top-3 rounded-md shadow-sm text-[10px] text-white flex items-center px-2 whitespace-nowrap overflow-hidden ${colorClass}" 
                      style="left: ${250 + leftPos}px; width: ${width}px;">
                      ${Math.round((end - start)/(1000*60*60*24))}d
                 </div>
@@ -1229,7 +1188,6 @@ function renderGantt() {
     lucide.createIcons();
 }
 
-// --- UPDATED FULL PROJECT RENDERER ---
 async function renderFullProject() {
     if (!projectData) return;
     
@@ -1255,6 +1213,8 @@ async function renderFullProject() {
     d.drivers.secondary.forEach((x,i) => driverCode += `  S --> S${i}["${clean(x)}"]\n`);
     d.drivers.changes.forEach((x,i) => driverCode += `  C --> C${i}["${clean(x)}"]\n`);
 
+    const teamString = (d.teamMembers || []).map(m => `${m.name} (${m.role})`).join(', ');
+
     container.innerHTML = `
         <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 rounded-xl p-8 text-white shadow-lg">
             <h1 class="text-3xl font-bold font-serif">${escapeHtml(d.meta.title)}</h1>
@@ -1267,7 +1227,7 @@ async function renderFullProject() {
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Problem</span>${statusBadge(checkField(d.checklist.problem_desc))}</div>
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Aim</span>${statusBadge(checkField(d.checklist.aim))}</div>
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Measures</span>${statusBadge(checkField(d.checklist.outcome_measures))}</div>
-                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Team</span>${statusBadge(checkField(d.checklist.team))}</div>
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-lg"><span>Team</span>${statusBadge(checkField(d.checklist.team) || (d.teamMembers && d.teamMembers.length > 0))}</div>
             </div>
         </div>
 
@@ -1301,7 +1261,7 @@ async function renderFullProject() {
             <h2 class="text-lg font-bold text-slate-800 mb-4 border-b pb-3">4. Team, Leadership & Governance</h2>
             <div class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Team Members</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.team) || 'Not defined'}</p></div>
+                    <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Team Members</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(teamString) || escapeHtml(d.checklist.team) || 'Not defined'}</p></div>
                     <div><h3 class="text-xs font-bold text-slate-500 uppercase mb-2">Ethics / Registration</h3><p class="text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg border">${escapeHtml(d.checklist.ethics) || 'Not defined'}</p></div>
                 </div>
                 <div>
@@ -1409,8 +1369,6 @@ async function getVisualAsset(type) {
             const canvas = document.createElement('canvas');
             canvas.width = 1600;
             canvas.height = 900;
-            canvas.style.width = '1600px';
-            canvas.style.height = '900px';
             container.appendChild(canvas);
 
             const data = [...projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -1425,70 +1383,29 @@ async function getVisualAsset(type) {
             const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83')); 
             
             const annotations = { 
-                median: { 
-                    type: 'line', 
-                    yMin: currentMedian, 
-                    yMax: currentMedian, 
-                    borderColor: '#94a3b8', 
-                    borderDash: [5,5], 
-                    borderWidth: 2 
-                } 
+                median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 } 
             };
 
             data.filter(d => d.note).forEach((d, i) => {
                 annotations[`pdsa${i}`] = { 
-                    type: 'line', 
-                    xMin: d.date, 
-                    xMax: d.date, 
-                    borderColor: '#f36f21', 
-                    borderWidth: 2, 
-                    label: { 
-                        display: true, 
-                        content: d.note, 
-                        position: 'start', 
-                        backgroundColor: '#f36f21', 
-                        color: 'white' 
-                    } 
+                    type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, 
+                    label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } 
                 };
             });
 
             const ctx = canvas.getContext('2d');
             const chart = new Chart(ctx, {
                 type: 'line',
-                data: { 
-                    labels: labels, 
-                    datasets: [{ 
-                        label: 'Measure', 
-                        data: values, 
-                        borderColor: '#2d2e83', 
-                        backgroundColor: pointColors, 
-                        pointBackgroundColor: pointColors, 
-                        pointRadius: 8, 
-                        tension: 0.1, 
-                        borderWidth: 3 
-                    }] 
-                },
+                data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
                 options: { 
-                    animation: false,
-                    responsive: false, 
-                    maintainAspectRatio: false,
-                    plugins: { 
-                        annotation: { annotations }, 
-                        legend: { display: false } 
-                    },
-                    scales: { 
-                        y: { beginAtZero: true },
-                        x: { display: true }
-                    }
+                    animation: false, responsive: false, maintainAspectRatio: false,
+                    plugins: { annotation: { annotations }, legend: { display: false } },
+                    scales: { y: { beginAtZero: true }, x: { display: true } }
                 }
             });
 
-            chart.update('none');
-            await new Promise(resolve => requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    setTimeout(resolve, 200);
-                });
-            }));
+            // Wait for render
+            await new Promise(r => setTimeout(r, 200));
             
             const imgData = canvas.toDataURL('image/png');
             chart.destroy();
@@ -1496,6 +1413,8 @@ async function getVisualAsset(type) {
         }
 
         if (type === 'driver' || type === 'fishbone') {
+            // For PPTX generation we still need image, but for Print we will use SVG directly.
+            // This function creates image for PPTX.
             if (typeof mermaid === 'undefined') throw new Error("Mermaid library missing.");
             
             const clean = (t) => t ? String(t).replace(/["()[\]{}#]/g, '').replace(/\n/g, ' ').trim() : '...';
@@ -1503,86 +1422,156 @@ async function getVisualAsset(type) {
             
             if (type === 'driver') {
                 const d = projectData.drivers;
-                if(!d.primary.length && !d.secondary.length && !d.changes.length) throw new Error("No drivers defined.");
                 mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
                 d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
                 d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
                 d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
             } else {
                 const cats = projectData.fishbone.categories;
-                if (cats.every(c => c.causes.length === 0)) throw new Error("Fishbone empty.");
                 mCode = `mindmap\n  root(("${clean(projectData.meta.title || 'Problem')}"))\n` + 
                         cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
             }
 
-            const renderId = `mermaid-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            
-            const { svg } = await mermaid.render(renderId, mCode);
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = svg;
-            const svgEl = wrapper.querySelector('svg');
-            
-            if (!svgEl) throw new Error("Mermaid did not produce SVG output.");
-            
-            let w, h;
-            const viewBoxAttr = svgEl.getAttribute('viewBox');
-            if (viewBoxAttr) {
-                const viewBox = viewBoxAttr.split(/[\s,]+/);
-                w = parseFloat(viewBox[2]) || 800;
-                h = parseFloat(viewBox[3]) || 600;
-            } else {
-                w = parseFloat(svgEl.getAttribute('width')) || 800;
-                h = parseFloat(svgEl.getAttribute('height')) || 600;
-            }
-            
-            w = Math.max(w, 100);
-            h = Math.max(h, 100);
-            
-            const scale = 2; 
-            svgEl.setAttribute('width', w * scale);
-            svgEl.setAttribute('height', h * scale);
-            svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
-            
-            const svgString = new XMLSerializer().serializeToString(svgEl);
-            const canvas = document.createElement('canvas');
-            canvas.width = w * scale;
-            canvas.height = h * scale;
-            const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
+            const { svg } = await mermaid.render(`mermaid-${type}-gen`, mCode);
             const img = new Image();
+            const svgBlob = new Blob([svg], {type: 'image/svg+xml;charset=utf-8'});
+            const url = URL.createObjectURL(svgBlob);
             
-            const base64Svg = btoa(unescape(encodeURIComponent(svgString)));
-            const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
-
             return new Promise((resolve) => {
                 img.onload = () => {
-                    try {
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                        resolve({ success: true, img: canvas.toDataURL('image/png') });
-                    } catch (drawError) {
-                        console.error('Canvas draw error:', drawError);
-                        resolve({ success: false, error: "Canvas drawing failed." });
-                    }
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.width * 2;
+                    canvas.height = img.height * 2;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(url);
+                    resolve({ success: true, img: canvas.toDataURL('image/png') });
                 };
-                img.onerror = (e) => {
-                    console.error('Image load error:', e);
-                    resolve({ success: false, error: "SVG to image conversion failed." });
-                };
-                img.src = dataUrl;
+                img.src = url;
             });
         }
 
     } catch (e) {
         console.error('getVisualAsset error:', e);
         return { success: false, error: e.message };
-    } finally {
-        const stagingArea = document.getElementById('asset-staging-area');
-        if (stagingArea) stagingArea.innerHTML = '';
     }
     return { success: false, error: "Unknown type" };
 }
+
+// --- PRINT POSTER FUNCTION (FIXED) ---
+window.printPoster = async () => {
+    if (!projectData) { alert("Please load a project first."); return; }
+    const d = projectData;
+    const container = document.getElementById('print-container');
+    
+    // 1. Generate Chart Image (Canvas to Image for print safety)
+    let chartContent = '<p class="text-slate-400 italic">No chart data available</p>';
+    const chartRes = await getVisualAsset('chart');
+    if (chartRes.success) {
+        chartContent = `<img src="${chartRes.img}" class="img-fluid" alt="Run Chart" style="width:100%;">`;
+    }
+
+    // 2. Generate Driver Diagram (Vector SVG for high quality print)
+    let driverContent = '';
+    const clean = (t) => t ? String(t).replace(/["()[\]{}#]/g, '').replace(/\n/g, ' ').trim() : '...';
+    const driverCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n` +
+        d.drivers.primary.map((x,i) => `  P --> P${i}["${clean(x)}"]\n`).join('') +
+        d.drivers.secondary.map((x,i) => `  S --> S${i}["${clean(x)}"]\n`).join('') +
+        d.drivers.changes.map((x,i) => `  C --> C${i}["${clean(x)}"]\n`).join('');
+    
+    // 3. Build Team String
+    const teamString = (d.teamMembers || []).map(m => `<strong>${escapeHtml(m.name)}</strong> (${escapeHtml(m.role)})`).join(' • ') || (d.checklist.team || 'QI Team');
+
+    container.innerHTML = `
+        <div class="poster-grid">
+            <div class="poster-header">
+                <div class="poster-logo-area">
+                    <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
+                </div>
+                <div class="poster-title-area">
+                    <h1>${escapeHtml(d.meta.title)}</h1>
+                    <p>${teamString}</p>
+                </div>
+            </div>
+
+            <div class="poster-col">
+                <div class="poster-box">
+                    <h2>Problem</h2>
+                    <p>${escapeHtml(d.checklist.problem_desc) || 'Not defined'}</p>
+                </div>
+                <div class="poster-box aim-box">
+                    <h2>SMART Aim</h2>
+                    <p class="aim-statement">${escapeHtml(d.checklist.aim) || 'No aim defined'}</p>
+                </div>
+                <div class="poster-box">
+                    <h2>Measures</h2>
+                    <ul>
+                        <li><strong>Outcome:</strong> ${escapeHtml(d.checklist.outcome_measures) || 'Not defined'}</li>
+                        <li><strong>Process:</strong> ${escapeHtml(d.checklist.process_measures) || 'Not defined'}</li>
+                        <li><strong>Balancing:</strong> ${escapeHtml(d.checklist.balance_measures) || 'Not defined'}</li>
+                    </ul>
+                </div>
+                <div class="poster-box">
+                    <h2>Driver Diagram</h2>
+                    <div class="mermaid">${driverCode}</div>
+                </div>
+            </div>
+
+            <div class="poster-col">
+                <div class="poster-box">
+                    <h2>Run Chart</h2>
+                    <div class="chart-holder" style="min-height: 300px;">
+                        ${chartContent}
+                    </div>
+                    <div class="analysis-box">
+                        <h3 style="font-weight: bold; margin-bottom: 8px;">Results Analysis</h3>
+                        <p>${escapeHtml(d.checklist.results_text) || 'No analysis written yet'}</p>
+                    </div>
+                </div>
+                <div class="poster-box">
+                    <h2>PDSA Cycles (${d.pdsa.length})</h2>
+                    ${d.pdsa.length === 0 ? '<p class="text-slate-400 italic">No cycles recorded</p>' : 
+                    d.pdsa.map((p, i) => `
+                        <div style="margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border-left: 4px solid ${p.isStepChange ? '#059669' : '#2d2e83'};">
+                            <strong>Cycle ${i + 1}: ${escapeHtml(p.title)}</strong>
+                            ${p.isStepChange ? '<span style="background: #059669; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">STEP CHANGE</span>' : ''}
+                            <p style="font-size: 12px; margin-top: 4px;"><strong>Study:</strong> ${escapeHtml(p.study) || '-'}</p>
+                            <p style="font-size: 12px;"><strong>Act:</strong> ${escapeHtml(p.act) || '-'}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+
+            <div class="poster-col">
+                <div class="poster-box">
+                    <h2>Evidence</h2>
+                    <p>${escapeHtml(d.checklist.evidence) || 'Not specified'}</p>
+                </div>
+                <div class="poster-box">
+                    <h2>Key Learning</h2>
+                    <p>${escapeHtml(d.checklist.learning) || 'Not yet documented'}</p>
+                </div>
+                <div class="poster-box sustain-box">
+                    <h2>Sustainability</h2>
+                    <p>${escapeHtml(d.checklist.sustain) || 'Not yet documented'}</p>
+                </div>
+                <div class="poster-box">
+                    <h2>Governance</h2>
+                    <p>${escapeHtml(d.checklist.ethics) || 'Not specified'}</p>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Render mermaid in the poster
+    try {
+        await mermaid.run({ querySelector: '#print-container .mermaid' });
+    } catch (e) { console.error("Poster Mermaid Error", e); }
+
+    // Use window.print() which utilizes the @media print CSS in styles.css
+    // This is much more reliable than html2pdf for complex layouts
+    window.print();
+};
 
 // --- EXPORT PPTX ---
 window.exportPPTX = async () => {
@@ -1675,9 +1664,17 @@ window.exportPPTX = async () => {
             fontSize: 18, color: 'CCCCCC', fontFace: 'Arial',
             align: 'center'
         });
-        const teamLines = (d.checklist.team || 'QI Team').split('\n').slice(0, 3);
+        
+        // Use team members if available, else fallback
+        let teamText = (d.teamMembers && d.teamMembers.length > 0)
+            ? d.teamMembers.map(m => `${m.name} (${m.role})`).join('\n')
+            : (d.checklist.team || 'QI Team');
+        
+        // Limit lines if too long
+        const teamLines = teamText.split('\n').slice(0, 4);
+        
         s1.addText(teamLines.join('\n'), { 
-            x: 0.8, y: 3.8, w: 8.4, h: 0.8,
+            x: 0.8, y: 3.8, w: 8.4, h: 1.2,
             fontSize: 14, color: 'FFFFFF', fontFace: 'Arial',
             align: 'center', valign: 'top'
         });
@@ -1826,133 +1823,5 @@ window.exportPPTX = async () => {
             exportBtn.innerHTML = originalHTML;
             lucide.createIcons();
         }
-    }
-};
-
-// --- PRINT POSTER FUNCTION ---
-window.printPoster = async () => {
-    if (!projectData) { 
-        alert("Please load a project first."); 
-        return; 
-    }
-
-    const d = projectData;
-    const container = document.getElementById('print-container');
-    
-    // Generate chart image
-    let chartImgHtml = '<p class="text-slate-400 italic">No chart data available</p>';
-    const chartRes = await getVisualAsset('chart');
-    if (chartRes.success) {
-        chartImgHtml = `<img src="${chartRes.img}" class="img-fluid" alt="Run Chart">`;
-    }
-
-    // Generate driver diagram image
-    let driverImgHtml = '';
-    const driverRes = await getVisualAsset('driver');
-    if (driverRes.success) {
-        driverImgHtml = `<div class="driver-holder"><img src="${driverRes.img}" class="img-fluid" alt="Driver Diagram"></div>`;
-    } else {
-        driverImgHtml = `
-            <div class="space-y-2">
-                <div><strong>Primary:</strong> ${d.drivers.primary.join(', ') || 'None'}</div>
-                <div><strong>Secondary:</strong> ${d.drivers.secondary.join(', ') || 'None'}</div>
-                <div><strong>Changes:</strong> ${d.drivers.changes.join(', ') || 'None'}</div>
-            </div>
-        `;
-    }
-
-    container.innerHTML = `
-        <div class="poster-grid">
-            <div class="poster-header">
-                <div class="poster-logo-area">
-                    <img src="https://iili.io/KGQOvkl.md.png" class="poster-logo" alt="RCEM Logo">
-                </div>
-                <div class="poster-title-area">
-                    <h1>${escapeHtml(d.meta.title)}</h1>
-                    <p>${escapeHtml(d.checklist.team) || 'QI Team'}</p>
-                </div>
-            </div>
-
-            <div class="poster-col">
-                <div class="poster-box">
-                    <h2>Problem</h2>
-                    <p>${escapeHtml(d.checklist.problem_desc) || 'Not defined'}</p>
-                </div>
-                <div class="poster-box aim-box">
-                    <h2>SMART Aim</h2>
-                    <p class="aim-statement">${escapeHtml(d.checklist.aim) || 'No aim defined'}</p>
-                </div>
-                <div class="poster-box">
-                    <h2>Measures</h2>
-                    <ul>
-                        <li><strong>Outcome:</strong> ${escapeHtml(d.checklist.outcome_measures) || 'Not defined'}</li>
-                        <li><strong>Process:</strong> ${escapeHtml(d.checklist.process_measures) || 'Not defined'}</li>
-                        <li><strong>Balancing:</strong> ${escapeHtml(d.checklist.balance_measures) || 'Not defined'}</li>
-                    </ul>
-                </div>
-                <div class="poster-box">
-                    <h2>Driver Diagram</h2>
-                    ${driverImgHtml}
-                </div>
-            </div>
-
-            <div class="poster-col">
-                <div class="poster-box">
-                    <h2>Run Chart</h2>
-                    <div class="chart-holder">
-                        ${chartImgHtml}
-                    </div>
-                    <div class="analysis-box">
-                        <h3 style="font-weight: bold; margin-bottom: 8px;">Results Analysis</h3>
-                        <p>${escapeHtml(d.checklist.results_text) || 'No analysis written yet'}</p>
-                    </div>
-                </div>
-                <div class="poster-box">
-                    <h2>PDSA Cycles (${d.pdsa.length})</h2>
-                    ${d.pdsa.length === 0 ? '<p class="text-slate-400 italic">No cycles recorded</p>' : 
-                    d.pdsa.map((p, i) => `
-                        <div style="margin-bottom: 12px; padding: 10px; background: #f8fafc; border-radius: 6px; border-left: 4px solid ${p.isStepChange ? '#059669' : '#2d2e83'};">
-                            <strong>Cycle ${i + 1}: ${escapeHtml(p.title)}</strong>
-                            ${p.isStepChange ? '<span style="background: #059669; color: white; padding: 2px 8px; border-radius: 10px; font-size: 10px; margin-left: 8px;">STEP CHANGE</span>' : ''}
-                            <p style="font-size: 12px; margin-top: 4px;"><strong>Study:</strong> ${escapeHtml(p.study) || '-'}</p>
-                            <p style="font-size: 12px;"><strong>Act:</strong> ${escapeHtml(p.act) || '-'}</p>
-                        </div>
-                    `).join('')}
-                </div>
-            </div>
-
-            <div class="poster-col">
-                <div class="poster-box">
-                    <h2>Evidence</h2>
-                    <p>${escapeHtml(d.checklist.evidence) || 'Not specified'}</p>
-                </div>
-                <div class="poster-box">
-                    <h2>Key Learning</h2>
-                    <p>${escapeHtml(d.checklist.learning) || 'Not yet documented'}</p>
-                </div>
-                <div class="poster-box sustain-box">
-                    <h2>Sustainability</h2>
-                    <p>${escapeHtml(d.checklist.sustain) || 'Not yet documented'}</p>
-                </div>
-                <div class="poster-box">
-                    <h2>Governance</h2>
-                    <p>${escapeHtml(d.checklist.ethics) || 'Not specified'}</p>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Use html2pdf if available, otherwise just print
-    if (typeof html2pdf !== 'undefined') {
-        const opt = {
-            margin: 0.25,
-            filename: `${d.meta.title.replace(/[^a-z0-9]/gi, '_')}_Poster.pdf`,
-            image: { type: 'jpeg', quality: 0.98 },
-            html2canvas: { scale: 2, useCORS: true },
-            jsPDF: { unit: 'in', format: 'a1', orientation: 'landscape' }
-        };
-        html2pdf().set(opt).from(container).save();
-    } else {
-        window.print();
     }
 };
