@@ -1,14 +1,13 @@
-// app.js
-import { auth, db } from "./modules/config.js";
+import { auth, db } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-// Modules
-import { state, emptyProject, getDemoData } from "./modules/state.js";
-import { escapeHtml, updateOnlineStatus } from "./modules/utils.js";
-import { renderChart, renderFullViewChart, renderTools, setToolMode, zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, deleteDataPoint, addDataPoint, importCSV, toolMode } from "./modules/charts.js";
-import * as R from "./modules/renderers.js";
-import { exportPPTX, printPoster } from "./modules/export.js";
+// Modules (Flat Structure Imports)
+import { state, emptyProject, getDemoData } from "./state.js";
+import { escapeHtml, updateOnlineStatus } from "./utils.js";
+import { renderChart, renderFullViewChart, renderTools, setToolMode, zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, deleteDataPoint, addDataPoint, importCSV, toolMode } from "./charts.js";
+import * as R from "./renderers.js";
+import { exportPPTX, printPoster } from "./export.js";
 
 // --- EXPOSE TO GLOBAL WINDOW (Required for HTML onclick attributes) ---
 Object.defineProperty(window, 'projectData', { get: () => state.projectData, set: (v) => state.projectData = v });
@@ -126,7 +125,6 @@ function renderAll() {
 // --- PROJECT MANAGEMENT & AUTH ---
 
 onAuthStateChanged(auth, async (user) => {
-    // Shared Project Check
     const isShared = await checkShareLink();
     if (isShared) return;
 
