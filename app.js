@@ -108,7 +108,11 @@ window.router = (view) => {
     document.getElementById(`view-${view}`).classList.remove('hidden');
     
     const sidebar = document.getElementById('app-sidebar');
-    if (sidebar.classList.contains('fixed')) { sidebar.classList.add('hidden'); sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); }
+    // FIX APPLIED HERE: Check for 'inset-0' instead of 'fixed'
+    if (sidebar.classList.contains('inset-0')) { 
+        sidebar.classList.add('hidden'); 
+        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
+    }
     
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
     const btn = document.getElementById(`nav-${view}`);
