@@ -7,13 +7,14 @@ import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus } from "./utils.js";
 import { renderChart, renderFullViewChart, renderTools, setToolMode, zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, deleteDataPoint, addDataPoint, importCSV, toolMode } from "./charts.js";
 import * as R from "./renderers.js";
-import { exportPPTX, printPoster } from "./export.js";
+import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 
 // --- EXPOSE TO GLOBAL WINDOW (Required for HTML onclick attributes) ---
 Object.defineProperty(window, 'projectData', { get: () => state.projectData, set: (v) => state.projectData = v });
 window.toolMode = toolMode; 
 window.exportPPTX = exportPPTX;
 window.printPoster = printPoster;
+window.printPosterOnly = printPosterOnly;
 window.setToolMode = setToolMode;
 window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
