@@ -152,6 +152,8 @@ export async function printPoster() {
     if (!state.projectData) { alert("Please load a project first."); return; }
     const d = state.projectData;
     const container = document.getElementById('print-container');
+    const modal = document.getElementById('poster-modal');
+    const previewArea = document.getElementById('poster-preview-area');
     
     // Generate Assets
     let chartImgHtml = '<p class="text-slate-400 italic">No chart data available</p>';
@@ -182,35 +184,18 @@ export async function printPoster() {
         </div>
     `;
 
-    // Toggle Printing Mode Class
-    document.body.classList.add('printing-poster');
-    container.classList.remove('hidden');
+    // Clone content to preview modal
+    previewArea.innerHTML = container.innerHTML;
+    
+    // Show Modal
+    modal.classList.remove('hidden');
+    container.classList.remove('hidden'); // Keep in DOM for printing but hidden via modal overlay or z-index
+}
 
-    if (typeof html2pdf !== 'undefined') {
-        const opt = {
-            margin: 0.25, 
-            filename: `${d.meta.title}_Poster.pdf`, 
-            image: { type: 'jpeg', quality: 0.98 }, 
-            html2canvas: { scale: 2, useCORS: true }, 
-            jsPDF: { unit: 'in', format: 'a1', orientation: 'landscape' } 
-        };
-        
-        html2pdf().set(opt).from(container).save()
-            .then(() => {
-                container.classList.add('hidden');
-                document.body.classList.remove('printing-poster');
-            })
-            .catch((err) => { 
-                console.error(err); 
-                container.classList.add('hidden');
-                document.body.classList.remove('printing-poster');
-            });
-    } else { 
-        window.print();
-        // Fallback cleanup
-        setTimeout(() => {
-            container.classList.add('hidden');
-            document.body.classList.remove('printing-poster');
-        }, 2000);
-    }
+export function printPosterOnly() {
+    document.body.classList.add('printing-poster');
+    window.print();
+    setTimeout(() => {
+        document.body.classList.remove('printing-poster');
+    }, 500);
 }
