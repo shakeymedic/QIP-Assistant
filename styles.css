@@ -162,7 +162,7 @@
 /* === INTELLIGENT PRINT OVERRIDES === */
 @media print {
     /* Hide UI Elements Global */
-    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #help-modal, #smart-modal, #risr-modal, #demo-watermark, #task-modal, #member-modal { 
+    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #help-modal, #smart-modal, #risr-modal, #poster-modal, #demo-watermark, #task-modal, #member-modal { 
         display: none !important; 
     }
 
