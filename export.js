@@ -1,4 +1,3 @@
-// modules/export.js
 import { state } from './state.js';
 import { escapeHtml } from './utils.js';
 
@@ -183,7 +182,8 @@ export async function printPoster() {
         </div>
     `;
 
-    // FIX: Remove 'hidden' so html2canvas can capture the element
+    // Toggle Printing Mode Class
+    document.body.classList.add('printing-poster');
     container.classList.remove('hidden');
 
     if (typeof html2pdf !== 'undefined') {
@@ -196,13 +196,21 @@ export async function printPoster() {
         };
         
         html2pdf().set(opt).from(container).save()
-            .then(() => container.classList.add('hidden'))
-            .catch((err) => { console.error(err); container.classList.add('hidden'); });
+            .then(() => {
+                container.classList.add('hidden');
+                document.body.classList.remove('printing-poster');
+            })
+            .catch((err) => { 
+                console.error(err); 
+                container.classList.add('hidden');
+                document.body.classList.remove('printing-poster');
+            });
     } else { 
-        window.print(); 
-        // Note: For window.print(), the CSS @media print handles visibility.
-        // We might want to re-hide it if window.print cancels, but window.print is blocking in many browsers.
-        // A simple timeout or reload might be needed if it stays visible, 
-        // but typically leaving it visible for a moment is fine.
+        window.print();
+        // Fallback cleanup
+        setTimeout(() => {
+            container.classList.add('hidden');
+            document.body.classList.remove('printing-poster');
+        }, 2000);
     }
 }
