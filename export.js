@@ -154,6 +154,7 @@ export async function printPoster() {
     const d = state.projectData;
     const container = document.getElementById('print-container');
     
+    // Generate Assets
     let chartImgHtml = '<p class="text-slate-400 italic">No chart data available</p>';
     const chartRes = await getVisualAsset('chart');
     if (chartRes.success) chartImgHtml = `<img src="${chartRes.img}" class="img-fluid" alt="Run Chart">`;
@@ -182,7 +183,26 @@ export async function printPoster() {
         </div>
     `;
 
+    // FIX: Remove 'hidden' so html2canvas can capture the element
+    container.classList.remove('hidden');
+
     if (typeof html2pdf !== 'undefined') {
-        html2pdf().set({ margin: 0.25, filename: `${d.meta.title}_Poster.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'in', format: 'a1', orientation: 'landscape' } }).from(container).save();
-    } else { window.print(); }
+        const opt = {
+            margin: 0.25, 
+            filename: `${d.meta.title}_Poster.pdf`, 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2, useCORS: true }, 
+            jsPDF: { unit: 'in', format: 'a1', orientation: 'landscape' } 
+        };
+        
+        html2pdf().set(opt).from(container).save()
+            .then(() => container.classList.add('hidden'))
+            .catch((err) => { console.error(err); container.classList.add('hidden'); });
+    } else { 
+        window.print(); 
+        // Note: For window.print(), the CSS @media print handles visibility.
+        // We might want to re-hide it if window.print cancels, but window.print is blocking in many browsers.
+        // A simple timeout or reload might be needed if it stays visible, 
+        // but typically leaving it visible for a moment is fine.
+    }
 }
