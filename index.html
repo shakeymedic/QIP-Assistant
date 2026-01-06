@@ -216,7 +216,7 @@
                                 </button>
                                 <button onclick="window.printPoster()" class="w-full flex items-center gap-3 p-3 rounded border border-slate-200 hover:bg-slate-50 text-left transition-all group">
                                     <div class="bg-purple-100 p-2 rounded text-purple-700 group-hover:bg-purple-200"><i data-lucide="file-down" class="w-4 h-4"></i></div>
-                                    <div class="text-sm font-medium">Download PDF Poster</div>
+                                    <div class="text-sm font-medium">Preview & Print Poster</div>
                                 </button>
                                 <button onclick="window.shareProject()" class="w-full flex items-center gap-3 p-3 rounded border border-slate-200 hover:bg-slate-50 text-left transition-all group">
                                     <div class="bg-blue-100 p-2 rounded text-blue-700 group-hover:bg-blue-200"><i data-lucide="share-2" class="w-4 h-4"></i></div>
@@ -286,6 +286,23 @@
     <div id="member-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800">Add Team Member</h3><button onclick="document.getElementById('member-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x" class="w-5 h-5"></i></button></div><div class="space-y-4"><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Name</label><input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="e.g. Dr. Jane Smith"></div><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Role</label><input type="text" id="member-role" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="e.g. Sponsor / Data Collector"></div><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Initials (For Charts)</label><input type="text" id="member-init" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none uppercase" placeholder="e.g. JS" maxlength="3"></div><button onclick="window.saveMember()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all mt-2">Add Member</button></div></div></div>
 
     <div id="task-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800">Add Project Task</h3><button onclick="document.getElementById('task-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x" class="w-5 h-5"></i></button></div><div class="space-y-4"><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Task Name</label><input type="text" id="task-name" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="e.g. Collect baseline data"></div><div class="grid grid-cols-2 gap-4"><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Start Date</label><input type="date" id="task-start" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none"></div><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">End Date</label><input type="date" id="task-end" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none"></div></div><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Phase</label><select id="task-type" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="plan">Planning</option><option value="study">Study / Data Collection</option><option value="act">Action / Intervention</option></select></div><div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Assign To (Optional)</label><select id="task-owner" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="">-- Unassigned --</option></select></div><button onclick="window.saveGanttTask()" class="w-full bg-slate-800 text-white py-2 rounded font-bold hover:bg-slate-900 shadow transition-all mt-2">Add Task</button></div></div></div>
+
+    <div id="poster-modal" class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl modal-animate">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="layout-template" class="text-purple-600"></i>
+                    <h3 class="font-bold text-lg text-slate-800">Poster Preview</h3>
+                </div>
+                <div class="flex gap-2">
+                     <button onclick="window.printPosterOnly()" class="bg-rcem-purple text-white px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2 hover:bg-indigo-900"><i data-lucide="printer" class="w-4 h-4"></i> Print Poster</button>
+                     <button onclick="document.getElementById('poster-modal').classList.add('hidden')" class="hover:bg-slate-200 p-1 rounded"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-100 flex justify-center" id="poster-preview-area">
+            </div>
+        </div>
+    </div>
 
     <div id="print-container" class="hidden"></div>
 
