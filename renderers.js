@@ -11,6 +11,8 @@ export function renderAll(currentView) {
     if(currentView === 'pdsa') renderPDSA();
     if(currentView === 'gantt') renderGantt();
     if(currentView === 'team') renderTeam();
+    // FIX: Added the missing handler for the Full Project View
+    if(currentView === 'full') renderFullProject();
 }
 
 export function renderCoach() {
