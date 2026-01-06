@@ -1,4 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v4.0-team-leadership';
+// sw.js
+// BUMPED VERSION TO v4.1 TO FORCE UPDATE
+const CACHE_NAME = 'rcem-qip-v4.1-fixes';
 const ASSETS = [
   './',
   './index.html',
