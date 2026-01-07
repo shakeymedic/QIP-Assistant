@@ -2,7 +2,6 @@ import { state } from "./state.js";
 import { escapeHtml, showToast } from "./utils.js";
 import { renderChart, deleteDataPoint, downloadCSVTemplate } from "./charts.js";
 
-// === MAIN ROUTER ===
 export function renderAll(view) {
     updateNavigationUI(view);
     if (view === 'dashboard') renderDashboard();
@@ -24,88 +23,47 @@ function updateNavigationUI(currentView) {
     navItems.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);
         if(!btn) return;
-        
         let status = '';
         const d = state.projectData;
-        
         if(id === 'checklist' && d.checklist.aim && d.checklist.problem_desc) status = '✓';
         else if(id === 'data' && d.chartData.length >= 6) status = '✓';
         else if(id === 'pdsa' && d.pdsa.length > 0) status = '✓';
         else if(id === 'team' && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist.ethics) status = '✓';
-        
         const hasBadge = btn.querySelector('.status-badge');
-        if(status && !hasBadge) {
-             btn.innerHTML += ` <span class="status-badge ml-auto text-emerald-400 font-bold text-[10px]">${status}</span>`;
-        }
+        if(status && !hasBadge) btn.innerHTML += ` <span class="status-badge ml-auto text-emerald-400 font-bold text-[10px]">${status}</span>`;
     });
 }
 
-// === DASHBOARD ===
 function renderDashboard() {
     const d = state.projectData;
-    
-    // Stats Calculations
     const values = d.chartData.map(x => Number(x.value)).filter(n => !isNaN(n));
-    const avg = values.length ? Math.round(values.reduce((a,b) => a+b, 0) / values.length) : 0;
+    const avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : 0;
     const min = values.length ? Math.min(...values) : 0;
     const max = values.length ? Math.max(...values) : 0;
-    
-    // Completion Calc
-    const calcProgress = (current, target) => Math.min(100, Math.round((current / target) * 100));
+    const calcProgress = (c, t) => Math.min(100, Math.round((c / t) * 100));
     const totalProg = Math.round((calcProgress(d.chartData.length, 12) + calcProgress(d.pdsa.length, 3) + calcProgress(d.drivers.primary.length, 3)) / 3);
 
-    document.getElementById('stat-progress').innerHTML = `
-        <div class="flex justify-between items-end mb-1">
-            <span class="text-3xl font-bold text-slate-800">${totalProg}%</span>
-        </div>
-        <div class="progress-track"><div class="progress-fill bg-emerald-500" style="width: ${totalProg}%"></div></div>
-        <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Project Completion</div>
-    `;
-    
-    // QI COACH BANNER
-    const coachEl = document.getElementById('qi-coach-banner');
-    let coachMsg = { title: "Measuring Phase", msg: "Start by establishing a baseline. Collect at least 6 data points.", icon: "bar-chart-2", color: "text-rcem-purple", border: "border-rcem-purple", action: "data", btn: "Enter Data" };
-    
-    if (d.chartData.length >= 6 && d.pdsa.length === 0) coachMsg = { title: "Time for Action", msg: "Baseline established. Plan your first PDSA cycle.", icon: "play-circle", color: "text-emerald-600", border: "border-emerald-500", action: "pdsa", btn: "Plan Cycle" };
-    else if (d.pdsa.length > 0) coachMsg = { title: "Project Active", msg: "Keep tracking data to detect improvement shifts.", icon: "activity", color: "text-blue-500", border: "border-blue-500", action: "data", btn: "Add Point" };
-    
-    coachEl.innerHTML = `
-        <div class="bg-white border-l-4 ${coachMsg.border} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden">
-            <div class="bg-slate-50 p-4 rounded-full shadow-inner ${coachMsg.color}"><i data-lucide="${coachMsg.icon}" class="w-8 h-8"></i></div>
-            <div class="flex-1">
-                <h4 class="font-bold text-slate-800 text-lg">QI COACH: ${coachMsg.title}</h4>
-                <p class="text-slate-600 mt-1">${coachMsg.msg}</p>
-            </div>
-            <button onclick="window.router('${coachMsg.action}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg">${coachMsg.btn}</button>
-        </div>
-    `;
+    document.getElementById('stat-progress').innerHTML = `<div class="flex justify-between items-end mb-1"><span class="text-3xl font-bold text-slate-800">${totalProg}%</span></div><div class="progress-track"><div class="progress-fill bg-emerald-500" style="width: ${totalProg}%"></div></div><div class="text-[10px] text-slate-400 mt-1 uppercase font-bold">Progress</div>`;
 
-    // DATA INSIGHTS WIDGET
     const statsContainer = document.getElementById('stat-pdsa').parentElement.parentElement;
-    statsContainer.innerHTML = `
-        <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
-            <div class="flex items-center gap-4"><div class="p-3 bg-white/10 rounded-lg"><i data-lucide="clock" class="w-6 h-6 text-amber-400"></i></div><div><div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div><div class="text-2xl font-bold font-mono">${avg}s</div></div></div>
-            <div class="h-10 w-px bg-white/10 hidden sm:block"></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Fastest</div><div class="text-xl font-bold text-emerald-400 font-mono">${min}s</div></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Slowest</div><div class="text-xl font-bold text-red-400 font-mono">${max}s</div></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Points</div><div class="text-xl font-bold">${values.length}</div></div>
-        </div>
-    `;
-
-    // Aim Check
+    statsContainer.innerHTML = `<div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between"><div class="flex items-center gap-4"><div class="p-3 bg-white/10 rounded-lg"><i data-lucide="clock" class="w-6 h-6 text-amber-400"></i></div><div><div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div><div class="text-2xl font-bold font-mono">${avg}s</div></div></div><div class="h-10 w-px bg-white/10 hidden sm:block"></div><div><div class="text-xs text-slate-400 font-bold uppercase">Fastest</div><div class="text-xl font-bold text-emerald-400 font-mono">${min}s</div></div><div><div class="text-xs text-slate-400 font-bold uppercase">Slowest</div><div class="text-xl font-bold text-red-400 font-mono">${max}s</div></div><div><div class="text-xs text-slate-400 font-bold uppercase">Points</div><div class="text-xl font-bold">${values.length}</div></div></div>`;
+    
+    const coachEl = document.getElementById('qi-coach-banner');
+    let msg = { t: "Measuring Phase", m: "Collect at least 6 data points to establish a baseline.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
+    if (d.chartData.length >= 6 && d.pdsa.length === 0) msg = { t: "Time for Action", m: "Baseline set. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
+    else if (d.pdsa.length > 0) msg = { t: "Project Active", m: "Monitor your data for shifts (6 points above/below median).", i: "activity", c: "blue-500", b: "Add Point", a: "data" };
+    coachEl.innerHTML = `<div class="bg-white border-l-4 border-${msg.c} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-center"><div class="bg-slate-50 p-4 rounded-full text-${msg.c}"><i data-lucide="${msg.i}" class="w-8 h-8"></i></div><div class="flex-1"><h4 class="font-bold text-slate-800 text-lg">QI COACH: ${msg.t}</h4><p class="text-slate-600 mt-1">${msg.m}</p></div><button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-4 py-2 rounded shadow-lg font-bold text-sm hover:bg-slate-900">${msg.b}</button></div>`;
+    
     const aimEl = document.getElementById('dash-aim-display');
-    aimEl.innerHTML = d.checklist.aim ? d.checklist.aim : `No aim defined yet.`;
+    aimEl.innerText = d.checklist.aim || "No aim defined yet.";
     aimEl.className = d.checklist.aim ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
 }
 
-// === FISHBONE (Moveable Labels) ===
 function renderTools() {
     const mode = window.toolMode || 'fishbone'; 
     const canvas = document.getElementById('diagram-canvas');
     canvas.innerHTML = ''; 
-
-    // Header logic
     const header = document.querySelector('#view-tools header');
     if(!document.getElementById('tool-nav-ui')) {
         header.innerHTML = `<div id="tool-nav-ui" class="flex gap-2 bg-slate-100 p-1 rounded-lg"><button onclick="window.setToolMode('fishbone')" class="px-3 py-1 rounded text-sm font-bold ${mode==='fishbone'?'bg-white shadow text-rcem-purple':''}">Fishbone</button><button onclick="window.setToolMode('driver')" class="px-3 py-1 rounded text-sm font-bold ${mode==='driver'?'bg-white shadow text-rcem-purple':''}">Driver</button></div><button onclick="window.toggleToolList()" class="ml-auto text-xs font-bold text-slate-500 flex gap-2 items-center bg-slate-100 px-3 py-1 rounded"><i data-lucide="list"></i> List View</button>`;
@@ -121,22 +79,17 @@ function renderTools() {
         svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
         svg.innerHTML = `<line x1="5%" y1="50%" x2="95%" y2="50%" stroke="#2d2e83" stroke-width="4"/><path d="M 95% 50% L 92% 48% L 92% 52% Z" fill="#2d2e83"/><line x1="20%" y1="20%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="20%" y1="80%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="70%" y1="20%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="70%" y1="80%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>`;
         canvas.appendChild(svg);
-
         const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
             const el = document.createElement('div');
             el.className = `fishbone-label ${isCat ? 'category' : ''}`;
-            el.innerText = text;
-            el.style.left = `${x}%`; el.style.top = `${y}%`;
-            
+            el.innerText = text; el.style.left = `${x}%`; el.style.top = `${y}%`;
             el.onmousedown = (e) => {
                 e.preventDefault();
                 const startX = e.clientX; const startY = e.clientY;
                 const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
                 const parentW = canvas.offsetWidth; const parentH = canvas.offsetHeight;
-
                 const onMove = (ev) => {
-                    const dx = (ev.clientX - startX) / parentW * 100;
-                    const dy = (ev.clientY - startY) / parentH * 100;
+                    const dx = (ev.clientX - startX) / parentW * 100; const dy = (ev.clientY - startY) / parentH * 100;
                     el.style.left = `${startLeft + dx}%`; el.style.top = `${startTop + dy}%`;
                 };
                 const onUp = () => {
@@ -150,7 +103,6 @@ function renderTools() {
             };
             canvas.appendChild(el);
         };
-
         state.projectData.fishbone.categories.forEach((cat, i) => {
             createLabel(cat.text, cat.x || (i%2?20:70), cat.y || (i<2?20:80), true, i);
             cat.causes.forEach((cause, j) => {
@@ -159,7 +111,15 @@ function renderTools() {
             });
         });
     } else {
-        canvas.innerHTML = `<div class="text-center mt-20 text-slate-400">Driver Diagram Visual (Use List View for Editing)</div>`;
+        // MERMAID DRIVER DIAGRAM
+        const d = state.projectData.drivers;
+        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+        let mCode = `graph LR\n  AIM[AIM] --> P[Primary]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+        canvas.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center">${mCode}</div>`;
+        try { mermaid.run(); } catch(e) { console.error(e); }
     }
 }
 
@@ -167,14 +127,11 @@ function renderDriverList(container) {
     container.innerHTML = `<div class="p-8 bg-white h-full overflow-y-auto"><h3 class="font-bold text-slate-800 mb-4">Edit Diagram Data</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-8">${state.projectData.fishbone.categories.map((cat, i) => `<div class="bg-slate-50 p-4 rounded border border-slate-200"><input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)"><div class="space-y-2 pl-4 border-l-2 border-slate-200">${cat.causes.map((c, j) => `<div class="flex gap-2"><input class="text-sm w-full p-1 border rounded" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)"><button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold">+ Add Cause</button></div></div>`).join('')}</div></div>`;
 }
 
-// === PDSA TIMELINE ===
 function renderPDSA() {
     const container = document.getElementById('pdsa-container');
     const isTimeline = container.getAttribute('data-view') === 'timeline';
     const d = state.projectData;
-
     let html = `<div class="flex justify-between items-center mb-6"><h3 class="font-bold text-slate-800">PDSA Cycles</h3><div class="flex bg-slate-100 p-1 rounded-lg"><button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'grid'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${!isTimeline?'bg-white shadow':''}">Grid</button><button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'timeline'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${isTimeline?'bg-white shadow':''}">Timeline</button></div></div>`;
-
     if (isTimeline) {
         html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto"><div class="min-w-[600px]">`;
         [...d.pdsa].sort((a,b) => new Date(a.start) - new Date(b.start)).forEach(p => {
@@ -238,7 +195,13 @@ function renderStakeholders() {
     if(isList) {
         document.getElementById('stakeholder-canvas').innerHTML = `<div class="p-8"><table class="w-full text-left"><thead><tr><th>Name</th><th>Power</th><th>Interest</th></tr></thead><tbody>${state.projectData.stakeholders.map((s,i)=>`<tr><td><input value="${s.name}" onchange="window.updateStake(${i},'name',this.value)"></td><td><input type="number" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td><td><input type="number" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td></tr>`).join('')}</tbody></table></div>`;
     } else {
-        // Original drag logic here (omitted for brevity but implied)
+        document.getElementById('stakeholder-canvas').innerHTML = ''; // Clear for drag
+        state.projectData.stakeholders.forEach((s, i) => {
+            const el = document.createElement('div');
+            el.className = 'absolute w-8 h-8 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20';
+            el.style.left = `${s.x}%`; el.style.top = `${s.y}%`; el.innerText = s.name.substring(0,2).toUpperCase();
+            document.getElementById('stakeholder-canvas').appendChild(el);
+        });
     }
 }
 
