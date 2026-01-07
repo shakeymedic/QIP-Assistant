@@ -6,9 +6,11 @@ let fullViewChartInstance = null;
 export let toolMode = 'fishbone';
 let zoomLevel = 1.0;
 
+// === VIEW CONTROLS ===
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
+    // Update active tab UI in renderers.js via DOM manipulation or re-render
     const buttons = document.querySelectorAll('#tool-nav-ui button');
     buttons.forEach(b => {
         if(b.textContent.toLowerCase().includes(m)) b.className = "px-3 py-1 rounded text-sm font-bold bg-white shadow text-rcem-purple";
@@ -17,20 +19,31 @@ export function setToolMode(m) {
     renderTools();
 }
 
-export function zoomIn() { zoomLevel += 0.1; applyZoom(); }
-export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); }
-export function resetZoom() { zoomLevel = 1.0; applyZoom(); }
+export function zoomIn() { 
+    zoomLevel += 0.1; 
+    applyZoom(); 
+}
+export function zoomOut() { 
+    zoomLevel = Math.max(0.5, zoomLevel - 0.1); 
+    applyZoom(); 
+}
+export function resetZoom() { 
+    zoomLevel = 1.0; 
+    applyZoom(); 
+}
 
 function applyZoom() {
     const el = document.getElementById('diagram-canvas');
     if(el) el.style.transform = `scale(${zoomLevel})`;
 }
 
+// === MAIN TOOL RENDERER ===
 export async function renderTools() {
     if(!state.projectData) return;
     const canvas = document.getElementById('diagram-canvas');
     const ghost = document.getElementById('diagram-ghost');
     
+    // Check if we are in "List View" (handled by renderers.js)
     if(document.getElementById('view-tools').getAttribute('data-view') === 'list') return;
 
     canvas.innerHTML = ''; 
@@ -52,7 +65,9 @@ export async function renderTools() {
     }
 }
 
+// === 1. FISHBONE (DRAGGABLE) ===
 function renderFishboneVisual(container) {
+    // SVG Spine
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
     svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
@@ -66,6 +81,7 @@ function renderFishboneVisual(container) {
     `;
     container.appendChild(svg);
 
+    // Draggable Labels
     const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
         const el = document.createElement('div');
         el.className = `fishbone-label ${isCat ? 'category' : ''}`;
@@ -87,13 +103,23 @@ function renderFishboneVisual(container) {
                 const onUp = () => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
                     const newX = parseFloat(el.style.left); const newY = parseFloat(el.style.top);
-                    if (isCat) { state.projectData.fishbone.categories[catIdx].x = newX; state.projectData.fishbone.categories[catIdx].y = newY; } 
-                    else { state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; }
+                    if (isCat) { 
+                        state.projectData.fishbone.categories[catIdx].x = newX; 
+                        state.projectData.fishbone.categories[catIdx].y = newY; 
+                    } else { 
+                        state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; 
+                        state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; 
+                    }
                     window.saveData(true);
                 };
                 document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
             };
-            el.ondblclick = (e) => { e.stopPropagation(); if(isCat) window.addCauseWithWhys(catIdx); };
+            
+            // Double click to Add Cause (if category)
+            el.ondblclick = (e) => {
+                e.stopPropagation();
+                if(isCat) window.addCauseWithWhys(catIdx);
+            };
         }
         container.appendChild(el);
     };
@@ -107,6 +133,7 @@ function renderFishboneVisual(container) {
     });
 }
 
+// === 2. DRIVER DIAGRAM (MERMAID) ===
 function renderDriverVisual(container) {
     const d = state.projectData.drivers;
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
@@ -114,22 +141,28 @@ function renderDriverVisual(container) {
     d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
     d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
     d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+    
     container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
     try { mermaid.run(); } catch(e) { console.error("Mermaid error", e); }
 }
 
+// === 3. PROCESS MAP (MERMAID) ===
 function renderProcessVisual(container) {
     const p = state.projectData.process || ["Start", "End"];
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
     let mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
+    
     container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
     try { mermaid.run(); } catch(e) { console.error(e); }
 }
 
+// === LOGIC HELPERS ===
 export function addCauseWithWhys(catIdx) {
     if(state.isReadOnly) return;
     let cause = prompt("What is the cause?");
     if (!cause) return;
+    
+    // 5 Whys Logic
     if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
         let root = cause;
         for (let i = 1; i <= 5; i++) {
@@ -139,6 +172,8 @@ export function addCauseWithWhys(catIdx) {
         }
         if (root !== cause && confirm(`Root cause found: "${root}". Add this instead of "${cause}"?`)) cause = root;
     }
+    
+    // Add with default coords near category
     const cat = state.projectData.fishbone.categories[catIdx];
     cat.causes.push({ text: cause, x: cat.x + 5, y: cat.y + 5 });
     window.saveData();
@@ -156,6 +191,7 @@ export function addStep() {
     const v = prompt("Step Description:");
     if(v) { 
         if(!state.projectData.process) state.projectData.process = ["Start", "End"];
+        // Insert before End
         state.projectData.process.splice(state.projectData.process.length-1, 0, v);
         window.saveData(); renderTools(); 
     }
@@ -165,6 +201,7 @@ export function resetProcess() {
     if(confirm("Reset process map?")) { state.projectData.process = ["Start", "End"]; window.saveData(); renderTools(); }
 }
 
+// === CHARTING ENGINE ===
 export function renderChart() {
     const ctx = document.getElementById('mainChart');
     if(!ctx) return;
@@ -180,13 +217,16 @@ export function renderChart() {
     const labels = d.map(x => x.date);
     const data = d.map(x => x.value);
     
+    // Baseline logic (first 12 points)
     let baseline = data.slice(0, 12);
     let mean = baseline.length ? baseline.reduce((a,b)=>a+b,0)/baseline.length : 0;
 
+    // Annotations for PDSA
     const annotations = {
         meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'end' } }
     };
     
+    // Add PDSA lines
     const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
     pdsaDates.forEach((p, i) => {
         annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
@@ -246,6 +286,7 @@ export function renderFullViewChart() {
     });
 }
 
+// === DATA HELPERS ===
 export function addDataPoint() {
     const d = document.getElementById('chart-date').value;
     const v = document.getElementById('chart-value').value;
