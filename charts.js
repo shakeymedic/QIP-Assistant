@@ -138,16 +138,28 @@ function renderDriverVisual(container) {
     d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
     d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
     d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-    container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
-    try { mermaid.run(); } catch(e) { console.error("Mermaid error", e); }
+    
+    // Create dedicated wrapper for mermaid to bind to
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
+    wrapper.textContent = mCode;
+    container.appendChild(wrapper);
+    
+    // Scoped execution to prevent errors on other elements
+    try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error("Mermaid error", e); }
 }
 
 function renderProcessVisual(container) {
     const p = state.projectData.process || ["Start", "End"];
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
     let mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
-    container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
-    try { mermaid.run(); } catch(e) { console.error(e); }
+    
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
+    wrapper.textContent = mCode;
+    container.appendChild(wrapper);
+
+    try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error(e); }
 }
 
 function renderDriverList(container) {
