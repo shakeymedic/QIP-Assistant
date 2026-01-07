@@ -4,11 +4,13 @@ import { escapeHtml } from './utils.js';
 async function getVisualAsset(type) {
     if (!state.projectData) return { success: false, error: "No project data." };
 
+    // Create hidden container if needed
     let container = document.getElementById('asset-staging-area');
     if (!container) {
         container = document.createElement('div');
         container.id = 'asset-staging-area';
-        container.style.cssText = `position: fixed; top: 0; left: -9999px; width: 1600px; height: 1200px; z-index: -9999; visibility: visible; background-color: white; opacity: 1;`;
+        // Place it off-screen but make it "visible" to the browser so rendering works
+        container.style.cssText = `position: fixed; top: 0; left: -9999px; width: 1600px; height: 1200px; z-index: -9999; visibility: visible; background-color: white; opacity: 0;`;
         document.body.appendChild(container);
     }
     container.innerHTML = '';
@@ -16,9 +18,10 @@ async function getVisualAsset(type) {
     try {
         if (type === 'chart') {
             if (typeof Chart === 'undefined') throw new Error("Chart.js library missing.");
+            
             const canvas = document.createElement('canvas');
-            canvas.width = 1600; canvas.height = 900;
-            canvas.style.width = '1600px'; canvas.style.height = '900px';
+            canvas.width = 1600; 
+            canvas.height = 900;
             container.appendChild(canvas);
 
             const data = [...state.projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -26,6 +29,8 @@ async function getVisualAsset(type) {
 
             const values = data.map(d => Number(d.value));
             const labels = data.map(d => d.date);
+            
+            // Baseline calc
             let baselinePoints = values.slice(0, 12);
             let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
             let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
@@ -43,17 +48,30 @@ async function getVisualAsset(type) {
             const chart = new Chart(ctx, {
                 type: 'line',
                 data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 8, tension: 0.1, borderWidth: 3 }] },
-                options: { animation: false, responsive: false, maintainAspectRatio: false, plugins: { annotation: { annotations }, legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { display: true } } }
+                options: { 
+                    animation: false, 
+                    responsive: false, 
+                    maintainAspectRatio: false, 
+                    plugins: { 
+                        annotation: { annotations }, 
+                        legend: { display: false },
+                        title: { display: true, text: 'Run Chart', font: { size: 24 } }
+                    }, 
+                    scales: { y: { beginAtZero: true }, x: { display: true } } 
+                }
             });
-            chart.update('none');
-            await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(resolve, 200))));
+            
+            // Wait for render
+            await new Promise(resolve => setTimeout(resolve, 500));
             return { success: true, img: canvas.toDataURL('image/png') };
         }
 
         if (type === 'driver' || type === 'fishbone') {
             if (typeof mermaid === 'undefined') throw new Error("Mermaid library missing.");
+            
             const clean = (t) => t ? String(t).replace(/["()[\]{}#]/g, '').replace(/\n/g, ' ').trim() : '...';
             let mCode = "";
+            
             if (type === 'driver') {
                 const d = state.projectData.drivers;
                 if(!d.primary.length && !d.secondary.length && !d.changes.length) throw new Error("No drivers defined.");
@@ -67,34 +85,67 @@ async function getVisualAsset(type) {
                 mCode = `mindmap\n  root(("${clean(state.projectData.meta.title || 'Problem')}"))\n` + cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
             }
 
-            const renderId = `mermaid-${type}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-            const { svg } = await mermaid.render(renderId, mCode);
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = svg;
-            const svgEl = wrapper.querySelector('svg');
+            // Create temporary container for mermaid
+            const mermaidId = `mermaid-export-${Date.now()}`;
+            // We use a PRE element for mermaid to latch onto
+            const preEl = document.createElement('pre');
+            preEl.className = "mermaid";
+            preEl.id = mermaidId;
+            preEl.textContent = mCode;
+            container.appendChild(preEl);
+
+            // Run Mermaid (v10+ API)
+            await mermaid.run({ nodes: [preEl] });
             
-            let w = parseFloat(svgEl.getAttribute('width')) || 800;
-            let h = parseFloat(svgEl.getAttribute('height')) || 600;
-            const scale = 2; 
-            svgEl.setAttribute('width', w * scale); svgEl.setAttribute('height', h * scale);
-            svgEl.setAttribute('viewBox', `0 0 ${w} ${h}`);
+            // Extract the generated SVG
+            const svgEl = container.querySelector('svg');
+            if(!svgEl) throw new Error("Mermaid failed to generate SVG");
+
+            // Prepare SVG for Canvas conversion
+            // We must serialize it with specific dimensions to avoid cropping
+            const bbox = svgEl.getBoundingClientRect();
+            let width = bbox.width;
+            let height = bbox.height;
+            
+            // Force attributes
+            svgEl.setAttribute("width", width);
+            svgEl.setAttribute("height", height);
             
             const svgString = new XMLSerializer().serializeToString(svgEl);
             const canvas = document.createElement('canvas');
-            canvas.width = w * scale; canvas.height = h * scale;
+            
+            // high-res scale
+            const scale = 2; 
+            canvas.width = width * scale;
+            canvas.height = height * scale;
+            
             const ctx = canvas.getContext('2d');
-            ctx.fillStyle = 'white'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
             const img = new Image();
-            const dataUrl = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgString)))}`;
+            const svgBlob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+            const url = URL.createObjectURL(svgBlob);
 
-            return new Promise((resolve) => {
-                img.onload = () => { ctx.drawImage(img, 0, 0, canvas.width, canvas.height); resolve({ success: true, img: canvas.toDataURL('image/png') }); };
-                img.src = dataUrl;
+            return new Promise((resolve, reject) => {
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, width * scale, height * scale);
+                    URL.revokeObjectURL(url);
+                    resolve({ success: true, img: canvas.toDataURL("image/png") });
+                };
+                img.onerror = (e) => reject(e);
+                img.src = url;
             });
         }
-    } catch (e) { return { success: false, error: e.message }; } finally {
-        const stagingArea = document.getElementById('asset-staging-area');
-        if (stagingArea) stagingArea.innerHTML = '';
+    } catch (e) { 
+        console.error("Export Error:", e);
+        return { success: false, error: e.message }; 
+    } finally {
+        // Cleanup staging area
+        // const stagingArea = document.getElementById('asset-staging-area');
+        // if (stagingArea) stagingArea.innerHTML = '';
+        // NOTE: Commented out cleanup for debug if needed, but normally should clean up
+        document.getElementById('asset-staging-area').innerHTML = '';
     }
     return { success: false, error: "Unknown type" };
 }
@@ -111,8 +162,8 @@ export async function exportPPTX() {
         const pres = new PptxGenJS();
         pres.layout = 'LAYOUT_16x9'; pres.author = 'RCEM QIP Assistant'; pres.title = d.meta.title;
         
+        // Generate assets first
         const driverRes = await getVisualAsset('driver');
-        const fishboneRes = await getVisualAsset('fishbone');
         const chartRes = await getVisualAsset('chart');
 
         const RCEM_NAVY = '2d2e83'; const RCEM_ORANGE = 'f36f21'; const SLATE_500 = '64748b';
@@ -158,7 +209,7 @@ export async function printPoster() {
     // Generate Assets
     let chartImgHtml = '<p class="text-slate-400 italic">No chart data available</p>';
     const chartRes = await getVisualAsset('chart');
-    if (chartRes.success) chartImgHtml = `<img src="${chartRes.img}" class="img-fluid" alt="Run Chart">`;
+    if (chartRes.success) chartImgHtml = `<img src="${chartRes.img}" class="img-fluid" alt="Run Chart" style="max-height: 400px; width: auto; margin: 0 auto;">`;
 
     let driverImgHtml = '';
     const driverRes = await getVisualAsset('driver');
