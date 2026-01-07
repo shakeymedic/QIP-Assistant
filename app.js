@@ -4,8 +4,8 @@ import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc
 
 // Modules (Flat Structure Imports)
 import { state, emptyProject, getDemoData } from "./state.js";
-import { escapeHtml, updateOnlineStatus } from "./utils.js";
-import { renderChart, renderFullViewChart, renderTools, setToolMode, zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, deleteDataPoint, addDataPoint, importCSV, toolMode } from "./charts.js";
+import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
+import { renderChart, renderFullViewChart, renderTools, setToolMode, zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, toolMode } from "./charts.js";
 import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 
@@ -26,28 +26,64 @@ window.resetProcess = resetProcess;
 window.deleteDataPoint = deleteDataPoint;
 window.addDataPoint = addDataPoint;
 window.importCSV = importCSV;
+window.downloadCSVTemplate = downloadCSVTemplate;
+window.toggleToolList = R.toggleToolList;
+window.updateFishCat = R.updateFishCat;
+window.updateFishCause = R.updateFishCause;
+window.addFishCause = R.addFishCause;
+window.removeFishCause = R.removeFishCause;
+
 // Renderer Helpers
 window.openMemberModal = R.openMemberModal;
 window.saveMember = R.saveMember;
 window.deleteMember = R.deleteMember;
 window.addLeadershipLog = R.addLeadershipLog;
 window.deleteLeadershipLog = R.deleteLeadershipLog;
-window.saveSmartAim = R.saveSmartAim;
+window.saveSmartAim = R.saveSmartAim; // Kept if needed, but R.renderChecklist uses inline now
+window.saveChecklist = (key, val) => { state.projectData.checklist[key] = val; window.saveData(); };
 window.addStakeholder = R.addStakeholder;
-window.openGanttModal = R.openGanttModal;
-window.saveGanttTask = R.saveGanttTask;
-window.deleteGantt = R.deleteGantt;
+window.updateStake = R.updateStake;
+window.removeStake = R.removeStake;
+window.openGanttModal = () => document.getElementById('task-modal').classList.remove('hidden');
+window.saveGanttTask = () => {
+    const id = Date.now().toString();
+    const name = document.getElementById('task-name').value;
+    const start = document.getElementById('task-start').value;
+    const end = document.getElementById('task-end').value;
+    const type = document.getElementById('task-type').value;
+    const owner = document.getElementById('task-owner').value;
+    const milestone = document.getElementById('task-milestone').checked;
+    const dependency = document.getElementById('task-dep').value;
+    
+    if(!name) { showToast("Task name required", "error"); return; }
+    
+    state.projectData.gantt.push({ id, name, start, end, type, owner, milestone, dependency });
+    window.saveData();
+    document.getElementById('task-modal').classList.add('hidden');
+    R.renderGantt();
+    showToast("Task added", "success");
+};
+window.deleteGantt = (id) => {
+    state.projectData.gantt = state.projectData.gantt.filter(t => t.id !== id);
+    window.saveData();
+    R.renderGantt();
+    showToast("Task deleted", "info");
+};
 window.addPDSA = R.addPDSA;
+window.updatePDSA = R.updatePDSA;
 window.deletePDSA = R.deletePDSA;
-window.saveResults = R.saveResults;
-window.showHelp = R.showHelp;
-window.openHelp = R.openHelp;
+window.saveResults = (val) => { state.projectData.checklist.results_text = val; window.saveData(); };
+window.showHelp = R.showHelp; // If used
+window.openHelp = R.openHelp; // If used
 window.calcGreen = R.calcGreen;
 window.calcMoney = R.calcMoney;
 window.calcTime = R.calcTime;
 window.calcEdu = R.calcEdu;
 window.startTour = R.startTour;
 window.openPortfolioExport = R.openPortfolioExport;
+window.switchPublishMode = R.renderPublish;
+window.copyReport = R.copyReport;
+window.renderChecklist = R.renderChecklist; // For validation callback
 
 // --- MAIN APP LOGIC ---
 
@@ -55,15 +91,15 @@ window.saveData = async function(skipHistory = false) {
     if (state.isReadOnly) return;
     if (state.isDemoMode) { 
         if(!skipHistory) pushHistory();
-        renderAll(); 
+        R.renderAll(currentView); 
         return; 
     }
     if (!state.currentProjectId) return;
     if(!skipHistory) pushHistory();
     await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
+    // Visual feedback handled by Toast generally, but can add save-status text logic here if desired
     const s = document.getElementById('save-status');
-    s.classList.remove('opacity-0');
-    setTimeout(() => s.classList.add('opacity-0'), 2000);
+    if(s) { s.classList.remove('opacity-0'); setTimeout(() => s.classList.add('opacity-0'), 2000); }
 };
 
 function pushHistory() {
@@ -79,9 +115,10 @@ window.undo = () => {
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
     state.projectData = JSON.parse(prevState);
-    renderAll();
+    R.renderAll(currentView);
     window.saveData(true); 
     updateUndoRedoButtons();
+    showToast("Undo", "info");
 };
 
 window.redo = () => {
@@ -89,9 +126,10 @@ window.redo = () => {
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
     state.projectData = JSON.parse(nextState);
-    renderAll();
+    R.renderAll(currentView);
     window.saveData(true);
     updateUndoRedoButtons();
+    showToast("Redo", "info");
 };
 
 function updateUndoRedoButtons() {
@@ -103,13 +141,12 @@ function updateUndoRedoButtons() {
 
 let currentView = 'dashboard';
 window.router = (view) => {
-    if (view !== 'projects' && !state.projectData) { alert("Please select a project first."); return; }
+    if (view !== 'projects' && !state.projectData) { showToast("Please select a project first.", "error"); return; }
     currentView = view;
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     document.getElementById(`view-${view}`).classList.remove('hidden');
     
     const sidebar = document.getElementById('app-sidebar');
-    // FIX APPLIED HERE: Check for 'inset-0' instead of 'fixed'
     if (sidebar.classList.contains('inset-0')) { 
         sidebar.classList.add('hidden'); 
         sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
@@ -119,13 +156,9 @@ window.router = (view) => {
     const btn = document.getElementById(`nav-${view}`);
     if(btn) btn.classList.add('bg-rcem-purple', 'text-white');
 
-    renderAll();
+    R.renderAll(currentView);
     lucide.createIcons();
 };
-
-function renderAll() {
-    R.renderAll(currentView);
-}
 
 // --- PROJECT MANAGEMENT & AUTH ---
 
@@ -169,14 +202,14 @@ async function checkShareLink() {
                 state.currentProjectId = sharePid;
                 document.getElementById('project-header-title').textContent = state.projectData.meta.title + " (Shared)";
                 state.historyStack = [JSON.stringify(state.projectData)];
-                renderAll();
+                R.renderAll('dashboard'); // Initial render
                 window.router('dashboard');
             } else {
-                alert("Shared project not found or permission denied.");
+                showToast("Shared project not found.", "error");
             }
         } catch (e) {
             console.error(e);
-            alert("Could not load shared project.");
+            showToast("Could not load shared project.", "error");
         }
         return true;
     }
@@ -239,19 +272,21 @@ window.createNewProject = async () => {
 };
 
 window.deleteProject = async (id) => {
-    if (confirm("Are you sure?")) { await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); loadProjectList(); }
+    if (confirm("Are you sure?")) { await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); loadProjectList(); showToast("Project deleted", "info"); }
 };
 
 window.openProject = (id) => {
     state.currentProjectId = id;
-    if (state.unsubscribeProject) state.unsubscribeProject();
+    // Unsubscribe from previous listener if exists
+    if (window.unsubscribeProject) window.unsubscribeProject();
     
-    state.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
+    window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
             if (!state.projectData) { state.historyStack = [JSON.stringify(data)]; state.redoStack = []; updateUndoRedoButtons(); }
             state.projectData = data;
-            // Ensure schema integrity
+            
+            // Safety checks for new fields
             if(!state.projectData.checklist) state.projectData.checklist = {};
             if(!state.projectData.drivers) state.projectData.drivers = {primary:[], secondary:[], changes:[]};
             if(!state.projectData.fishbone) state.projectData.fishbone = emptyProject.fishbone;
@@ -263,7 +298,8 @@ window.openProject = (id) => {
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             
             document.getElementById('project-header-title').textContent = state.projectData.meta.title;
-            if (currentView === 'full') R.renderFullProject(); else if (currentView !== 'full') renderAll();
+            // Only update view if we are already in a project view, otherwise let router handle it
+            if (currentView !== 'projects') R.renderAll(currentView);
         }
     });
     document.getElementById('top-bar').classList.remove('hidden');
@@ -274,11 +310,11 @@ window.openProject = (id) => {
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); } 
-    catch (error) { alert("Login failed: " + error.message); }
+    catch (error) { showToast("Login failed: " + error.message, "error"); }
 });
 document.getElementById('btn-register').addEventListener('click', async () => {
-    try { await createUserWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); alert("Account created!"); } 
-    catch (error) { alert("Registration failed: " + error.message); }
+    try { await createUserWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); showToast("Account created!", "success"); } 
+    catch (error) { showToast("Registration failed: " + error.message, "error"); }
 });
 document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); window.location.reload(); });
 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
@@ -321,7 +357,7 @@ window.openDemoProject = () => {
 
     document.getElementById('project-header-title').textContent = state.projectData.meta.title + " (DEMO)";
     document.getElementById('top-bar').classList.remove('hidden');
-    renderAll();
+    R.renderAll('dashboard');
     window.router('dashboard');
     
     const s = document.getElementById('save-status');
@@ -334,15 +370,24 @@ window.returnToProjects = () => {
     document.getElementById('readonly-indicator').classList.add('hidden');
     document.body.classList.remove('readonly-mode');
     
-    if (state.unsubscribeProject) state.unsubscribeProject();
+    if (window.unsubscribeProject) window.unsubscribeProject();
     loadProjectList();
 };
 
 window.shareProject = () => {
-    if(state.isDemoMode) { alert("Cannot share demo projects."); return; }
+    if(state.isDemoMode) { showToast("Cannot share demo projects.", "error"); return; }
     const url = `${window.location.origin}${window.location.pathname}?share=${state.currentProjectId}&uid=${state.currentUser.uid}`;
-    navigator.clipboard.writeText(url).then(() => alert("Read-only link copied to clipboard!"));
+    navigator.clipboard.writeText(url).then(() => showToast("Link copied to clipboard!", "success"));
 };
+
+// Keyboard Shortcuts
+document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        window.saveData(true);
+        showToast("Project Saved", "success");
+    }
+});
 
 // Initialization
 if(document.readyState === 'complete') updateOnlineStatus();
