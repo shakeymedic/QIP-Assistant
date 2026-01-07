@@ -25,9 +25,9 @@ export const emptyProject = {
         results_text: "",
         learning: "",
         sustain: "",
-        context: "",
-        ethics: "Service Evaluation (No Ethics Required)",
-        lit_review: ""
+        context: "", // New: FRCEM Context
+        ethics: "Service Evaluation (No Ethics Required)", // New: Ethics
+        lit_review: "" // New: Available Knowledge
     },
     drivers: {
         primary: [],
@@ -42,30 +42,30 @@ export const emptyProject = {
             { text: "Environment", x: 70, y: 65, causes: [] }
         ]
     },
-    chartData: [], 
-    pdsa: [], 
+    chartData: [], // { date, value, equipment, grade, note }
+    pdsa: [], // { title, desc, do, study, act, start, end }
     stakeholders: [],
-    teamMembers: [], 
+    teamMembers: [], // { name, role, initials, email, grade, responsibilities }
     leadershipLogs: [], 
-    gantt: [] 
+    gantt: [] // { id, name, start, end, type, owner, dependency, milestone }
 };
 
 export function getDemoData() {
     return {
         meta: { title: "Sepsis 6 Compliance", created: new Date().toISOString() },
         checklist: {
-            problem_desc: "Audit showed only 45% of sepsis patients received antibiotics within 1 hour.",
+            problem_desc: "Audit showed only 45% of sepsis patients received antibiotics within 1 hour. This increases mortality risk.",
             aim: "We aim to increase the delivery of IV antibiotics within 1 hour for patients with Red Flag Sepsis from 45% to 90% by August 2025.",
             measure_outcome: "% of patients receiving Abx <1hr",
             measure_process: "Stock level of Sepsis Grab Bags",
             measure_balance: "Rate of anaphylaxis (checking safety)",
             team: "Dr. A (Lead), Nurse B (Champion), Pharm C",
             results_text: "We achieved a sustained shift in compliance, reaching a median of 88% after PDSA Cycle 3.",
-            learning: "Human factors were key. Education alone didn't work; we needed 'forcing functions'.",
+            learning: "Human factors were key. Education alone didn't work; we needed 'forcing functions' like the grab bags.",
             sustain: "Sepsis nurse champion appointed to continue monthly audits.",
-            context: "A busy District General Hospital ED seeing 90,000 patients/year.",
+            context: "A busy District General Hospital ED seeing 90,000 patients/year. Mixed urban/rural catchment.",
             ethics: "Service Evaluation (No Ethics Required)",
-            lit_review: "The 'Surviving Sepsis Campaign' guidelines mandate 1-hour antibiotic delivery."
+            lit_review: "The 'Surviving Sepsis Campaign' guidelines mandate 1-hour antibiotic delivery. Previous studies (Kumar et al.) show 7.6% mortality increase for every hour delay."
         },
         drivers: {
             primary: ["Staff Knowledge", "Equipment Access", "Early Identification"],
@@ -97,6 +97,9 @@ export function getDemoData() {
             { name: "Dr. A. Jones", role: "Project Lead", initials: "AJ", grade: "Registrar", responsibilities: "Overall coordination" }
         ],
         leadershipLogs: [],
-        gantt: [] 
+        gantt: [
+            { id: "1", name: "Define Aim", start: "2024-01-01", end: "2024-01-07", type: "plan", owner: "AJ", milestone: true },
+            { id: "2", name: "Collect Baseline", start: "2024-01-08", end: "2024-01-28", type: "study", owner: "AJ", dependency: "1" }
+        ]
     };
 }
