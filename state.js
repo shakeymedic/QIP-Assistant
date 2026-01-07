@@ -34,13 +34,12 @@ export const emptyProject = {
         secondary: [],
         changes: []
     },
-    // Updated Fishbone Schema for Position Data
     fishbone: {
         categories: [
-            { text: "People", x: 20, y: 20, causes: [] },
-            { text: "Process", x: 20, y: 70, causes: [] },
-            { text: "Equipment", x: 70, y: 20, causes: [] },
-            { text: "Environment", x: 70, y: 70, causes: [] }
+            { text: "People", x: 20, y: 15, causes: [] },
+            { text: "Process", x: 20, y: 65, causes: [] },
+            { text: "Equipment", x: 70, y: 15, causes: [] },
+            { text: "Environment", x: 70, y: 65, causes: [] }
         ]
     },
     chartData: [], 
@@ -48,7 +47,7 @@ export const emptyProject = {
     stakeholders: [],
     teamMembers: [], 
     leadershipLogs: [], 
-    gantt: [] // { id, name, start, end, type, owner, dependency, milestone }
+    gantt: [] 
 };
 
 export function getDemoData() {
@@ -98,9 +97,6 @@ export function getDemoData() {
             { name: "Dr. A. Jones", role: "Project Lead", initials: "AJ", grade: "Registrar", responsibilities: "Overall coordination" }
         ],
         leadershipLogs: [],
-        gantt: [
-            { id: "1", name: "Define Aim", start: "2024-01-01", end: "2024-01-07", type: "plan", owner: "AJ", milestone: true },
-            { id: "2", name: "Collect Baseline", start: "2024-01-08", end: "2024-01-28", type: "study", owner: "AJ", dependency: "1" }
-        ]
+        gantt: [] 
     };
 }
