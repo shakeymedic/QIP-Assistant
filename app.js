@@ -93,8 +93,8 @@ window.removeFishCause = R.removeFishCause;
 
 // Checklist & Aim
 window.saveChecklist = (key, val) => { state.projectData.checklist[key] = val; window.saveData(); };
-window.saveSmartAim = R.saveSmartAim; // Uses the Modal
-window.renderChecklist = R.renderChecklist; // For real-time validation
+window.saveSmartAim = R.saveSmartAim; 
+window.renderChecklist = R.renderChecklist; 
 
 // Team & Leadership
 window.openMemberModal = R.openMemberModal;
@@ -145,7 +145,7 @@ window.updatePDSA = R.updatePDSA;
 window.deletePDSA = R.deletePDSA;
 
 // Gantt / Timeline
-window.openGanttModal = () => document.getElementById('task-modal').classList.remove('hidden');
+window.openGanttModal = R.openGanttModal; // LINKED TO RENDERERS.JS TO POPULATE HTML
 window.saveGanttTask = () => {
     const name = document.getElementById('task-name').value;
     const start = document.getElementById('task-start').value;
