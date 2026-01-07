@@ -78,6 +78,7 @@ function renderDashboard() {
     `;
 
     const statsContainer = document.getElementById('stat-pdsa').parentElement.parentElement;
+    // TIME-TO-KIT WIDGET (With fallback if no data)
     statsContainer.innerHTML = `
         <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
             <div class="flex items-center gap-4">
@@ -96,12 +97,12 @@ function renderDashboard() {
     aimEl.className = d.checklist.aim ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
 }
 
-// === DATA VIEW (With Preview) ===
+// === DATA VIEW (With Preview & Extended Fields) ===
 function renderDataView() {
     const d = state.projectData;
     const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
     
-    // Inject enhanced form only if empty (prevents re-render loop on typing)
+    // Inject enhanced form
     if (formContainer && formContainer.children.length === 0) {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
@@ -217,6 +218,7 @@ function renderTeam() {
 // === MODAL HELPERS ===
 export function openMemberModal() {
     const modal = document.getElementById('member-modal');
+    // Inject the extended form for Role/Grade/Responsibilities
     modal.querySelector('.space-y-4').innerHTML = `
         <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Name</label><input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple"></div>
         <div class="grid grid-cols-2 gap-3">
