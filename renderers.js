@@ -263,7 +263,44 @@ function renderPublish(mode = 'abstract') {
     }
 }
 
-function renderGantt() { document.getElementById('gantt-container').innerHTML = `<div class="space-y-2">${state.projectData.gantt.map(t => `<div class="flex items-center gap-4 bg-white p-3 rounded border border-slate-200 shadow-sm"><div class="flex-1"><div class="font-bold text-sm text-slate-800">${escapeHtml(t.name)}</div><div class="text-xs text-slate-500">${t.start} -> ${t.end}</div></div><button onclick="window.deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('')}</div><button onclick="window.openGanttModal()" class="mt-4 w-full py-2 border-2 border-dashed border-slate-300 rounded font-bold text-sm text-slate-500">+ Add Task</button>`; }
+// === GANTT & TASKS ===
+function renderGantt() { 
+    document.getElementById('gantt-container').innerHTML = `
+        <div class="space-y-2">${state.projectData.gantt.map(t => `
+            <div class="flex items-center gap-4 bg-white p-3 rounded border border-slate-200 shadow-sm">
+                <div class="flex-1">
+                    <div class="font-bold text-sm text-slate-800">${escapeHtml(t.name)}</div>
+                    <div class="text-xs text-slate-500">${t.start} -> ${t.end}</div>
+                </div>
+                <button onclick="window.deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>`).join('')}
+        </div>
+        <button onclick="window.openGanttModal()" class="mt-4 w-full py-2 border-2 border-dashed border-slate-300 rounded font-bold text-sm text-slate-500">+ Add Task</button>
+    `; 
+}
+
+function openGanttModal() {
+    const modal = document.getElementById('task-modal');
+    // Inject Form HTML (Missing in original)
+    modal.querySelector('.space-y-4').innerHTML = `
+        <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Task Name</label><input type="text" id="task-name" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
+        <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Start Date</label><input type="date" id="task-start" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">End Date</label><input type="date" id="task-end" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+            <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Type</label><select id="task-type" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="plan">Planning</option><option value="do">Action</option><option value="study">Analysis</option><option value="act">Change</option></select></div>
+            <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Owner</label><input type="text" id="task-owner" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="Initials"></div>
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+            <input type="checkbox" id="task-milestone" class="w-4 h-4 text-rcem-purple">
+            <label class="text-sm text-slate-700">Milestone (Important Date)</label>
+        </div>
+        <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Depends On</label><select id="task-dep" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="">None</option>${state.projectData.gantt.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}</select></div>
+        <button onclick="window.saveGanttTask()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all mt-4">Add Task</button>
+    `;
+    modal.classList.remove('hidden');
+}
 
 // === STAKEHOLDERS ===
 function renderStakeholders() { 
@@ -354,6 +391,7 @@ function renderGreen() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// === PDSA LOGIC & RENDER ===
 function renderPDSA() {
     const container = document.getElementById('pdsa-container');
     const isTimeline = container.getAttribute('data-view') === 'timeline';
@@ -369,6 +407,33 @@ function renderPDSA() {
         html += `<div class="bg-white rounded-xl shadow-sm border-l-4 border-rcem-purple p-6 mb-8"><h4 class="font-bold text-slate-800 mb-4">Start New Cycle</h4><div class="grid grid-cols-2 gap-4 mb-3"><input id="pdsa-title" class="p-2 border rounded text-sm" placeholder="Title"><div class="flex gap-2"><input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm"><input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm"></div></div><textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm mb-3" rows="2" placeholder="Plan..."></textarea><button onclick="window.addPDSA()" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-sm">Create Cycle</button></div><div class="space-y-4">${d.pdsa.map((p,i) => `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group"><button onclick="window.deletePDSA(${i})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button><h4 class="font-bold text-slate-800">${escapeHtml(p.title)}</h4><div class="grid grid-cols-4 gap-4 mt-4 text-sm"><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Plan">${escapeHtml(p.desc)}</textarea><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Do">${escapeHtml(p.do)}</textarea><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Study">${escapeHtml(p.study)}</textarea><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Act">${escapeHtml(p.act)}</textarea></div></div>`).join('')}</div>`;
     }
     container.innerHTML = html;
+}
+
+function addPDSA() {
+    const title = document.getElementById('pdsa-title').value;
+    const start = document.getElementById('pdsa-start').value;
+    const end = document.getElementById('pdsa-end').value;
+    const plan = document.getElementById('pdsa-plan').value;
+    if(!title) { showToast("Title required", "error"); return; }
+    state.projectData.pdsa.push({
+        title, start, end, desc: plan, do: "", study: "", act: ""
+    });
+    window.saveData();
+    renderPDSA();
+    showToast("PDSA Cycle started", "success");
+}
+
+function updatePDSA(i, field, value) {
+    state.projectData.pdsa[i][field] = value;
+    window.saveData();
+}
+
+function deletePDSA(i) {
+    if(confirm("Delete cycle?")) {
+        state.projectData.pdsa.splice(i, 1);
+        window.saveData();
+        renderPDSA();
+    }
 }
 
 // === EXPORT HELPERS & LOGIC FOR APP.JS ===
@@ -443,7 +508,6 @@ function calcTime() {
     const cost = (hours * 30).toFixed(2); // Avg staff cost £30/hr
     document.getElementById('res-time').innerText = `£${cost} / month`;
 }
-// Stubs for future use
 function calcMoney() {} 
 function calcEdu() {}
 
@@ -476,12 +540,13 @@ function startTour() {
 export { 
     renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, 
     renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, 
-    renderGreen, openMemberModal, toggleToolList, 
+    renderGreen, openMemberModal, openGanttModal, toggleToolList, 
     
     // Logic Exports
     updateFishCat, updateFishCause, addFishCause, removeFishCause,
     addLeadershipLog, deleteLeadershipLog,
     addStakeholder, updateStake, removeStake, toggleStakeView,
+    addPDSA, updatePDSA, deletePDSA,
     saveSmartAim, openPortfolioExport, copyReport,
     calcGreen, calcTime, calcMoney, calcEdu,
     showHelp, startTour
