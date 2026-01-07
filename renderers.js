@@ -83,11 +83,11 @@ function renderDashboard() {
         <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-white/10 rounded-lg"><i data-lucide="clock" class="w-6 h-6 text-amber-400"></i></div>
-                <div><div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div><div class="text-2xl font-bold font-mono">${avg}s</div></div>
+                <div><div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div><div class="text-2xl font-bold font-mono">${avg}</div></div>
             </div>
             <div class="h-10 w-px bg-white/10 hidden sm:block"></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Fastest</div><div class="text-xl font-bold text-emerald-400 font-mono">${min}s</div></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Slowest</div><div class="text-xl font-bold text-red-400 font-mono">${max}s</div></div>
+            <div><div class="text-xs text-slate-400 font-bold uppercase">Fastest</div><div class="text-xl font-bold text-emerald-400 font-mono">${min}</div></div>
+            <div><div class="text-xs text-slate-400 font-bold uppercase">Slowest</div><div class="text-xl font-bold text-red-400 font-mono">${max}</div></div>
             <div><div class="text-xs text-slate-400 font-bold uppercase">Points</div><div class="text-xl font-bold">${values.length}</div></div>
         </div>
     `;
@@ -281,7 +281,6 @@ function renderGantt() {
 
 function openGanttModal() {
     const modal = document.getElementById('task-modal');
-    // Inject Form HTML (Missing in original)
     modal.querySelector('.space-y-4').innerHTML = `
         <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Task Name</label><input type="text" id="task-name" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
         <div class="grid grid-cols-2 gap-3">
@@ -308,7 +307,6 @@ function renderStakeholders() {
     const isList = el.getAttribute('data-view') === 'list';
     const canvas = document.getElementById('stakeholder-canvas');
     
-    // Header controls
     let header = document.querySelector('#view-stakeholders .stakeholder-controls');
     if(!header) {
         header = document.createElement('div');
@@ -391,7 +389,6 @@ function renderGreen() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// === PDSA LOGIC & RENDER ===
 function renderPDSA() {
     const container = document.getElementById('pdsa-container');
     const isTimeline = container.getAttribute('data-view') === 'timeline';
