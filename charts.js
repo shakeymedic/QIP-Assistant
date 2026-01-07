@@ -10,7 +10,6 @@ let zoomLevel = 1.0;
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
-    // Update active tab UI in renderers.js via DOM manipulation or re-render
     const buttons = document.querySelectorAll('#tool-nav-ui button');
     buttons.forEach(b => {
         if(b.textContent.toLowerCase().includes(m)) b.className = "px-3 py-1 rounded text-sm font-bold bg-white shadow text-rcem-purple";
@@ -19,18 +18,9 @@ export function setToolMode(m) {
     renderTools();
 }
 
-export function zoomIn() { 
-    zoomLevel += 0.1; 
-    applyZoom(); 
-}
-export function zoomOut() { 
-    zoomLevel = Math.max(0.5, zoomLevel - 0.1); 
-    applyZoom(); 
-}
-export function resetZoom() { 
-    zoomLevel = 1.0; 
-    applyZoom(); 
-}
+export function zoomIn() { zoomLevel += 0.1; applyZoom(); }
+export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); }
+export function resetZoom() { zoomLevel = 1.0; applyZoom(); }
 
 function applyZoom() {
     const el = document.getElementById('diagram-canvas');
@@ -42,10 +32,15 @@ export async function renderTools() {
     if(!state.projectData) return;
     const canvas = document.getElementById('diagram-canvas');
     const ghost = document.getElementById('diagram-ghost');
-    
-    // Check if we are in "List View" (handled by renderers.js)
-    if(document.getElementById('view-tools').getAttribute('data-view') === 'list') return;
+    const viewMode = document.getElementById('view-tools').getAttribute('data-view');
 
+    // 1. LIST VIEW RENDERER (Accessibility / Quick Edit)
+    if(viewMode === 'list') {
+        renderDriverList(canvas);
+        return;
+    }
+
+    // 2. VISUAL RENDERER
     canvas.innerHTML = ''; 
     
     if (toolMode === 'fishbone') {
@@ -65,9 +60,10 @@ export async function renderTools() {
     }
 }
 
-// === 1. FISHBONE (DRAGGABLE) ===
+// === VISUALIZATION ENGINES ===
+
 function renderFishboneVisual(container) {
-    // SVG Spine
+    // Draw SVG Spine
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
     svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
@@ -81,7 +77,7 @@ function renderFishboneVisual(container) {
     `;
     container.appendChild(svg);
 
-    // Draggable Labels
+    // Helper: Create Draggable HTML Labels
     const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
         const el = document.createElement('div');
         el.className = `fishbone-label ${isCat ? 'category' : ''}`;
@@ -103,6 +99,7 @@ function renderFishboneVisual(container) {
                 const onUp = () => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
                     const newX = parseFloat(el.style.left); const newY = parseFloat(el.style.top);
+                    // Save Coordinates
                     if (isCat) { 
                         state.projectData.fishbone.categories[catIdx].x = newX; 
                         state.projectData.fishbone.categories[catIdx].y = newY; 
@@ -124,6 +121,7 @@ function renderFishboneVisual(container) {
         container.appendChild(el);
     };
 
+    // Render Items
     state.projectData.fishbone.categories.forEach((cat, i) => {
         createLabel(cat.text, cat.x || (i%2?20:70), cat.y || (i<2?20:80), true, i);
         cat.causes.forEach((cause, j) => {
@@ -133,7 +131,6 @@ function renderFishboneVisual(container) {
     });
 }
 
-// === 2. DRIVER DIAGRAM (MERMAID) ===
 function renderDriverVisual(container) {
     const d = state.projectData.drivers;
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
@@ -141,64 +138,39 @@ function renderDriverVisual(container) {
     d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
     d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
     d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-    
     container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
     try { mermaid.run(); } catch(e) { console.error("Mermaid error", e); }
 }
 
-// === 3. PROCESS MAP (MERMAID) ===
 function renderProcessVisual(container) {
     const p = state.projectData.process || ["Start", "End"];
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
     let mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
-    
     container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
     try { mermaid.run(); } catch(e) { console.error(e); }
 }
 
-// === LOGIC HELPERS ===
-export function addCauseWithWhys(catIdx) {
-    if(state.isReadOnly) return;
-    let cause = prompt("What is the cause?");
-    if (!cause) return;
-    
-    // 5 Whys Logic
-    if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
-        let root = cause;
-        for (let i = 1; i <= 5; i++) {
-            let deeper = prompt(`Why does "${root}" happen? (Why #${i})`);
-            if (!deeper) break;
-            root = deeper;
-        }
-        if (root !== cause && confirm(`Root cause found: "${root}". Add this instead of "${cause}"?`)) cause = root;
-    }
-    
-    // Add with default coords near category
-    const cat = state.projectData.fishbone.categories[catIdx];
-    cat.causes.push({ text: cause, x: cat.x + 5, y: cat.y + 5 });
-    window.saveData();
-    renderTools();
-}
-
-export function addDriver(type) {
-    if(state.isReadOnly) return;
-    const v = prompt(`Add ${type} Driver:`);
-    if(v) { state.projectData.drivers[type].push(v); window.saveData(); renderTools(); }
-}
-
-export function addStep() {
-    if(state.isReadOnly) return;
-    const v = prompt("Step Description:");
-    if(v) { 
-        if(!state.projectData.process) state.projectData.process = ["Start", "End"];
-        // Insert before End
-        state.projectData.process.splice(state.projectData.process.length-1, 0, v);
-        window.saveData(); renderTools(); 
-    }
-}
-
-export function resetProcess() {
-    if(confirm("Reset process map?")) { state.projectData.process = ["Start", "End"]; window.saveData(); renderTools(); }
+function renderDriverList(container) {
+    container.innerHTML = `
+        <div class="p-8 bg-white h-full overflow-y-auto">
+            <h3 class="font-bold text-slate-800 mb-4">Edit Diagram Data (List View)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                ${state.projectData.fishbone.categories.map((cat, i) => `
+                <div class="bg-slate-50 p-4 rounded border border-slate-200">
+                    <input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none text-rcem-purple" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)">
+                    <div class="space-y-2 pl-4 border-l-2 border-slate-200">
+                        ${cat.causes.map((c, j) => `
+                        <div class="flex gap-2">
+                            <input class="text-sm w-full p-1 border rounded bg-white" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)">
+                            <button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>`).join('')}
+                        <button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold mt-2 flex items-center gap-1 hover:underline"><i data-lucide="plus" class="w-3 h-3"></i> Add Cause</button>
+                    </div>
+                </div>`).join('')}
+            </div>
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // === CHARTING ENGINE ===
@@ -217,16 +189,14 @@ export function renderChart() {
     const labels = d.map(x => x.date);
     const data = d.map(x => x.value);
     
-    // Baseline logic (first 12 points)
+    // Baseline logic
     let baseline = data.slice(0, 12);
     let mean = baseline.length ? baseline.reduce((a,b)=>a+b,0)/baseline.length : 0;
 
-    // Annotations for PDSA
     const annotations = {
         meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'end' } }
     };
     
-    // Add PDSA lines
     const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
     pdsaDates.forEach((p, i) => {
         annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
@@ -255,7 +225,7 @@ export function renderChart() {
                     callbacks: {
                         afterLabel: function(context) {
                             const item = d[context.dataIndex];
-                            return `Grade: ${item.grade || 'N/A'}`;
+                            return `Grade: ${item.grade || 'N/A'} (${item.category || 'outcome'})`;
                         }
                     }
                 }
@@ -295,7 +265,7 @@ export function addDataPoint() {
     
     if(!d || !v) { showToast("Date and Value required", "error"); return; }
     
-    state.projectData.chartData.push({ date: d, value: parseFloat(v), grade: g, type: cat });
+    state.projectData.chartData.push({ date: d, value: parseFloat(v), grade: g, category: cat });
     state.projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
     
     document.getElementById('chart-value').value = '';
@@ -317,7 +287,7 @@ export function deleteDataPoint(date) {
 }
 
 export function downloadCSVTemplate() {
-    const csv = "data:text/csv;charset=utf-8,Date,Value,Grade\n2026-01-01,120,Registrar\n2026-01-02,110,Nurse";
+    const csv = "data:text/csv;charset=utf-8,Date,Value,Grade,Type\n2026-01-01,120,Registrar,outcome\n2026-01-02,110,Nurse,process";
     const link = document.createElement("a");
     link.setAttribute("href", encodeURI(csv));
     link.setAttribute("download", "qip_template.csv");
@@ -355,4 +325,44 @@ export function importCSV(input) {
     };
     reader.readAsText(file);
     input.value = '';
+}
+
+// === DIAGRAM HELPERS ===
+export function addCauseWithWhys(catIdx) {
+    if(state.isReadOnly) return;
+    let cause = prompt("What is the cause?");
+    if (!cause) return;
+    if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
+        let root = cause;
+        for (let i = 1; i <= 5; i++) {
+            let deeper = prompt(`Why does "${root}" happen? (Why #${i})`);
+            if (!deeper) break;
+            root = deeper;
+        }
+        if (root !== cause && confirm(`Root cause found: "${root}". Add this instead of "${cause}"?`)) cause = root;
+    }
+    const cat = state.projectData.fishbone.categories[catIdx];
+    cat.causes.push({ text: cause, x: cat.x + 5, y: cat.y + 5 });
+    window.saveData();
+    renderTools();
+}
+
+export function addDriver(type) {
+    if(state.isReadOnly) return;
+    const v = prompt(`Add ${type} Driver:`);
+    if(v) { state.projectData.drivers[type].push(v); window.saveData(); renderTools(); }
+}
+
+export function addStep() {
+    if(state.isReadOnly) return;
+    const v = prompt("Step Description:");
+    if(v) { 
+        if(!state.projectData.process) state.projectData.process = ["Start", "End"];
+        state.projectData.process.splice(state.projectData.process.length-1, 0, v);
+        window.saveData(); renderTools(); 
+    }
+}
+
+export function resetProcess() {
+    if(confirm("Reset process map?")) { state.projectData.process = ["Start", "End"]; window.saveData(); renderTools(); }
 }
