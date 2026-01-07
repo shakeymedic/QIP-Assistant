@@ -3,7 +3,7 @@ import { escapeHtml, showToast } from "./utils.js";
 import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart } from "./charts.js";
 
 // === MAIN ROUTER ===
-export function renderAll(view) {
+function renderAll(view) {
     updateNavigationUI(view);
     if (view === 'dashboard') renderDashboard();
     if (view === 'full') renderFullProject();
@@ -78,7 +78,6 @@ function renderDashboard() {
     `;
 
     const statsContainer = document.getElementById('stat-pdsa').parentElement.parentElement;
-    // TIME-TO-KIT WIDGET (With fallback if no data)
     statsContainer.innerHTML = `
         <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
             <div class="flex items-center gap-4">
@@ -97,12 +96,11 @@ function renderDashboard() {
     aimEl.className = d.checklist.aim ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
 }
 
-// === DATA VIEW (With Preview & Extended Fields) ===
+// === DATA VIEW ===
 function renderDataView() {
     const d = state.projectData;
     const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
     
-    // Inject enhanced form
     if (formContainer && formContainer.children.length === 0) {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
@@ -127,7 +125,6 @@ function renderDataView() {
             </div>
         `;
         
-        // Add listeners for Preview
         ['chart-date', 'chart-value', 'chart-grade'].forEach(id => {
             document.getElementById(id).addEventListener('input', () => {
                 const date = document.getElementById('chart-date').value;
@@ -196,7 +193,7 @@ function renderChecklist() {
     `;
 }
 
-// === TEAM (Card View) ===
+// === TEAM ===
 function renderTeam() {
     const list = document.getElementById('team-list');
     list.innerHTML = state.projectData.teamMembers.length === 0 ? `<div class="text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : state.projectData.teamMembers.map((m, i) => `
@@ -215,10 +212,8 @@ function renderTeam() {
     `).join('');
 }
 
-// === MODAL HELPERS ===
-export function openMemberModal() {
+function openMemberModal() {
     const modal = document.getElementById('member-modal');
-    // Inject the extended form for Role/Grade/Responsibilities
     modal.querySelector('.space-y-4').innerHTML = `
         <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Name</label><input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple"></div>
         <div class="grid grid-cols-2 gap-3">
@@ -250,7 +245,7 @@ function renderStakeholders() {
     if(isList) {
         document.getElementById('stakeholder-canvas').innerHTML = `<div class="p-8"><table class="w-full text-left"><thead><tr><th>Name</th><th>Power</th><th>Interest</th></tr></thead><tbody>${state.projectData.stakeholders.map((s,i)=>`<tr><td><input value="${s.name}" onchange="window.updateStake(${i},'name',this.value)"></td><td><input type="number" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td><td><input type="number" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td></tr>`).join('')}</tbody></table></div>`;
     } else {
-        document.getElementById('stakeholder-canvas').innerHTML = ''; // Clear for drag
+        document.getElementById('stakeholder-canvas').innerHTML = ''; 
         state.projectData.stakeholders.forEach((s, i) => {
             const el = document.createElement('div');
             el.className = 'absolute w-8 h-8 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20';
@@ -277,12 +272,22 @@ function renderPDSA() {
     container.innerHTML = html;
 }
 
-// Exports for app.js
-window.setToolMode = (m) => { window.toolMode = m; renderTools(); };
-window.toggleToolList = () => { document.getElementById('view-tools').setAttribute('data-view', document.getElementById('view-tools').getAttribute('data-view')==='list'?'visual':'list'); renderTools(); };
-window.updateFishCat = (i,v) => { state.projectData.fishbone.categories[i].text=v; window.saveData(); };
-window.updateFishCause = (i,j,v) => { state.projectData.fishbone.categories[i].causes[j].text=v; window.saveData(); };
-window.addFishCause = (i) => { state.projectData.fishbone.categories[i].causes.push({text:"New", x:50, y:50}); window.saveData(); renderTools(); };
-window.removeFishCause = (i,j) => { state.projectData.fishbone.categories[i].causes.splice(j,1); window.saveData(); renderTools(); };
+// === EXPORT HELPERS FOR APP.JS ===
+function toggleToolList() {
+    const el = document.getElementById('view-tools');
+    const current = el.getAttribute('data-view');
+    el.setAttribute('data-view', current === 'list' ? 'visual' : 'list');
+    renderTools();
+}
 
-export { renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, renderGreen, openMemberModal };
+function updateFishCat(i, v) { state.projectData.fishbone.categories[i].text = v; window.saveData(); }
+function updateFishCause(i, j, v) { state.projectData.fishbone.categories[i].causes[j].text = v; window.saveData(); }
+function addFishCause(i) { state.projectData.fishbone.categories[i].causes.push({text: "New", x: 50, y: 50}); window.saveData(); renderTools(); }
+function removeFishCause(i, j) { state.projectData.fishbone.categories[i].causes.splice(j, 1); window.saveData(); renderTools(); }
+
+export { 
+    renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, 
+    renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, 
+    renderGreen, openMemberModal, toggleToolList, updateFishCat, updateFishCause, 
+    addFishCause, removeFishCause 
+};
