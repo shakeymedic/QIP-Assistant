@@ -2,31 +2,53 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 3px; }
-::-webkit-scrollbar-track { background: transparent; }
+/* === CUSTOM SCROLLBAR === */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
 
-/* Diagram Interaction */
-.cursor-grab { cursor: grab; }
-.cursor-grabbing { cursor: grabbing; }
+::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 3px;
+}
 
-/* Animation */
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+/* === INTERACTION UTILITIES === */
+.cursor-grab {
+    cursor: grab;
+}
+
+.cursor-grabbing {
+    cursor: grabbing;
+}
+
+/* === ANIMATIONS === */
 @keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+        transform: scale(0.95);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 .modal-animate {
     animation: scaleIn 0.2s ease-out forwards;
 }
 
-/* GANTT CHART STYLES */
+/* === GANTT CHART STYLES === */
 .gantt-grid {
     display: grid;
     border-top: 1px solid #e2e8f0;
     position: relative;
 }
+
 .gantt-header {
     font-size: 10px;
     font-weight: bold;
@@ -35,11 +57,13 @@
     border-right: 1px dashed #e2e8f0;
     padding: 4px 0;
 }
+
 .gantt-row {
     position: relative;
     height: 48px;
     border-bottom: 1px solid #f1f5f9;
 }
+
 .gantt-bar {
     position: absolute;
     top: 10px;
@@ -54,35 +78,89 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     transition: all 0.2s;
 }
+
 .gantt-bar:hover {
     background: #4338ca;
     z-index: 10;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
 }
+
 .gantt-avatar {
-    width: 20px; 
-    height: 20px; 
-    border-radius: 50%; 
-    background: white; 
-    color: #2d2e83; 
-    font-size: 9px; 
-    font-weight: bold; 
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: white;
+    color: #2d2e83;
+    font-size: 9px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     margin-right: 6px;
     flex-shrink: 0;
 }
 
-/* === FISHBONE STYLES === */
-.fishbone-spine { position: absolute; top: 50%; left: 5%; width: 90%; height: 4px; background: #2d2e83; border-radius: 2px; }
-.fishbone-head { position: absolute; top: 50%; right: 0; transform: translateY(-50%); width: 0; height: 0; border-top: 30px solid transparent; border-bottom: 30px solid transparent; border-left: 40px solid #2d2e83; }
-.fishbone-label { position: absolute; background: white; border: 1px solid #cbd5e1; padding: 6px 12px; border-radius: 6px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); font-size: 12px; font-weight: 600; color: #334155; user-select: none; z-index: 10; cursor: grab; transition: box-shadow 0.2s; max-width: 150px; text-align: center; }
-.fishbone-label:active { cursor: grabbing; box-shadow: 0 10px 15px rgba(0,0,0,0.1); z-index: 20; border-color: #2d2e83; }
-.fishbone-label.category { background: #2d2e83; color: white; border: none; font-weight: bold; text-transform: uppercase; letter-spacing: 0.05em; }
+/* === FISHBONE DIAGRAM STYLES === */
+.fishbone-spine {
+    position: absolute;
+    top: 50%;
+    left: 5%;
+    width: 90%;
+    height: 4px;
+    background: #2d2e83;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.fishbone-head {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 30px solid transparent;
+    border-bottom: 30px solid transparent;
+    border-left: 40px solid #2d2e83;
+    pointer-events: none;
+}
+
+.fishbone-label {
+    position: absolute;
+    background: white;
+    border: 1px solid #cbd5e1;
+    padding: 6px 12px;
+    border-radius: 6px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    font-size: 12px;
+    font-weight: 600;
+    color: #334155;
+    user-select: none;
+    z-index: 10;
+    cursor: grab;
+    transition: box-shadow 0.2s;
+    max-width: 150px;
+    text-align: center;
+}
+
+.fishbone-label:active {
+    cursor: grabbing;
+    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+    z-index: 20;
+    border-color: #2d2e83;
+}
+
+.fishbone-label.category {
+    background: #2d2e83;
+    color: white;
+    border: none;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
 
 /* === TOAST NOTIFICATIONS === */
 #toast-container {
@@ -112,6 +190,7 @@
     animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     pointer-events: auto;
 }
+
 .toast.success { border-left-color: #10b981; }
 .toast.error { border-left-color: #ef4444; }
 .toast.info { border-left-color: #3b82f6; }
@@ -125,7 +204,7 @@
     to { opacity: 0; transform: translateY(10px); }
 }
 
-/* === PROGRESS BARS === */
+/* === DASHBOARD PROGRESS BARS === */
 .progress-track {
     background-color: #f1f5f9;
     height: 8px;
@@ -133,21 +212,22 @@
     overflow: hidden;
     position: relative;
 }
+
 .progress-fill {
     height: 100%;
     border-radius: 4px;
     transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* === POSTER STYLES === */
-#print-container { 
-    background: white; 
-    width: 100%; 
+/* === POSTER PRINT STYLES === */
+#print-container {
+    background: white;
+    width: 100%;
     height: 100%;
-    padding: 20px; 
+    padding: 20px;
     box-sizing: border-box;
     font-family: 'Inter', sans-serif;
-    /* Controlled via JS 'hidden' class */
+    display: none; /* Controlled via JS */
 }
 
 .poster-grid {
@@ -161,17 +241,20 @@
 
 .poster-header {
     grid-column: 1 / -1;
-    background: #2d2e83;
-    color: white;
-    padding: 30px 40px; 
+    background: #2d2e83 !important;
+    color: white !important;
+    padding: 30px 40px;
     border-radius: 15px;
-    display: flex; 
-    gap: 40px; 
+    display: flex;
+    gap: 40px;
     align-items: center;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
     border-bottom: 8px solid #f36f21;
     -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
 }
+
+/* Logo styles retained for future use */
 .poster-logo-area { 
     background: white; 
     padding: 15px; 
@@ -183,58 +266,149 @@
     justify-content: center;
 }
 .poster-logo { max-height: 80px; width: auto; }
-.poster-title-area h1 { 
-    font-size: 56px; 
-    font-weight: 800; 
-    line-height: 1.1; 
-    margin-bottom: 10px; 
+
+.poster-title-area h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 10px;
     font-family: 'Merriweather', serif;
 }
-.poster-title-area p { font-size: 24px; opacity: 0.9; font-weight: 500; }
-.poster-col { display: flex; flex-direction: column; gap: 25px; }
-.poster-box {
-    background: white; 
-    border: 2px solid #cbd5e1;
-    padding: 25px; 
-    border-radius: 15px;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    height: fit-content;
+
+.poster-title-area p {
+    font-size: 24px;
+    opacity: 0.9;
+    font-weight: 500;
 }
+
+.poster-col {
+    display: flex;
+    flex-direction: column;
+    gap: 25px;
+}
+
+.poster-box {
+    background: white;
+    border: 2px solid #cbd5e1;
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    height: fit-content;
+    break-inside: avoid;
+}
+
 .poster-box h2 {
-    color: #2d2e83; 
+    color: #2d2e83;
     border-bottom: 3px solid #f36f21;
-    font-size: 28px; 
-    font-weight: 800; 
+    font-size: 28px;
+    font-weight: 800;
     margin-bottom: 20px;
     text-transform: uppercase;
     padding-bottom: 5px;
     display: inline-block;
 }
-.poster-box p, .poster-box li { font-size: 16px; margin-bottom: 12px; line-height: 1.5; color: #334155; }
-.poster-box ul { list-style: none; padding: 0; }
-.poster-box li { padding-left: 15px; border-left: 4px solid #94a3b8; }
-.aim-box { background: #eff6ff; border-color: #3b82f6; -webkit-print-color-adjust: exact; }
-.aim-statement { font-size: 24px; font-weight: bold; color: #1e3a8a; font-style: italic; font-family: 'Merriweather', serif; }
-.img-fluid { width: 100%; height: auto; object-fit: contain; }
-.driver-holder { background: white; padding: 10px; border-radius: 8px; border: 1px solid #e2e8f0; }
-.chart-holder { background: white; padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
-.analysis-box { background: #f8fafc; padding: 20px; border-left: 6px solid #2d2e83; border-radius: 4px; -webkit-print-color-adjust: exact; }
-.sustain-box { background: #f0fdf4; border-color: #86efac; -webkit-print-color-adjust: exact; }
+
+.poster-box p,
+.poster-box li {
+    font-size: 16px;
+    margin-bottom: 12px;
+    line-height: 1.5;
+    color: #334155;
+}
+
+.poster-box ul {
+    list-style: none;
+    padding: 0;
+}
+
+.poster-box li {
+    padding-left: 15px;
+    border-left: 4px solid #94a3b8;
+}
+
+/* Special Box Colors with Print Adjustments */
+.aim-box {
+    background: #eff6ff !important;
+    border-color: #3b82f6 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.aim-statement {
+    font-size: 24px;
+    font-weight: bold;
+    color: #1e3a8a;
+    font-style: italic;
+    font-family: 'Merriweather', serif;
+}
+
+.img-fluid {
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+}
+
+.driver-holder {
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+
+.chart-holder {
+    background: white;
+    padding: 20px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.analysis-box {
+    background: #f8fafc !important;
+    padding: 20px;
+    border-left: 6px solid #2d2e83;
+    border-radius: 4px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+
+.sustain-box {
+    background: #f0fdf4 !important;
+    border-color: #86efac !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
 
 /* === INTELLIGENT PRINT OVERRIDES === */
 @media print {
     /* Hide UI Elements Global */
-    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #help-modal, #smart-modal, #risr-modal, #poster-modal, #demo-watermark, #task-modal, #member-modal, #toast-container { 
-        display: none !important; 
+    #app-sidebar,
+    #ig-banner,
+    #auth-screen,
+    .no-print,
+    #top-bar,
+    #help-modal,
+    #smart-modal,
+    #risr-modal,
+    #poster-modal,
+    #demo-watermark,
+    #task-modal,
+    #member-modal,
+    #toast-container {
+        display: none !important;
     }
 
     /* DEFAULT: Standard Document Print (Full Project View) */
-    body { 
-        background: white; 
-        width: 100%; 
-        height: auto; 
-        overflow: visible; 
+    body {
+        background: white;
+        width: 100%;
+        height: auto;
+        overflow: visible;
     }
+
     #main-wrapper {
         display: block !important;
         overflow: visible !important;
@@ -242,12 +416,18 @@
         width: 100% !important;
         position: static !important;
     }
+
     #content-area {
         overflow: visible !important;
         height: auto !important;
     }
 
     /* POSTER MODE: Activates only when JS adds 'printing-poster' class */
-    body.printing-poster #main-wrapper { display: none !important; }
-    body.printing-poster #print-container { display: block !important; }
+    body.printing-poster #main-wrapper {
+        display: none !important;
+    }
+
+    body.printing-poster #print-container {
+        display: block !important;
+    }
 }
