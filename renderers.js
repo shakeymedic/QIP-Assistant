@@ -2,6 +2,7 @@ import { state } from "./state.js";
 import { escapeHtml, showToast } from "./utils.js";
 import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart } from "./charts.js";
 
+// === MAIN ROUTER ===
 export function renderAll(view) {
     updateNavigationUI(view);
     if (view === 'dashboard') renderDashboard();
@@ -40,6 +41,7 @@ function updateNavigationUI(currentView) {
     });
 }
 
+// === DASHBOARD ===
 function renderDashboard() {
     const d = state.projectData;
     const values = d.chartData.map(x => Number(x.value)).filter(n => !isNaN(n));
@@ -94,11 +96,13 @@ function renderDashboard() {
     aimEl.className = d.checklist.aim ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
 }
 
+// === DATA VIEW (With Preview) ===
 function renderDataView() {
     const d = state.projectData;
     const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
     
-    if (formContainer) {
+    // Inject enhanced form only if empty (prevents re-render loop on typing)
+    if (formContainer && formContainer.children.length === 0) {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none"></div>
@@ -108,12 +112,34 @@ function renderDataView() {
                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade</label>
                  <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option>Not Specified</option><option>Consultant</option><option>Registrar</option><option>Nurse</option></select>
             </div>
+            <div>
+                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
+                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="outcome">Outcome (Primary Aim)</option><option value="process">Process (Compliance)</option><option value="balance">Balancing (Safety)</option></select>
+            </div>
+            <div id="data-preview-card" class="hidden bg-slate-50 p-3 rounded border border-slate-200 text-xs text-slate-600 mb-2">
+                <strong>Preview:</strong> <span id="preview-text">...</span>
+            </div>
             <div class="pt-2"><button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow">Add Data Point</button></div>
             <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
                 <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i> Upload CSV</button>
                 <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="download" class="w-3 h-3"></i> Template</button>
             </div>
         `;
+        
+        // Add listeners for Preview
+        ['chart-date', 'chart-value', 'chart-grade'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                const date = document.getElementById('chart-date').value;
+                const val = document.getElementById('chart-value').value;
+                const grade = document.getElementById('chart-grade').value;
+                if(date && val) {
+                    document.getElementById('data-preview-card').classList.remove('hidden');
+                    document.getElementById('preview-text').innerHTML = `Value: <strong>${val}</strong> on ${date} (${grade})`;
+                } else {
+                    document.getElementById('data-preview-card').classList.add('hidden');
+                }
+            });
+        });
     }
 
     const historyContainer = document.getElementById('data-history');
@@ -169,20 +195,39 @@ function renderChecklist() {
     `;
 }
 
+// === TEAM (Card View) ===
 function renderTeam() {
     const list = document.getElementById('team-list');
     list.innerHTML = state.projectData.teamMembers.length === 0 ? `<div class="text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : state.projectData.teamMembers.map((m, i) => `
-        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm relative group">
+        <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm relative group hover:shadow-md transition-shadow">
             <button onclick="window.deleteMember(${i})" class="absolute top-3 right-3 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
             <div class="flex items-start gap-4">
                 <div class="w-10 h-10 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-bold shadow-md">${m.initials}</div>
                 <div>
                     <div class="font-bold text-slate-800">${escapeHtml(m.name)}</div>
                     <div class="text-xs font-bold text-rcem-purple uppercase tracking-wide mb-1">${escapeHtml(m.role)}</div>
+                    ${m.grade ? `<div class="text-xs text-slate-500"><span class="font-semibold">Grade:</span> ${escapeHtml(m.grade)}</div>` : ''}
+                    ${m.responsibilities ? `<div class="text-xs text-slate-500 italic mt-1">"${escapeHtml(m.responsibilities)}"</div>` : ''}
                 </div>
             </div>
         </div>
     `).join('');
+}
+
+// === MODAL HELPERS ===
+export function openMemberModal() {
+    const modal = document.getElementById('member-modal');
+    modal.querySelector('.space-y-4').innerHTML = `
+        <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Name</label><input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple"></div>
+        <div class="grid grid-cols-2 gap-3">
+             <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Role</label><select id="member-role" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option>Project Lead</option><option>Sponsor</option><option>Data Collector</option><option>Stakeholder</option></select></div>
+             <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Grade</label><select id="member-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option>Consultant</option><option>Registrar</option><option>SHO</option><option>Nurse</option><option>ACP</option><option>Other</option></select></div>
+        </div>
+        <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Responsibilities</label><input type="text" id="member-resp" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Data collection"></div>
+        <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Initials</label><input type="text" id="member-init" class="w-full p-2 border border-slate-300 rounded text-sm outline-none uppercase" maxlength="3"></div>
+        <button onclick="window.saveMember()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all mt-2">Add Member</button>
+    `;
+    modal.classList.remove('hidden');
 }
 
 function renderPublish(mode = 'abstract') {
@@ -238,4 +283,4 @@ window.updateFishCause = (i,j,v) => { state.projectData.fishbone.categories[i].c
 window.addFishCause = (i) => { state.projectData.fishbone.categories[i].causes.push({text:"New", x:50, y:50}); window.saveData(); renderTools(); };
 window.removeFishCause = (i,j) => { state.projectData.fishbone.categories[i].causes.splice(j,1); window.saveData(); renderTools(); };
 
-export { renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, renderGreen };
+export { renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, renderGreen, openMemberModal };
