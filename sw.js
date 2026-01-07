@@ -1,11 +1,17 @@
 // sw.js
-// BUMPED VERSION TO v4.1 TO FORCE UPDATE
-const CACHE_NAME = 'rcem-qip-v4.1-fixes';
+// BUMPED VERSION TO v4.2 TO FORCE UPDATE AND CACHE NEW MODULES
+const CACHE_NAME = 'rcem-qip-v4.2-modules';
 const ASSETS = [
   './',
   './index.html',
   './styles.css',
   './app.js',
+  './renderers.js',
+  './state.js',
+  './utils.js',
+  './config.js',
+  './charts.js',
+  './export.js',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
@@ -36,7 +42,6 @@ self.addEventListener('activate', (e) => {
     caches.keys().then((keyList) => {
       return Promise.all(keyList.map((key) => {
         if (key !== CACHE_NAME) {
-          console.log('[SW] Removing old cache:', key);
           return caches.delete(key);
         }
       }));
