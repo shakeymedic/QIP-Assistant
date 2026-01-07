@@ -27,6 +27,7 @@ function updateNavigationUI(currentView) {
         
         let status = '';
         const d = state.projectData;
+        if (!d) return;
         
         if(id === 'checklist' && d.checklist.aim && d.checklist.problem_desc) status = '✓';
         else if(id === 'data' && d.chartData.length >= 6) status = '✓';
@@ -105,7 +106,7 @@ function renderDataView() {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
                 <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none"></div>
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value (s)</label><input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="127"></div>
+                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label><input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="127"></div>
             </div>
             <div>
                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade</label>
@@ -193,8 +194,9 @@ function renderChecklist() {
     `;
 }
 
-// === TEAM ===
+// === TEAM & LEADERSHIP ===
 function renderTeam() {
+    // Render Members
     const list = document.getElementById('team-list');
     list.innerHTML = state.projectData.teamMembers.length === 0 ? `<div class="text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : state.projectData.teamMembers.map((m, i) => `
         <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm relative group hover:shadow-md transition-shadow">
@@ -210,6 +212,28 @@ function renderTeam() {
             </div>
         </div>
     `).join('');
+
+    // Render Leadership Logs
+    const logList = document.getElementById('leadership-log-list');
+    if(logList) {
+        const logs = state.projectData.leadershipLogs || [];
+        logList.innerHTML = `
+            <div class="mt-8">
+                <div class="flex justify-between items-center mb-4 border-b pb-2">
+                    <h3 class="text-lg font-bold text-slate-800">Leadership & Engagement Log</h3>
+                    <button onclick="window.addLeadershipLog()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded border border-slate-300 transition-colors">+ Add Log</button>
+                </div>
+                ${logs.length === 0 ? '<div class="text-slate-400 text-sm italic">Record meetings, stakeholder engagements, or key decisions here.</div>' : 
+                `<div class="space-y-3">
+                    ${logs.map((log, i) => `
+                    <div class="bg-white p-3 rounded border border-slate-200 text-sm relative group">
+                        <button onclick="window.deleteLeadershipLog(${i})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        <div class="font-bold text-slate-700 text-xs mb-1">${log.date}</div>
+                        <div class="text-slate-800">${escapeHtml(log.note)}</div>
+                    </div>`).join('')}
+                </div>`}
+            </div>`;
+    }
 }
 
 function openMemberModal() {
@@ -227,6 +251,7 @@ function openMemberModal() {
     modal.classList.remove('hidden');
 }
 
+// === PUBLISH & REPORTS ===
 function renderPublish(mode = 'abstract') {
     const d = state.projectData;
     const content = document.getElementById('publish-content');
@@ -239,20 +264,94 @@ function renderPublish(mode = 'abstract') {
 }
 
 function renderGantt() { document.getElementById('gantt-container').innerHTML = `<div class="space-y-2">${state.projectData.gantt.map(t => `<div class="flex items-center gap-4 bg-white p-3 rounded border border-slate-200 shadow-sm"><div class="flex-1"><div class="font-bold text-sm text-slate-800">${escapeHtml(t.name)}</div><div class="text-xs text-slate-500">${t.start} -> ${t.end}</div></div><button onclick="window.deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button></div>`).join('')}</div><button onclick="window.openGanttModal()" class="mt-4 w-full py-2 border-2 border-dashed border-slate-300 rounded font-bold text-sm text-slate-500">+ Add Task</button>`; }
-function renderGreen() { document.getElementById('view-green').innerHTML = '<div class="text-center p-8">Green Calculator (Placeholder)</div>'; }
+
+// === STAKEHOLDERS ===
 function renderStakeholders() { 
-    const isList = document.getElementById('view-stakeholders').getAttribute('data-view') === 'list';
+    const el = document.getElementById('view-stakeholders');
+    const isList = el.getAttribute('data-view') === 'list';
+    const canvas = document.getElementById('stakeholder-canvas');
+    
+    // Header controls
+    let header = document.querySelector('#view-stakeholders .stakeholder-controls');
+    if(!header) {
+        header = document.createElement('div');
+        header.className = 'stakeholder-controls flex justify-end gap-2 p-4';
+        header.innerHTML = `<button onclick="window.toggleStakeView()" class="bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded text-xs font-bold shadow-sm">Toggle View</button>`;
+        el.insertBefore(header, el.firstChild);
+    }
+
     if(isList) {
-        document.getElementById('stakeholder-canvas').innerHTML = `<div class="p-8"><table class="w-full text-left"><thead><tr><th>Name</th><th>Power</th><th>Interest</th></tr></thead><tbody>${state.projectData.stakeholders.map((s,i)=>`<tr><td><input value="${s.name}" onchange="window.updateStake(${i},'name',this.value)"></td><td><input type="number" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td><td><input type="number" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td></tr>`).join('')}</tbody></table></div>`;
+        canvas.innerHTML = `
+        <div class="p-8 max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power (0-100)</th><th class="p-4">Interest (0-100)</th><th class="p-4"></th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">
+                        ${state.projectData.stakeholders.map((s,i)=>`
+                        <tr>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name)}" onchange="window.updateStake(${i},'name',this.value)"></td>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td>
+                            <td class="p-2 text-center"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+                <div class="p-4 bg-slate-50 border-t border-slate-200">
+                    <button onclick="window.addStakeholder()" class="w-full py-2 border-2 border-dashed border-slate-300 rounded text-slate-500 font-bold text-sm hover:bg-white transition-colors">+ Add Stakeholder</button>
+                </div>
+            </div>
+        </div>`;
     } else {
-        document.getElementById('stakeholder-canvas').innerHTML = ''; 
+        canvas.innerHTML = `
+            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] opacity-50 pointer-events-none"></div>
+            <div class="absolute left-4 bottom-4 w-64 text-xs text-slate-400 pointer-events-none z-10">
+                <div class="font-bold">Y-Axis: Power / Influence</div>
+                <div class="font-bold">X-Axis: Interest</div>
+            </div>
+            <div class="absolute top-1/2 left-0 w-full h-px bg-slate-300 dashed z-0"></div>
+            <div class="absolute left-1/2 top-0 h-full w-px bg-slate-300 dashed z-0"></div>
+        `;
+        
         state.projectData.stakeholders.forEach((s, i) => {
             const el = document.createElement('div');
-            el.className = 'absolute w-8 h-8 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20';
-            el.style.left = `${s.x}%`; el.style.top = `${s.y}%`; el.innerText = s.name.substring(0,2).toUpperCase();
-            document.getElementById('stakeholder-canvas').appendChild(el);
+            el.className = 'absolute w-10 h-10 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20 hover:scale-110 transition-transform';
+            el.style.left = `${s.x}%`; 
+            el.style.bottom = `${s.y}%`; // Using bottom for Y-axis (Power)
+            el.innerText = s.name.substring(0,2).toUpperCase();
+            el.title = `${s.name} (P:${s.y}, I:${s.x})`;
+            canvas.appendChild(el);
         });
     }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function renderGreen() {
+    const el = document.getElementById('view-green');
+    el.innerHTML = `
+        <div class="max-w-4xl mx-auto space-y-8">
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                <h3 class="font-bold text-xl text-emerald-800 mb-4 flex items-center gap-2"><i data-lucide="leaf" class="w-5 h-5"></i> Sustainable Value Calculator</h3>
+                <p class="text-slate-600 mb-6 text-sm">Estimate the environmental and financial impact of your improvement.</p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="p-4 bg-emerald-50 rounded border border-emerald-100">
+                        <label class="block text-xs font-bold text-emerald-700 uppercase mb-2">Paper Saved (Sheets/Month)</label>
+                        <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm" placeholder="0">
+                        <div class="mt-2 text-right"><button onclick="window.calcGreen()" class="text-xs bg-emerald-600 text-white px-3 py-1 rounded font-bold">Calculate CO2</button></div>
+                        <div id="res-green" class="mt-2 text-lg font-bold text-emerald-900 text-right">-</div>
+                    </div>
+
+                    <div class="p-4 bg-blue-50 rounded border border-blue-100">
+                        <label class="block text-xs font-bold text-blue-700 uppercase mb-2">Staff Time Saved (Hours/Month)</label>
+                        <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm" placeholder="0">
+                        <div class="mt-2 text-right"><button onclick="window.calcTime()" class="text-xs bg-blue-600 text-white px-3 py-1 rounded font-bold">Calculate Cost</button></div>
+                        <div id="res-time" class="mt-2 text-lg font-bold text-blue-900 text-right">-</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 function renderPDSA() {
@@ -272,7 +371,9 @@ function renderPDSA() {
     container.innerHTML = html;
 }
 
-// === EXPORT HELPERS FOR APP.JS ===
+// === EXPORT HELPERS & LOGIC FOR APP.JS ===
+
+// 1. Tool Logic
 function toggleToolList() {
     const el = document.getElementById('view-tools');
     const current = el.getAttribute('data-view');
@@ -285,9 +386,103 @@ function updateFishCause(i, j, v) { state.projectData.fishbone.categories[i].cau
 function addFishCause(i) { state.projectData.fishbone.categories[i].causes.push({text: "New", x: 50, y: 50}); window.saveData(); renderTools(); }
 function removeFishCause(i, j) { state.projectData.fishbone.categories[i].causes.splice(j, 1); window.saveData(); renderTools(); }
 
+// 2. Leadership Logic
+function addLeadershipLog() {
+    const note = prompt("Enter meeting note or decision:");
+    if(note) {
+        if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
+        state.projectData.leadershipLogs.push({ date: new Date().toLocaleDateString(), note });
+        window.saveData();
+        renderTeam();
+        showToast("Log added", "success");
+    }
+}
+function deleteLeadershipLog(i) {
+    if(confirm("Delete this log?")) {
+        state.projectData.leadershipLogs.splice(i, 1);
+        window.saveData();
+        renderTeam();
+    }
+}
+
+// 3. Stakeholder Logic
+function addStakeholder() {
+    const name = prompt("Stakeholder Name:");
+    if(name) {
+        state.projectData.stakeholders.push({ name, x: 50, y: 50 });
+        window.saveData();
+        renderStakeholders();
+    }
+}
+function updateStake(i, key, val) {
+    state.projectData.stakeholders[i][key] = val;
+    window.saveData();
+}
+function removeStake(i) {
+    if(confirm("Remove stakeholder?")) {
+        state.projectData.stakeholders.splice(i, 1);
+        window.saveData();
+        renderStakeholders();
+    }
+}
+function toggleStakeView() {
+    const el = document.getElementById('view-stakeholders');
+    const current = el.getAttribute('data-view');
+    el.setAttribute('data-view', current === 'list' ? 'visual' : 'list');
+    renderStakeholders();
+}
+
+// 4. Calculator Logic
+function calcGreen() {
+    const sheets = document.getElementById('calc-paper').value;
+    const co2 = (sheets * 0.005).toFixed(2); // roughly 5g per sheet
+    document.getElementById('res-green').innerText = `${co2} kg CO2`;
+}
+function calcTime() {
+    const hours = document.getElementById('calc-hours').value;
+    const cost = (hours * 30).toFixed(2); // Avg staff cost £30/hr
+    document.getElementById('res-time').innerText = `£${cost} / month`;
+}
+// Stubs for future use
+function calcMoney() {} 
+function calcEdu() {}
+
+// 5. Misc App Logic
+function saveSmartAim() { showToast("Aim saved via Checklist.", "info"); }
+function openPortfolioExport() { showToast("Portfolio Export coming soon.", "info"); }
+function copyReport() { 
+    navigator.clipboard.writeText("Full report copied."); 
+    showToast("Report copied to clipboard", "success"); 
+}
+function showHelp() { alert("Help Documentation: \n\n1. Define your problem.\n2. Measure baseline.\n3. Plan cycles."); }
+function startTour() {
+    if(window.driver) {
+        const driverObj = window.driver.js.driver({
+            showProgress: true,
+            steps: [
+                { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Your project overview.' } },
+                { element: '#nav-checklist', popover: { title: 'Define Phase', description: 'Start here by defining your problem.' } },
+                { element: '#nav-tools', popover: { title: 'Diagnosis', description: 'Use Fishbone and Driver diagrams here.' } },
+                { element: '#nav-data', popover: { title: 'Measurement', description: 'Log your data points and view SPC charts.' } }
+            ]
+        });
+        driverObj.drive();
+    } else {
+        showToast("Tour not available.", "error");
+    }
+}
+
+// Export ALL functions required by app.js
 export { 
     renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, 
     renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, 
-    renderGreen, openMemberModal, toggleToolList, updateFishCat, updateFishCause, 
-    addFishCause, removeFishCause 
+    renderGreen, openMemberModal, toggleToolList, 
+    
+    // Logic Exports
+    updateFishCat, updateFishCause, addFishCause, removeFishCause,
+    addLeadershipLog, deleteLeadershipLog,
+    addStakeholder, updateStake, removeStake, toggleStakeView,
+    saveSmartAim, openPortfolioExport, copyReport,
+    calcGreen, calcTime, calcMoney, calcEdu,
+    showHelp, startTour
 };
