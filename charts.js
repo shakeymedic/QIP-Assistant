@@ -1,208 +1,291 @@
 import { state } from './state.js';
-import { escapeHtml } from './utils.js';
+import { showToast, escapeHtml } from './utils.js';
 
 let chartInstance = null;
 let fullViewChartInstance = null;
 export let toolMode = 'fishbone';
-let zoomLevel = 2.0;
+let zoomLevel = 1.0;
 
 export function setToolMode(m) {
     toolMode = m;
-    zoomLevel = 2.0; 
-    document.querySelectorAll('.tool-tab').forEach(b => b.classList.remove('bg-white', 'shadow-sm', 'text-rcem-purple'));
-    document.getElementById(`tab-${m}`).classList.add('bg-white', 'shadow-sm', 'text-rcem-purple');
+    zoomLevel = 1.0;
+    const buttons = document.querySelectorAll('#tool-nav-ui button');
+    buttons.forEach(b => {
+        if(b.textContent.toLowerCase().includes(m)) b.className = "px-3 py-1 rounded text-sm font-bold bg-white shadow text-rcem-purple";
+        else b.className = "px-3 py-1 rounded text-sm font-bold hover:bg-white/50";
+    });
     renderTools();
 }
 
-export function zoomIn() { zoomLevel += 0.2; updateZoom(); }
-export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.2); updateZoom(); }
-export function resetZoom() { zoomLevel = 2.0; updateZoom(); }
+export function zoomIn() { zoomLevel += 0.1; applyZoom(); }
+export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); }
+export function resetZoom() { zoomLevel = 1.0; applyZoom(); }
 
-function updateZoom() {
+function applyZoom() {
     const el = document.getElementById('diagram-canvas');
     if(el) el.style.transform = `scale(${zoomLevel})`;
 }
 
 export async function renderTools() {
-    const toolInfo = {
-        fishbone: { title: "Fishbone", desc: "Root Cause Analysis", how: "Ask 'Why?' 5 times." },
-        driver: { title: "Driver Diagram", desc: "Theory of Change", how: "Primary -> Secondary -> Changes" },
-        process: { title: "Process Map", desc: "Workflow", how: "Map patient journey." }
-    };
-    
-    document.getElementById('tool-explainer').innerHTML = `
-        <h2 class="text-xl font-bold text-indigo-900 mb-1 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> ${toolInfo[toolMode].title}</h2>
-        <p class="text-indigo-800 mb-3 text-sm">${toolInfo[toolMode].desc} - ${toolInfo[toolMode].how}</p>
-    `;
-    
     if(!state.projectData) return;
     const canvas = document.getElementById('diagram-canvas');
-    const controls = document.getElementById('tool-controls');
     const ghost = document.getElementById('diagram-ghost');
     
-    let mCode = '';
-    let ctrls = '';
+    if(document.getElementById('view-tools').getAttribute('data-view') === 'list') return;
+
+    canvas.innerHTML = ''; 
     
     if (toolMode === 'fishbone') {
-        const cats = state.projectData.fishbone.categories;
-        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-        mCode = `mindmap\n  root(("${clean(state.projectData.meta.title || 'Problem')}"))\n` + 
-            cats.map(c => `    ${clean(c.text)}\n` + c.causes.map(x => `      ${clean(x)}`).join('\n')).join('\n');
+        ghost.classList.add('hidden');
+        renderFishboneVisual(canvas);
+    } 
+    else if (toolMode === 'driver') {
+        if (state.projectData.drivers.primary.length === 0) ghost.classList.remove('hidden'); 
+        else {
+            ghost.classList.add('hidden');
+            renderDriverVisual(canvas);
+        }
+    } 
+    else if (toolMode === 'process') {
+        ghost.classList.add('hidden');
+        renderProcessVisual(canvas);
+    }
+}
+
+function renderFishboneVisual(container) {
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
+    svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
+    svg.innerHTML = `
+        <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
+        <path d="M 95% 50% L 92% 48% L 92% 52% Z" fill="#2d2e83"/>
+        <line x1="20%" y1="20%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="20%" y1="80%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="70%" y1="20%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
+        <line x1="70%" y1="80%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
+    `;
+    container.appendChild(svg);
+
+    const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
+        const el = document.createElement('div');
+        el.className = `fishbone-label ${isCat ? 'category' : ''}`;
+        el.innerText = text;
+        el.style.left = `${x}%`; el.style.top = `${y}%`;
         
-        ctrls = cats.map(c => `<button ${state.isReadOnly?'disabled':''} onclick="window.addCauseWithWhys(${c.id})" class="whitespace-nowrap px-4 py-2 bg-slate-100 border border-slate-200 rounded-lg text-sm font-bold hover:bg-slate-200 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> ${c.text}</button>`).join('');
-        if (cats.every(c => c.causes.length === 0)) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
+        if(!state.isReadOnly) {
+            el.onmousedown = (e) => {
+                e.preventDefault();
+                const startX = e.clientX; const startY = e.clientY;
+                const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
+                const parentW = container.offsetWidth; const parentH = container.offsetHeight;
 
-    } else if (toolMode === 'driver') {
-        const d = state.projectData.drivers;
-        const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-        mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
-        d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-        d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-        d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
-        ctrls = `<button ${state.isReadOnly?'disabled':''} onclick="window.addDriver('primary')" class="px-4 py-2 bg-emerald-100 text-emerald-800 rounded">Add Primary</button> <button ${state.isReadOnly?'disabled':''} onclick="window.addDriver('secondary')" class="px-4 py-2 bg-blue-100 text-blue-800 rounded">Add Secondary</button> <button ${state.isReadOnly?'disabled':''} onclick="window.addDriver('changes')" class="px-4 py-2 bg-purple-100 text-purple-800 rounded">Add Change Idea</button>`;
-        if (d.primary.length === 0) ghost.classList.remove('hidden'); else ghost.classList.add('hidden');
-
-    } else if (toolMode === 'process') {
-         const p = state.projectData.process;
-         const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
-         mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
-         ctrls = `<button ${state.isReadOnly?'disabled':''} onclick="window.addStep()" class="px-4 py-2 bg-white border border-slate-300 rounded">Add Step</button> <button ${state.isReadOnly?'disabled':''} onclick="window.resetProcess()" class="px-4 py-2 text-red-500">Reset</button>`;
-         ghost.classList.add('hidden');
-    }
-
-    canvas.innerHTML = `<div class="mermaid">${mCode}</div>`;
-    controls.innerHTML = ctrls;
-    updateZoom(); 
-    try { await mermaid.run(); } catch(e) { console.error("Mermaid error:", e); }
-    lucide.createIcons();
-}
-
-export function renderChart() {
-    if(!state.projectData) return;
-    const ctx = document.getElementById('mainChart').getContext('2d');
-    const data = [...state.projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
-    
-    if (data.length === 0) { 
-        document.getElementById('chart-ghost').classList.remove('hidden'); 
-        if(chartInstance) chartInstance.destroy(); 
-        return; 
-    }
-    document.getElementById('chart-ghost').classList.add('hidden');
-
-    const values = data.map(d => Number(d.value));
-    const labels = data.map(d => d.date);
-    
-    let baselinePoints = values.slice(0, 12); 
-    let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
-    let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
-    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83'));
-
-    if (chartInstance) chartInstance.destroy();
-    
-    const annotations = {
-        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
-    };
-    
-    data.filter(d => d.note).forEach((d, i) => {
-        annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
-    });
-
-    chartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 6, tension: 0.1 }] },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { annotation: { annotations } },
-            onClick: (e, activeEls) => {
-                if (state.isReadOnly || activeEls.length === 0) return;
-                const i = activeEls[0].index;
-                const note = prompt(`Annotate point:`, data[i].note || "");
-                if (note !== null) { data[i].note = note; window.saveData(); renderChart(); }
-            }
+                const onMove = (ev) => {
+                    const dx = (ev.clientX - startX) / parentW * 100;
+                    const dy = (ev.clientY - startY) / parentH * 100;
+                    el.style.left = `${startLeft + dx}%`; el.style.top = `${startTop + dy}%`;
+                };
+                const onUp = () => {
+                    document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
+                    const newX = parseFloat(el.style.left); const newY = parseFloat(el.style.top);
+                    if (isCat) { state.projectData.fishbone.categories[catIdx].x = newX; state.projectData.fishbone.categories[catIdx].y = newY; } 
+                    else { state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; }
+                    window.saveData(true);
+                };
+                document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+            };
+            el.ondblclick = (e) => { e.stopPropagation(); if(isCat) window.addCauseWithWhys(catIdx); };
         }
-    });
-    
-    document.getElementById('data-history').innerHTML = data.slice().reverse().map((d, i) => `
-        <div class="flex justify-between border-b border-slate-100 py-2 items-center group">
-            <span><span class="font-mono text-xs text-slate-400 mr-2">${d.date}</span> <strong>${d.value}</strong>${d.note ? `<span class="bg-orange-100 text-orange-800 text-[10px] font-bold px-2 py-0.5 rounded-full ml-2">${escapeHtml(d.note)}</span>` : ''}</span>
-            ${!state.isReadOnly ? `<button onclick="window.deleteDataPoint(${data.length - 1 - i})" class="text-slate-200 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
-        </div>`).join('');
-    lucide.createIcons();
-}
-
-export function renderFullViewChart() {
-    if(!state.projectData) return;
-    const canvas = document.getElementById('fullProjectChart');
-    if(!canvas) return;
-    const ctx = canvas.getContext('2d');
-    
-    const data = [...state.projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
-    if (data.length === 0) return;
-
-    const values = data.map(d => Number(d.value));
-    const labels = data.map(d => d.date);
-    let baselinePoints = values.slice(0, 12); 
-    let sortedBaseline = [...baselinePoints].sort((a,b) => a - b);
-    let currentMedian = sortedBaseline.length ? sortedBaseline[Math.floor(sortedBaseline.length/2)] : 0;
-    const pointColors = values.map(v => (v > currentMedian ? '#059669' : '#2d2e83'));
-
-    if (fullViewChartInstance) fullViewChartInstance.destroy();
-    
-    const annotations = {
-        median: { type: 'line', yMin: currentMedian, yMax: currentMedian, borderColor: '#94a3b8', borderDash: [5,5], borderWidth: 2 }
+        container.appendChild(el);
     };
-    
-    data.filter(d => d.note).forEach((d, i) => {
-        annotations[`pdsa${i}`] = { type: 'line', xMin: d.date, xMax: d.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: d.note, position: 'start', backgroundColor: '#f36f21', color: 'white' } };
-    });
 
-    fullViewChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labels, datasets: [{ label: 'Measure', data: values, borderColor: '#2d2e83', backgroundColor: pointColors, pointBackgroundColor: pointColors, pointRadius: 4, tension: 0.1 }] },
-        options: { 
-            responsive: true, maintainAspectRatio: false, 
-            plugins: { annotation: { annotations }, legend: { display: false } },
-            scales: { x: { ticks: { maxTicksLimit: 10 } } }
-        }
+    state.projectData.fishbone.categories.forEach((cat, i) => {
+        createLabel(cat.text, cat.x || (i%2?20:70), cat.y || (i<2?20:80), true, i);
+        cat.causes.forEach((cause, j) => {
+            let cx = cause.x || (cat.x + (j*5)); let cy = cause.y || (cat.y + (j*5));
+            createLabel(typeof cause === 'string' ? cause : cause.text, cx, cy, false, i, j);
+        });
     });
 }
 
-// Helper Wrappers for Tool Actions
-export function addCauseWithWhys(id) {
+function renderDriverVisual(container) {
+    const d = state.projectData.drivers;
+    const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+    let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
+    d.primary.forEach((x,i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
+    d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
+    d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+    container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
+    try { mermaid.run(); } catch(e) { console.error("Mermaid error", e); }
+}
+
+function renderProcessVisual(container) {
+    const p = state.projectData.process || ["Start", "End"];
+    const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
+    let mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
+    container.innerHTML = `<div class="mermaid w-full h-full flex items-center justify-center text-sm">${mCode}</div>`;
+    try { mermaid.run(); } catch(e) { console.error(e); }
+}
+
+export function addCauseWithWhys(catIdx) {
     if(state.isReadOnly) return;
     let cause = prompt("What is the cause?");
     if (!cause) return;
     if (confirm(`Do you want to drill down into "${cause}" using the 5 Whys technique?`)) {
         let root = cause;
-        for (let i = 1; i <= 3; i++) {
-            let deeper = prompt(`Why does "${root}" happen?`);
+        for (let i = 1; i <= 5; i++) {
+            let deeper = prompt(`Why does "${root}" happen? (Why #${i})`);
             if (!deeper) break;
             root = deeper;
         }
-        if (root !== cause && confirm(`Root cause found: "${root}". Add this instead?`)) cause = root;
+        if (root !== cause && confirm(`Root cause found: "${root}". Add this instead of "${cause}"?`)) cause = root;
     }
-    state.projectData.fishbone.categories.find(c=>c.id===id).causes.push(cause);
-    window.saveData(); renderTools();
+    const cat = state.projectData.fishbone.categories[catIdx];
+    cat.causes.push({ text: cause, x: cat.x + 5, y: cat.y + 5 });
+    window.saveData();
+    renderTools();
 }
-export function addDriver(t) { if(state.isReadOnly) return; const v=prompt("Driver:"); if(v){state.projectData.drivers[t].push(v); window.saveData(); renderTools();} }
-export function addStep() { if(state.isReadOnly) return; const v=prompt("Step Description:"); if(v){state.projectData.process.push(v); window.saveData(); renderTools();} }
-export function resetProcess() { if(state.isReadOnly) return; if(confirm("Start over?")){state.projectData.process=["Start","End"]; window.saveData(); renderTools();} }
-export function deleteDataPoint(index) {
-    if (state.isReadOnly) return;
-    if (confirm("Delete?")) {
-        const sortedData = [...state.projectData.chartData].sort((a,b) => new Date(a.date) - new Date(b.date));
-        const itemToDelete = sortedData[index];
-        const originalIndex = state.projectData.chartData.findIndex(d => d.date === itemToDelete.date && d.value === itemToDelete.value);
-        if (originalIndex !== -1) { state.projectData.chartData.splice(originalIndex, 1); }
-        window.saveData(); renderChart();
+
+export function addDriver(type) {
+    if(state.isReadOnly) return;
+    const v = prompt(`Add ${type} Driver:`);
+    if(v) { state.projectData.drivers[type].push(v); window.saveData(); renderTools(); }
+}
+
+export function addStep() {
+    if(state.isReadOnly) return;
+    const v = prompt("Step Description:");
+    if(v) { 
+        if(!state.projectData.process) state.projectData.process = ["Start", "End"];
+        state.projectData.process.splice(state.projectData.process.length-1, 0, v);
+        window.saveData(); renderTools(); 
     }
 }
+
+export function resetProcess() {
+    if(confirm("Reset process map?")) { state.projectData.process = ["Start", "End"]; window.saveData(); renderTools(); }
+}
+
+export function renderChart() {
+    const ctx = document.getElementById('mainChart');
+    if(!ctx) return;
+    if(window.myChart) window.myChart.destroy();
+    
+    const d = state.projectData.chartData;
+    if(d.length === 0) {
+        document.getElementById('chart-ghost')?.classList.remove('hidden');
+        return;
+    }
+    document.getElementById('chart-ghost')?.classList.add('hidden');
+
+    const labels = d.map(x => x.date);
+    const data = d.map(x => x.value);
+    
+    let baseline = data.slice(0, 12);
+    let mean = baseline.length ? baseline.reduce((a,b)=>a+b,0)/baseline.length : 0;
+
+    const annotations = {
+        meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'end' } }
+    };
+    
+    const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
+    pdsaDates.forEach((p, i) => {
+        annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
+    });
+
+    window.myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Measure',
+                data: data,
+                borderColor: '#2d2e83',
+                backgroundColor: '#2d2e83',
+                tension: 0.1,
+                pointRadius: 5,
+                pointHoverRadius: 7
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                annotation: { annotations },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const item = d[context.dataIndex];
+                            return `Grade: ${item.grade || 'N/A'}`;
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+export function renderFullViewChart() {
+    const container = document.getElementById('full-view-chart-container');
+    if(!container) return;
+    
+    container.innerHTML = '<canvas id="fullProjectChart" height="300"></canvas>';
+    const ctx = document.getElementById('fullProjectChart').getContext('2d');
+    
+    if(fullViewChartInstance) fullViewChartInstance.destroy();
+    
+    const d = state.projectData.chartData;
+    if(d.length === 0) { container.innerHTML = '<div class="text-center italic text-slate-400">No Data Available</div>'; return; }
+
+    const labels = d.map(x => x.date);
+    const data = d.map(x => x.value);
+    
+    fullViewChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: [{ label: 'Measure', data: data, borderColor: '#2d2e83', borderWidth: 2, pointRadius: 3 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+    });
+}
+
 export function addDataPoint() {
-    if (state.isReadOnly) return;
-    const d = { date: document.getElementById('chart-date').value, value: document.getElementById('chart-value').value, type: document.getElementById('chart-cat').value };
-    if (d.date && d.value) { state.projectData.chartData.push(d); window.saveData(); renderChart(); }
+    const d = document.getElementById('chart-date').value;
+    const v = document.getElementById('chart-value').value;
+    const g = document.getElementById('chart-grade').value;
+    const cat = document.getElementById('chart-cat')?.value || 'outcome';
+    
+    if(!d || !v) { showToast("Date and Value required", "error"); return; }
+    
+    state.projectData.chartData.push({ date: d, value: parseFloat(v), grade: g, type: cat });
+    state.projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+    
+    document.getElementById('chart-value').value = '';
+    window.saveData();
+    if(window.renderDataView) window.renderDataView();
+    showToast("Data point added", "success");
 }
+
+export function deleteDataPoint(date) {
+    if(confirm('Delete this point?')) {
+        const idx = state.projectData.chartData.findIndex(x => x.date === date);
+        if(idx > -1) { 
+            state.projectData.chartData.splice(idx, 1); 
+            window.saveData(); 
+            if(window.renderDataView) window.renderDataView();
+            showToast("Point deleted", "info");
+        }
+    }
+}
+
+export function downloadCSVTemplate() {
+    const csv = "data:text/csv;charset=utf-8,Date,Value,Grade\n2026-01-01,120,Registrar\n2026-01-02,110,Nurse";
+    const link = document.createElement("a");
+    link.setAttribute("href", encodeURI(csv));
+    link.setAttribute("download", "qip_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    showToast("Template downloaded", "success");
+}
+
 export function importCSV(input) {
     if(state.isReadOnly) return;
     const file = input.files[0];
@@ -212,20 +295,22 @@ export function importCSV(input) {
         const text = e.target.result;
         const rows = text.split('\n');
         let count = 0;
-        state.historyStack.push(JSON.stringify(state.projectData));
         rows.forEach(row => {
             const cols = row.split(',');
             if (cols.length >= 2) {
                 const date = cols[0].trim();
                 const value = parseFloat(cols[1].trim());
+                const grade = cols[2] ? cols[2].trim() : 'Imported';
                 if (!isNaN(value) && !isNaN(Date.parse(date))) {
-                    state.projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, type: 'outcome' });
+                    state.projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, grade: grade });
                     count++;
                 }
             }
         });
-        window.saveData(); renderChart();
-        alert(`Imported ${count} points.`);
+        state.projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+        window.saveData(); 
+        if(window.renderDataView) window.renderDataView();
+        showToast(`Imported ${count} points`, "success");
     };
     reader.readAsText(file);
     input.value = '';
