@@ -1,6 +1,6 @@
 // sw.js
-// BUMPED VERSION TO v4.2 TO FORCE UPDATE AND CACHE NEW MODULES
-const CACHE_NAME = 'rcem-qip-v4.2-modules';
+// BUMPED VERSION TO v5.0 TO FORCE UPDATE AND CACHE NEW MODULES
+const CACHE_NAME = 'rcem-qip-v5.0-modules';
 const ASSETS = [
   './',
   './index.html',
@@ -23,7 +23,11 @@ const ASSETS = [
   'https://www.transparenttextures.com/patterns/graphy.png',
   'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css',
   'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap',
+  // FIREBASE SDKS ADDED TO PREVENT OFFLINE CRASHES
+  'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js',
+  'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js',
+  'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js'
 ];
 
 self.addEventListener('install', (e) => {
