@@ -1,9 +1,8 @@
 import { state } from './state.js';
 import { showToast, escapeHtml } from './utils.js';
 
-// Global state for this module
-export let toolMode = 'fishbone';       // For Diagrams (Fishbone/Driver/Process)
-export let chartMode = 'run';           // For Graphs (Run/SPC/Histogram/Pareto)
+export let toolMode = 'fishbone';
+export let chartMode = 'run'; 
 let zoomLevel = 1.0;
 
 // ==========================================
@@ -40,7 +39,6 @@ const CHART_EDUCATION = {
 // 2. VIEW CONTROLS
 // ==========================================
 
-// -- Diagram Controls --
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
@@ -52,16 +50,6 @@ export function setToolMode(m) {
     renderTools();
 }
 
-export function zoomIn() { zoomLevel += 0.1; applyZoom(); }
-export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); }
-export function resetZoom() { zoomLevel = 1.0; applyZoom(); }
-
-function applyZoom() {
-    const el = document.getElementById('diagram-canvas');
-    if(el) el.style.transform = `scale(${zoomLevel})`;
-}
-
-// -- Graph Controls --
 export function setChartMode(m) {
     chartMode = m;
     renderChart();
@@ -89,8 +77,17 @@ export function updateChartEducation() {
     if(typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+export function zoomIn() { zoomLevel += 0.1; applyZoom(); }
+export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); }
+export function resetZoom() { zoomLevel = 1.0; applyZoom(); }
+
+function applyZoom() {
+    const el = document.getElementById('diagram-canvas');
+    if(el) el.style.transform = `scale(${zoomLevel})`;
+}
+
 // ==========================================
-// 3. GRAPH ENGINES (The New "Scientific" Charts)
+// 3. GRAPH ENGINES
 // ==========================================
 
 export function renderChart(canvasId = 'mainChart') {
@@ -105,7 +102,6 @@ export function renderChart(canvasId = 'mainChart') {
     else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
 }
 
-// --- Engine A: Run Chart ---
 function renderRunChart(ctx, canvasId) {
     const d = state.projectData.chartData;
     if(d.length === 0 && canvasId === 'mainChart') { document.getElementById('chart-ghost')?.classList.remove('hidden'); return; }
@@ -140,7 +136,6 @@ function renderRunChart(ctx, canvasId) {
     if(canvasId === 'mainChart') window.myChart = chart; else ctx.chartInstance = chart;
 }
 
-// --- Engine B: SPC Chart ---
 function renderSPCChart(ctx, canvasId) {
     const d = state.projectData.chartData;
     const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
@@ -169,7 +164,6 @@ function renderSPCChart(ctx, canvasId) {
     ctx.chartInstance = chart;
 }
 
-// --- Engine C: Histogram ---
 function renderHistogram(ctx, canvasId) {
     const d = state.projectData.chartData.map(x => x.value);
     if(d.length < 2) return;
@@ -197,7 +191,6 @@ function renderHistogram(ctx, canvasId) {
     ctx.chartInstance = chart;
 }
 
-// --- Engine D: Pareto ---
 function renderPareto(ctx, canvasId) {
     const d = state.projectData.chartData;
     const counts = {};
@@ -219,7 +212,7 @@ function renderPareto(ctx, canvasId) {
 }
 
 // ==========================================
-// 4. DIAGRAM ENGINES (Fishbone / Driver)
+// 4. DIAGRAM ENGINES
 // ==========================================
 
 export async function renderTools(targetId = 'diagram-canvas', overrideMode = null) {
@@ -230,13 +223,11 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     const mode = overrideMode || toolMode;
     const viewMode = document.getElementById('view-tools') ? document.getElementById('view-tools').getAttribute('data-view') : 'visual';
 
-    // List View Handler
     if(viewMode === 'list' && targetId === 'diagram-canvas') {
         renderDriverList(canvas, mode);
         return;
     }
 
-    // Visual View Handler
     canvas.innerHTML = ''; 
     const ghost = document.getElementById('diagram-ghost');
     
@@ -258,18 +249,62 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     }
 }
 
+// *** UPGRADED: TOUCH EVENT LOGIC ADDED HERE ***
+function makeDraggable(el, container, isCat, catIdx, causeIdx) {
+    if(state.isReadOnly) return;
+
+    const handleMove = (clientX, clientY, startLeft, startTop, startX, startY) => {
+        const parentW = container.offsetWidth || 1000;
+        const parentH = container.offsetHeight || 600;
+        const dx = (clientX - startX) / parentW * 100;
+        const dy = (clientY - startY) / parentH * 100;
+        el.style.left = `${startLeft + dx}%`;
+        el.style.top = `${startTop + dy}%`;
+    };
+
+    const handleEnd = () => {
+        const newX = parseFloat(el.style.left);
+        const newY = parseFloat(el.style.top);
+        if (isCat) { 
+            state.projectData.fishbone.categories[catIdx].x = newX; 
+            state.projectData.fishbone.categories[catIdx].y = newY; 
+        } else { 
+            state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; 
+            state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; 
+        }
+        window.saveData(true);
+    };
+
+    // Mouse
+    el.onmousedown = (e) => {
+        e.preventDefault();
+        const startX = e.clientX; const startY = e.clientY;
+        const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
+        
+        const onMove = (ev) => handleMove(ev.clientX, ev.clientY, startLeft, startTop, startX, startY);
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); handleEnd(); };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    };
+
+    // Touch (iPad/Mobile)
+    el.ontouchstart = (e) => {
+        if(e.touches.length > 1) return;
+        e.preventDefault();
+        const touch = e.touches[0];
+        const startX = touch.clientX; const startY = touch.clientY;
+        const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
+
+        const onTouchMove = (ev) => handleMove(ev.touches[0].clientX, ev.touches[0].clientY, startLeft, startTop, startX, startY);
+        const onTouchEnd = () => { document.removeEventListener('touchmove', onTouchMove); document.removeEventListener('touchend', onTouchEnd); handleEnd(); };
+        document.addEventListener('touchmove', onTouchMove, {passive: false}); document.addEventListener('touchend', onTouchEnd);
+    };
+}
+
 function renderFishboneVisual(container, showEditBtn = false) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
     svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
-    svg.innerHTML = `
-        <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
-        <path d="M 95% 50% L 92% 48% L 92% 52% Z" fill="#2d2e83"/>
-        <line x1="20%" y1="20%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
-        <line x1="20%" y1="80%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
-        <line x1="70%" y1="20%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
-        <line x1="70%" y1="80%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>
-    `;
+    svg.innerHTML = `<line x1="5%" y1="50%" x2="95%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/><path d="M 95% 50% L 92% 48% L 92% 52% Z" fill="#2d2e83"/><line x1="20%" y1="20%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="20%" y1="80%" x2="30%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="70%" y1="20%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/><line x1="70%" y1="80%" x2="60%" y2="50%" stroke="#cbd5e1" stroke-width="2"/>`;
     container.appendChild(svg);
 
     const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
@@ -279,31 +314,7 @@ function renderFishboneVisual(container, showEditBtn = false) {
         el.style.left = `${x}%`; el.style.top = `${y}%`;
         
         if(!state.isReadOnly && showEditBtn) {
-            el.onmousedown = (e) => {
-                e.preventDefault();
-                const startX = e.clientX; const startY = e.clientY;
-                const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
-                const parentW = container.offsetWidth || 1000; const parentH = container.offsetHeight || 600;
-
-                const onMove = (ev) => {
-                    const dx = (ev.clientX - startX) / parentW * 100;
-                    const dy = (ev.clientY - startY) / parentH * 100;
-                    el.style.left = `${startLeft + dx}%`; el.style.top = `${startTop + dy}%`;
-                };
-                const onUp = () => {
-                    document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
-                    const newX = parseFloat(el.style.left); const newY = parseFloat(el.style.top);
-                    if (isCat) { 
-                        state.projectData.fishbone.categories[catIdx].x = newX; 
-                        state.projectData.fishbone.categories[catIdx].y = newY; 
-                    } else { 
-                        state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; 
-                        state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; 
-                    }
-                    window.saveData(true);
-                };
-                document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
-            };
+            makeDraggable(el, container, isCat, catIdx, causeIdx); // Attach upgraded drag logic
             el.ondblclick = (e) => { e.stopPropagation(); if(isCat) window.addCauseWithWhys(catIdx); };
         }
         container.appendChild(el);
@@ -350,7 +361,6 @@ function renderProcessVisual(container, showEditBtn = false) {
 }
 
 function renderDriverList(container, mode) {
-    // List rendering logic (reused from previous steps)
     if (mode === 'driver') {
         const d = state.projectData.drivers;
         container.innerHTML = `<div class="p-8 bg-white h-full overflow-y-auto"><h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Driver Diagram Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3><div class="grid grid-cols-1 md:grid-cols-3 gap-6">` +
@@ -387,7 +397,7 @@ function addPDSALines(annotations) {
     }
 }
 
-// === EXPORT HELPERS (Data Manipulation) ===
+// === EXPORT HELPERS ===
 export function addDataPoint() {
     const d = document.getElementById('chart-date').value;
     const v = document.getElementById('chart-value').value;
@@ -426,6 +436,66 @@ export function downloadCSVTemplate() {
     link.click();
     document.body.removeChild(link);
     showToast("Template downloaded", "success");
+}
+
+export function importCSV(input) {
+    if(state.isReadOnly) return;
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const rows = text.split('\n');
+        let count = 0;
+        rows.forEach(row => {
+            const cols = row.split(',');
+            if (cols.length >= 2) {
+                const date = cols[0].trim();
+                const value = parseFloat(cols[1].trim());
+                const grade = cols[2] ? cols[2].trim() : 'Imported';
+                if (!isNaN(value) && !isNaN(Date.parse(date))) {
+                    state.projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, grade: grade });
+                    count++;
+                }
+            }
+        });
+        state.projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
+        window.saveData(); 
+        if(window.renderDataView) window.renderDataView();
+        showToast(`Imported ${count} points`, "success");
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
+export function openChartSettings() {
+    const s = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
+    document.getElementById('chart-setting-title').value = s.title;
+    document.getElementById('chart-setting-yaxis').value = s.yAxis;
+    document.getElementById('chart-setting-annotations').checked = s.showAnnotations;
+    document.getElementById('chart-settings-modal').classList.remove('hidden');
+}
+
+export function saveChartSettings() {
+    state.projectData.chartSettings = {
+        title: document.getElementById('chart-setting-title').value,
+        yAxis: document.getElementById('chart-setting-yaxis').value,
+        showAnnotations: document.getElementById('chart-setting-annotations').checked
+    };
+    window.saveData();
+    document.getElementById('chart-settings-modal').classList.add('hidden');
+    renderChart();
+    showToast("Settings saved", "success");
+}
+
+export function copyChartImage() {
+    const canvas = document.getElementById('mainChart');
+    if (!canvas) return;
+    canvas.toBlob(blob => {
+        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            .then(() => showToast("Chart copied to clipboard!", "success"))
+            .catch(() => showToast("Failed to copy image.", "error"));
+    });
 }
 
 export function addCauseWithWhys(catIdx) {
