@@ -16,6 +16,16 @@ export const emptyProject = {
         updated: new Date().toISOString()
     },
     checklist: {
+        // Wizard Fields
+        problem_context: "",
+        problem_evidence: "",
+        problem_specific: "",
+        aim_measure: "",
+        aim_baseline: "",
+        aim_target: "",
+        aim_date: "",
+        
+        // Compiled Fields
         problem_desc: "",
         aim: "",
         methodology: "Model for Improvement (PDSA Cycles) & Driver Diagram",
@@ -59,9 +69,19 @@ export function getDemoData() {
             created: new Date().toISOString() 
         },
         checklist: {
-            problem_desc: "Local audit (Jan 2026) revealed only 45% of Red Flag Sepsis patients received IV antibiotics within 1 hour. This correlates with a 7.6% increase in mortality risk per hour of delay (Kumar et al).",
+            // Wizard breakdown
+            problem_context: "Sepsis is a leading cause of avoidable death. Early antibiotics are critical.",
+            problem_evidence: "Local audit (Jan 2026) showed 55% of Red Flag Sepsis patients breached the 1-hour target.",
+            problem_specific: "Delays occur mainly during the 'hiding' of equipment and drugs.",
+            aim_measure: "delivery of IV antibiotics within 1 hour",
+            aim_baseline: "45%",
+            aim_target: "90%",
+            aim_date: "August 2026",
+
+            // Compiled Text
+            problem_desc: "Sepsis is a leading cause of avoidable death. A local audit (Jan 2026) revealed only 45% of Red Flag Sepsis patients received IV antibiotics within 1 hour. This correlates with a 7.6% increase in mortality risk per hour of delay (Kumar et al).",
             aim: "To increase the delivery of IV antibiotics within 1 hour for patients with Red Flag Sepsis in the ED from 45% to 90% by August 2026.",
-            methodology: "Model for Improvement. We used a Fishbone diagram to identify 'Human Factors' barriers (cognitive load) and a Driver Diagram to prioritise high-leverage changes (forcing functions).",
+            methodology: "We used the Model for Improvement. A Fishbone diagram identified 'Human Factors' barriers (cognitive load) and a Driver Diagram to prioritised high-leverage changes (forcing functions).",
             measure_outcome: "% of eligible patients receiving IV Abx <1hr (Weekly)",
             measure_process: "% of Sepsis Grab Bags fully stocked (Daily audit)",
             measure_balance: "Rate of anaphylaxis (Ensuring speed does not bypass safety checks)",
@@ -106,7 +126,7 @@ export function getDemoData() {
                     text: "Environment", x: 70, y: 65, 
                     causes: [
                         {text: "Overcrowding in Resus", x: 75, y: 70},
-                        {text: "Lack of computers", x: 65, y: 60}
+                        {text: "Computer shortage", x: 65, y: 60}
                     ]
                 }
             ] 
