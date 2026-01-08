@@ -10,7 +10,8 @@ import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
 import { 
     renderChart, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, 
     zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, 
-    setToolMode, renderTools, toolMode 
+    setToolMode, renderTools, toolMode,
+    openChartSettings, saveChartSettings, copyChartImage // NEW IMPORTS
 } from "./charts.js";
 
 import * as R from "./renderers.js";
@@ -79,6 +80,10 @@ window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
 window.resetZoom = resetZoom;
 window.renderDataView = R.renderDataView; // Re-render table
+// New Chart Bindings
+window.openChartSettings = openChartSettings;
+window.saveChartSettings = saveChartSettings;
+window.copyChartImage = copyChartImage;
 
 // Tool Functions (Fishbone/Driver/Process)
 window.setToolMode = setToolMode;
@@ -164,6 +169,7 @@ window.saveGanttTask = () => {
         const depTask = state.projectData.gantt.find(t => t.id === dependency);
         if(depTask && new Date(depTask.end) > new Date(start)) {
             alert(`⚠️ Warning: This task starts before its dependency '${depTask.name}' finishes.`);
+            return; // FIX: STOP EXECUTION IF INVALID
         }
     }
 
@@ -281,8 +287,10 @@ onAuthStateChanged(auth, async (user) => {
 
     state.currentUser = user;
     if (user) {
-        document.getElementById('app-sidebar').classList.remove('hidden');
-        document.getElementById('app-sidebar').classList.add('flex');
+        // FIX: Ensure it is 'hidden' on mobile (default), but 'flex' on Desktop (lg:flex).
+        // This overrides the 'hidden' class only on Large screens.
+        document.getElementById('app-sidebar').classList.add('lg:flex');
+        
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('user-display').textContent = user.email;
         loadProjectList();
@@ -300,8 +308,7 @@ async function checkShareLink() {
         state.isReadOnly = true;
         document.getElementById('readonly-indicator').classList.remove('hidden');
         document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-sidebar').classList.remove('hidden');
-        document.getElementById('app-sidebar').classList.add('flex');
+        document.getElementById('app-sidebar').classList.add('lg:flex'); // FIX for shared view too
         document.body.classList.add('readonly-mode');
         
         try {
@@ -441,8 +448,8 @@ document.getElementById('demo-toggle').addEventListener('change', (e) => {
 document.getElementById('demo-auth-btn').onclick = () => {
     state.isDemoMode = true;
     state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
-    document.getElementById('app-sidebar').classList.remove('hidden');
-    document.getElementById('app-sidebar').classList.add('flex');
+    // FIX: Add lg:flex here too for demo mode logic
+    document.getElementById('app-sidebar').classList.add('lg:flex');
     document.getElementById('auth-screen').classList.add('hidden');
     document.getElementById('demo-watermark').classList.remove('hidden');
     document.getElementById('demo-toggle').checked = true;
