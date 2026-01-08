@@ -1,8 +1,6 @@
 import { state } from './state.js';
 import { showToast, escapeHtml } from './utils.js';
 
-let chartInstance = null;
-let fullViewChartInstance = null;
 export let toolMode = 'fishbone';
 let zoomLevel = 1.0;
 
@@ -12,8 +10,8 @@ export function setToolMode(m) {
     zoomLevel = 1.0;
     const buttons = document.querySelectorAll('#tool-nav-ui button');
     buttons.forEach(b => {
-        if(b.textContent.toLowerCase().includes(m)) b.className = "px-3 py-1 rounded text-sm font-bold bg-white shadow text-rcem-purple";
-        else b.className = "px-3 py-1 rounded text-sm font-bold hover:bg-white/50";
+        if(b.textContent.toLowerCase().includes(m)) b.className = "px-3 py-1 rounded text-sm font-bold bg-white shadow text-rcem-purple transition-all";
+        else b.className = "px-3 py-1 rounded text-sm font-bold hover:bg-white/50 text-slate-500 transition-all";
     });
     renderTools();
 }
@@ -28,35 +26,40 @@ function applyZoom() {
 }
 
 // === MAIN TOOL RENDERER ===
-export async function renderTools() {
+export async function renderTools(targetId = 'diagram-canvas', overrideMode = null) {
     if(!state.projectData) return;
-    const canvas = document.getElementById('diagram-canvas');
-    const ghost = document.getElementById('diagram-ghost');
-    const viewMode = document.getElementById('view-tools').getAttribute('data-view');
+    const canvas = document.getElementById(targetId);
+    if (!canvas) return;
 
-    // 1. LIST VIEW RENDERER (Accessibility / Quick Edit)
-    if(viewMode === 'list') {
-        renderDriverList(canvas);
+    // Determine Mode
+    const mode = overrideMode || toolMode;
+    const viewMode = document.getElementById('view-tools') ? document.getElementById('view-tools').getAttribute('data-view') : 'visual';
+
+    // 1. LIST VIEW RENDERER (Only for main view)
+    if(viewMode === 'list' && targetId === 'diagram-canvas') {
+        renderDriverList(canvas, mode);
         return;
     }
 
     // 2. VISUAL RENDERER
     canvas.innerHTML = ''; 
+    const ghost = document.getElementById('diagram-ghost');
     
-    if (toolMode === 'fishbone') {
-        ghost.classList.add('hidden');
+    if (mode === 'fishbone') {
+        if(ghost) ghost.classList.add('hidden');
         renderFishboneVisual(canvas);
     } 
-    else if (toolMode === 'driver') {
-        if (state.projectData.drivers.primary.length === 0) ghost.classList.remove('hidden'); 
-        else {
-            ghost.classList.add('hidden');
-            renderDriverVisual(canvas);
+    else if (mode === 'driver') {
+        if (state.projectData.drivers.primary.length === 0 && targetId === 'diagram-canvas') {
+            if(ghost) ghost.classList.remove('hidden');
+        } else {
+            if(ghost) ghost.classList.add('hidden');
+            renderDriverVisual(canvas, targetId === 'diagram-canvas'); // Pass flag to show edit button
         }
     } 
-    else if (toolMode === 'process') {
-        ghost.classList.add('hidden');
-        renderProcessVisual(canvas);
+    else if (mode === 'process') {
+        if(ghost) ghost.classList.add('hidden');
+        renderProcessVisual(canvas, targetId === 'diagram-canvas');
     }
 }
 
@@ -77,19 +80,18 @@ function renderFishboneVisual(container) {
     `;
     container.appendChild(svg);
 
-    // Helper: Create Draggable HTML Labels
     const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
         const el = document.createElement('div');
         el.className = `fishbone-label ${isCat ? 'category' : ''}`;
         el.innerText = text;
         el.style.left = `${x}%`; el.style.top = `${y}%`;
         
-        if(!state.isReadOnly) {
+        if(!state.isReadOnly && container.id === 'diagram-canvas') {
             el.onmousedown = (e) => {
                 e.preventDefault();
                 const startX = e.clientX; const startY = e.clientY;
                 const startLeft = parseFloat(el.style.left); const startTop = parseFloat(el.style.top);
-                const parentW = container.offsetWidth; const parentH = container.offsetHeight;
+                const parentW = container.offsetWidth || 1000; const parentH = container.offsetHeight || 600;
 
                 const onMove = (ev) => {
                     const dx = (ev.clientX - startX) / parentW * 100;
@@ -99,7 +101,6 @@ function renderFishboneVisual(container) {
                 const onUp = () => {
                     document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp);
                     const newX = parseFloat(el.style.left); const newY = parseFloat(el.style.top);
-                    // Save Coordinates
                     if (isCat) { 
                         state.projectData.fishbone.categories[catIdx].x = newX; 
                         state.projectData.fishbone.categories[catIdx].y = newY; 
@@ -111,8 +112,6 @@ function renderFishboneVisual(container) {
                 };
                 document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
             };
-            
-            // Double click to Add Cause (if category)
             el.ondblclick = (e) => {
                 e.stopPropagation();
                 if(isCat) window.addCauseWithWhys(catIdx);
@@ -121,7 +120,6 @@ function renderFishboneVisual(container) {
         container.appendChild(el);
     };
 
-    // Render Items
     state.projectData.fishbone.categories.forEach((cat, i) => {
         createLabel(cat.text, cat.x || (i%2?20:70), cat.y || (i<2?20:80), true, i);
         cat.causes.forEach((cause, j) => {
@@ -131,7 +129,7 @@ function renderFishboneVisual(container) {
     });
 }
 
-function renderDriverVisual(container) {
+function renderDriverVisual(container, showEditBtn = false) {
     const d = state.projectData.drivers;
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
     let mCode = `graph LR\n  AIM[AIM] --> P[Primary Drivers]\n  P --> S[Secondary]\n  S --> C[Change Ideas]\n`;
@@ -139,17 +137,24 @@ function renderDriverVisual(container) {
     d.secondary.forEach((x,i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
     d.changes.forEach((x,i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
     
-    // Create dedicated wrapper for mermaid to bind to
     const wrapper = document.createElement('div');
     wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
     wrapper.textContent = mCode;
     container.appendChild(wrapper);
     
-    // Scoped execution to prevent errors on other elements
+    if(showEditBtn) {
+        const editBtn = document.createElement('button');
+        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
+        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Data`;
+        editBtn.onclick = () => window.toggleToolList();
+        container.appendChild(editBtn);
+        if(typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error("Mermaid error", e); }
 }
 
-function renderProcessVisual(container) {
+function renderProcessVisual(container, showEditBtn = false) {
     const p = state.projectData.process || ["Start", "End"];
     const clean = (t) => t ? t.replace(/["()]/g, '') : '...';
     let mCode = `graph TD\n` + p.map((x,i) => i<p.length-1 ? `  n${i}["${clean(x)}"] --> n${i+1}["${clean(p[i+1])}"]` : `  n${i}["${clean(x)}"]`).join('\n');
@@ -159,33 +164,48 @@ function renderProcessVisual(container) {
     wrapper.textContent = mCode;
     container.appendChild(wrapper);
 
+    if(showEditBtn) {
+        const editBtn = document.createElement('button');
+        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
+        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Steps`;
+        editBtn.onclick = () => window.toggleToolList();
+        container.appendChild(editBtn);
+        if(typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
     try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error(e); }
 }
 
-function renderDriverList(container) {
-    container.innerHTML = `
+function renderDriverList(container, mode) {
+    if (mode === 'driver') {
+        const d = state.projectData.drivers;
+        container.innerHTML = `
         <div class="p-8 bg-white h-full overflow-y-auto">
-            <h3 class="font-bold text-slate-800 mb-4">Edit Diagram Data (List View)</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                ${state.projectData.fishbone.categories.map((cat, i) => `
-                <div class="bg-slate-50 p-4 rounded border border-slate-200">
-                    <input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none text-rcem-purple" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)">
-                    <div class="space-y-2 pl-4 border-l-2 border-slate-200">
-                        ${cat.causes.map((c, j) => `
-                        <div class="flex gap-2">
-                            <input class="text-sm w-full p-1 border rounded bg-white" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)">
-                            <button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                        </div>`).join('')}
-                        <button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold mt-2 flex items-center gap-1 hover:underline"><i data-lucide="plus" class="w-3 h-3"></i> Add Cause</button>
-                    </div>
-                </div>`).join('')}
+            <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Driver Diagram Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Primary Drivers</h4>${d.primary.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.primary[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.primary.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('primary')" class="text-xs text-sky-600 font-bold">+ Add Primary</button></div>
+                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Secondary Drivers</h4>${d.secondary.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.secondary[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.secondary.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('secondary')" class="text-xs text-sky-600 font-bold">+ Add Secondary</button></div>
+                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Change Ideas</h4>${d.changes.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.changes[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.changes.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('changes')" class="text-xs text-sky-600 font-bold">+ Add Idea</button></div>
             </div>
-        </div>
-    `;
+        </div>`;
+    } else if (mode === 'process') {
+        const p = state.projectData.process;
+        container.innerHTML = `
+        <div class="p-8 bg-white h-full overflow-y-auto">
+             <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Process Steps <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
+             <div class="max-w-md space-y-2">
+                ${p.map((x,i) => `<div class="flex gap-2 items-center"><span class="text-xs font-mono text-slate-400 w-6">${i+1}.</span><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.process[${i}]=this.value;window.saveData()"><button onclick="state.projectData.process.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}
+                <div class="flex gap-2 mt-4">
+                    <button onclick="window.addStep()" class="bg-slate-800 text-white px-3 py-1.5 rounded text-xs font-bold">+ Add Step</button>
+                    <button onclick="window.resetProcess()" class="text-red-500 text-xs font-bold ml-auto">Reset</button>
+                </div>
+             </div>
+        </div>`;
+    }
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// === CHART SETTINGS MODAL ===
+// === CHART SETTINGS ===
 export function openChartSettings() {
     const s = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
     document.getElementById('chart-setting-title').value = s.title;
@@ -217,44 +237,42 @@ export function copyChartImage() {
 }
 
 // === CHARTING ENGINE ===
-export function renderChart() {
-    const ctx = document.getElementById('mainChart');
+export function renderChart(canvasId = 'mainChart') {
+    const ctx = document.getElementById(canvasId);
     if(!ctx) return;
-    if(window.myChart) window.myChart.destroy();
+    
+    // Clear existing chart instance if it exists
+    if(ctx.chartInstance) ctx.chartInstance.destroy(); // Attach instance to element to track it
     
     const d = state.projectData.chartData;
-    if(d.length === 0) {
+    if(d.length === 0 && canvasId === 'mainChart') {
         document.getElementById('chart-ghost')?.classList.remove('hidden');
         return;
     }
-    document.getElementById('chart-ghost')?.classList.add('hidden');
+    if(canvasId === 'mainChart') document.getElementById('chart-ghost')?.classList.add('hidden');
 
-    // Sort data
     const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
     const labels = sortedD.map(x => x.date);
     const data = sortedD.map(x => x.value);
     
-    // Settings
     const settings = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
 
-    // Baseline (First 12 points mean)
     let baselineData = data.slice(0, 12);
     let mean = baselineData.length ? baselineData.reduce((a,b)=>a+b,0)/baselineData.length : 0;
 
-    // SPC RULE DETECTION: SHIFT & TREND
-    const pointColors = data.map(() => '#2d2e83'); // Default Navy
+    // SPC RULE DETECTION
+    const pointColors = data.map(() => '#2d2e83'); 
     const pointRadii = data.map(() => 5);
 
-    // Rule 1: Shift (6 points on same side of mean)
+    // Rule 1: Shift
     for(let i=0; i <= data.length - 6; i++) {
         const subset = data.slice(i, i+6);
         if(subset.every(v => v > mean) || subset.every(v => v < mean)) {
-            // Highlight these points as Orange (RCEM Shift)
             for(let k=0; k<6; k++) pointColors[i+k] = '#f36f21'; 
         }
     }
 
-    // Rule 2: Trend (5 points strictly increasing or decreasing)
+    // Rule 2: Trend
     for(let i=0; i <= data.length - 5; i++) {
         const subset = data.slice(i, i+5);
         let increasing = true, decreasing = true;
@@ -263,7 +281,6 @@ export function renderChart() {
             if(subset[k+1] >= subset[k]) decreasing = false;
         }
         if(increasing || decreasing) {
-             // Highlight these points as Blue (RCEM Trend)
              for(let k=0; k<5; k++) pointColors[i+k] = '#3b82f6'; 
         }
     }
@@ -279,7 +296,7 @@ export function renderChart() {
         });
     }
 
-    window.myChart = new Chart(ctx, {
+    const chart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
@@ -288,7 +305,7 @@ export function renderChart() {
                 data: data,
                 borderColor: '#2d2e83',
                 backgroundColor: '#2d2e83',
-                pointBackgroundColor: pointColors, // Dynamic Colors
+                pointBackgroundColor: pointColors,
                 pointBorderColor: pointColors,
                 tension: 0.1,
                 pointRadius: pointRadii,
@@ -301,42 +318,20 @@ export function renderChart() {
             plugins: {
                 annotation: { annotations },
                 title: { display: true, text: settings.title, font: { size: 16 } },
-                tooltip: {
-                    callbacks: {
-                        afterLabel: function(context) {
-                            const item = sortedD[context.dataIndex];
-                            return `Grade: ${item.grade || 'N/A'} (${item.category || 'outcome'})`;
-                        }
-                    }
-                }
+                legend: { display: false }
             },
             scales: {
                 y: { title: { display: true, text: settings.yAxis } }
             }
         }
     });
+
+    if(canvasId === 'mainChart') window.myChart = chart;
+    else ctx.chartInstance = chart; // Store instance for cleanup
 }
 
 export function renderFullViewChart() {
-    const container = document.getElementById('full-view-chart-container');
-    if(!container) return;
-    
-    container.innerHTML = '<canvas id="fullProjectChart" height="300"></canvas>';
-    const ctx = document.getElementById('fullProjectChart').getContext('2d');
-    
-    if(fullViewChartInstance) fullViewChartInstance.destroy();
-    
-    const d = state.projectData.chartData;
-    if(d.length === 0) { container.innerHTML = '<div class="text-center italic text-slate-400">No Data Available</div>'; return; }
-
-    const labels = d.map(x => x.date);
-    const data = d.map(x => x.value);
-    
-    fullViewChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: { labels: labels, datasets: [{ label: 'Measure', data: data, borderColor: '#2d2e83', borderWidth: 2, pointRadius: 3 }] },
-        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-    });
+    renderChart('fullProjectChart');
 }
 
 // === DATA HELPERS ===
