@@ -191,7 +191,6 @@ function renderChecklist() {
     const isSmart = (text) => /\d/.test(text) && /\b(by|in|20\d\d)\b/i.test(text);
     const hint = isSmart(d.checklist.aim) ? "<span class='text-emerald-600'>✓ Good SMART Aim</span>" : "<span class='text-amber-600'>⚠️ Add a Measure (Number) and Time (Date)</span>";
     
-    // FIX: Changed oninput to onchange for Aim to prevent focus loss
     document.getElementById('checklist-container').innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
             <div><label class="block text-sm font-bold text-slate-700 mb-2">Problem Description</label><textarea onchange="window.saveChecklist('problem_desc', this.value)" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none" rows="3">${escapeHtml(d.checklist.problem_desc)}</textarea></div>
@@ -271,16 +270,6 @@ function renderPublish(mode = 'qiat') {
             : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
     });
 
-    // Make sure the header includes the new button if not present (Quick fix for HTML injection)
-    const headerDiv = document.querySelector('#view-publish header div.flex');
-    if(headerDiv && !document.getElementById('btn-mode-qiat')) {
-        headerDiv.innerHTML = `
-            <button onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-xs font-bold rounded bg-white shadow text-rcem-purple">QIAT / Risr</button>
-            <button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200">RCEM Abstract</button>
-            <button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200">Report</button>
-        `;
-    }
-
     if (mode === 'abstract') {
         const s1 = `${d.checklist.problem_desc} ${d.checklist.aim}`.trim(); 
         const s2 = `Drivers: ${(d.drivers.changes || []).join(', ')}.`.trim(); 
@@ -298,7 +287,6 @@ function renderPublish(mode = 'qiat') {
                 </div>
             </div>`;
     } else if (mode === 'qiat') {
-        // --- QIAT / RISR EXPORT MODE ---
         const copyBtn = (text, id) => `
             <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').value); showToast('Copied to clipboard', 'success')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded font-bold text-xs flex items-center gap-2 transition-colors">
                 <i data-lucide="copy" class="w-3 h-3"></i> Copy
@@ -307,7 +295,6 @@ function renderPublish(mode = 'qiat') {
         const wordCount = (text) => text.trim().split(/\s+/).filter(w => w.length > 0).length;
         const countBadge = (text) => `<span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">${wordCount(text)} words</span>`;
 
-        // Prepare Data Fields
         const f_reason = `${d.checklist.problem_desc}\n\nContext:\n${d.checklist.context || ''}`;
         const f_change = [
             "Primary Drivers:", ...d.drivers.primary, 
@@ -329,85 +316,15 @@ function renderPublish(mode = 'qiat') {
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-rcem-purple">
                     <h2 class="text-xl font-bold text-slate-800 mb-2">QIAT / Risr Form Data</h2>
                     <p class="text-sm text-slate-500 mb-6">Copy and paste these sections directly into the Risr online form.</p>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <label class="font-bold text-sm text-slate-700 uppercase">Project Title</label>
-                            ${copyBtn(d.meta.title, 'qiat-title')}
-                        </div>
-                        <input readonly id="qiat-title" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono" value="${escapeHtml(d.meta.title)}">
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">Reason for Project</label>
-                                ${countBadge(f_reason)}
-                            </div>
-                            ${copyBtn(f_reason, 'qiat-reason')}
-                        </div>
-                        <textarea readonly id="qiat-reason" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reason)}</textarea>
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">Aim Statement</label>
-                                ${countBadge(d.checklist.aim)}
-                            </div>
-                            ${copyBtn(d.checklist.aim, 'qiat-aim')}
-                        </div>
-                        <textarea readonly id="qiat-aim" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(d.checklist.aim)}</textarea>
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">Change Ideas (Drivers)</label>
-                                ${countBadge(f_change)}
-                            </div>
-                            ${copyBtn(f_change, 'qiat-change')}
-                        </div>
-                        <textarea readonly id="qiat-change" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_change)}</textarea>
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">Measures</label>
-                                ${countBadge(f_measures)}
-                            </div>
-                            ${copyBtn(f_measures, 'qiat-measures')}
-                        </div>
-                        <textarea readonly id="qiat-measures" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_measures)}</textarea>
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">PDSA Cycles</label>
-                                ${countBadge(f_pdsa)}
-                            </div>
-                            ${copyBtn(f_pdsa, 'qiat-pdsa')}
-                        </div>
-                        <textarea readonly id="qiat-pdsa" rows="8" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_pdsa)}</textarea>
-                    </div>
-
-                    <div class="mb-8">
-                        <div class="flex justify-between items-center mb-2">
-                            <div class="flex items-center gap-2">
-                                <label class="font-bold text-sm text-slate-700 uppercase">Reflection & Learning</label>
-                                ${countBadge(f_reflection)}
-                            </div>
-                            ${copyBtn(f_reflection, 'qiat-reflect')}
-                        </div>
-                        <textarea readonly id="qiat-reflect" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reflection)}</textarea>
+                    <div class="space-y-8">
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Reason for Project</label>${copyBtn(f_reason, 'qiat-reason')}</div><textarea readonly id="qiat-reason" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reason)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Aim Statement</label>${copyBtn(d.checklist.aim, 'qiat-aim')}</div><textarea readonly id="qiat-aim" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(d.checklist.aim)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Change Ideas</label>${copyBtn(f_change, 'qiat-change')}</div><textarea readonly id="qiat-change" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_change)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">PDSA Cycles</label>${copyBtn(f_pdsa, 'qiat-pdsa')}</div><textarea readonly id="qiat-pdsa" rows="8" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_pdsa)}</textarea></div>
                     </div>
                 </div>
-            </div>
-        `;
+            </div>`;
     } else {
-        // REPORT MODE
         content.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8"><h3 class="font-bold text-slate-800 mb-4">FRCEM Report Builder</h3><div class="space-y-4"><div><label class="block text-xs font-bold text-slate-700 mb-1">Evidence & Literature</label><textarea onchange="window.saveChecklist('lit_review', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.lit_review || '')}</textarea></div><div><label class="block text-xs font-bold text-slate-700 mb-1">Context</label><textarea onchange="window.saveChecklist('context', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.context || '')}</textarea></div></div></div>`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -532,6 +449,22 @@ function renderGreen() {
                         <div class="mt-2 text-right"><button onclick="window.calcTime()" class="text-xs bg-blue-600 text-white px-3 py-1 rounded font-bold">Calculate Cost</button></div>
                         <div id="res-time" class="mt-2 text-lg font-bold text-blue-900 text-right">-</div>
                     </div>
+                    
+                    <div class="p-4 bg-amber-50 rounded border border-amber-100">
+                        <label class="block text-xs font-bold text-amber-700 uppercase mb-2">Financial Savings (£)</label>
+                        <input type="number" id="calc-money-in" class="w-full p-2 border border-amber-200 rounded text-sm" placeholder="0">
+                        <div class="mt-2 text-right"><button onclick="window.calcMoney()" class="text-xs bg-amber-600 text-white px-3 py-1 rounded font-bold">Projected/Year</button></div>
+                        <div id="res-money" class="mt-2 text-lg font-bold text-amber-900 text-right">-</div>
+                    </div>
+                </div>
+
+                <div class="mt-8 p-6 bg-slate-50 rounded border border-slate-200">
+                     <h4 class="font-bold text-slate-800 mb-2">Education Impact</h4>
+                     <div class="flex gap-4 items-center">
+                        <input type="number" id="calc-edu-ppl" placeholder="People Trained" class="p-2 border rounded text-sm">
+                        <button onclick="window.calcEdu()" class="bg-slate-800 text-white px-4 py-2 rounded text-sm font-bold">Log Impact</button>
+                        <span id="res-edu" class="font-bold text-rcem-purple"></span>
+                     </div>
                 </div>
             </div>
         </div>
@@ -591,6 +524,12 @@ function toggleToolList() {
     const current = el.getAttribute('data-view');
     el.setAttribute('data-view', current === 'list' ? 'visual' : 'list');
     renderTools();
+    
+    // Also toggle the tool nav UI buttons to reflect state
+    const ui = document.getElementById('tool-nav-ui');
+    if(ui) {
+         // Could add specific UI changes here if needed
+    }
 }
 
 function updateFishCat(i, v) { state.projectData.fishbone.categories[i].text = v; window.saveData(); }
@@ -655,8 +594,18 @@ function calcTime() {
     const cost = (hours * 30).toFixed(2); // Avg staff cost £30/hr
     document.getElementById('res-time').innerText = `£${cost} / month`;
 }
-function calcMoney() {} 
-function calcEdu() {}
+function calcMoney() {
+    const amount = document.getElementById('calc-money-in').value;
+    const annual = (amount * 12).toFixed(2);
+    document.getElementById('res-money').innerText = `£${annual} / year`;
+} 
+function calcEdu() {
+    const ppl = document.getElementById('calc-edu-ppl').value;
+    if(ppl) {
+        document.getElementById('res-edu').innerText = `${ppl} staff upskilled!`;
+        showToast("Education impact logged", "success");
+    }
+}
 
 // 5. Misc App Logic
 function saveSmartAim() { showToast("Aim saved via Checklist.", "info"); }
