@@ -65,11 +65,11 @@ function renderDashboard() {
     const avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : 0;
     
     // Calculate Project Progress Score
+    // Logic: Aim(20), Team(10), Diagnosis(20), Data(20), PDSA(20), Sustain(10)
     let score = 0;
     if(d.checklist.aim && d.checklist.problem_desc) score += 20;
     if(d.teamMembers.length > 0) score += 10;
-    if(d.drivers.primary.length > 0) score += 10;
-    if(d.fishbone.categories[0].causes.length > 0) score += 10;
+    if(d.drivers.primary.length > 0 || d.fishbone.categories[0].causes.length > 0) score += 20;
     if(d.chartData.length >= 6) score += 20;
     if(d.pdsa.length > 0) score += 20;
     if(d.checklist.sustain) score += 10;
