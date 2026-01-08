@@ -1,6 +1,6 @@
 import { state } from "./state.js";
 import { escapeHtml, showToast } from "./utils.js";
-import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart } from "./charts.js";
+import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart, makeDraggable } from "./charts.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -11,18 +11,18 @@ function renderAll(view) {
     
     // Router
     switch(view) {
-        case 'projects': break; // FIX: Prevents crash when loading project list
+        case 'projects': break; 
         case 'dashboard': renderDashboard(); break;
-        case 'checklist': renderChecklist(); break; // The "Sherpa" Wizard
+        case 'checklist': renderChecklist(); break; 
         case 'team': renderTeam(); break;
         case 'tools': renderTools(); break;
-        case 'data': renderDataView(); break;       // Includes new Graph Controls
+        case 'data': renderDataView(); break;       
         case 'pdsa': renderPDSA(); break;
         case 'stakeholders': renderStakeholders(); break;
         case 'gantt': renderGantt(); break;
-        case 'green': renderGreen(); break;         // Sustainability
-        case 'full': renderFullProject(); break;    // The Charter Dashboard
-        case 'publish': renderPublish(); break;     // The QIAT Report Writer
+        case 'green': renderGreen(); break;         
+        case 'full': renderFullProject(); break;    
+        case 'publish': renderPublish(); break;     
         default: renderDashboard();
     }
 
@@ -46,7 +46,6 @@ function updateNavigationUI(currentView) {
         else if(id === 'team' && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist.ethics) status = '✓';
         
-        // Remove existing badge to prevent duplicates
         const existingBadge = btn.querySelector('.status-badge');
         if(existingBadge) existingBadge.remove();
 
@@ -64,47 +63,58 @@ function renderDashboard() {
     const d = state.projectData;
     const values = d.chartData.map(x => Number(x.value)).filter(n => !isNaN(n));
     const avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : 0;
-    const min = values.length ? Math.min(...values) : 0;
-    const max = values.length ? Math.max(...values) : 0;
     
-    // Calculate Project Progress
-    const calcProgress = (c, t) => Math.min(100, Math.round((c / t) * 100));
-    const totalProg = Math.round((calcProgress(d.chartData.length, 12) + calcProgress(d.pdsa.length, 3) + calcProgress(d.drivers.primary.length, 3)) / 3);
+    // Calculate Project Progress Score
+    let score = 0;
+    if(d.checklist.aim && d.checklist.problem_desc) score += 20;
+    if(d.teamMembers.length > 0) score += 10;
+    if(d.drivers.primary.length > 0) score += 10;
+    if(d.fishbone.categories[0].causes.length > 0) score += 10;
+    if(d.chartData.length >= 6) score += 20;
+    if(d.pdsa.length > 0) score += 20;
+    if(d.checklist.sustain) score += 10;
+    
+    const totalProg = Math.min(100, score);
 
-    // 1. Progress Bar
+    // 1. Circular Progress Display
     document.getElementById('stat-progress').innerHTML = `
-        <div class="flex justify-between items-end mb-1">
-            <span class="text-3xl font-bold text-slate-800">${totalProg}%</span>
+        <div class="flex items-center gap-6">
+            <div class="relative w-24 h-24 flex items-center justify-center">
+                <svg class="w-full h-full transform -rotate-90">
+                    <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
+                    <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * totalProg / 100)}" class="text-emerald-500 transition-all duration-1000" />
+                </svg>
+                <span class="absolute text-xl font-bold text-slate-700">${totalProg}%</span>
+            </div>
+            <div>
+                <h4 class="font-bold text-slate-800 text-lg">Project Health</h4>
+                <p class="text-xs text-slate-500 mb-2">Completion Status</p>
+                <div class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-600 inline-block">
+                    ${totalProg < 30 ? 'Setting Up' : totalProg < 70 ? 'In Progress' : 'Near Completion'}
+                </div>
+            </div>
         </div>
-        <div class="progress-track">
-            <div class="progress-fill bg-emerald-500" style="width: ${totalProg}%"></div>
-        </div>
-        <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Project Completion</div>
     `;
     
     // 2. QI Coach Logic (Smart Banners)
     const coachEl = document.getElementById('qi-coach-banner');
-    let msg = { t: "Measuring Phase", m: "Collect at least 6 data points to establish a baseline.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
+    let msg = { t: "Next Step: Data", m: "You need a baseline. Add at least 6 data points.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
     
-    if (d.checklist.aim === "") {
-        msg = { t: "Define Your Aim", m: "Start by using the Wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
-    } else if (d.chartData.length >= 6 && d.pdsa.length === 0) {
-        msg = { t: "Time for Action", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
-    } else if (d.pdsa.length > 0) {
-        msg = { t: "Project Active", m: "Keep tracking data to detect improvement shifts.", i: "activity", c: "blue-500", b: "Add Point", a: "data" };
-    }
+    if (d.checklist.aim === "") msg = { t: "Next Step: Define Aim", m: "Use the wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
+    else if (d.drivers.primary.length === 0) msg = { t: "Next Step: Diagnosis", m: "Build your Driver Diagram to understand the problem.", i: "git-branch", c: "amber-500", b: "Build Diagram", a: "tools" };
+    else if (d.chartData.length >= 6 && d.pdsa.length === 0) msg = { t: "Next Step: PDSA", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
     
     coachEl.innerHTML = `
-        <div class="bg-white border-l-4 border-${msg.c} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden">
+        <div class="bg-white border-l-4 border-${msg.c} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden transition-all hover:shadow-md">
             <div class="bg-slate-50 p-4 rounded-full shadow-inner text-${msg.c}">
                 <i data-lucide="${msg.i}" class="w-8 h-8"></i>
             </div>
             <div class="flex-1">
-                <h4 class="font-bold text-slate-800 text-lg">QI COACH: ${msg.t}</h4>
-                <p class="text-slate-600 mt-1">${msg.m}</p>
+                <h4 class="font-bold text-slate-800 text-lg">${msg.t}</h4>
+                <p class="text-slate-600 mt-1 text-sm">${msg.m}</p>
             </div>
-            <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg">
-                ${msg.b}
+            <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg flex items-center gap-2">
+                ${msg.b} <i data-lucide="arrow-right" class="w-4 h-4"></i>
             </button>
         </div>
     `;
@@ -112,26 +122,20 @@ function renderDashboard() {
     // 3. Mini Stats
     const statsContainer = document.getElementById('stat-pdsa').parentElement.parentElement;
     statsContainer.innerHTML = `
-        <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
-            <div class="flex items-center gap-4">
-                <div class="p-3 bg-white/10 rounded-lg"><i data-lucide="clock" class="w-6 h-6 text-amber-400"></i></div>
-                <div>
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div>
-                    <div class="text-2xl font-bold font-mono">${avg}</div>
-                </div>
+        <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-4 lg:gap-8 items-center justify-around">
+            <div class="text-center">
+                <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Average</div>
+                <div class="text-2xl font-bold font-mono text-white">${avg}</div>
             </div>
-            <div class="h-10 w-px bg-white/10 hidden sm:block"></div>
-            <div>
-                <div class="text-xs text-slate-400 font-bold uppercase">Fastest</div>
-                <div class="text-xl font-bold text-emerald-400 font-mono">${min}</div>
+            <div class="h-8 w-px bg-white/20 hidden sm:block"></div>
+            <div class="text-center">
+                <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Data Points</div>
+                <div class="text-2xl font-bold font-mono text-amber-400">${d.chartData.length}</div>
             </div>
-            <div>
-                <div class="text-xs text-slate-400 font-bold uppercase">Slowest</div>
-                <div class="text-xl font-bold text-red-400 font-mono">${max}</div>
-            </div>
-            <div>
-                <div class="text-xs text-slate-400 font-bold uppercase">Points</div>
-                <div class="text-xl font-bold">${values.length}</div>
+            <div class="h-8 w-px bg-white/20 hidden sm:block"></div>
+            <div class="text-center">
+                <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">PDSA Cycles</div>
+                <div class="text-2xl font-bold font-mono text-emerald-400">${d.pdsa.length}</div>
             </div>
         </div>
     `;
@@ -150,17 +154,16 @@ function renderChecklist() {
     const d = state.projectData;
     const cl = d.checklist;
 
-    // Logic to auto-compile the fields
     const buildProblem = () => {
         const p = `${cl.problem_context || ''} ${cl.problem_evidence || ''} ${cl.problem_specific || ''}`.trim();
-        window.saveChecklist('problem_desc', p); // Auto-save to main field
+        window.saveChecklist('problem_desc', p); 
         return p;
     };
     
     const buildAim = () => {
         if(!cl.aim_measure || !cl.aim_target || !cl.aim_date) return cl.aim; 
         const a = `To increase ${cl.aim_measure} from ${cl.aim_baseline || 'baseline'} to ${cl.aim_target} by ${cl.aim_date}.`;
-        window.saveChecklist('aim', a); // Auto-save to main field
+        window.saveChecklist('aim', a); 
         return a;
     };
 
@@ -175,19 +178,15 @@ function renderChecklist() {
                     </div>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context (Why is this important?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Sepsis is a leading cause of avoidable death..." 
-                                value="${escapeHtml(cl.problem_context || '')}" 
-                                onchange="window.saveChecklist('problem_context', this.value); window.renderChecklist()">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
+                            <input class="w-full p-2 border rounded text-sm" placeholder="Why is this important?" value="${escapeHtml(cl.problem_context || '')}" onchange="window.saveChecklist('problem_context', this.value); window.renderChecklist()">
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Evidence (How do you know?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Audit showed 45% compliance..." 
-                                value="${escapeHtml(cl.problem_evidence || '')}" 
-                                onchange="window.saveChecklist('problem_evidence', this.value); window.renderChecklist()">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Evidence</label>
+                            <input class="w-full p-2 border rounded text-sm" placeholder="What is the baseline data?" value="${escapeHtml(cl.problem_evidence || '')}" onchange="window.saveChecklist('problem_evidence', this.value); window.renderChecklist()">
                         </div>
                         <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Generated Problem Statement</label>
+                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Problem Statement</label>
                             <p class="text-sm text-slate-700 italic">${escapeHtml(buildProblem())}</p>
                         </div>
                     </div>
@@ -200,61 +199,35 @@ function renderChecklist() {
                     </div>
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="col-span-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure (What are you improving?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. delivery of IV antibiotics <1hr" 
-                                value="${escapeHtml(cl.aim_measure || '')}" 
-                                onchange="window.saveChecklist('aim_measure', this.value); window.renderChecklist()">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure</label>
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. delivery of IV antibiotics <1hr" value="${escapeHtml(cl.aim_measure || '')}" onchange="window.saveChecklist('aim_measure', this.value); window.renderChecklist()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Baseline</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 45%" 
-                                value="${escapeHtml(cl.aim_baseline || '')}" 
-                                onchange="window.saveChecklist('aim_baseline', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 45%" value="${escapeHtml(cl.aim_baseline || '')}" onchange="window.saveChecklist('aim_baseline', this.value); window.renderChecklist()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Target</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 90%" 
-                                value="${escapeHtml(cl.aim_target || '')}" 
-                                onchange="window.saveChecklist('aim_target', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 90%" value="${escapeHtml(cl.aim_target || '')}" onchange="window.saveChecklist('aim_target', this.value); window.renderChecklist()">
                         </div>
                          <div class="col-span-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">By When? (Date)</label>
-                            <input type="text" class="w-full p-2 border rounded text-sm" placeholder="e.g. August 2026" 
-                                value="${escapeHtml(cl.aim_date || '')}" 
-                                onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">By When?</label>
+                            <input type="text" class="w-full p-2 border rounded text-sm" placeholder="e.g. August 2026" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
                         </div>
                     </div>
                     <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
-                        <label class="block text-xs font-bold text-indigo-400 uppercase mb-1">Generated Aim Statement</label>
+                        <label class="block text-xs font-bold text-indigo-400 uppercase mb-1">Aim Statement</label>
                         <p class="text-sm text-indigo-900 font-bold font-serif">${escapeHtml(buildAim())}</p>
                     </div>
                 </div>
             </div>
 
             <div class="space-y-6">
-                <div class="bg-amber-50 p-5 rounded-xl border border-amber-100 text-amber-900 text-sm">
-                    <h4 class="font-bold flex items-center gap-2 mb-2"><i data-lucide="lightbulb" class="w-4 h-4"></i> QI Coach Tip</h4>
-                    <p class="mb-2"><strong>Don't just say "Improve Care".</strong></p>
-                    <p>RCEM requires a SMART aim. Use the wizard to ensure you have a clear numeric target and a deadline.</p>
-                </div>
-
                 <div class="bg-white p-5 rounded-xl border border-slate-200">
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Methodology</label>
-                    <select onchange="window.saveChecklist('methodology', this.value)" class="w-full p-2 border rounded text-sm bg-white mb-4">
-                        <option>Model for Improvement (PDSA)</option>
-                        <option>Lean / Six Sigma</option>
-                        <option>Clinical Audit (Cycle)</option>
-                    </select>
-                    
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Ethics / Approval</label>
-                    <textarea onchange="window.saveChecklist('ethics', this.value)" class="w-full p-2 border rounded text-sm h-24">${escapeHtml(cl.ethics)}</textarea>
-                </div>
-                
-                <div class="bg-white p-5 rounded-xl border border-slate-200">
-                     <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Measures Definitions</label>
-                     <input placeholder="Outcome Measure" class="w-full p-2 border rounded text-sm mb-2" value="${escapeHtml(cl.measure_outcome || '')}" onchange="window.saveChecklist('measure_outcome', this.value)">
-                     <input placeholder="Process Measure" class="w-full p-2 border rounded text-sm mb-2" value="${escapeHtml(cl.measure_process || '')}" onchange="window.saveChecklist('measure_process', this.value)">
-                     <input placeholder="Balancing Measure" class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_balance || '')}" onchange="window.saveChecklist('measure_balance', this.value)">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-2">Measures Definitions</label>
+                     <input placeholder="Outcome Measure (The Aim)" class="w-full p-2 border rounded text-sm mb-2" value="${escapeHtml(cl.measure_outcome || '')}" onchange="window.saveChecklist('measure_outcome', this.value)">
+                     <input placeholder="Process Measure (Compliance)" class="w-full p-2 border rounded text-sm mb-2" value="${escapeHtml(cl.measure_process || '')}" onchange="window.saveChecklist('measure_process', this.value)">
+                     <input placeholder="Balancing Measure (Safety)" class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_balance || '')}" onchange="window.saveChecklist('measure_balance', this.value)">
                 </div>
             </div>
         </div>
@@ -263,107 +236,66 @@ function renderChecklist() {
 }
 
 // ==========================================
-// 4. DATA VIEW (Includes Graph Controls)
+// 4. DATA VIEW
 // ==========================================
 
 function renderDataView() {
     const d = state.projectData;
     const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
     
-    // 1. CHART TYPE SELECTOR UI (Added in "Expert Committee" Update)
-    const chartControls = `
+    // Chart Mode Controls
+    if(!document.getElementById('chart-mode-controls')) {
+        const chartArea = document.querySelector('#view-data canvas').parentElement; 
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = `
         <div class="mb-4 bg-slate-100 p-2 rounded-lg flex flex-wrap gap-2 justify-center items-center" id="chart-mode-controls">
             <span class="text-xs font-bold text-slate-500 uppercase mr-2">Chart Type:</span>
             <button onclick="window.setChartMode('run')" data-mode="run" class="px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow">Run Chart</button>
             <button onclick="window.setChartMode('spc')" data-mode="spc" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">SPC</button>
             <button onclick="window.setChartMode('histogram')" data-mode="histogram" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">Histogram</button>
             <button onclick="window.setChartMode('pareto')" data-mode="pareto" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">Pareto</button>
-        </div>
-        
-        <div id="chart-education-panel" class="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden transition-all">
-            <div class="p-4 bg-slate-50 border-b border-slate-200 cursor-pointer flex justify-between items-center" onclick="document.getElementById('chart-education-content').classList.toggle('hidden')">
-                <span class="text-xs font-bold text-rcem-purple uppercase tracking-wide">🎓 Learn: How to use this graph</span>
-                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
-            </div>
-            <div id="chart-education-content" class="p-4 bg-white">
-                </div>
-        </div>
-    `;
-
-    const historyContainer = document.getElementById('data-history');
-    
-    // Inject Controls only if they don't exist
-    if(!document.getElementById('chart-mode-controls')) {
-        const chartArea = document.querySelector('#view-data canvas').parentElement; 
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = chartControls;
+        </div>`;
         chartArea.parentElement.insertBefore(wrapper, chartArea);
     }
     
-    // Trigger update for education panel
-    if(window.updateChartEducation) window.updateChartEducation();
-
-    // 2. DATA ENTRY FORM
     if (formContainer && formContainer.children.length === 0) {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none">
+                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm outline-none">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="127">
+                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm outline-none" placeholder="0">
                 </div>
             </div>
             <div>
-                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade / Category</label>
+                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
                  <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
-                    <option>Consultant</option>
-                    <option>Registrar</option>
-                    <option>Nurse</option>
-                    <option>ACP</option>
-                    <option>Equipment</option>
-                    <option>Environment</option>
-                 </select>
-            </div>
-            <div>
-                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
-                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
-                    <option value="outcome">Outcome Measure (Primary Aim)</option>
-                    <option value="process">Process Measure (Compliance)</option>
-                    <option value="balance">Balancing Measure (Safety/Side effects)</option>
+                    <option>Audit Point</option>
+                    <option>Baseline</option>
+                    <option>Intervention</option>
                  </select>
             </div>
             <div class="pt-2">
                 <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow">Add Data Point</button>
             </div>
             <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
-                <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1">
-                    <i data-lucide="upload" class="w-3 h-3"></i> Upload CSV
-                </button>
-                <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1">
-                    <i data-lucide="download" class="w-3 h-3"></i> Template
-                </button>
+                <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i> Upload CSV</button>
+                <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="download" class="w-3 h-3"></i> Template</button>
             </div>
         `;
-        
-        // Dynamic Preview Listener
-        ['chart-date', 'chart-value'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                // (Preview logic can go here)
-            });
-        });
     }
 
-    // 3. HISTORY TABLE
+    const historyContainer = document.getElementById('data-history');
     if (d.chartData.length === 0) {
         historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet.</div>`;
     } else {
         const sorted = [...d.chartData].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
         historyContainer.innerHTML = `
             <table class="w-full text-left border-collapse">
-                <thead><tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200"><th class="pb-2">Date</th><th class="pb-2">Value</th><th class="pb-2">Grade</th><th class="pb-2 text-right"></th></tr></thead>
+                <thead><tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200"><th class="pb-2">Date</th><th class="pb-2">Value</th><th class="pb-2">Type</th><th class="pb-2 text-right"></th></tr></thead>
                 <tbody class="text-xs text-slate-700">
                     ${sorted.map(item => `
                         <tr class="border-b border-slate-50 hover:bg-slate-50">
@@ -378,13 +310,11 @@ function renderDataView() {
             </table>
         `;
     }
-    
-    // Render the active chart mode
     if(window.renderChart) window.renderChart();
 }
 
 // ==========================================
-// 5. THE QIAT WRITER (Publish)
+// 5. PUBLISH VIEW
 // ==========================================
 
 function renderPublish(mode = 'qiat') {
@@ -406,57 +336,31 @@ function renderPublish(mode = 'qiat') {
         </button>`;
 
     if (mode === 'abstract') {
-        const s1 = `${d.checklist.problem_desc} ${d.checklist.aim}`.trim(); 
-        const s2 = `Drivers: ${(d.drivers.changes || []).join(', ')}.`.trim(); 
-        const s3 = `${d.checklist.results_text}`.trim();
-        content.innerHTML = `
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">RCEM Conference Abstract</h3>
-                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s1}</textarea>
-                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s2}</textarea>
-                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32">${s3}</textarea>
-                </div>
-            </div>`;
+        content.innerHTML = `<div class="p-8 bg-white rounded border border-slate-200 text-center text-slate-500">Abstract generator is being updated for 2026 guidelines.</div>`;
     } else if (mode === 'qiat') {
-        // Compile strings for the RCEM Form
-        const s1_1 = `${d.checklist.problem_desc || d.checklist.problem_context}\n\nContext:\n${d.checklist.context || ''}`.trim();
-        const s1_2 = `Methodology: ${d.checklist.methodology}\n\nWe used a Driver Diagram. \nPrimary Drivers: ${(d.drivers.primary || []).join(', ')}. \nSecondary Drivers: ${(d.drivers.secondary || []).join(', ')}.`;
+        const s1_1 = `${d.checklist.problem_desc}\n\nContext:\n${d.checklist.context || ''}`;
+        const s1_2 = `Methodology: ${d.checklist.methodology}\nDrivers: ${(d.drivers.primary || []).join(', ')}.`;
         const s1_3 = d.checklist.aim;
-        const s1_4 = `Outcome: ${d.checklist.measure_outcome}\nProcess: ${d.checklist.measure_process}\nBalance: ${d.checklist.measure_balance}\n\nAnalysis: ${d.checklist.results_text}`;
-        const s1_5 = d.pdsa.map((p, i) => `Cycle ${i+1}: ${p.title}\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n----------------\n\n');
-        const s_reflect = `Learning:\n${d.checklist.learning}\n\nSustainability:\n${d.checklist.sustain}`;
+        const s1_4 = `Outcome: ${d.checklist.measure_outcome}\nProcess: ${d.checklist.measure_process}\n\nAnalysis: ${d.checklist.results_text}`;
+        const s1_5 = d.pdsa.map((p, i) => `Cycle ${i+1}: ${p.title}\nAct: ${p.act}`).join('\n\n');
 
         content.innerHTML = `
             <div class="max-w-5xl mx-auto">
                 <div class="bg-indigo-900 text-white p-6 rounded-t-xl flex justify-between items-center">
-                    <div><h2 class="text-xl font-bold">RCEM QIAT Report Generator</h2><p class="text-indigo-200 text-sm">Copy these sections directly into your Risr/Portfolio form.</p></div>
-                    <div class="bg-indigo-800 px-4 py-2 rounded text-xs font-mono">Target: FRCEM QIP</div>
+                    <div><h2 class="text-xl font-bold">RCEM QIAT Report Generator</h2><p class="text-indigo-200 text-sm">Copy directly into your portfolio.</p></div>
                 </div>
                 <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl space-y-8">
                     <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.1 Analysis of Problem</label>${copyBtn('qiat-1-1')}</div>
-                        <div id="qiat-1-1" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_1)}</div>
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.1 Problem</label>${copyBtn('qiat-1-1')}</div>
+                        <div id="qiat-1-1" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_1)}</div>
                     </div>
                     <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.2 Use of QI Methods</label>${copyBtn('qiat-1-2')}</div>
-                        <div id="qiat-1-2" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_2)}</div>
-                    </div>
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.3 Aim Statement</label>${copyBtn('qiat-1-3')}</div>
-                        <div id="qiat-1-3" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_3)}</div>
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.3 Aim</label>${copyBtn('qiat-1-3')}</div>
+                        <div id="qiat-1-3" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_3)}</div>
                     </div>
                     <div class="qiat-section">
                         <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.4 Measurement</label>${copyBtn('qiat-1-4')}</div>
-                        <div id="qiat-1-4" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_4)}</div>
-                    </div>
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.5 Evaluation (PDSA)</label>${copyBtn('qiat-1-5')}</div>
-                        <div id="qiat-1-5" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_5)}</div>
-                    </div>
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">Reflection</label>${copyBtn('qiat-reflect')}</div>
-                        <div id="qiat-reflect" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s_reflect)}</div>
+                        <div id="qiat-1-4" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_4)}</div>
                     </div>
                 </div>
             </div>`;
@@ -469,7 +373,7 @@ function renderPublish(mode = 'qiat') {
 // ==========================================
 
 function renderFullProject() {
-    // This is the beautiful "Read Only" dashboard view
+    // Aggregates ALL diagrams and data into one view
     const d = state.projectData;
     const has = (v) => v && v.length > 0 ? v : `<span class="text-slate-400 italic">Not yet defined</span>`;
 
@@ -483,27 +387,21 @@ function renderFullProject() {
             <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
                 <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2 flex items-center gap-2"><i data-lucide="file-text" class="w-5 h-5"></i> 1. Project Charter</h2>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem Description</h3><p class="text-slate-600 bg-slate-50 p-4 rounded">${has(d.checklist.problem_desc)}</p></div>
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">SMART Aim</h3><p class="text-indigo-900 font-bold font-serif bg-indigo-50 p-4 rounded border border-indigo-100">${has(d.checklist.aim)}</p></div>
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Evidence & Literature</h3><p class="text-slate-600 bg-slate-50 p-4 rounded">${has(d.checklist.lit_review)}</p></div>
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Context</h3><p class="text-slate-600 bg-slate-50 p-4 rounded">${has(d.checklist.context)}</p></div>
+                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem</h3><p class="text-slate-600 bg-slate-50 p-4 rounded">${has(d.checklist.problem_desc)}</p></div>
+                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Aim</h3><p class="text-indigo-900 font-bold font-serif bg-indigo-50 p-4 rounded border border-indigo-100">${has(d.checklist.aim)}</p></div>
                 </div>
             </div>
 
             <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2 flex items-center gap-2"><i data-lucide="git-branch" class="w-5 h-5"></i> 2. Diagnosis</h2>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div class="p-4 bg-purple-50 rounded border border-purple-100"><h4 class="font-bold text-purple-900 mb-2">Primary Drivers</h4><ul class="list-disc pl-4 text-sm">${d.drivers.primary.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>
-                    <div class="p-4 bg-purple-50 rounded border border-purple-100"><h4 class="font-bold text-purple-900 mb-2">Secondary Drivers</h4><ul class="list-disc pl-4 text-sm">${d.drivers.secondary.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>
-                    <div class="p-4 bg-purple-50 rounded border border-purple-100"><h4 class="font-bold text-purple-900 mb-2">Change Ideas</h4><ul class="list-disc pl-4 text-sm">${d.drivers.changes.map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div>
-                </div>
+                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2 flex items-center gap-2"><i data-lucide="git-branch" class="w-5 h-5"></i> 2. Driver Diagram</h2>
+                <div id="full-view-driver-container" class="mermaid flex justify-center p-4 bg-slate-50 rounded border border-slate-200 min-h-[300px]"></div>
             </div>
-
+            
             <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                 <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2 flex items-center gap-2"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> 3. Measurement</h2>
-                 <div id="full-view-chart-container" class="mb-6 h-64"></div>
+                 <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2 flex items-center gap-2"><i data-lucide="bar-chart-2" class="w-5 h-5"></i> 3. Results</h2>
+                 <div id="full-view-chart-container" class="mb-6 h-80"></div>
                  <div class="bg-emerald-50 p-4 rounded border border-emerald-100">
-                    <h3 class="font-bold text-emerald-900 text-sm uppercase mb-2">Results Analysis</h3>
+                    <h3 class="font-bold text-emerald-900 text-sm uppercase mb-2">Interpretation</h3>
                     <p class="text-emerald-800">${has(d.checklist.results_text)}</p>
                  </div>
             </div>
@@ -527,8 +425,8 @@ function renderFullProject() {
         </div>
     `;
     
-    // Render the chart in this view
     renderFullViewChart();
+    renderTools('full-view-driver-container', 'driver');
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -545,48 +443,39 @@ function renderGreen() {
                     <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg"><i data-lucide="leaf" class="w-6 h-6"></i></div>
                     <div>
                         <h3 class="font-bold text-xl text-slate-800">Sustainable Value Calculator</h3>
-                        <p class="text-slate-500 text-sm">Demonstrate the "Triple Bottom Line" (Financial, Environmental, Social) for your FRCEM project.</p>
+                        <p class="text-slate-500 text-sm">Triple Bottom Line: Financial, Environmental, Social.</p>
                     </div>
                 </div>
                 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
                         <h4 class="font-bold text-emerald-800 mb-2 flex items-center gap-2"><i data-lucide="tree-pine" class="w-4 h-4"></i> Environmental</h4>
-                        <p class="text-xs text-emerald-600 mb-4">Did you reduce paper, travel, or waste?</p>
                         <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-emerald-700">Items Saved (Monthly)</label>
-                            <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm bg-white" placeholder="e.g. 500 sheets">
+                            <label class="text-xs font-bold uppercase text-emerald-700">Paper Saved</label>
+                            <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm bg-white" placeholder="Sheets">
                         </div>
-                        <div class="mt-4 pt-4 border-t border-emerald-200">
-                            <button onclick="window.calcGreen()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded font-bold text-xs transition-colors">Calculate CO2</button>
-                            <div id="res-green" class="mt-2 text-center text-xl font-bold text-emerald-900">-</div>
-                        </div>
+                        <button onclick="window.calcGreen()" class="mt-4 w-full bg-emerald-600 text-white py-2 rounded font-bold text-xs">Calc CO2</button>
+                        <div id="res-green" class="mt-2 text-center text-xl font-bold text-emerald-900">-</div>
                     </div>
 
                     <div class="p-6 bg-blue-50 rounded-xl border border-blue-100">
                         <h4 class="font-bold text-blue-800 mb-2 flex items-center gap-2"><i data-lucide="pound-sterling" class="w-4 h-4"></i> Financial</h4>
-                        <p class="text-xs text-blue-600 mb-4">Did you save staff time or equipment costs?</p>
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-blue-700">Hours Saved (Monthly)</label>
-                            <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm bg-white" placeholder="e.g. 10 hours">
+                         <div class="space-y-2">
+                            <label class="text-xs font-bold uppercase text-blue-700">Hours Saved</label>
+                            <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm bg-white" placeholder="Hours">
                         </div>
-                        <div class="mt-4 pt-4 border-t border-blue-200">
-                            <button onclick="window.calcTime()" class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded font-bold text-xs transition-colors">Calculate Savings</button>
-                            <div id="res-time" class="mt-2 text-center text-xl font-bold text-blue-900">-</div>
-                        </div>
+                         <button onclick="window.calcTime()" class="mt-4 w-full bg-blue-600 text-white py-2 rounded font-bold text-xs">Calc Savings</button>
+                        <div id="res-time" class="mt-2 text-center text-xl font-bold text-blue-900">-</div>
                     </div>
                     
                     <div class="p-6 bg-purple-50 rounded-xl border border-purple-100">
-                        <h4 class="font-bold text-purple-800 mb-2 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4"></i> Social & Staff</h4>
-                        <p class="text-xs text-purple-600 mb-4">Did you upskill staff or improve morale?</p>
+                        <h4 class="font-bold text-purple-800 mb-2 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4"></i> Social</h4>
                         <div class="space-y-2">
                             <label class="text-xs font-bold uppercase text-purple-700">Staff Trained</label>
-                            <input type="number" id="calc-edu-ppl" class="w-full p-2 border border-purple-200 rounded text-sm bg-white" placeholder="e.g. 15 nurses">
+                            <input type="number" id="calc-edu-ppl" class="w-full p-2 border border-purple-200 rounded text-sm bg-white" placeholder="People">
                         </div>
-                        <div class="mt-4 pt-4 border-t border-purple-200">
-                            <button onclick="window.calcEdu()" class="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 rounded font-bold text-xs transition-colors">Log Impact</button>
-                            <div id="res-edu" class="mt-2 text-center text-lg font-bold text-purple-900">-</div>
-                        </div>
+                         <button onclick="window.calcEdu()" class="mt-4 w-full bg-purple-600 text-white py-2 rounded font-bold text-xs">Log Impact</button>
+                        <div id="res-edu" class="mt-2 text-center text-lg font-bold text-purple-900">-</div>
                     </div>
                 </div>
             </div>
@@ -596,62 +485,223 @@ function renderGreen() {
 }
 
 // ==========================================
-// 8. STANDARD RENDERERS (PDSA, Team, Stakeholders, Gantt)
+// 8. PDSA (Improved Layout)
 // ==========================================
 
 function renderPDSA() {
-    const container = document.getElementById('pdsa-container');
-    const isTimeline = container.getAttribute('data-view') === 'timeline';
     const d = state.projectData;
-    let html = `
-        <div class="flex justify-between items-center mb-6">
-            <h3 class="font-bold text-slate-800">PDSA Cycles</h3>
-            <div class="flex bg-slate-100 p-1 rounded-lg">
-                <button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'grid'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${!isTimeline?'bg-white shadow':''}">Grid</button>
-                <button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'timeline'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${isTimeline?'bg-white shadow':''}">Timeline</button>
-            </div>
-        </div>
-    `;
-    if (isTimeline) {
-        html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto"><div class="min-w-[600px]">`;
-        [...d.pdsa].sort((a,b) => new Date(a.start) - new Date(b.start)).forEach(p => {
-            html += `
-                <div class="mb-4">
-                    <div class="flex justify-between text-xs font-bold text-slate-600 mb-1"><span>${escapeHtml(p.title)}</span><span class="font-mono">${p.start} → ${p.end}</span></div>
-                    <div class="h-4 bg-slate-100 rounded-full overflow-hidden relative"><div class="absolute inset-y-0 left-0 bg-rcem-purple rounded-full opacity-80" style="width: 100%"></div></div>
-                </div>`;
-        });
-        html += `</div></div>`;
-    } else {
-        html += `
-            <div class="bg-white rounded-xl shadow-sm border-l-4 border-rcem-purple p-6 mb-8">
-                <h4 class="font-bold text-slate-800 mb-4">Start New Cycle</h4>
-                <div class="grid grid-cols-2 gap-4 mb-3">
-                    <input id="pdsa-title" class="p-2 border rounded text-sm" placeholder="Title">
-                    <div class="flex gap-2">
+    const container = document.getElementById('pdsa-container');
+    
+    container.innerHTML = `
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+                <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-5 h-5 text-rcem-purple"></i> New Cycle</h3>
+                <div class="space-y-3">
+                    <input id="pdsa-title" class="w-full p-2 border rounded text-sm" placeholder="Cycle Title (e.g. Posters)">
+                    <div class="grid grid-cols-2 gap-2">
                         <input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm">
                         <input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm">
                     </div>
+                    <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm" rows="3" placeholder="Plan: What will you do?"></textarea>
+                    <button onclick="window.addPDSA()" class="w-full bg-slate-800 text-white py-2 rounded font-bold text-sm hover:bg-slate-900">Add Cycle</button>
                 </div>
-                <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm mb-3" rows="2" placeholder="Plan..."></textarea>
-                <button onclick="window.addPDSA()" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-sm">Create Cycle</button>
             </div>
-            <div class="space-y-4">
+
+            <div class="lg:col-span-2 space-y-6">
+                ${d.pdsa.length === 0 ? `<div class="text-center p-10 text-slate-400 italic">No PDSA cycles yet. Plan your first one!</div>` : ''}
                 ${d.pdsa.map((p,i) => `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group">
-                    <button onclick="window.deletePDSA(${i})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    <h4 class="font-bold text-slate-800">${escapeHtml(p.title)}</h4>
-                    <div class="grid grid-cols-4 gap-4 mt-4 text-sm">
-                        <textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Plan">${escapeHtml(p.desc)}</textarea>
-                        <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Do">${escapeHtml(p.do)}</textarea>
-                        <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Study">${escapeHtml(p.study)}</textarea>
-                        <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Act">${escapeHtml(p.act)}</textarea>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-lg">Cycle ${i+1}: ${escapeHtml(p.title)}</h4>
+                            <div class="text-xs text-slate-500 font-mono">${p.start} - ${p.end}</div>
+                        </div>
+                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    </div>
+                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="space-y-1">
+                            <label class="text-[10px] font-bold uppercase text-slate-400">Plan</label>
+                            <textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm resize-y min-h-[80px] focus:bg-white focus:ring-1 focus:ring-rcem-purple outline-none">${escapeHtml(p.desc)}</textarea>
+                        </div>
+                        <div class="space-y-1">
+                             <label class="text-[10px] font-bold uppercase text-slate-400">Do</label>
+                            <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm resize-y min-h-[80px] focus:bg-white focus:ring-1 focus:ring-rcem-purple outline-none">${escapeHtml(p.do)}</textarea>
+                        </div>
+                        <div class="space-y-1">
+                             <label class="text-[10px] font-bold uppercase text-slate-400">Study</label>
+                            <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm resize-y min-h-[80px] focus:bg-white focus:ring-1 focus:ring-rcem-purple outline-none">${escapeHtml(p.study)}</textarea>
+                        </div>
+                        <div class="space-y-1">
+                             <label class="text-[10px] font-bold uppercase text-slate-400">Act</label>
+                            <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm resize-y min-h-[80px] focus:bg-white focus:ring-1 focus:ring-rcem-purple outline-none">${escapeHtml(p.act)}</textarea>
+                        </div>
                     </div>
                 </div>`).join('')}
-            </div>`;
-    }
-    container.innerHTML = html;
+            </div>
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+
+// ==========================================
+// 9. STAKEHOLDERS (Interactive)
+// ==========================================
+
+function renderStakeholders() {
+    const el = document.getElementById('view-stakeholders');
+    const isList = el.getAttribute('data-view') === 'list';
+    const canvas = document.getElementById('stakeholder-canvas');
+    
+    // Header controls
+    if(!document.getElementById('stake-controls')) {
+        const header = document.createElement('div');
+        header.id = 'stake-controls';
+        header.className = 'flex justify-between items-center p-4 bg-white border-b border-slate-200';
+        header.innerHTML = `
+            <h3 class="font-bold text-slate-800">Stakeholder Matrix</h3>
+            <div class="flex gap-2">
+                <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-3 py-1 rounded text-xs font-bold shadow">+ Add Stakeholder</button>
+                <button onclick="window.toggleStakeView()" class="bg-slate-100 text-slate-600 px-3 py-1 rounded text-xs font-bold hover:bg-slate-200">Switch View</button>
+            </div>`;
+        el.insertBefore(header, el.firstChild);
+    }
+
+    if(isList) {
+        canvas.innerHTML = `
+        <div class="p-8 max-w-4xl mx-auto">
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table class="w-full text-left">
+                    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Influence (Y)</th><th class="p-4">Interest (X)</th><th class="p-4"></th></tr></thead>
+                    <tbody class="divide-y divide-slate-100">
+                        ${state.projectData.stakeholders.map((s,i)=>`
+                        <tr>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name)}" onchange="window.updateStake(${i},'name',this.value)"></td>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td>
+                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td>
+                            <td class="p-2 text-center"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+        </div>`;
+    } else {
+        // VISUAL MATRIX
+        canvas.innerHTML = `
+            <div class="absolute inset-0 bg-white">
+                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300 dashed z-0"></div>
+                <div class="absolute top-1/2 left-0 right-0 h-px bg-slate-300 dashed z-0"></div>
+                
+                <div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 uppercase bg-white px-2">High Power</div>
+                <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-400 uppercase bg-white px-2">Low Power</div>
+                <div class="absolute left-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase -rotate-90 bg-white px-2">Low Interest</div>
+                <div class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400 uppercase rotate-90 bg-white px-2">High Interest</div>
+            </div>
+        `;
+        
+        state.projectData.stakeholders.forEach((s, i) => {
+            const bubble = document.createElement('div');
+            bubble.className = 'absolute bg-white border-2 border-rcem-purple text-rcem-purple px-3 py-1 rounded shadow-lg cursor-grab z-10 text-sm font-bold flex items-center gap-2 group max-w-[150px]';
+            // Convert state X/Y (0-100) to CSS style
+            bubble.style.left = `${s.x}%`; 
+            bubble.style.bottom = `${s.y}%`; 
+            bubble.innerHTML = `
+                <span class="truncate pointer-events-none">${escapeHtml(s.name)}</span>
+                <button onclick="window.removeStake(${i})" class="hidden group-hover:block text-red-500 hover:bg-red-50 rounded-full p-0.5"><i data-lucide="x" class="w-3 h-3"></i></button>
+            `;
+            
+            // Apply Draggable logic
+            makeDraggable(bubble, canvas, false, null, null, (newX, newY) => {
+                state.projectData.stakeholders[i].x = Math.round(newX);
+                // Convert Top% back to Bottom% for Y
+                state.projectData.stakeholders[i].y = Math.round(100 - newY);
+                window.saveData();
+            });
+            
+            canvas.appendChild(bubble);
+        });
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ==========================================
+// 10. GANTT CHART (Visual Rewrite)
+// ==========================================
+
+function renderGantt() {
+    const d = state.projectData;
+    const container = document.getElementById('gantt-container');
+    const scrollContainer = document.getElementById('gantt-scroll-container');
+    
+    if (d.gantt.length === 0) {
+        container.innerHTML = `<div class="text-center p-12 text-slate-400 italic">No tasks yet. Click "Add Task" to start planning your timeline.</div>`;
+        return;
+    }
+
+    // 1. Calculate Timeline Range
+    const dates = d.gantt.flatMap(t => [new Date(t.start), new Date(t.end)]);
+    if(dates.length === 0) return;
+    
+    const minDate = new Date(Math.min(...dates));
+    const maxDate = new Date(Math.max(...dates));
+    minDate.setDate(minDate.getDate() - 7); // Buffer
+    maxDate.setDate(maxDate.getDate() + 7);
+    
+    const pxPerDay = 30;
+    const totalDays = (maxDate - minDate) / (1000 * 60 * 60 * 24);
+    const totalWidth = totalDays * pxPerDay;
+    
+    // 2. Build Header (Months)
+    let headerHTML = '<div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20">';
+    let current = new Date(minDate);
+    
+    while(current <= maxDate) {
+        const monthStr = current.toLocaleString('default', { month: 'short', year: '2-digit' });
+        const daysInMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate();
+        const width = daysInMonth * pxPerDay;
+        
+        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0" style="width: ${width}px">${monthStr}</div>`;
+        current.setMonth(current.getMonth() + 1);
+        current.setDate(1); 
+    }
+    headerHTML += '</div>';
+
+    // 3. Build Rows
+    let rowsHTML = '<div class="relative min-h-[400px]">';
+    const sortedTasks = [...d.gantt].sort((a,b) => new Date(a.start) - new Date(b.start));
+    
+    sortedTasks.forEach(t => {
+        const start = new Date(t.start);
+        const end = new Date(t.end);
+        const offsetDays = (start - minDate) / (1000 * 60 * 60 * 24);
+        const durationDays = Math.max(1, (end - start) / (1000 * 60 * 60 * 24));
+        
+        const left = offsetDays * pxPerDay;
+        const width = durationDays * pxPerDay;
+        const colorClass = t.type === 'plan' ? 'bg-blue-500' : t.type === 'do' ? 'bg-amber-500' : 'bg-emerald-500';
+        
+        rowsHTML += `
+            <div class="group relative h-12 border-b border-slate-100 hover:bg-slate-50 transition-colors flex items-center">
+                <div class="absolute left-2 z-10 text-xs font-bold text-slate-700 w-48 truncate bg-white/90 px-1 rounded shadow-sm border border-slate-100 pointer-events-none">
+                    ${escapeHtml(t.name)}
+                </div>
+                <div class="absolute h-6 rounded-full shadow-sm text-white text-[10px] font-bold flex items-center px-2 cursor-pointer ${colorClass} hover:brightness-110 transition-all z-10" 
+                     style="left: ${left}px; width: ${width}px;"
+                     onclick="if(confirm('Delete task?')) window.deleteGantt('${t.id}')"
+                     title="${t.name}: ${t.start} to ${t.end}">
+                </div>
+                <div class="absolute inset-0 w-full h-full pointer-events-none" style="background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px); background-size: ${pxPerDay * 7}px 100%;"></div>
+            </div>
+        `;
+    });
+    rowsHTML += '</div>';
+
+    container.style.minWidth = `${totalWidth}px`;
+    container.innerHTML = headerHTML + rowsHTML;
+}
+
+// ==========================================
+// 11. HELPERS
+// ==========================================
 
 function renderTeam() {
     const list = document.getElementById('team-list');
@@ -664,23 +714,21 @@ function renderTeam() {
                     <div class="font-bold text-slate-800">${escapeHtml(m.name)}</div>
                     <div class="text-xs font-bold text-rcem-purple uppercase tracking-wide mb-1">${escapeHtml(m.role)}</div>
                     ${m.grade ? `<div class="text-xs text-slate-500"><span class="font-semibold">Grade:</span> ${escapeHtml(m.grade)}</div>` : ''}
-                    ${m.responsibilities ? `<div class="text-xs text-slate-500 italic mt-1">"${escapeHtml(m.responsibilities)}"</div>` : ''}
                 </div>
             </div>
         </div>
     `).join('');
     
-    // Leadership Log
     const logList = document.getElementById('leadership-log-list');
     if(logList) {
         const logs = state.projectData.leadershipLogs || [];
         logList.innerHTML = `
             <div class="mt-8">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
-                    <h3 class="text-lg font-bold text-slate-800">Leadership & Engagement Log</h3>
+                    <h3 class="text-lg font-bold text-slate-800">Leadership Log</h3>
                     <button onclick="window.addLeadershipLog()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded border border-slate-300 transition-colors">+ Add Log</button>
                 </div>
-                ${logs.length === 0 ? '<div class="text-slate-400 text-sm italic">Record meetings, stakeholder engagements...</div>' : 
+                ${logs.length === 0 ? '<div class="text-slate-400 text-sm italic">Record meetings & engagements here.</div>' : 
                 `<div class="space-y-3">
                     ${logs.map((log, i) => `
                     <div class="bg-white p-3 rounded border border-slate-200 text-sm relative group">
@@ -693,85 +741,9 @@ function renderTeam() {
     }
 }
 
-function renderStakeholders() {
-    const el = document.getElementById('view-stakeholders');
-    const isList = el.getAttribute('data-view') === 'list';
-    const canvas = document.getElementById('stakeholder-canvas');
-    
-    let header = document.querySelector('#view-stakeholders .stakeholder-controls');
-    if(!header) {
-        header = document.createElement('div');
-        header.className = 'stakeholder-controls flex justify-end gap-2 p-4';
-        header.innerHTML = `<button onclick="window.toggleStakeView()" class="bg-white border border-slate-300 text-slate-600 px-3 py-1 rounded text-xs font-bold shadow-sm">Toggle View</button>`;
-        el.insertBefore(header, el.firstChild);
-    }
-
-    if(isList) {
-        canvas.innerHTML = `
-        <div class="p-8 max-w-4xl mx-auto">
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power</th><th class="p-4">Interest</th><th class="p-4"></th></tr></thead>
-                    <tbody class="divide-y divide-slate-100">
-                        ${state.projectData.stakeholders.map((s,i)=>`
-                        <tr>
-                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name)}" onchange="window.updateStake(${i},'name',this.value)"></td>
-                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y}" onchange="window.updateStake(${i},'y',this.value)"></td>
-                            <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x}" onchange="window.updateStake(${i},'x',this.value)"></td>
-                            <td class="p-2 text-center"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-                        </tr>`).join('')}
-                    </tbody>
-                </table>
-                <div class="p-4 bg-slate-50 border-t border-slate-200">
-                    <button onclick="window.addStakeholder()" class="w-full py-2 border-2 border-dashed border-slate-300 rounded text-slate-500 font-bold text-sm hover:bg-white transition-colors">+ Add Stakeholder</button>
-                </div>
-            </div>
-        </div>`;
-    } else {
-        canvas.innerHTML = `
-            <div class="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] opacity-50 pointer-events-none"></div>
-            <div class="absolute left-4 bottom-4 w-64 text-xs text-slate-400 pointer-events-none z-10">
-                <div class="font-bold">Y-Axis: Power / Influence</div>
-                <div class="font-bold">X-Axis: Interest</div>
-            </div>
-            <div class="absolute top-1/2 left-0 w-full h-px bg-slate-300 dashed z-0"></div>
-            <div class="absolute left-1/2 top-0 h-full w-px bg-slate-300 dashed z-0"></div>
-        `;
-        state.projectData.stakeholders.forEach((s, i) => {
-            const el = document.createElement('div');
-            el.className = 'absolute w-10 h-10 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20 hover:scale-110 transition-transform';
-            el.style.left = `${s.x}%`; 
-            el.style.bottom = `${s.y}%`; 
-            el.innerText = s.name.substring(0,2).toUpperCase();
-            canvas.appendChild(el);
-        });
-    }
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-function renderGantt() { 
-    document.getElementById('gantt-container').innerHTML = `
-        <div class="space-y-2">${state.projectData.gantt.map(t => `
-            <div class="flex items-center gap-4 bg-white p-3 rounded border border-slate-200 shadow-sm">
-                <div class="flex-1">
-                    <div class="font-bold text-sm text-slate-800">${escapeHtml(t.name)}</div>
-                    <div class="text-xs text-slate-500">${t.start} -> ${t.end}</div>
-                </div>
-                <button onclick="window.deleteGantt('${t.id}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-            </div>`).join('')}
-        </div>
-        <button onclick="window.openGanttModal()" class="mt-4 w-full py-2 border-2 border-dashed border-slate-300 rounded font-bold text-sm text-slate-500">+ Add Task</button>
-    `; 
-}
-
-// ==========================================
-// 9. LOGIC HANDLERS
-// ==========================================
-
 function calcGreen() { const s = document.getElementById('calc-paper').value; document.getElementById('res-green').innerText = `${(s * 0.005).toFixed(2)} kg CO2`; }
 function calcTime() { const h = document.getElementById('calc-hours').value; document.getElementById('res-time').innerText = `£${(h * 30).toFixed(2)} / month`; }
 function calcEdu() { const p = document.getElementById('calc-edu-ppl').value; if(p) { document.getElementById('res-edu').innerText = `${p} staff upskilled!`; showToast("Impact logged", "success"); } }
-function calcMoney() { calcTime(); } 
 
 function openMemberModal() { document.getElementById('member-modal').classList.remove('hidden'); }
 function openGanttModal() { document.getElementById('task-modal').classList.remove('hidden'); }
@@ -800,20 +772,15 @@ function copyReport() { navigator.clipboard.writeText("Report copied"); showToas
 function showHelp() { alert("Use the tabs to navigate your QIP journey."); } 
 function startTour() { showToast("Tour not available", "info"); }
 
-// ==========================================
-// 10. EXPORTS
-// ==========================================
-
 export { 
     renderDashboard, renderAll, renderDataView, renderPDSA, renderGantt, renderTools, 
     renderTeam, renderPublish, renderChecklist, renderFullProject, renderStakeholders, 
     renderGreen, openMemberModal, openGanttModal, toggleToolList, 
-    
     updateFishCat, updateFishCause, addFishCause, removeFishCause,
     addLeadershipLog, deleteLeadershipLog,
     addStakeholder, updateStake, removeStake, toggleStakeView,
     addPDSA, updatePDSA, deletePDSA,
     saveSmartAim, openPortfolioExport, copyReport,
-    calcGreen, calcTime, calcMoney, calcEdu,
+    calcGreen, calcTime, calcEdu,
     showHelp, startTour
 };
