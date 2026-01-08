@@ -3,7 +3,6 @@ import { escapeHtml, showToast } from './utils.js';
 import { renderChart, renderTools } from './charts.js';
 
 // === UNIFIED EXPORT PREVIEW (THE "POSTER" MODAL) ===
-// This function renders the assets visible on the screen for review before export
 export function printPoster() {
     if (!state.projectData) { alert("Please load a project first."); return; }
     
@@ -54,12 +53,11 @@ export function printPoster() {
     `;
 
     // 2. Render Live Assets into the Modal
-    // This removes the need for a hidden staging area. We render them right in front of the user.
     setTimeout(() => {
         // Render Chart
         renderChart('poster-chart-canvas');
         
-        // Render Driver Diagram (using the charts.js logic)
+        // Render Driver Diagram
         renderTools('poster-driver-container', 'driver');
         
         if(typeof lucide !== 'undefined') lucide.createIcons();
@@ -70,8 +68,6 @@ export function printPoster() {
 }
 
 export function printPosterOnly() {
-    // Because the content is already in the modal, we just need to ensure the print styles
-    // target the modal content. The CSS handles 'printing-poster' class.
     const container = document.getElementById('print-container');
     const modalContent = document.getElementById('poster-content-wrapper').innerHTML;
     
@@ -103,7 +99,6 @@ export async function exportPPTX() {
         pres.layout = 'LAYOUT_16x9'; pres.author = 'RCEM QIP Assistant'; pres.title = d.meta.title;
 
         // 1. Capture Assets from the VISIBLE modal
-        // We use the elements that are currently on the user's screen in the poster modal
         const chartCanvas = document.getElementById('poster-chart-canvas');
         const driverContainer = document.querySelector('#poster-driver-container svg');
         
@@ -115,11 +110,11 @@ export async function exportPPTX() {
         }
 
         if (driverContainer) {
-            // Convert SVG to Image safely
             const svgData = new XMLSerializer().serializeToString(driverContainer);
             const canvas = document.createElement('canvas');
             const bbox = driverContainer.getBoundingClientRect();
-            canvas.width = bbox.width * 2; // High res
+            // High resolution capture
+            canvas.width = bbox.width * 2; 
             canvas.height = bbox.height * 2;
             const ctx = canvas.getContext('2d');
             ctx.fillStyle = "white";
