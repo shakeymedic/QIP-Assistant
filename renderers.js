@@ -195,6 +195,10 @@ function renderChecklist() {
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
             <div><label class="block text-sm font-bold text-slate-700 mb-2">Problem Description</label><textarea onchange="window.saveChecklist('problem_desc', this.value)" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none" rows="3">${escapeHtml(d.checklist.problem_desc)}</textarea></div>
             <div><label class="block text-sm font-bold text-slate-700 mb-2">SMART Aim</label><input type="text" onchange="window.saveChecklist('aim', this.value); window.renderChecklist()" value="${escapeHtml(d.checklist.aim)}" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none"><div class="text-xs mt-2 font-bold">${hint}</div></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div><label class="block text-sm font-bold text-slate-700 mb-2">Methodology</label><input type="text" onchange="window.saveChecklist('methodology', this.value)" value="${escapeHtml(d.checklist.methodology)}" class="w-full p-3 border border-slate-300 rounded text-sm" placeholder="e.g. Model for Improvement"></div>
+                 <div><label class="block text-sm font-bold text-slate-700 mb-2">Ethics / Approval</label><input type="text" onchange="window.saveChecklist('ethics', this.value)" value="${escapeHtml(d.checklist.ethics)}" class="w-full p-3 border border-slate-300 rounded text-sm" placeholder="e.g. Service Evaluation"></div>
+            </div>
         </div>
     `;
 }
@@ -293,7 +297,6 @@ function renderPublish(mode = 'qiat') {
             </button>`;
 
         const wordCount = (text) => text.trim().split(/\s+/).filter(w => w.length > 0).length;
-        const countBadge = (text) => `<span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">${wordCount(text)} words</span>`;
 
         const f_reason = `${d.checklist.problem_desc}\n\nContext:\n${d.checklist.context || ''}`;
         const f_change = [
@@ -309,7 +312,12 @@ function renderPublish(mode = 'qiat') {
         ].join('\n');
 
         const f_pdsa = d.pdsa.map((p, i) => `Cycle ${i+1}: ${p.title}\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n');
-        const f_reflection = `${d.checklist.learning}\n\nSustainability:\n${d.checklist.sustain}`;
+        
+        // QIAT Section 1.5 Evaluation of Change & Reflection
+        const f_reflection = `Learning:\n${d.checklist.learning}\n\nSustainability:\n${d.checklist.sustain}`;
+        
+        // QIAT Section 1.2 Methodology
+        const f_method = d.checklist.methodology || 'Model for Improvement';
 
         content.innerHTML = `
             <div class="max-w-4xl mx-auto space-y-8">
@@ -317,10 +325,12 @@ function renderPublish(mode = 'qiat') {
                     <h2 class="text-xl font-bold text-slate-800 mb-2">QIAT / Risr Form Data</h2>
                     <p class="text-sm text-slate-500 mb-6">Copy and paste these sections directly into the Risr online form.</p>
                     <div class="space-y-8">
-                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Reason for Project</label>${copyBtn(f_reason, 'qiat-reason')}</div><textarea readonly id="qiat-reason" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reason)}</textarea></div>
-                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Aim Statement</label>${copyBtn(d.checklist.aim, 'qiat-aim')}</div><textarea readonly id="qiat-aim" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(d.checklist.aim)}</textarea></div>
-                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Change Ideas</label>${copyBtn(f_change, 'qiat-change')}</div><textarea readonly id="qiat-change" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_change)}</textarea></div>
-                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">PDSA Cycles</label>${copyBtn(f_pdsa, 'qiat-pdsa')}</div><textarea readonly id="qiat-pdsa" rows="8" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_pdsa)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">1.1 Analysis of Problem</label>${copyBtn(f_reason, 'qiat-reason')}</div><textarea readonly id="qiat-reason" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reason)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">1.2 Use of QI Methods</label>${copyBtn(f_method, 'qiat-method')}</div><textarea readonly id="qiat-method" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_method)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">1.3 Aim Statement</label>${copyBtn(d.checklist.aim, 'qiat-aim')}</div><textarea readonly id="qiat-aim" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(d.checklist.aim)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">1.4 Measurement</label>${copyBtn(f_measures, 'qiat-meas')}</div><textarea readonly id="qiat-meas" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_measures)}</textarea></div>
+                        <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">1.5 Evaluation (PDSA)</label>${copyBtn(f_pdsa, 'qiat-pdsa')}</div><textarea readonly id="qiat-pdsa" rows="8" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_pdsa)}</textarea></div>
+                         <div><div class="flex justify-between mb-2"><label class="font-bold text-sm">Reflection & Sustainability</label>${copyBtn(f_reflection, 'qiat-refl')}</div><textarea readonly id="qiat-refl" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reflection)}</textarea></div>
                     </div>
                 </div>
             </div>`;
@@ -524,12 +534,6 @@ function toggleToolList() {
     const current = el.getAttribute('data-view');
     el.setAttribute('data-view', current === 'list' ? 'visual' : 'list');
     renderTools();
-    
-    // Also toggle the tool nav UI buttons to reflect state
-    const ui = document.getElementById('tool-nav-ui');
-    if(ui) {
-         // Could add specific UI changes here if needed
-    }
 }
 
 function updateFishCat(i, v) { state.projectData.fishbone.categories[i].text = v; window.saveData(); }
