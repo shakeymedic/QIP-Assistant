@@ -185,6 +185,37 @@ function renderDriverList(container) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// === CHART SETTINGS MODAL ===
+export function openChartSettings() {
+    const s = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
+    document.getElementById('chart-setting-title').value = s.title;
+    document.getElementById('chart-setting-yaxis').value = s.yAxis;
+    document.getElementById('chart-setting-annotations').checked = s.showAnnotations;
+    document.getElementById('chart-settings-modal').classList.remove('hidden');
+}
+
+export function saveChartSettings() {
+    state.projectData.chartSettings = {
+        title: document.getElementById('chart-setting-title').value,
+        yAxis: document.getElementById('chart-setting-yaxis').value,
+        showAnnotations: document.getElementById('chart-setting-annotations').checked
+    };
+    window.saveData();
+    document.getElementById('chart-settings-modal').classList.add('hidden');
+    renderChart();
+    showToast("Settings saved", "success");
+}
+
+export function copyChartImage() {
+    const canvas = document.getElementById('mainChart');
+    if (!canvas) return;
+    canvas.toBlob(blob => {
+        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
+            .then(() => showToast("Chart copied to clipboard!", "success"))
+            .catch(() => showToast("Failed to copy image.", "error"));
+    });
+}
+
 // === CHARTING ENGINE ===
 export function renderChart() {
     const ctx = document.getElementById('mainChart');
@@ -198,33 +229,69 @@ export function renderChart() {
     }
     document.getElementById('chart-ghost')?.classList.add('hidden');
 
-    const labels = d.map(x => x.date);
-    const data = d.map(x => x.value);
+    // Sort data
+    const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const labels = sortedD.map(x => x.date);
+    const data = sortedD.map(x => x.value);
     
-    // Baseline logic
-    let baseline = data.slice(0, 12);
-    let mean = baseline.length ? baseline.reduce((a,b)=>a+b,0)/baseline.length : 0;
+    // Settings
+    const settings = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
+
+    // Baseline (First 12 points mean)
+    let baselineData = data.slice(0, 12);
+    let mean = baselineData.length ? baselineData.reduce((a,b)=>a+b,0)/baselineData.length : 0;
+
+    // SPC RULE DETECTION: SHIFT & TREND
+    const pointColors = data.map(() => '#2d2e83'); // Default Navy
+    const pointRadii = data.map(() => 5);
+
+    // Rule 1: Shift (6 points on same side of mean)
+    for(let i=0; i <= data.length - 6; i++) {
+        const subset = data.slice(i, i+6);
+        if(subset.every(v => v > mean) || subset.every(v => v < mean)) {
+            // Highlight these points as Orange (RCEM Shift)
+            for(let k=0; k<6; k++) pointColors[i+k] = '#f36f21'; 
+        }
+    }
+
+    // Rule 2: Trend (5 points strictly increasing or decreasing)
+    for(let i=0; i <= data.length - 5; i++) {
+        const subset = data.slice(i, i+5);
+        let increasing = true, decreasing = true;
+        for(let k=0; k < 4; k++) {
+            if(subset[k+1] <= subset[k]) increasing = false;
+            if(subset[k+1] >= subset[k]) decreasing = false;
+        }
+        if(increasing || decreasing) {
+             // Highlight these points as Blue (RCEM Trend)
+             for(let k=0; k<5; k++) pointColors[i+k] = '#3b82f6'; 
+        }
+    }
 
     const annotations = {
-        meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'end' } }
+        meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Baseline Mean: ${mean.toFixed(1)}`, position: 'end' } }
     };
     
-    const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
-    pdsaDates.forEach((p, i) => {
-        annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
-    });
+    if(settings.showAnnotations) {
+        const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
+        pdsaDates.forEach((p, i) => {
+            annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
+        });
+    }
 
     window.myChart = new Chart(ctx, {
         type: 'line',
         data: {
             labels: labels,
             datasets: [{
-                label: 'Measure',
+                label: settings.yAxis,
                 data: data,
                 borderColor: '#2d2e83',
                 backgroundColor: '#2d2e83',
+                pointBackgroundColor: pointColors, // Dynamic Colors
+                pointBorderColor: pointColors,
                 tension: 0.1,
-                pointRadius: 5,
+                pointRadius: pointRadii,
                 pointHoverRadius: 7
             }]
         },
@@ -233,14 +300,18 @@ export function renderChart() {
             maintainAspectRatio: false,
             plugins: {
                 annotation: { annotations },
+                title: { display: true, text: settings.title, font: { size: 16 } },
                 tooltip: {
                     callbacks: {
                         afterLabel: function(context) {
-                            const item = d[context.dataIndex];
+                            const item = sortedD[context.dataIndex];
                             return `Grade: ${item.grade || 'N/A'} (${item.category || 'outcome'})`;
                         }
                     }
                 }
+            },
+            scales: {
+                y: { title: { display: true, text: settings.yAxis } }
             }
         }
     });
