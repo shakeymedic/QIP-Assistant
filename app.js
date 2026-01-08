@@ -44,7 +44,8 @@ window.router = (view) => {
 
     // Close Mobile Menu if open
     const sidebar = document.getElementById('app-sidebar');
-    if (sidebar.classList.contains('fixed')) { 
+    // FIX: Check for 'z-50' (mobile overlay class) instead of 'fixed' to avoid hiding desktop sidebar
+    if (sidebar.classList.contains('z-50')) { 
         sidebar.classList.add('hidden'); 
         sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
     }
