@@ -11,6 +11,7 @@ function renderAll(view) {
     
     // Router
     switch(view) {
+        case 'projects': break; // FIX: Prevents crash when loading project list
         case 'dashboard': renderDashboard(); break;
         case 'checklist': renderChecklist(); break; // The "Sherpa" Wizard
         case 'team': renderTeam(); break;
