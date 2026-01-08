@@ -114,7 +114,11 @@ function renderDataView() {
             </div>
             <div>
                  <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
-                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option value="outcome">Outcome (Primary Aim)</option><option value="process">Process (Compliance)</option><option value="balance">Balancing (Safety)</option></select>
+                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                    <option value="outcome">Outcome Measure (Primary Aim)</option>
+                    <option value="process">Process Measure (Compliance)</option>
+                    <option value="balance">Balancing Measure (Safety/Side effects)</option>
+                 </select>
             </div>
             <div id="data-preview-card" class="hidden bg-slate-50 p-3 rounded border border-slate-200 text-xs text-slate-600 mb-2">
                 <strong>Preview:</strong> <span id="preview-text">...</span>
@@ -166,7 +170,7 @@ function renderFullProject() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem Description</h3><p class="text-slate-600">${has(d.checklist.problem_desc)}</p></div>
                 <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">SMART Aim</h3><p class="text-slate-800 font-bold font-serif bg-indigo-50 p-3 rounded border border-indigo-100">${has(d.checklist.aim)}</p></div>
-                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Available Knowledge</h3><p class="text-slate-600">${has(d.checklist.lit_review)}</p></div>
+                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Evidence & Literature</h3><p class="text-slate-600">${has(d.checklist.lit_review)}</p></div>
                 <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Context</h3><p class="text-slate-600">${has(d.checklist.context)}</p></div>
             </div>
         </div>
@@ -186,10 +190,12 @@ function renderChecklist() {
     const d = state.projectData;
     const isSmart = (text) => /\d/.test(text) && /\b(by|in|20\d\d)\b/i.test(text);
     const hint = isSmart(d.checklist.aim) ? "<span class='text-emerald-600'>✓ Good SMART Aim</span>" : "<span class='text-amber-600'>⚠️ Add a Measure (Number) and Time (Date)</span>";
+    
+    // FIX: Changed oninput to onchange for Aim to prevent focus loss
     document.getElementById('checklist-container').innerHTML = `
         <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 space-y-6">
             <div><label class="block text-sm font-bold text-slate-700 mb-2">Problem Description</label><textarea onchange="window.saveChecklist('problem_desc', this.value)" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none" rows="3">${escapeHtml(d.checklist.problem_desc)}</textarea></div>
-            <div><label class="block text-sm font-bold text-slate-700 mb-2">SMART Aim</label><input type="text" oninput="window.saveChecklist('aim', this.value); window.renderChecklist()" value="${escapeHtml(d.checklist.aim)}" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none"><div class="text-xs mt-2 font-bold">${hint}</div></div>
+            <div><label class="block text-sm font-bold text-slate-700 mb-2">SMART Aim</label><input type="text" onchange="window.saveChecklist('aim', this.value); window.renderChecklist()" value="${escapeHtml(d.checklist.aim)}" class="w-full p-3 border border-slate-300 rounded text-sm focus:border-rcem-purple outline-none"><div class="text-xs mt-2 font-bold">${hint}</div></div>
         </div>
     `;
 }
@@ -252,15 +258,159 @@ function openMemberModal() {
 }
 
 // === PUBLISH & REPORTS ===
-function renderPublish(mode = 'abstract') {
+function renderPublish(mode = 'qiat') {
     const d = state.projectData;
     const content = document.getElementById('publish-content');
-    if (mode === 'abstract') {
-        const s1 = `${d.checklist.problem_desc} ${d.checklist.aim}`.trim(); const s2 = `Drivers: ${(d.drivers.changes || []).join(', ')}.`.trim(); const s3 = `${d.checklist.results_text}`.trim();
-        content.innerHTML = `<div class="grid grid-cols-1 lg:grid-cols-3 gap-8"><div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 mb-4 border-b pb-2">RCEM Abstract</h3><textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s1}</textarea><textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s2}</textarea><textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32">${s3}</textarea></div><div class="bg-sky-50 p-6 rounded-xl border border-sky-100 text-center"><button onclick="navigator.clipboard.writeText('${escapeHtml(s1)}\\n\\n${escapeHtml(s2)}\\n\\n${escapeHtml(s3)}'); showToast('Copied!', 'success');" class="w-full bg-slate-800 text-white py-3 rounded font-bold text-sm">Copy All</button></div></div>`;
-    } else {
-        content.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8"><h3 class="font-bold text-slate-800 mb-4">FRCEM Report Builder</h3><div class="space-y-4"><div><label class="block text-xs font-bold text-slate-700 mb-1">Available Knowledge</label><textarea onchange="window.saveChecklist('lit_review', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.lit_review || '')}</textarea></div><div><label class="block text-xs font-bold text-slate-700 mb-1">Context</label><textarea onchange="window.saveChecklist('context', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.context || '')}</textarea></div></div></div>`;
+    
+    // Update Mode Buttons
+    const modes = ['qiat', 'abstract', 'report'];
+    modes.forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if(btn) btn.className = mode === m 
+            ? "px-3 py-1 text-xs font-bold rounded bg-white shadow text-rcem-purple" 
+            : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
+    });
+
+    // Make sure the header includes the new button if not present (Quick fix for HTML injection)
+    const headerDiv = document.querySelector('#view-publish header div.flex');
+    if(headerDiv && !document.getElementById('btn-mode-qiat')) {
+        headerDiv.innerHTML = `
+            <button onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-xs font-bold rounded bg-white shadow text-rcem-purple">QIAT / Risr</button>
+            <button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200">RCEM Abstract</button>
+            <button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200">Report</button>
+        `;
     }
+
+    if (mode === 'abstract') {
+        const s1 = `${d.checklist.problem_desc} ${d.checklist.aim}`.trim(); 
+        const s2 = `Drivers: ${(d.drivers.changes || []).join(', ')}.`.trim(); 
+        const s3 = `${d.checklist.results_text}`.trim();
+        content.innerHTML = `
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <h3 class="font-bold text-slate-800 mb-4 border-b pb-2">RCEM Conference Abstract</h3>
+                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s1}</textarea>
+                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32 mb-4">${s2}</textarea>
+                    <textarea readonly class="w-full p-3 bg-slate-50 rounded border border-slate-200 text-sm h-32">${s3}</textarea>
+                </div>
+                <div class="bg-sky-50 p-6 rounded-xl border border-sky-100 text-center">
+                    <button onclick="navigator.clipboard.writeText('${escapeHtml(s1)}\\n\\n${escapeHtml(s2)}\\n\\n${escapeHtml(s3)}'); showToast('Copied!', 'success');" class="w-full bg-slate-800 text-white py-3 rounded font-bold text-sm">Copy All</button>
+                </div>
+            </div>`;
+    } else if (mode === 'qiat') {
+        // --- QIAT / RISR EXPORT MODE ---
+        const copyBtn = (text, id) => `
+            <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').value); showToast('Copied to clipboard', 'success')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded font-bold text-xs flex items-center gap-2 transition-colors">
+                <i data-lucide="copy" class="w-3 h-3"></i> Copy
+            </button>`;
+
+        const wordCount = (text) => text.trim().split(/\s+/).filter(w => w.length > 0).length;
+        const countBadge = (text) => `<span class="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 border border-slate-200">${wordCount(text)} words</span>`;
+
+        // Prepare Data Fields
+        const f_reason = `${d.checklist.problem_desc}\n\nContext:\n${d.checklist.context || ''}`;
+        const f_change = [
+            "Primary Drivers:", ...d.drivers.primary, 
+            "\nSecondary Drivers:", ...d.drivers.secondary, 
+            "\nChange Ideas:", ...d.drivers.changes
+        ].join('\n');
+        
+        const f_measures = [
+            "Outcome Measures:", ...d.chartData.filter(x => x.category === 'outcome').map(x => `- ${x.value} (${x.date})`),
+            "\nProcess Measures:", ...d.chartData.filter(x => x.category === 'process').map(x => `- ${x.value} (${x.date})`),
+            "\nBalancing Measures:", ...d.chartData.filter(x => x.category === 'balance').map(x => `- ${x.value} (${x.date})`)
+        ].join('\n');
+
+        const f_pdsa = d.pdsa.map((p, i) => `Cycle ${i+1}: ${p.title}\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n');
+        const f_reflection = `${d.checklist.learning}\n\nSustainability:\n${d.checklist.sustain}`;
+
+        content.innerHTML = `
+            <div class="max-w-4xl mx-auto space-y-8">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 border-l-4 border-l-rcem-purple">
+                    <h2 class="text-xl font-bold text-slate-800 mb-2">QIAT / Risr Form Data</h2>
+                    <p class="text-sm text-slate-500 mb-6">Copy and paste these sections directly into the Risr online form.</p>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="font-bold text-sm text-slate-700 uppercase">Project Title</label>
+                            ${copyBtn(d.meta.title, 'qiat-title')}
+                        </div>
+                        <input readonly id="qiat-title" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono" value="${escapeHtml(d.meta.title)}">
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">Reason for Project</label>
+                                ${countBadge(f_reason)}
+                            </div>
+                            ${copyBtn(f_reason, 'qiat-reason')}
+                        </div>
+                        <textarea readonly id="qiat-reason" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reason)}</textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">Aim Statement</label>
+                                ${countBadge(d.checklist.aim)}
+                            </div>
+                            ${copyBtn(d.checklist.aim, 'qiat-aim')}
+                        </div>
+                        <textarea readonly id="qiat-aim" rows="2" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(d.checklist.aim)}</textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">Change Ideas (Drivers)</label>
+                                ${countBadge(f_change)}
+                            </div>
+                            ${copyBtn(f_change, 'qiat-change')}
+                        </div>
+                        <textarea readonly id="qiat-change" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_change)}</textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">Measures</label>
+                                ${countBadge(f_measures)}
+                            </div>
+                            ${copyBtn(f_measures, 'qiat-measures')}
+                        </div>
+                        <textarea readonly id="qiat-measures" rows="6" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_measures)}</textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">PDSA Cycles</label>
+                                ${countBadge(f_pdsa)}
+                            </div>
+                            ${copyBtn(f_pdsa, 'qiat-pdsa')}
+                        </div>
+                        <textarea readonly id="qiat-pdsa" rows="8" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_pdsa)}</textarea>
+                    </div>
+
+                    <div class="mb-8">
+                        <div class="flex justify-between items-center mb-2">
+                            <div class="flex items-center gap-2">
+                                <label class="font-bold text-sm text-slate-700 uppercase">Reflection & Learning</label>
+                                ${countBadge(f_reflection)}
+                            </div>
+                            ${copyBtn(f_reflection, 'qiat-reflect')}
+                        </div>
+                        <textarea readonly id="qiat-reflect" rows="4" class="w-full p-3 bg-slate-50 border rounded text-sm text-slate-700 font-mono">${escapeHtml(f_reflection)}</textarea>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // REPORT MODE
+        content.innerHTML = `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8"><h3 class="font-bold text-slate-800 mb-4">FRCEM Report Builder</h3><div class="space-y-4"><div><label class="block text-xs font-bold text-slate-700 mb-1">Evidence & Literature</label><textarea onchange="window.saveChecklist('lit_review', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.lit_review || '')}</textarea></div><div><label class="block text-xs font-bold text-slate-700 mb-1">Context</label><textarea onchange="window.saveChecklist('context', this.value)" class="w-full p-3 border rounded text-sm">${escapeHtml(d.checklist.context || '')}</textarea></div></div></div>`;
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // === GANTT & TASKS ===
