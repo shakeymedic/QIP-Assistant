@@ -47,14 +47,14 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     
     if (mode === 'fishbone') {
         if(ghost) ghost.classList.add('hidden');
-        renderFishboneVisual(canvas);
+        renderFishboneVisual(canvas, targetId === 'diagram-canvas');
     } 
     else if (mode === 'driver') {
         if (state.projectData.drivers.primary.length === 0 && targetId === 'diagram-canvas') {
             if(ghost) ghost.classList.remove('hidden');
         } else {
             if(ghost) ghost.classList.add('hidden');
-            renderDriverVisual(canvas, targetId === 'diagram-canvas'); // Pass flag to show edit button
+            renderDriverVisual(canvas, targetId === 'diagram-canvas');
         }
     } 
     else if (mode === 'process') {
@@ -65,7 +65,7 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
 
 // === VISUALIZATION ENGINES ===
 
-function renderFishboneVisual(container) {
+function renderFishboneVisual(container, showEditBtn = false) {
     // Draw SVG Spine
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
@@ -86,7 +86,7 @@ function renderFishboneVisual(container) {
         el.innerText = text;
         el.style.left = `${x}%`; el.style.top = `${y}%`;
         
-        if(!state.isReadOnly && container.id === 'diagram-canvas') {
+        if(!state.isReadOnly && showEditBtn) {
             el.onmousedown = (e) => {
                 e.preventDefault();
                 const startX = e.clientX; const startY = e.clientY;
@@ -127,6 +127,15 @@ function renderFishboneVisual(container) {
             createLabel(typeof cause === 'string' ? cause : cause.text, cx, cy, false, i, j);
         });
     });
+
+    if(showEditBtn) {
+        const editBtn = document.createElement('button');
+        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
+        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Data`;
+        editBtn.onclick = () => window.toggleToolList();
+        container.appendChild(editBtn);
+        if(typeof lucide !== 'undefined') lucide.createIcons();
+    }
 }
 
 function renderDriverVisual(container, showEditBtn = false) {
@@ -200,6 +209,26 @@ function renderDriverList(container, mode) {
                     <button onclick="window.resetProcess()" class="text-red-500 text-xs font-bold ml-auto">Reset</button>
                 </div>
              </div>
+        </div>`;
+    } else {
+        // Fishbone List
+        container.innerHTML = `
+        <div class="p-8 bg-white h-full overflow-y-auto">
+            <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Fishbone Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                ${state.projectData.fishbone.categories.map((cat, i) => `
+                <div class="bg-slate-50 p-4 rounded border border-slate-200">
+                    <input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none text-rcem-purple" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)">
+                    <div class="space-y-2 pl-4 border-l-2 border-slate-200">
+                        ${cat.causes.map((c, j) => `
+                        <div class="flex gap-2">
+                            <input class="text-sm w-full p-1 border rounded bg-white" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)">
+                            <button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        </div>`).join('')}
+                        <button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold mt-2 flex items-center gap-1 hover:underline"><i data-lucide="plus" class="w-3 h-3"></i> Add Cause</button>
+                    </div>
+                </div>`).join('')}
+            </div>
         </div>`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
