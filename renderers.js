@@ -7,23 +7,24 @@ import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setTool
 // ==========================================
 
 function renderAll(view) {
-    // 1. Update UI Active States
     updateNavigationUI(view);
     
-    // 2. Route to specific renderer
-    if (view === 'dashboard') renderDashboard();
-    else if (view === 'checklist') renderChecklist(); // The Wizard
-    else if (view === 'team') renderTeam();
-    else if (view === 'tools') renderTools();         // Imports from charts.js
-    else if (view === 'data') renderDataView();
-    else if (view === 'pdsa') renderPDSA();
-    else if (view === 'stakeholders') renderStakeholders();
-    else if (view === 'gantt') renderGantt();
-    else if (view === 'green') renderGreen();         // Sustainability
-    else if (view === 'full') renderFullProject();    // The Charter View
-    else if (view === 'publish') renderPublish();     // The QIAT Writer
+    // Router
+    switch(view) {
+        case 'dashboard': renderDashboard(); break;
+        case 'checklist': renderChecklist(); break; // The "Sherpa" Wizard
+        case 'team': renderTeam(); break;
+        case 'tools': renderTools(); break;
+        case 'data': renderDataView(); break;       // Includes new Graph Controls
+        case 'pdsa': renderPDSA(); break;
+        case 'stakeholders': renderStakeholders(); break;
+        case 'gantt': renderGantt(); break;
+        case 'green': renderGreen(); break;         // Sustainability
+        case 'full': renderFullProject(); break;    // The Charter Dashboard
+        case 'publish': renderPublish(); break;     // The QIAT Report Writer
+        default: renderDashboard();
+    }
 
-    // 3. Re-initialize icons
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -33,23 +34,22 @@ function updateNavigationUI(currentView) {
         const btn = document.getElementById(`nav-${id}`);
         if(!btn) return;
         
-        // Active State Styling
-        // (Managed via CSS usually, but we ensure logic here if needed)
-        
-        // Status Badges (Progress Tracking)
         let status = '';
         const d = state.projectData;
         if (!d) return;
         
+        // Logic for "Complete" badges
         if(id === 'checklist' && d.checklist.aim && d.checklist.problem_desc) status = '✓';
         else if(id === 'data' && d.chartData.length >= 6) status = '✓';
         else if(id === 'pdsa' && d.pdsa.length > 0) status = '✓';
         else if(id === 'team' && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist.ethics) status = '✓';
         
-        // Prevent duplicate badges
-        const hasBadge = btn.querySelector('.status-badge');
-        if(status && !hasBadge) {
+        // Remove existing badge to prevent duplicates
+        const existingBadge = btn.querySelector('.status-badge');
+        if(existingBadge) existingBadge.remove();
+
+        if(status) {
              btn.innerHTML += ` <span class="status-badge ml-auto text-emerald-400 font-bold text-[10px]">${status}</span>`;
         }
     });
@@ -61,61 +61,81 @@ function updateNavigationUI(currentView) {
 
 function renderDashboard() {
     const d = state.projectData;
-    
-    // Statistics
     const values = d.chartData.map(x => Number(x.value)).filter(n => !isNaN(n));
     const avg = values.length ? Math.round(values.reduce((a,b)=>a+b,0)/values.length) : 0;
     const min = values.length ? Math.min(...values) : 0;
     const max = values.length ? Math.max(...values) : 0;
     
-    // Progress Bar Calculation
+    // Calculate Project Progress
     const calcProgress = (c, t) => Math.min(100, Math.round((c / t) * 100));
-    // Weighted progress: Data (33%) + PDSA (33%) + Drivers (33%)
     const totalProg = Math.round((calcProgress(d.chartData.length, 12) + calcProgress(d.pdsa.length, 3) + calcProgress(d.drivers.primary.length, 3)) / 3);
 
+    // 1. Progress Bar
     document.getElementById('stat-progress').innerHTML = `
         <div class="flex justify-between items-end mb-1">
             <span class="text-3xl font-bold text-slate-800">${totalProg}%</span>
         </div>
-        <div class="progress-track"><div class="progress-fill bg-emerald-500" style="width: ${totalProg}%"></div></div>
+        <div class="progress-track">
+            <div class="progress-fill bg-emerald-500" style="width: ${totalProg}%"></div>
+        </div>
         <div class="text-[10px] text-slate-400 mt-1 uppercase font-bold tracking-wider">Project Completion</div>
     `;
     
-    // "QI Coach" Logic
+    // 2. QI Coach Logic (Smart Banners)
     const coachEl = document.getElementById('qi-coach-banner');
     let msg = { t: "Measuring Phase", m: "Collect at least 6 data points to establish a baseline.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
     
-    if (d.checklist.aim === "") msg = { t: "Define Your Aim", m: "Start by using the Wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
-    else if (d.chartData.length >= 6 && d.pdsa.length === 0) msg = { t: "Time for Action", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
-    else if (d.pdsa.length > 0) msg = { t: "Project Active", m: "Keep tracking data to detect improvement shifts.", i: "activity", c: "blue-500", b: "Add Point", a: "data" };
+    if (d.checklist.aim === "") {
+        msg = { t: "Define Your Aim", m: "Start by using the Wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
+    } else if (d.chartData.length >= 6 && d.pdsa.length === 0) {
+        msg = { t: "Time for Action", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
+    } else if (d.pdsa.length > 0) {
+        msg = { t: "Project Active", m: "Keep tracking data to detect improvement shifts.", i: "activity", c: "blue-500", b: "Add Point", a: "data" };
+    }
     
     coachEl.innerHTML = `
         <div class="bg-white border-l-4 border-${msg.c} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden">
-            <div class="bg-slate-50 p-4 rounded-full shadow-inner text-${msg.c}"><i data-lucide="${msg.i}" class="w-8 h-8"></i></div>
+            <div class="bg-slate-50 p-4 rounded-full shadow-inner text-${msg.c}">
+                <i data-lucide="${msg.i}" class="w-8 h-8"></i>
+            </div>
             <div class="flex-1">
                 <h4 class="font-bold text-slate-800 text-lg">QI COACH: ${msg.t}</h4>
                 <p class="text-slate-600 mt-1">${msg.m}</p>
             </div>
-            <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg">${msg.b}</button>
+            <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg">
+                ${msg.b}
+            </button>
         </div>
     `;
 
-    // Mini Stats Bar
+    // 3. Mini Stats
     const statsContainer = document.getElementById('stat-pdsa').parentElement.parentElement;
     statsContainer.innerHTML = `
         <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-8 items-center justify-between">
             <div class="flex items-center gap-4">
                 <div class="p-3 bg-white/10 rounded-lg"><i data-lucide="clock" class="w-6 h-6 text-amber-400"></i></div>
-                <div><div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div><div class="text-2xl font-bold font-mono">${avg}</div></div>
+                <div>
+                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider">Average</div>
+                    <div class="text-2xl font-bold font-mono">${avg}</div>
+                </div>
             </div>
             <div class="h-10 w-px bg-white/10 hidden sm:block"></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Fastest</div><div class="text-xl font-bold text-emerald-400 font-mono">${min}</div></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Slowest</div><div class="text-xl font-bold text-red-400 font-mono">${max}</div></div>
-            <div><div class="text-xs text-slate-400 font-bold uppercase">Points</div><div class="text-xl font-bold">${values.length}</div></div>
+            <div>
+                <div class="text-xs text-slate-400 font-bold uppercase">Fastest</div>
+                <div class="text-xl font-bold text-emerald-400 font-mono">${min}</div>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400 font-bold uppercase">Slowest</div>
+                <div class="text-xl font-bold text-red-400 font-mono">${max}</div>
+            </div>
+            <div>
+                <div class="text-xs text-slate-400 font-bold uppercase">Points</div>
+                <div class="text-xl font-bold">${values.length}</div>
+            </div>
         </div>
     `;
 
-    // Aim Display
+    // 4. Aim Display
     const aimEl = document.getElementById('dash-aim-display');
     aimEl.innerHTML = d.checklist.aim ? d.checklist.aim : `No aim defined yet.`;
     aimEl.className = d.checklist.aim ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
@@ -129,18 +149,17 @@ function renderChecklist() {
     const d = state.projectData;
     const cl = d.checklist;
 
-    // --- Wizard Logic Helpers ---
-    // These compile the specific inputs into the big text blocks required for the exam
+    // Logic to auto-compile the fields
     const buildProblem = () => {
         const p = `${cl.problem_context || ''} ${cl.problem_evidence || ''} ${cl.problem_specific || ''}`.trim();
-        window.saveChecklist('problem_desc', p);
+        window.saveChecklist('problem_desc', p); // Auto-save to main field
         return p;
     };
     
     const buildAim = () => {
         if(!cl.aim_measure || !cl.aim_target || !cl.aim_date) return cl.aim; 
         const a = `To increase ${cl.aim_measure} from ${cl.aim_baseline || 'baseline'} to ${cl.aim_target} by ${cl.aim_date}.`;
-        window.saveChecklist('aim', a);
+        window.saveChecklist('aim', a); // Auto-save to main field
         return a;
     };
 
@@ -156,11 +175,15 @@ function renderChecklist() {
                     <div class="space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context (Why is this important?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Sepsis is a leading cause of avoidable death..." value="${escapeHtml(cl.problem_context || '')}" onchange="window.saveChecklist('problem_context', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Sepsis is a leading cause of avoidable death..." 
+                                value="${escapeHtml(cl.problem_context || '')}" 
+                                onchange="window.saveChecklist('problem_context', this.value); window.renderChecklist()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Evidence (How do you know?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Audit showed 45% compliance..." value="${escapeHtml(cl.problem_evidence || '')}" onchange="window.saveChecklist('problem_evidence', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. Audit showed 45% compliance..." 
+                                value="${escapeHtml(cl.problem_evidence || '')}" 
+                                onchange="window.saveChecklist('problem_evidence', this.value); window.renderChecklist()">
                         </div>
                         <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
                             <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Generated Problem Statement</label>
@@ -177,19 +200,27 @@ function renderChecklist() {
                     <div class="grid grid-cols-2 gap-4 mb-4">
                         <div class="col-span-2">
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure (What are you improving?)</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. delivery of IV antibiotics <1hr" value="${escapeHtml(cl.aim_measure || '')}" onchange="window.saveChecklist('aim_measure', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. delivery of IV antibiotics <1hr" 
+                                value="${escapeHtml(cl.aim_measure || '')}" 
+                                onchange="window.saveChecklist('aim_measure', this.value); window.renderChecklist()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Baseline</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 45%" value="${escapeHtml(cl.aim_baseline || '')}" onchange="window.saveChecklist('aim_baseline', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 45%" 
+                                value="${escapeHtml(cl.aim_baseline || '')}" 
+                                onchange="window.saveChecklist('aim_baseline', this.value); window.renderChecklist()">
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Target</label>
-                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 90%" value="${escapeHtml(cl.aim_target || '')}" onchange="window.saveChecklist('aim_target', this.value); window.renderChecklist()">
+                            <input class="w-full p-2 border rounded text-sm" placeholder="e.g. 90%" 
+                                value="${escapeHtml(cl.aim_target || '')}" 
+                                onchange="window.saveChecklist('aim_target', this.value); window.renderChecklist()">
                         </div>
                          <div class="col-span-2">
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">By When? (Date)</label>
-                            <input type="text" class="w-full p-2 border rounded text-sm" placeholder="e.g. August 2026" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
+                            <input type="text" class="w-full p-2 border rounded text-sm" placeholder="e.g. August 2026" 
+                                value="${escapeHtml(cl.aim_date || '')}" 
+                                onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
                         </div>
                     </div>
                     <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
@@ -231,7 +262,128 @@ function renderChecklist() {
 }
 
 // ==========================================
-// 4. THE QIAT WRITER (Publish)
+// 4. DATA VIEW (Includes Graph Controls)
+// ==========================================
+
+function renderDataView() {
+    const d = state.projectData;
+    const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
+    
+    // 1. CHART TYPE SELECTOR UI (Added in "Expert Committee" Update)
+    const chartControls = `
+        <div class="mb-4 bg-slate-100 p-2 rounded-lg flex flex-wrap gap-2 justify-center items-center" id="chart-mode-controls">
+            <span class="text-xs font-bold text-slate-500 uppercase mr-2">Chart Type:</span>
+            <button onclick="window.setChartMode('run')" data-mode="run" class="px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow">Run Chart</button>
+            <button onclick="window.setChartMode('spc')" data-mode="spc" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">SPC</button>
+            <button onclick="window.setChartMode('histogram')" data-mode="histogram" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">Histogram</button>
+            <button onclick="window.setChartMode('pareto')" data-mode="pareto" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300">Pareto</button>
+        </div>
+        
+        <div id="chart-education-panel" class="mb-6 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden transition-all">
+            <div class="p-4 bg-slate-50 border-b border-slate-200 cursor-pointer flex justify-between items-center" onclick="document.getElementById('chart-education-content').classList.toggle('hidden')">
+                <span class="text-xs font-bold text-rcem-purple uppercase tracking-wide">🎓 Learn: How to use this graph</span>
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400"></i>
+            </div>
+            <div id="chart-education-content" class="p-4 bg-white">
+                </div>
+        </div>
+    `;
+
+    const historyContainer = document.getElementById('data-history');
+    
+    // Inject Controls only if they don't exist
+    if(!document.getElementById('chart-mode-controls')) {
+        const chartArea = document.querySelector('#view-data canvas').parentElement; 
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = chartControls;
+        chartArea.parentElement.insertBefore(wrapper, chartArea);
+    }
+    
+    // Trigger update for education panel
+    if(window.updateChartEducation) window.updateChartEducation();
+
+    // 2. DATA ENTRY FORM
+    if (formContainer && formContainer.children.length === 0) {
+        formContainer.innerHTML = `
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
+                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="127">
+                </div>
+            </div>
+            <div>
+                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade / Category</label>
+                 <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                    <option>Consultant</option>
+                    <option>Registrar</option>
+                    <option>Nurse</option>
+                    <option>ACP</option>
+                    <option>Equipment</option>
+                    <option>Environment</option>
+                 </select>
+            </div>
+            <div>
+                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
+                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                    <option value="outcome">Outcome Measure (Primary Aim)</option>
+                    <option value="process">Process Measure (Compliance)</option>
+                    <option value="balance">Balancing Measure (Safety/Side effects)</option>
+                 </select>
+            </div>
+            <div class="pt-2">
+                <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow">Add Data Point</button>
+            </div>
+            <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
+                <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1">
+                    <i data-lucide="upload" class="w-3 h-3"></i> Upload CSV
+                </button>
+                <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1">
+                    <i data-lucide="download" class="w-3 h-3"></i> Template
+                </button>
+            </div>
+        `;
+        
+        // Dynamic Preview Listener
+        ['chart-date', 'chart-value'].forEach(id => {
+            document.getElementById(id).addEventListener('input', () => {
+                // (Preview logic can go here)
+            });
+        });
+    }
+
+    // 3. HISTORY TABLE
+    if (d.chartData.length === 0) {
+        historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet.</div>`;
+    } else {
+        const sorted = [...d.chartData].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+        historyContainer.innerHTML = `
+            <table class="w-full text-left border-collapse">
+                <thead><tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200"><th class="pb-2">Date</th><th class="pb-2">Value</th><th class="pb-2">Grade</th><th class="pb-2 text-right"></th></tr></thead>
+                <tbody class="text-xs text-slate-700">
+                    ${sorted.map(item => `
+                        <tr class="border-b border-slate-50 hover:bg-slate-50">
+                            <td class="py-2 font-mono">${item.date}</td>
+                            <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
+                            <td class="py-2 text-slate-400">${item.grade || '-'}</td>
+                            <td class="py-2 text-right">
+                                <button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                            </td>
+                        </tr>`).join('')}
+                </tbody>
+            </table>
+        `;
+    }
+    
+    // Render the active chart mode
+    if(window.renderChart) window.renderChart();
+}
+
+// ==========================================
+// 5. THE QIAT WRITER (Publish)
 // ==========================================
 
 function renderPublish(mode = 'qiat') {
@@ -247,7 +399,6 @@ function renderPublish(mode = 'qiat') {
             : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
     });
 
-    // Helper for Copy Buttons
     const copyBtn = (id) => `
         <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); showToast('Copied!', 'success')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
             <i data-lucide="copy" class="w-3 h-3"></i> Copy
@@ -267,7 +418,7 @@ function renderPublish(mode = 'qiat') {
                 </div>
             </div>`;
     } else if (mode === 'qiat') {
-        // Prepare Data Strings
+        // Compile strings for the RCEM Form
         const s1_1 = `${d.checklist.problem_desc || d.checklist.problem_context}\n\nContext:\n${d.checklist.context || ''}`.trim();
         const s1_2 = `Methodology: ${d.checklist.methodology}\n\nWe used a Driver Diagram. \nPrimary Drivers: ${(d.drivers.primary || []).join(', ')}. \nSecondary Drivers: ${(d.drivers.secondary || []).join(', ')}.`;
         const s1_3 = d.checklist.aim;
@@ -282,12 +433,30 @@ function renderPublish(mode = 'qiat') {
                     <div class="bg-indigo-800 px-4 py-2 rounded text-xs font-mono">Target: FRCEM QIP</div>
                 </div>
                 <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl space-y-8">
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.1 Analysis of Problem</label>${copyBtn('qiat-1-1')}</div><div id="qiat-1-1" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_1)}</div></div>
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.2 Use of QI Methods</label>${copyBtn('qiat-1-2')}</div><div id="qiat-1-2" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_2)}</div></div>
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.3 Aim Statement</label>${copyBtn('qiat-1-3')}</div><div id="qiat-1-3" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_3)}</div></div>
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.4 Measurement</label>${copyBtn('qiat-1-4')}</div><div id="qiat-1-4" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_4)}</div></div>
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.5 Evaluation (PDSA)</label>${copyBtn('qiat-1-5')}</div><div id="qiat-1-5" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_5)}</div></div>
-                    <div class="qiat-section"><div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">Reflection</label>${copyBtn('qiat-reflect')}</div><div id="qiat-reflect" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s_reflect)}</div></div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.1 Analysis of Problem</label>${copyBtn('qiat-1-1')}</div>
+                        <div id="qiat-1-1" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_1)}</div>
+                    </div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.2 Use of QI Methods</label>${copyBtn('qiat-1-2')}</div>
+                        <div id="qiat-1-2" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_2)}</div>
+                    </div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.3 Aim Statement</label>${copyBtn('qiat-1-3')}</div>
+                        <div id="qiat-1-3" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_3)}</div>
+                    </div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.4 Measurement</label>${copyBtn('qiat-1-4')}</div>
+                        <div id="qiat-1-4" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_4)}</div>
+                    </div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.5 Evaluation (PDSA)</label>${copyBtn('qiat-1-5')}</div>
+                        <div id="qiat-1-5" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s1_5)}</div>
+                    </div>
+                    <div class="qiat-section">
+                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">Reflection</label>${copyBtn('qiat-reflect')}</div>
+                        <div id="qiat-reflect" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm text-slate-700 font-mono whitespace-pre-wrap">${escapeHtml(s_reflect)}</div>
+                    </div>
                 </div>
             </div>`;
     }
@@ -295,7 +464,7 @@ function renderPublish(mode = 'qiat') {
 }
 
 // ==========================================
-// 5. THE PROJECT CHARTER (Full View)
+// 6. THE PROJECT CHARTER (Full View)
 // ==========================================
 
 function renderFullProject() {
@@ -363,7 +532,7 @@ function renderFullProject() {
 }
 
 // ==========================================
-// 6. VALUE & SUSTAINABILITY (Green)
+// 7. SUSTAINABILITY (Green)
 // ==========================================
 
 function renderGreen() {
@@ -426,8 +595,62 @@ function renderGreen() {
 }
 
 // ==========================================
-// 7. STANDARD MODULES (Team, Data, PDSA, Stakeholders, Gantt)
+// 8. STANDARD RENDERERS (PDSA, Team, Stakeholders, Gantt)
 // ==========================================
+
+function renderPDSA() {
+    const container = document.getElementById('pdsa-container');
+    const isTimeline = container.getAttribute('data-view') === 'timeline';
+    const d = state.projectData;
+    let html = `
+        <div class="flex justify-between items-center mb-6">
+            <h3 class="font-bold text-slate-800">PDSA Cycles</h3>
+            <div class="flex bg-slate-100 p-1 rounded-lg">
+                <button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'grid'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${!isTimeline?'bg-white shadow':''}">Grid</button>
+                <button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'timeline'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${isTimeline?'bg-white shadow':''}">Timeline</button>
+            </div>
+        </div>
+    `;
+    if (isTimeline) {
+        html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto"><div class="min-w-[600px]">`;
+        [...d.pdsa].sort((a,b) => new Date(a.start) - new Date(b.start)).forEach(p => {
+            html += `
+                <div class="mb-4">
+                    <div class="flex justify-between text-xs font-bold text-slate-600 mb-1"><span>${escapeHtml(p.title)}</span><span class="font-mono">${p.start} → ${p.end}</span></div>
+                    <div class="h-4 bg-slate-100 rounded-full overflow-hidden relative"><div class="absolute inset-y-0 left-0 bg-rcem-purple rounded-full opacity-80" style="width: 100%"></div></div>
+                </div>`;
+        });
+        html += `</div></div>`;
+    } else {
+        html += `
+            <div class="bg-white rounded-xl shadow-sm border-l-4 border-rcem-purple p-6 mb-8">
+                <h4 class="font-bold text-slate-800 mb-4">Start New Cycle</h4>
+                <div class="grid grid-cols-2 gap-4 mb-3">
+                    <input id="pdsa-title" class="p-2 border rounded text-sm" placeholder="Title">
+                    <div class="flex gap-2">
+                        <input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm">
+                        <input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm">
+                    </div>
+                </div>
+                <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm mb-3" rows="2" placeholder="Plan..."></textarea>
+                <button onclick="window.addPDSA()" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-sm">Create Cycle</button>
+            </div>
+            <div class="space-y-4">
+                ${d.pdsa.map((p,i) => `
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group">
+                    <button onclick="window.deletePDSA(${i})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                    <h4 class="font-bold text-slate-800">${escapeHtml(p.title)}</h4>
+                    <div class="grid grid-cols-4 gap-4 mt-4 text-sm">
+                        <textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Plan">${escapeHtml(p.desc)}</textarea>
+                        <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Do">${escapeHtml(p.do)}</textarea>
+                        <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Study">${escapeHtml(p.study)}</textarea>
+                        <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Act">${escapeHtml(p.act)}</textarea>
+                    </div>
+                </div>`).join('')}
+            </div>`;
+    }
+    container.innerHTML = html;
+}
 
 function renderTeam() {
     const list = document.getElementById('team-list');
@@ -446,6 +669,7 @@ function renderTeam() {
         </div>
     `).join('');
     
+    // Leadership Log
     const logList = document.getElementById('leadership-log-list');
     if(logList) {
         const logs = state.projectData.leadershipLogs || [];
@@ -455,97 +679,17 @@ function renderTeam() {
                     <h3 class="text-lg font-bold text-slate-800">Leadership & Engagement Log</h3>
                     <button onclick="window.addLeadershipLog()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded border border-slate-300 transition-colors">+ Add Log</button>
                 </div>
-                ${logs.length === 0 ? '<div class="text-slate-400 text-sm italic">Record meetings, stakeholder engagements, or key decisions here.</div>' : 
+                ${logs.length === 0 ? '<div class="text-slate-400 text-sm italic">Record meetings, stakeholder engagements...</div>' : 
                 `<div class="space-y-3">
                     ${logs.map((log, i) => `
                     <div class="bg-white p-3 rounded border border-slate-200 text-sm relative group">
-                        <button onclick="window.deleteLeadershipLog(${i})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><i data-lucide="x" class="w-3 h-3"></i></button>
+                        <button onclick="window.deleteLeadershipLog(${i})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500"><i data-lucide="x" class="w-3 h-3"></i></button>
                         <div class="font-bold text-slate-700 text-xs mb-1">${log.date}</div>
                         <div class="text-slate-800">${escapeHtml(log.note)}</div>
                     </div>`).join('')}
                 </div>`}
             </div>`;
     }
-}
-
-function renderDataView() {
-    const d = state.projectData;
-    const formContainer = document.querySelector('#view-data .bg-white .space-y-4'); 
-    
-    if (formContainer && formContainer.children.length === 0) {
-        formContainer.innerHTML = `
-            <div class="grid grid-cols-2 gap-2">
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label><input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none"></div>
-                <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label><input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="127"></div>
-            </div>
-            <div>
-                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade</label>
-                 <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white"><option>Not Specified</option><option>Consultant</option><option>Registrar</option><option>Nurse</option></select>
-            </div>
-            <div>
-                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure Type</label>
-                 <select id="chart-cat" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
-                    <option value="outcome">Outcome Measure (Primary Aim)</option>
-                    <option value="process">Process Measure (Compliance)</option>
-                    <option value="balance">Balancing Measure (Safety/Side effects)</option>
-                 </select>
-            </div>
-            <div id="data-preview-card" class="hidden bg-slate-50 p-3 rounded border border-slate-200 text-xs text-slate-600 mb-2">
-                <strong>Preview:</strong> <span id="preview-text">...</span>
-            </div>
-            <div class="pt-2"><button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow">Add Data Point</button></div>
-            <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
-                <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="upload" class="w-3 h-3"></i> Upload CSV</button>
-                <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1"><i data-lucide="download" class="w-3 h-3"></i> Template</button>
-            </div>
-        `;
-        
-        ['chart-date', 'chart-value', 'chart-grade'].forEach(id => {
-            document.getElementById(id).addEventListener('input', () => {
-                const date = document.getElementById('chart-date').value;
-                const val = document.getElementById('chart-value').value;
-                const grade = document.getElementById('chart-grade').value;
-                if(date && val) {
-                    document.getElementById('data-preview-card').classList.remove('hidden');
-                    document.getElementById('preview-text').innerHTML = `Value: <strong>${val}</strong> on ${date} (${grade})`;
-                } else {
-                    document.getElementById('data-preview-card').classList.add('hidden');
-                }
-            });
-        });
-    }
-
-    const historyContainer = document.getElementById('data-history');
-    if (d.chartData.length === 0) historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet.</div>`;
-    else {
-        const sorted = [...d.chartData].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
-        historyContainer.innerHTML = `
-            <table class="w-full text-left border-collapse">
-                <thead><tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200"><th class="pb-2">Date</th><th class="pb-2">Value</th><th class="pb-2">Grade</th><th class="pb-2 text-right"></th></tr></thead>
-                <tbody class="text-xs text-slate-700">
-                    ${sorted.map(item => `<tr class="border-b border-slate-50 hover:bg-slate-50"><td class="py-2 font-mono">${item.date}</td><td class="py-2 font-bold text-rcem-purple">${item.value}</td><td class="py-2 text-slate-400">${item.grade || '-'}</td><td class="py-2 text-right"><button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td></tr>`).join('')}
-                </tbody>
-            </table>
-        `;
-    }
-    if(window.renderChart) window.renderChart();
-}
-
-function renderPDSA() {
-    const container = document.getElementById('pdsa-container');
-    const isTimeline = container.getAttribute('data-view') === 'timeline';
-    const d = state.projectData;
-    let html = `<div class="flex justify-between items-center mb-6"><h3 class="font-bold text-slate-800">PDSA Cycles</h3><div class="flex bg-slate-100 p-1 rounded-lg"><button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'grid'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${!isTimeline?'bg-white shadow':''}">Grid</button><button onclick="document.getElementById('pdsa-container').setAttribute('data-view', 'timeline'); renderPDSA()" class="px-3 py-1 text-xs font-bold rounded ${isTimeline?'bg-white shadow':''}">Timeline</button></div></div>`;
-    if (isTimeline) {
-        html += `<div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 overflow-x-auto"><div class="min-w-[600px]">`;
-        [...d.pdsa].sort((a,b) => new Date(a.start) - new Date(b.start)).forEach(p => {
-            html += `<div class="mb-4"><div class="flex justify-between text-xs font-bold text-slate-600 mb-1"><span>${escapeHtml(p.title)}</span><span class="font-mono">${p.start} → ${p.end}</span></div><div class="h-4 bg-slate-100 rounded-full overflow-hidden relative"><div class="absolute inset-y-0 left-0 bg-rcem-purple rounded-full opacity-80" style="width: 100%"></div></div></div>`;
-        });
-        html += `</div></div>`;
-    } else {
-        html += `<div class="bg-white rounded-xl shadow-sm border-l-4 border-rcem-purple p-6 mb-8"><h4 class="font-bold text-slate-800 mb-4">Start New Cycle</h4><div class="grid grid-cols-2 gap-4 mb-3"><input id="pdsa-title" class="p-2 border rounded text-sm" placeholder="Title"><div class="flex gap-2"><input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm"><input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm"></div></div><textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm mb-3" rows="2" placeholder="Plan..."></textarea><button onclick="window.addPDSA()" class="bg-slate-800 text-white px-4 py-2 rounded font-bold text-sm">Create Cycle</button></div><div class="space-y-4">${d.pdsa.map((p,i) => `<div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group"><button onclick="window.deletePDSA(${i})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button><h4 class="font-bold text-slate-800">${escapeHtml(p.title)}</h4><div class="grid grid-cols-4 gap-4 mt-4 text-sm"><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Plan">${escapeHtml(p.desc)}</textarea><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Do">${escapeHtml(p.do)}</textarea><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Study">${escapeHtml(p.study)}</textarea><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="p-2 bg-slate-50 rounded border-none resize-none h-20" placeholder="Act">${escapeHtml(p.act)}</textarea></div></div>`).join('')}</div>`;
-    }
-    container.innerHTML = html;
 }
 
 function renderStakeholders() {
@@ -566,7 +710,7 @@ function renderStakeholders() {
         <div class="p-8 max-w-4xl mx-auto">
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                 <table class="w-full text-left">
-                    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power (0-100)</th><th class="p-4">Interest (0-100)</th><th class="p-4"></th></tr></thead>
+                    <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power</th><th class="p-4">Interest</th><th class="p-4"></th></tr></thead>
                     <tbody class="divide-y divide-slate-100">
                         ${state.projectData.stakeholders.map((s,i)=>`
                         <tr>
@@ -592,14 +736,12 @@ function renderStakeholders() {
             <div class="absolute top-1/2 left-0 w-full h-px bg-slate-300 dashed z-0"></div>
             <div class="absolute left-1/2 top-0 h-full w-px bg-slate-300 dashed z-0"></div>
         `;
-        
         state.projectData.stakeholders.forEach((s, i) => {
             const el = document.createElement('div');
             el.className = 'absolute w-10 h-10 bg-rcem-purple text-white rounded-full flex items-center justify-center text-xs font-bold shadow-lg cursor-grab z-20 hover:scale-110 transition-transform';
             el.style.left = `${s.x}%`; 
             el.style.bottom = `${s.y}%`; 
             el.innerText = s.name.substring(0,2).toUpperCase();
-            el.title = `${s.name} (P:${s.y}, I:${s.x})`;
             canvas.appendChild(el);
         });
     }
@@ -622,78 +764,35 @@ function renderGantt() {
 }
 
 // ==========================================
-// 8. LOGIC & HELPERS
+// 9. LOGIC HANDLERS
 // ==========================================
 
-// --- Calculators ---
-function calcGreen() {
-    const sheets = document.getElementById('calc-paper').value;
-    const co2 = (sheets * 0.005).toFixed(2); 
-    document.getElementById('res-green').innerText = `${co2} kg CO2`;
-}
-function calcTime() {
-    const hours = document.getElementById('calc-hours').value;
-    const cost = (hours * 30).toFixed(2); 
-    document.getElementById('res-time').innerText = `£${cost} / month`;
-}
-function calcEdu() {
-    const ppl = document.getElementById('calc-edu-ppl').value;
-    if(ppl) {
-        document.getElementById('res-edu').innerText = `${ppl} staff upskilled!`;
-        showToast("Education impact logged", "success");
-    }
-}
-function calcMoney() { calcTime(); } // Alias
+function calcGreen() { const s = document.getElementById('calc-paper').value; document.getElementById('res-green').innerText = `${(s * 0.005).toFixed(2)} kg CO2`; }
+function calcTime() { const h = document.getElementById('calc-hours').value; document.getElementById('res-time').innerText = `£${(h * 30).toFixed(2)} / month`; }
+function calcEdu() { const p = document.getElementById('calc-edu-ppl').value; if(p) { document.getElementById('res-edu').innerText = `${p} staff upskilled!`; showToast("Impact logged", "success"); } }
+function calcMoney() { calcTime(); } 
 
-// --- Modals & Toggles ---
 function openMemberModal() { document.getElementById('member-modal').classList.remove('hidden'); }
 function openGanttModal() { document.getElementById('task-modal').classList.remove('hidden'); }
 function toggleToolList() { renderTools(); }
 
-// --- Fishbone Logic ---
 function updateFishCat(i, v) { state.projectData.fishbone.categories[i].text = v; window.saveData(); }
 function updateFishCause(i, j, v) { state.projectData.fishbone.categories[i].causes[j].text = v; window.saveData(); }
 function addFishCause(i) { state.projectData.fishbone.categories[i].causes.push({text: "New", x: 50, y: 50}); window.saveData(); renderTools(); }
 function removeFishCause(i, j) { state.projectData.fishbone.categories[i].causes.splice(j, 1); window.saveData(); renderTools(); }
 
-// --- Leadership Logic ---
-function addLeadershipLog() { 
-    const n = prompt("Enter meeting note or decision:"); 
-    if(n) { 
-        if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = []; 
-        state.projectData.leadershipLogs.push({ date: new Date().toLocaleDateString(), note: n }); 
-        window.saveData(); 
-        renderTeam(); 
-        showToast("Log added", "success"); 
-    } 
-}
-function deleteLeadershipLog(i) { 
-    if(confirm("Delete this log?")) { 
-        state.projectData.leadershipLogs.splice(i, 1); 
-        window.saveData(); 
-        renderTeam(); 
-    } 
-}
+function addLeadershipLog() { const n = prompt("Note:"); if(n) { if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs=[]; state.projectData.leadershipLogs.push({date:new Date().toLocaleDateString(), note:n}); window.saveData(); renderTeam(); showToast("Log added", "success"); } }
+function deleteLeadershipLog(i) { if(confirm("Delete?")) { state.projectData.leadershipLogs.splice(i, 1); window.saveData(); renderTeam(); } }
 
-// --- Stakeholder Logic ---
 function addStakeholder() { const n = prompt("Name:"); if(n) { state.projectData.stakeholders.push({name:n, x:50, y:50}); window.saveData(); renderStakeholders(); } }
 function updateStake(i, k, v) { state.projectData.stakeholders[i][k] = v; window.saveData(); }
 function removeStake(i) { if(confirm("Remove?")) { state.projectData.stakeholders.splice(i,1); window.saveData(); renderStakeholders(); } }
 function toggleStakeView() { const e = document.getElementById('view-stakeholders'); e.setAttribute('data-view', e.getAttribute('data-view')==='list'?'visual':'list'); renderStakeholders(); }
 
-// --- PDSA Logic ---
-function addPDSA() { 
-    const t=document.getElementById('pdsa-title').value; 
-    const s=document.getElementById('pdsa-start').value; 
-    const e=document.getElementById('pdsa-end').value; 
-    const p=document.getElementById('pdsa-plan').value; 
-    if(t){ state.projectData.pdsa.push({title:t, start:s, end:e, desc:p, do:'', study:'', act:''}); window.saveData(); renderPDSA(); showToast("Cycle added", "success"); } 
-    else { showToast("Title required", "error"); }
-}
+function addPDSA() { const t=document.getElementById('pdsa-title').value; const s=document.getElementById('pdsa-start').value; const e=document.getElementById('pdsa-end').value; const p=document.getElementById('pdsa-plan').value; if(t){ state.projectData.pdsa.push({title:t, start:s, end:e, desc:p, do:'', study:'', act:''}); window.saveData(); renderPDSA(); showToast("Cycle added", "success"); } else { showToast("Title required", "error"); } }
 function updatePDSA(i, f, v) { state.projectData.pdsa[i][f] = v; window.saveData(); }
-function deletePDSA(i) { if(confirm("Delete cycle?")) { state.projectData.pdsa.splice(i,1); window.saveData(); renderPDSA(); } }
+function deletePDSA(i) { if(confirm("Delete?")) { state.projectData.pdsa.splice(i,1); window.saveData(); renderPDSA(); } }
 
-// --- Placeholder/Legacy ---
 function saveSmartAim() { showToast("Aim saved", "info"); } 
 function openPortfolioExport() { showToast("Coming soon", "info"); } 
 function copyReport() { navigator.clipboard.writeText("Report copied"); showToast("Copied", "success"); } 
@@ -701,7 +800,7 @@ function showHelp() { alert("Use the tabs to navigate your QIP journey."); }
 function startTour() { showToast("Tour not available", "info"); }
 
 // ==========================================
-// 9. EXPORTS
+// 10. EXPORTS
 // ==========================================
 
 export { 
