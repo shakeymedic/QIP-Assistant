@@ -1,10 +1,46 @@
 import { state } from './state.js';
 import { showToast, escapeHtml } from './utils.js';
 
-export let toolMode = 'fishbone';
+// Global state for this module
+export let toolMode = 'fishbone';       // For Diagrams (Fishbone/Driver/Process)
+export let chartMode = 'run';           // For Graphs (Run/SPC/Histogram/Pareto)
 let zoomLevel = 1.0;
 
-// === VIEW CONTROLS ===
+// ==========================================
+// 1. EDUCATIONAL CONTENT (The "Data Coach")
+// ==========================================
+const CHART_EDUCATION = {
+    run: {
+        title: "The Run Chart (Time Series)",
+        what: "Plots your data over time with a median line.",
+        when: "Use this for almost every QIP. It is the FRCEM standard for showing improvement.",
+        rules: "<strong>Look for 'Shifts':</strong> 6 or more consecutive points either all above or all below the median. This proves your change made a real difference."
+    },
+    spc: {
+        title: "SPC Control Chart (Shewhart)",
+        what: "A Run Chart that adds 'Control Limits' (Sigma lines) based on mathematical variation.",
+        when: "Use when you want to be rigorous about 'Common Cause' vs 'Special Cause' variation.",
+        rules: "Points outside the dotted lines (Control Limits) indicate a statistically significant event (Special Cause)."
+    },
+    histogram: {
+        title: "Frequency Histogram",
+        what: "Stacks your data into 'bins' to show the shape of your process.",
+        when: "Use this to check consistency. A wide, flat shape means your process is unreliable. A tall, narrow peak means it is consistent.",
+        rules: "Look for 'Skew'. Are most patients treated quickly, with a long 'tail' of delays?"
+    },
+    pareto: {
+        title: "Pareto Chart (The 80/20 Rule)",
+        what: "A bar chart sorted by frequency, with a line showing cumulative percentage.",
+        when: "Use this in the <strong>Diagnostic Phase</strong>. It helps you decide WHICH problem to fix.",
+        rules: "Focus on the 'Vital Few' (the tall bars on the left). Fixing these solves 80% of the problem."
+    }
+};
+
+// ==========================================
+// 2. VIEW CONTROLS
+// ==========================================
+
+// -- Diagram Controls --
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
@@ -25,23 +61,182 @@ function applyZoom() {
     if(el) el.style.transform = `scale(${zoomLevel})`;
 }
 
-// === MAIN TOOL RENDERER ===
+// -- Graph Controls --
+export function setChartMode(m) {
+    chartMode = m;
+    renderChart();
+    updateChartEducation();
+    
+    const buttons = document.querySelectorAll('#chart-mode-controls button');
+    buttons.forEach(b => {
+        if(b.getAttribute('data-mode') === m) b.className = "px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow transition-all";
+        else b.className = "px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50 transition-all";
+    });
+}
+
+export function updateChartEducation() {
+    const el = document.getElementById('chart-education-content');
+    if(!el) return;
+    const info = CHART_EDUCATION[chartMode];
+    el.innerHTML = `
+        <h4 class="font-bold text-rcem-purple text-sm mb-2 flex items-center gap-2"><i data-lucide="info" class="w-4 h-4"></i> ${info.title}</h4>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs text-slate-600">
+            <div class="bg-indigo-50 p-3 rounded border border-indigo-100"><strong>What is it?</strong><p class="mt-1">${info.what}</p></div>
+            <div class="bg-emerald-50 p-3 rounded border border-emerald-100"><strong>When to use?</strong><p class="mt-1">${info.when}</p></div>
+            <div class="bg-amber-50 p-3 rounded border border-amber-100"><strong>Interpretation</strong><p class="mt-1">${info.rules}</p></div>
+        </div>
+    `;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ==========================================
+// 3. GRAPH ENGINES (The New "Scientific" Charts)
+// ==========================================
+
+export function renderChart(canvasId = 'mainChart') {
+    const ctx = document.getElementById(canvasId);
+    if(!ctx) return;
+    
+    if(ctx.chartInstance) ctx.chartInstance.destroy();
+    
+    if (chartMode === 'run') renderRunChart(ctx, canvasId);
+    else if (chartMode === 'spc') renderSPCChart(ctx, canvasId);
+    else if (chartMode === 'histogram') renderHistogram(ctx, canvasId);
+    else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
+}
+
+// --- Engine A: Run Chart ---
+function renderRunChart(ctx, canvasId) {
+    const d = state.projectData.chartData;
+    if(d.length === 0 && canvasId === 'mainChart') { document.getElementById('chart-ghost')?.classList.remove('hidden'); return; }
+    if(canvasId === 'mainChart') document.getElementById('chart-ghost')?.classList.add('hidden');
+
+    const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const labels = sortedD.map(x => x.date);
+    const data = sortedD.map(x => x.value);
+    
+    let baselineData = data.slice(0, 12);
+    let sortedBase = [...baselineData].sort((a,b)=>a-b);
+    let median = sortedBase.length ? sortedBase[Math.floor(sortedBase.length/2)] : 0;
+
+    const pointColors = data.map(() => '#2d2e83'); 
+    for(let i=0; i <= data.length - 6; i++) {
+        const subset = data.slice(i, i+6);
+        if(subset.every(v => v > median) || subset.every(v => v < median)) {
+            for(let k=0; k<6; k++) pointColors[i+k] = '#f36f21'; 
+        }
+    }
+
+    const annotations = {
+        medianLine: { type: 'line', yMin: median, yMax: median, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Median: ${median}`, position: 'end' } }
+    };
+    addPDSALines(annotations);
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: labels, datasets: [{ label: 'Measure', data: data, borderColor: '#2d2e83', backgroundColor: '#2d2e83', pointBackgroundColor: pointColors, pointRadius: 5, tension: 0.1 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations }, legend: { display: false }, title: { display: true, text: 'Run Chart' } } }
+    });
+    if(canvasId === 'mainChart') window.myChart = chart; else ctx.chartInstance = chart;
+}
+
+// --- Engine B: SPC Chart ---
+function renderSPCChart(ctx, canvasId) {
+    const d = state.projectData.chartData;
+    const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const data = sortedD.map(x => x.value);
+    
+    const avg = data.reduce((a,b)=>a+b,0) / data.length;
+    let mRSum = 0;
+    for(let i=1; i<data.length; i++) mRSum += Math.abs(data[i] - data[i-1]);
+    const avgMR = mRSum / (data.length - 1);
+    
+    const ucl = avg + (2.66 * avgMR);
+    const lcl = Math.max(0, avg - (2.66 * avgMR));
+
+    const annotations = {
+        ucl: { type: 'line', yMin: ucl, yMax: ucl, borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 1, label: { display: true, content: 'UCL', position: 'start', color: '#ef4444' } },
+        lcl: { type: 'line', yMin: lcl, yMax: lcl, borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 1, label: { display: true, content: 'LCL', position: 'start', color: '#ef4444' } },
+        avg: { type: 'line', yMin: avg, yMax: avg, borderColor: '#22c55e', borderWidth: 2, label: { display: true, content: 'Mean', position: 'end', color: '#22c55e' } }
+    };
+    addPDSALines(annotations);
+
+    const chart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: sortedD.map(x => x.date), datasets: [{ label: 'Measure', data: data, borderColor: '#64748b', pointBackgroundColor: data.map(v => (v > ucl || v < lcl) ? '#ef4444' : '#64748b'), tension: 0 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { annotation: { annotations }, legend: { display: false }, title: { display: true, text: 'SPC Chart (XmR)' } } }
+    });
+    ctx.chartInstance = chart;
+}
+
+// --- Engine C: Histogram ---
+function renderHistogram(ctx, canvasId) {
+    const d = state.projectData.chartData.map(x => x.value);
+    if(d.length < 2) return;
+
+    const min = Math.min(...d);
+    const max = Math.max(...d);
+    const bins = 5;
+    const step = (max - min) / bins || 1;
+    
+    const buckets = new Array(bins).fill(0);
+    const labels = [];
+    
+    for(let i=0; i<bins; i++) {
+        const low = min + (i*step);
+        const high = low + step;
+        labels.push(`${Math.round(low)}-${Math.round(high)}`);
+        buckets[i] = d.filter(v => v >= low && (i===bins-1 ? v<=high : v<high)).length;
+    }
+
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: labels, datasets: [{ label: 'Frequency', data: buckets, backgroundColor: '#8b5cf6', borderColor: '#7c3aed', borderWidth: 1 }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, title: { display: true, text: 'Frequency Histogram' } } }
+    });
+    ctx.chartInstance = chart;
+}
+
+// --- Engine D: Pareto ---
+function renderPareto(ctx, canvasId) {
+    const d = state.projectData.chartData;
+    const counts = {};
+    d.forEach(x => { const cat = x.grade || "Unknown"; counts[cat] = (counts[cat] || 0) + 1; });
+
+    const sortedCats = Object.keys(counts).sort((a,b) => counts[b] - counts[a]);
+    const values = sortedCats.map(c => counts[c]);
+    const total = values.reduce((a,b) => a+b, 0);
+    
+    let cum = 0;
+    const cumulative = values.map(v => { cum += v; return (cum / total) * 100; });
+
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: { labels: sortedCats, datasets: [ { type: 'line', label: 'Cumulative %', data: cumulative, borderColor: '#f36f21', borderWidth: 2, yAxisID: 'y1' }, { type: 'bar', label: 'Frequency', data: values, backgroundColor: '#2d2e83', yAxisID: 'y' } ] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: true, text: 'Pareto Analysis' } }, scales: { y: { beginAtZero: true, position: 'left' }, y1: { beginAtZero: true, position: 'right', max: 100, grid: { drawOnChartArea: false } } } }
+    });
+    ctx.chartInstance = chart;
+}
+
+// ==========================================
+// 4. DIAGRAM ENGINES (Fishbone / Driver)
+// ==========================================
+
 export async function renderTools(targetId = 'diagram-canvas', overrideMode = null) {
     if(!state.projectData) return;
     const canvas = document.getElementById(targetId);
     if (!canvas) return;
 
-    // Determine Mode
     const mode = overrideMode || toolMode;
     const viewMode = document.getElementById('view-tools') ? document.getElementById('view-tools').getAttribute('data-view') : 'visual';
 
-    // 1. LIST VIEW RENDERER (Only for main view)
+    // List View Handler
     if(viewMode === 'list' && targetId === 'diagram-canvas') {
         renderDriverList(canvas, mode);
         return;
     }
 
-    // 2. VISUAL RENDERER
+    // Visual View Handler
     canvas.innerHTML = ''; 
     const ghost = document.getElementById('diagram-ghost');
     
@@ -63,10 +258,7 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     }
 }
 
-// === VISUALIZATION ENGINES ===
-
 function renderFishboneVisual(container, showEditBtn = false) {
-    // Draw SVG Spine
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); svg.setAttribute("height", "100%"); 
     svg.style.position = 'absolute'; svg.style.top = '0'; svg.style.left = '0'; svg.style.pointerEvents = 'none';
@@ -112,10 +304,7 @@ function renderFishboneVisual(container, showEditBtn = false) {
                 };
                 document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
             };
-            el.ondblclick = (e) => {
-                e.stopPropagation();
-                if(isCat) window.addCauseWithWhys(catIdx);
-            };
+            el.ondblclick = (e) => { e.stopPropagation(); if(isCat) window.addCauseWithWhys(catIdx); };
         }
         container.appendChild(el);
     };
@@ -128,14 +317,7 @@ function renderFishboneVisual(container, showEditBtn = false) {
         });
     });
 
-    if(showEditBtn) {
-        const editBtn = document.createElement('button');
-        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
-        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Data`;
-        editBtn.onclick = () => window.toggleToolList();
-        container.appendChild(editBtn);
-        if(typeof lucide !== 'undefined') lucide.createIcons();
-    }
+    if(showEditBtn) addEditOverlay(container);
 }
 
 function renderDriverVisual(container, showEditBtn = false) {
@@ -150,16 +332,7 @@ function renderDriverVisual(container, showEditBtn = false) {
     wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
     wrapper.textContent = mCode;
     container.appendChild(wrapper);
-    
-    if(showEditBtn) {
-        const editBtn = document.createElement('button');
-        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
-        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Data`;
-        editBtn.onclick = () => window.toggleToolList();
-        container.appendChild(editBtn);
-        if(typeof lucide !== 'undefined') lucide.createIcons();
-    }
-
+    if(showEditBtn) addEditOverlay(container, "Edit Data");
     try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error("Mermaid error", e); }
 }
 
@@ -172,198 +345,49 @@ function renderProcessVisual(container, showEditBtn = false) {
     wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
     wrapper.textContent = mCode;
     container.appendChild(wrapper);
-
-    if(showEditBtn) {
-        const editBtn = document.createElement('button');
-        editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
-        editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> Edit Steps`;
-        editBtn.onclick = () => window.toggleToolList();
-        container.appendChild(editBtn);
-        if(typeof lucide !== 'undefined') lucide.createIcons();
-    }
-
+    if(showEditBtn) addEditOverlay(container, "Edit Steps");
     try { mermaid.run({ nodes: [wrapper] }); } catch(e) { console.error(e); }
 }
 
 function renderDriverList(container, mode) {
+    // List rendering logic (reused from previous steps)
     if (mode === 'driver') {
         const d = state.projectData.drivers;
-        container.innerHTML = `
-        <div class="p-8 bg-white h-full overflow-y-auto">
-            <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Driver Diagram Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Primary Drivers</h4>${d.primary.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.primary[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.primary.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('primary')" class="text-xs text-sky-600 font-bold">+ Add Primary</button></div>
-                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Secondary Drivers</h4>${d.secondary.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.secondary[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.secondary.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('secondary')" class="text-xs text-sky-600 font-bold">+ Add Secondary</button></div>
-                <div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">Change Ideas</h4>${d.changes.map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.changes[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.changes.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('changes')" class="text-xs text-sky-600 font-bold">+ Add Idea</button></div>
-            </div>
-        </div>`;
+        container.innerHTML = `<div class="p-8 bg-white h-full overflow-y-auto"><h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Driver Diagram Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3><div class="grid grid-cols-1 md:grid-cols-3 gap-6">` +
+        ['primary', 'secondary', 'changes'].map(type => `<div class="space-y-3"><h4 class="text-xs font-bold uppercase text-rcem-purple border-b pb-1">${type}</h4>${d[type].map((x,i)=>`<div class="flex gap-2"><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.drivers.${type}[${i}]=this.value;window.saveData()"><button onclick="state.projectData.drivers.${type}.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addDriver('${type}')" class="text-xs text-sky-600 font-bold">+ Add</button></div>`).join('') + `</div></div>`;
     } else if (mode === 'process') {
         const p = state.projectData.process;
-        container.innerHTML = `
-        <div class="p-8 bg-white h-full overflow-y-auto">
-             <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Process Steps <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
-             <div class="max-w-md space-y-2">
-                ${p.map((x,i) => `<div class="flex gap-2 items-center"><span class="text-xs font-mono text-slate-400 w-6">${i+1}.</span><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.process[${i}]=this.value;window.saveData()"><button onclick="state.projectData.process.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}
-                <div class="flex gap-2 mt-4">
-                    <button onclick="window.addStep()" class="bg-slate-800 text-white px-3 py-1.5 rounded text-xs font-bold">+ Add Step</button>
-                    <button onclick="window.resetProcess()" class="text-red-500 text-xs font-bold ml-auto">Reset</button>
-                </div>
-             </div>
-        </div>`;
+        container.innerHTML = `<div class="p-8 bg-white h-full overflow-y-auto"><h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Process <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3><div class="max-w-md space-y-2">${p.map((x,i) => `<div class="flex gap-2 items-center"><span class="text-xs font-mono text-slate-400 w-6">${i+1}.</span><input class="w-full p-2 border rounded text-sm" value="${x}" onchange="state.projectData.process[${i}]=this.value;window.saveData()"><button onclick="state.projectData.process.splice(${i},1);window.saveData();renderTools()" class="text-red-400"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<div class="flex gap-2 mt-4"><button onclick="window.addStep()" class="bg-slate-800 text-white px-3 py-1.5 rounded text-xs font-bold">+ Add Step</button><button onclick="window.resetProcess()" class="text-red-500 text-xs font-bold ml-auto">Reset</button></div></div></div>`;
     } else {
-        // Fishbone List
-        container.innerHTML = `
-        <div class="p-8 bg-white h-full overflow-y-auto">
-            <h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Fishbone Data <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                ${state.projectData.fishbone.categories.map((cat, i) => `
-                <div class="bg-slate-50 p-4 rounded border border-slate-200">
-                    <input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none text-rcem-purple" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)">
-                    <div class="space-y-2 pl-4 border-l-2 border-slate-200">
-                        ${cat.causes.map((c, j) => `
-                        <div class="flex gap-2">
-                            <input class="text-sm w-full p-1 border rounded bg-white" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)">
-                            <button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                        </div>`).join('')}
-                        <button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold mt-2 flex items-center gap-1 hover:underline"><i data-lucide="plus" class="w-3 h-3"></i> Add Cause</button>
-                    </div>
-                </div>`).join('')}
-            </div>
-        </div>`;
+        container.innerHTML = `<div class="p-8 bg-white h-full overflow-y-auto"><h3 class="font-bold text-slate-800 mb-4 flex justify-between">Edit Fishbone <button onclick="window.toggleToolList()" class="text-xs bg-slate-100 px-2 py-1 rounded">Switch to Visual</button></h3><div class="grid grid-cols-1 md:grid-cols-2 gap-8">${state.projectData.fishbone.categories.map((cat, i) => `<div class="bg-slate-50 p-4 rounded border border-slate-200"><input class="font-bold bg-transparent border-b border-slate-300 w-full mb-2 outline-none text-rcem-purple" value="${cat.text}" onchange="window.updateFishCat(${i}, this.value)"><div class="space-y-2 pl-4 border-l-2 border-slate-200">${cat.causes.map((c, j) => `<div class="flex gap-2"><input class="text-sm w-full p-1 border rounded bg-white" value="${typeof c === 'string' ? c : c.text}" onchange="window.updateFishCause(${i}, ${j}, this.value)"><button onclick="window.removeFishCause(${i}, ${j})" class="text-red-400 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button></div>`).join('')}<button onclick="window.addFishCause(${i})" class="text-xs text-sky-600 font-bold mt-2 flex items-center gap-1 hover:underline"><i data-lucide="plus" class="w-3 h-3"></i> Add Cause</button></div></div>`).join('')}</div></div>`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// === CHART SETTINGS ===
-export function openChartSettings() {
-    const s = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
-    document.getElementById('chart-setting-title').value = s.title;
-    document.getElementById('chart-setting-yaxis').value = s.yAxis;
-    document.getElementById('chart-setting-annotations').checked = s.showAnnotations;
-    document.getElementById('chart-settings-modal').classList.remove('hidden');
+// === HELPERS ===
+function addEditOverlay(container, text="Edit Data") {
+    const editBtn = document.createElement('button');
+    editBtn.className = "absolute top-4 right-4 bg-white/90 text-slate-600 px-3 py-1 rounded shadow text-xs font-bold border border-slate-300 hover:text-rcem-purple z-20 transition-all";
+    editBtn.innerHTML = `<i data-lucide="edit-3" class="w-3 h-3 inline mr-1"></i> ${text}`;
+    editBtn.onclick = () => window.toggleToolList();
+    container.appendChild(editBtn);
+    if(typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-export function saveChartSettings() {
-    state.projectData.chartSettings = {
-        title: document.getElementById('chart-setting-title').value,
-        yAxis: document.getElementById('chart-setting-yaxis').value,
-        showAnnotations: document.getElementById('chart-setting-annotations').checked
-    };
-    window.saveData();
-    document.getElementById('chart-settings-modal').classList.add('hidden');
-    renderChart();
-    showToast("Settings saved", "success");
-}
-
-export function copyChartImage() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) return;
-    canvas.toBlob(blob => {
-        navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-            .then(() => showToast("Chart copied to clipboard!", "success"))
-            .catch(() => showToast("Failed to copy image.", "error"));
-    });
-}
-
-// === CHARTING ENGINE ===
-export function renderChart(canvasId = 'mainChart') {
-    const ctx = document.getElementById(canvasId);
-    if(!ctx) return;
-    
-    // Clear existing chart instance if it exists
-    if(ctx.chartInstance) ctx.chartInstance.destroy(); // Attach instance to element to track it
-    
-    const d = state.projectData.chartData;
-    if(d.length === 0 && canvasId === 'mainChart') {
-        document.getElementById('chart-ghost')?.classList.remove('hidden');
-        return;
-    }
-    if(canvasId === 'mainChart') document.getElementById('chart-ghost')?.classList.add('hidden');
-
-    const sortedD = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
-    const labels = sortedD.map(x => x.date);
-    const data = sortedD.map(x => x.value);
-    
-    const settings = state.projectData.chartSettings || { title: 'Run Chart', yAxis: 'Measure', showAnnotations: true };
-
-    let baselineData = data.slice(0, 12);
-    let mean = baselineData.length ? baselineData.reduce((a,b)=>a+b,0)/baselineData.length : 0;
-
-    // SPC RULE DETECTION
-    const pointColors = data.map(() => '#2d2e83'); 
-    const pointRadii = data.map(() => 5);
-
-    // Rule 1: Shift
-    for(let i=0; i <= data.length - 6; i++) {
-        const subset = data.slice(i, i+6);
-        if(subset.every(v => v > mean) || subset.every(v => v < mean)) {
-            for(let k=0; k<6; k++) pointColors[i+k] = '#f36f21'; 
-        }
-    }
-
-    // Rule 2: Trend
-    for(let i=0; i <= data.length - 5; i++) {
-        const subset = data.slice(i, i+5);
-        let increasing = true, decreasing = true;
-        for(let k=0; k < 4; k++) {
-            if(subset[k+1] <= subset[k]) increasing = false;
-            if(subset[k+1] >= subset[k]) decreasing = false;
-        }
-        if(increasing || decreasing) {
-             for(let k=0; k<5; k++) pointColors[i+k] = '#3b82f6'; 
-        }
-    }
-
-    const annotations = {
-        meanLine: { type: 'line', yMin: mean, yMax: mean, borderColor: '#94a3b8', borderDash: [5, 5], borderWidth: 2, label: { display: true, content: `Baseline Mean: ${mean.toFixed(1)}`, position: 'end' } }
-    };
-    
+function addPDSALines(annotations) {
+    const settings = state.projectData.chartSettings || { showAnnotations: true };
     if(settings.showAnnotations) {
-        const pdsaDates = state.projectData.pdsa.map(p => ({ date: p.start, title: p.title }));
-        pdsaDates.forEach((p, i) => {
-            annotations[`pdsa_${i}`] = { type: 'line', xMin: p.date, xMax: p.date, borderColor: '#f36f21', borderWidth: 2, label: { display: true, content: p.title, backgroundColor: '#f36f21', color: 'white', position: 'start' } };
+        state.projectData.pdsa.forEach((p, i) => {
+            annotations[`pdsa_${i}`] = { 
+                type: 'line', xMin: p.start, xMax: p.start, 
+                borderColor: '#f36f21', borderWidth: 2, borderDash: [2,2],
+                label: { display: true, content: p.title, position: 'start', backgroundColor: 'rgba(243, 111, 33, 0.8)', color: 'white', font: {size: 10} } 
+            };
         });
     }
-
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: settings.yAxis,
-                data: data,
-                borderColor: '#2d2e83',
-                backgroundColor: '#2d2e83',
-                pointBackgroundColor: pointColors,
-                pointBorderColor: pointColors,
-                tension: 0.1,
-                pointRadius: pointRadii,
-                pointHoverRadius: 7
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                annotation: { annotations },
-                title: { display: true, text: settings.title, font: { size: 16 } },
-                legend: { display: false }
-            },
-            scales: {
-                y: { title: { display: true, text: settings.yAxis } }
-            }
-        }
-    });
-
-    if(canvasId === 'mainChart') window.myChart = chart;
-    else ctx.chartInstance = chart; // Store instance for cleanup
 }
 
-export function renderFullViewChart() {
-    renderChart('fullProjectChart');
-}
-
-// === DATA HELPERS ===
+// === EXPORT HELPERS (Data Manipulation) ===
 export function addDataPoint() {
     const d = document.getElementById('chart-date').value;
     const v = document.getElementById('chart-value').value;
@@ -404,37 +428,6 @@ export function downloadCSVTemplate() {
     showToast("Template downloaded", "success");
 }
 
-export function importCSV(input) {
-    if(state.isReadOnly) return;
-    const file = input.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result;
-        const rows = text.split('\n');
-        let count = 0;
-        rows.forEach(row => {
-            const cols = row.split(',');
-            if (cols.length >= 2) {
-                const date = cols[0].trim();
-                const value = parseFloat(cols[1].trim());
-                const grade = cols[2] ? cols[2].trim() : 'Imported';
-                if (!isNaN(value) && !isNaN(Date.parse(date))) {
-                    state.projectData.chartData.push({ date: new Date(date).toISOString().split('T')[0], value: value, grade: grade });
-                    count++;
-                }
-            }
-        });
-        state.projectData.chartData.sort((a,b) => new Date(a.date) - new Date(b.date));
-        window.saveData(); 
-        if(window.renderDataView) window.renderDataView();
-        showToast(`Imported ${count} points`, "success");
-    };
-    reader.readAsText(file);
-    input.value = '';
-}
-
-// === DIAGRAM HELPERS ===
 export function addCauseWithWhys(catIdx) {
     if(state.isReadOnly) return;
     let cause = prompt("What is the cause?");
@@ -473,3 +466,5 @@ export function addStep() {
 export function resetProcess() {
     if(confirm("Reset process map?")) { state.projectData.process = ["Start", "End"]; window.saveData(); renderTools(); }
 }
+
+export function renderFullViewChart() { renderChart('fullProjectChart'); }
