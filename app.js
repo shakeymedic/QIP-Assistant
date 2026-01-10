@@ -11,7 +11,8 @@ import {
     renderChart, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, 
     zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, 
     setToolMode, setChartMode, updateChartEducation, renderTools, toolMode,
-    openChartSettings, saveChartSettings, copyChartImage, renderFullViewChart 
+    openChartSettings, saveChartSettings, copyChartImage, renderFullViewChart,
+    toggleToolHelp
 } from "./charts.js";
 
 import * as R from "./renderers.js";
@@ -64,7 +65,7 @@ window.returnToProjects = () => {
     loadProjectList();
 };
 
-// --- DATA PORTABILITY (NEW: Backup/Restore) ---
+// --- DATA PORTABILITY (Backup/Restore) ---
 window.exportProjectToFile = function() {
     if (!state.projectData) { showToast("No data to export", "error"); return; }
     
@@ -123,7 +124,9 @@ window.zoomIn = zoomIn;
 window.zoomOut = zoomOut;
 window.resetZoom = resetZoom;
 window.renderDataView = R.renderDataView;
-// New Chart Controls
+window.renderChart = renderChart;
+
+// Chart Controls
 window.setChartMode = setChartMode;
 window.updateChartEducation = updateChartEducation;
 window.openChartSettings = openChartSettings;
@@ -132,7 +135,8 @@ window.copyChartImage = copyChartImage;
 
 // --- TOOL FUNCTIONS (Fishbone/Driver) ---
 window.setToolMode = setToolMode;
-window.toggleToolList = R.toggleToolList; // Toggles the "Edit Data" list view
+window.toggleToolList = R.toggleToolList;
+window.toggleToolHelp = toggleToolHelp;
 window.addCauseWithWhys = addCauseWithWhys;
 window.addDriver = addDriver;
 window.addStep = addStep;
@@ -141,9 +145,14 @@ window.updateFishCat = R.updateFishCat;
 window.updateFishCause = R.updateFishCause;
 window.addFishCause = R.addFishCause;
 window.removeFishCause = R.removeFishCause;
+window.renderTools = renderTools;
 
 // --- CHECKLIST & AIM ---
-window.saveChecklist = (key, val) => { state.projectData.checklist[key] = val; window.saveData(); };
+window.saveChecklist = (key, val) => { 
+    if (!state.projectData.checklist) state.projectData.checklist = {};
+    state.projectData.checklist[key] = val; 
+    window.saveData(); 
+};
 window.saveSmartAim = R.saveSmartAim; 
 window.renderChecklist = R.renderChecklist; 
 
@@ -167,6 +176,14 @@ window.saveMember = () => {
     
     window.saveData();
     document.getElementById('member-modal').classList.add('hidden');
+    
+    // Clear form fields
+    document.getElementById('member-name').value = '';
+    document.getElementById('member-role').value = '';
+    document.getElementById('member-grade').value = '';
+    document.getElementById('member-resp').value = '';
+    document.getElementById('member-init').value = '';
+    
     R.renderTeam();
     showToast("Member added", "success");
 };
@@ -221,6 +238,16 @@ window.saveGanttTask = () => {
     
     window.saveData();
     document.getElementById('task-modal').classList.add('hidden');
+    
+    // Clear form fields
+    document.getElementById('task-name').value = '';
+    document.getElementById('task-start').value = '';
+    document.getElementById('task-end').value = '';
+    document.getElementById('task-type').value = 'plan';
+    document.getElementById('task-owner').value = '';
+    document.getElementById('task-milestone').checked = false;
+    document.getElementById('task-dep').value = '';
+    
     R.renderGantt();
     showToast("Task added", "success");
 };
@@ -259,10 +286,13 @@ window.saveData = async function(skipHistory = false) {
     // Demo Mode: Local Only
     if (state.isDemoMode) { 
         if(!skipHistory) pushHistory();
-        let currentView = document.querySelector('.view-section:not(.hidden)').id.replace('view-', '');
-        // Refresh specific views that depend on data
-        if(currentView === 'tools' || currentView === 'data' || currentView === 'dashboard') {
-            R.renderAll(currentView);
+        let currentView = document.querySelector('.view-section:not(.hidden)');
+        if (currentView) {
+            let viewName = currentView.id.replace('view-', '');
+            // Refresh specific views that depend on data
+            if(viewName === 'tools' || viewName === 'data' || viewName === 'dashboard') {
+                R.renderAll(viewName);
+            }
         }
         return; 
     }
@@ -274,7 +304,7 @@ window.saveData = async function(skipHistory = false) {
     
     try {
         await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
-        // Optional: Trigger a UI "Saved" indicator here if you have one in HTML
+        // Optional: Trigger a UI "Saved" indicator
         const s = document.getElementById('save-status');
         if(s) { s.classList.remove('opacity-0'); setTimeout(() => s.classList.add('opacity-0'), 2000); }
     } catch (e) {
@@ -296,8 +326,11 @@ window.undo = () => {
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
     state.projectData = JSON.parse(prevState);
-    let currentView = document.querySelector('.view-section:not(.hidden)').id.replace('view-', '');
-    R.renderAll(currentView);
+    let currentView = document.querySelector('.view-section:not(.hidden)');
+    if (currentView) {
+        let viewName = currentView.id.replace('view-', '');
+        R.renderAll(viewName);
+    }
     window.saveData(true); 
     updateUndoRedoButtons();
     showToast("Undo", "info");
@@ -308,8 +341,11 @@ window.redo = () => {
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
     state.projectData = JSON.parse(nextState);
-    let currentView = document.querySelector('.view-section:not(.hidden)').id.replace('view-', '');
-    R.renderAll(currentView);
+    let currentView = document.querySelector('.view-section:not(.hidden)');
+    if (currentView) {
+        let viewName = currentView.id.replace('view-', '');
+        R.renderAll(viewName);
+    }
     window.saveData(true);
     updateUndoRedoButtons();
     showToast("Redo", "info");
@@ -392,25 +428,30 @@ async function loadProjectList() {
     }
 
     // --- FIREBASE PROJECT LIST ---
-    const snap = await getDocs(collection(db, `users/${state.currentUser.uid}/projects`));
-    listEl.innerHTML = '';
-    if (snap.empty) {
-        listEl.innerHTML = `<div class="col-span-3 text-center p-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
-            <h3 class="font-bold text-slate-600 mb-2">No Projects Yet</h3>
-            <button onclick="window.createNewProject()" class="text-rcem-purple font-bold hover:underline flex items-center justify-center gap-2 mx-auto"><i data-lucide="plus-circle" class="w-4 h-4"></i> Create your first QIP</button>
-        </div>`;
-    }
-    snap.forEach(doc => {
-        const d = doc.data();
-        const date = new Date(d.meta?.created).toLocaleDateString();
-        listEl.innerHTML += `
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer relative group hover:shadow-md transition-all" onclick="window.openProject('${doc.id}')">
-                <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${escapeHtml(d.meta?.title) || 'Untitled'}</h3>
-                <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
-                <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+    try {
+        const snap = await getDocs(collection(db, `users/${state.currentUser.uid}/projects`));
+        listEl.innerHTML = '';
+        if (snap.empty) {
+            listEl.innerHTML = `<div class="col-span-3 text-center p-10 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                <h3 class="font-bold text-slate-600 mb-2">No Projects Yet</h3>
+                <button onclick="window.createNewProject()" class="text-rcem-purple font-bold hover:underline flex items-center justify-center gap-2 mx-auto"><i data-lucide="plus-circle" class="w-4 h-4"></i> Create your first QIP</button>
             </div>`;
-    });
-    lucide.createIcons();
+        }
+        snap.forEach(doc => {
+            const d = doc.data();
+            const date = new Date(d.meta?.created).toLocaleDateString();
+            listEl.innerHTML += `
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer relative group hover:shadow-md transition-all" onclick="window.openProject('${doc.id}')">
+                    <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${escapeHtml(d.meta?.title) || 'Untitled'}</h3>
+                    <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
+                    <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                </div>`;
+        });
+        lucide.createIcons();
+    } catch (e) {
+        console.error("Error loading projects:", e);
+        showToast("Failed to load projects: " + e.message, "error");
+    }
 }
 
 // --- PROJECT ACTIONS ---
@@ -419,15 +460,29 @@ window.createNewProject = async () => {
     if (!title) return;
     let template = JSON.parse(JSON.stringify(emptyProject));
     template.meta.title = title;
-    await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
-    loadProjectList();
+    template.meta.created = new Date().toISOString();
+    template.meta.updated = new Date().toISOString();
+    
+    try {
+        await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
+        loadProjectList();
+        showToast("Project created", "success");
+    } catch (e) {
+        console.error("Error creating project:", e);
+        showToast("Failed to create project: " + e.message, "error");
+    }
 };
 
 window.deleteProject = async (id) => {
     if (confirm("Are you sure? This cannot be undone.")) { 
-        await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); 
-        loadProjectList(); 
-        showToast("Project deleted", "info"); 
+        try {
+            await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); 
+            loadProjectList(); 
+            showToast("Project deleted", "info");
+        } catch (e) {
+            console.error("Error deleting project:", e);
+            showToast("Failed to delete project: " + e.message, "error");
+        }
     }
 };
 
@@ -439,7 +494,11 @@ window.openProject = (id) => {
     window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
-            if (!state.projectData) { state.historyStack = [JSON.stringify(data)]; state.redoStack = []; updateUndoRedoButtons(); }
+            if (!state.projectData) { 
+                state.historyStack = [JSON.stringify(data)]; 
+                state.redoStack = []; 
+                updateUndoRedoButtons(); 
+            }
             state.projectData = data;
             
             // Schema Validation (Safe Defaults)
@@ -451,14 +510,24 @@ window.openProject = (id) => {
             if(!state.projectData.stakeholders) state.projectData.stakeholders = [];
             if(!state.projectData.gantt) state.projectData.gantt = [];
             if(!state.projectData.teamMembers) state.projectData.teamMembers = [];
+            if(!state.projectData.chartSettings) state.projectData.chartSettings = {};
+            if(!state.projectData.process) state.projectData.process = ["Start", "End"];
+            if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             
             document.getElementById('project-header-title').textContent = state.projectData.meta.title;
             
             // If inside a view, refresh it to show new data
-            let currentView = document.querySelector('.view-section:not(.hidden)').id.replace('view-', '');
-            if(currentView !== 'projects') R.renderAll(currentView);
+            let currentView = document.querySelector('.view-section:not(.hidden)');
+            if (currentView) {
+                let viewName = currentView.id.replace('view-', '');
+                if(viewName !== 'projects') R.renderAll(viewName);
+            }
         }
+    }, (error) => {
+        console.error("Error listening to project:", error);
+        showToast("Connection error: " + error.message, "error");
     });
+    
     document.getElementById('top-bar').classList.remove('hidden');
     window.router('dashboard');
 };
@@ -466,30 +535,69 @@ window.openProject = (id) => {
 // --- HANDLERS ---
 document.getElementById('auth-form').addEventListener('submit', async (e) => {
     e.preventDefault();
-    try { await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); } 
-    catch (error) { showToast("Login failed: " + error.message, "error"); }
+    try { 
+        await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
+        showToast("Signed in successfully", "success");
+    } 
+    catch (error) { 
+        showToast("Login failed: " + error.message, "error"); 
+    }
 });
+
 document.getElementById('btn-register').addEventListener('click', async () => {
-    try { await createUserWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); showToast("Account created!", "success"); } 
-    catch (error) { showToast("Registration failed: " + error.message, "error"); }
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+    
+    if (!email || !password) {
+        showToast("Please enter email and password", "error");
+        return;
+    }
+    
+    if (password.length < 6) {
+        showToast("Password must be at least 6 characters", "error");
+        return;
+    }
+    
+    try { 
+        await createUserWithEmailAndPassword(auth, email, password); 
+        showToast("Account created!", "success"); 
+    } 
+    catch (error) { 
+        showToast("Registration failed: " + error.message, "error"); 
+    }
 });
-document.getElementById('logout-btn').addEventListener('click', () => { signOut(auth); window.location.reload(); });
+
+document.getElementById('logout-btn').addEventListener('click', () => { 
+    signOut(auth); 
+    window.location.reload(); 
+});
+
 document.getElementById('mobile-menu-btn').addEventListener('click', () => {
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar.classList.contains('hidden')) {
-        sidebar.classList.remove('hidden'); sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+        sidebar.classList.remove('hidden'); 
+        sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
     } else {
-        sidebar.classList.add('hidden'); sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+        sidebar.classList.add('hidden'); 
+        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
     }
 });
 
 // Demo Mode Toggle
 document.getElementById('demo-toggle').addEventListener('change', (e) => {
     state.isDemoMode = e.target.checked;
-    state.currentProjectId = null; state.projectData = null;
+    state.currentProjectId = null; 
+    state.projectData = null;
     const wm = document.getElementById('demo-watermark');
-    if (state.isDemoMode) { wm.classList.remove('hidden'); loadProjectList(); } 
-    else { wm.classList.add('hidden'); if (state.currentUser) loadProjectList(); else document.getElementById('auth-screen').classList.remove('hidden'); }
+    if (state.isDemoMode) { 
+        wm.classList.remove('hidden'); 
+        loadProjectList(); 
+    } 
+    else { 
+        wm.classList.add('hidden'); 
+        if (state.currentUser) loadProjectList(); 
+        else document.getElementById('auth-screen').classList.remove('hidden'); 
+    }
 });
 
 document.getElementById('demo-auth-btn').onclick = () => {
@@ -528,7 +636,42 @@ document.addEventListener('keydown', (e) => {
         window.saveData(true);
         showToast("Project Saved", "success");
     }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (!e.shiftKey) {
+            e.preventDefault();
+            window.undo();
+        }
+    }
+    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        window.redo();
+    }
 });
 
 // Initial Setup
-if(document.readyState === 'complete') updateOnlineStatus();
+if(document.readyState === 'complete') {
+    updateOnlineStatus();
+} else {
+    window.addEventListener('load', updateOnlineStatus);
+}
+
+// Initialize Mermaid
+if (typeof mermaid !== 'undefined') {
+    mermaid.initialize({ 
+        startOnLoad: false, 
+        theme: 'base',
+        themeVariables: {
+            primaryColor: '#2d2e83',
+            primaryTextColor: '#fff',
+            primaryBorderColor: '#2d2e83',
+            lineColor: '#94a3b8',
+            secondaryColor: '#f1f5f9',
+            tertiaryColor: '#eff6ff'
+        }
+    });
+}
+
+// Initialize Lucide Icons
+if (typeof lucide !== 'undefined') {
+    lucide.createIcons();
+}
