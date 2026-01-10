@@ -458,8 +458,9 @@ function renderPublish(mode = 'qiat') {
             : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
     });
 
+    // FIXED: Use window.showToast consistently in inline onclick handlers
     const copyBtn = (id, label = 'Copy') => `
-        <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); window.showToast ? showToast('Copied!', 'success') : alert('Copied!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
+        <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); window.showToast ? window.showToast('Copied!', 'success') : alert('Copied!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
             <i data-lucide="copy" class="w-3 h-3"></i> ${label}
         </button>`;
 
