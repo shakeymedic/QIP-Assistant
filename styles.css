@@ -1,131 +1,481 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ==========================================================================
+   RCEM QIP ASSISTANT - CUSTOM STYLES
+   ========================================================================== */
 
-::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
 }
 
-::-webkit-scrollbar-thumb {
-    background: #94a3b8;
-    border-radius: 3px;
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* ==========================================================================
+   CUSTOM SCROLLBAR
+   ========================================================================== */
+
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-    background: transparent;
+    background: #f1f5f9;
+    border-radius: 4px;
 }
 
-.cursor-grab { cursor: grab; }
-.cursor-grabbing { cursor: grabbing; }
-
-@keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
 }
 
-.modal-animate {
-    animation: scaleIn 0.2s ease-out forwards;
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
+
+/* Firefox */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+/* Hide scrollbar but keep functionality */
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+.no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+/* ==========================================================================
+   TOGGLE SWITCH
+   ========================================================================== */
+
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #2d2e83;
+    background-color: #2d2e83;
+}
+
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #818cf8;
+}
+
+.toggle-checkbox {
+    transition: all 0.2s ease-in-out;
+}
+
+.toggle-label {
+    transition: background-color 0.2s ease-in-out;
+}
+
+/* ==========================================================================
+   FISHBONE DIAGRAM
+   ========================================================================== */
 
 .fishbone-label {
     position: absolute;
     background: white;
-    border: 1px solid #cbd5e1;
-    padding: 6px 12px;
-    border-radius: 6px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 9999px;
+    font-size: 11px;
     font-weight: 600;
-    color: #334155;
-    user-select: none;
-    z-index: 10;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
     cursor: grab;
-    transition: box-shadow 0.2s;
-    max-width: 150px;
-    text-align: center;
+    transform: translate(-50%, -50%);
+    white-space: nowrap;
+    z-index: 10;
+    border: 1px solid #e2e8f0;
+    transition: box-shadow 0.2s, border-color 0.2s;
+    user-select: none;
+}
+
+.fishbone-label:hover {
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    border-color: #2d2e83;
 }
 
 .fishbone-label:active {
     cursor: grabbing;
-    box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
-    z-index: 20;
-    border-color: #2d2e83;
 }
 
 .fishbone-label.category {
     background: #2d2e83;
     color: white;
+    font-weight: 700;
+    font-size: 12px;
+    padding: 6px 16px;
     border: none;
-    font-weight: bold;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
-/* === TOAST === */
+.fishbone-label.category:hover {
+    background: #1e1f5c;
+}
+
+/* ==========================================================================
+   MODAL ANIMATIONS
+   ========================================================================== */
+
+.modal-animate {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* ==========================================================================
+   TOAST CONTAINER
+   ========================================================================== */
+
 #toast-container {
-    position: fixed; bottom: 24px; right: 24px; z-index: 9999;
-    display: flex; flex-direction: column; gap: 12px; pointer-events: none;
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    pointer-events: none;
 }
 
-.toast {
-    background: white; border-left: 4px solid #2d2e83;
-    padding: 16px 20px; border-radius: 8px;
-    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-    display: flex; align-items: center; gap: 12px;
-    font-size: 14px; font-weight: 600; color: #1e293b; min-width: 320px;
-    animation: slideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; pointer-events: auto;
+#toast-container > * {
+    pointer-events: auto;
 }
 
-.toast.success { border-left-color: #10b981; }
-.toast.error { border-left-color: #ef4444; }
+/* ==========================================================================
+   PRINT STYLES
+   ========================================================================== */
 
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-@keyframes fadeOut { to { opacity: 0; transform: translateY(10px); } }
-
-/* === POSTER PRINT === */
-#print-container {
-    background: white; width: 100%; height: 100%; padding: 20px;
-    box-sizing: border-box; font-family: 'Inter', sans-serif; display: none; 
-}
-
-.poster-grid {
-    display: grid; grid-template-columns: 25% 45% 25%;
-    grid-template-rows: auto 1fr; gap: 25px; height: 100%; justify-content: center;
-}
-
-.poster-header {
-    grid-column: 1 / -1; background: #2d2e83 !important; color: white !important;
-    padding: 30px 40px; border-radius: 15px; display: flex; gap: 40px; align-items: center;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); border-bottom: 8px solid #f36f21;
-    -webkit-print-color-adjust: exact; print-color-adjust: exact;
-}
-
-.poster-title-area h1 { font-size: 56px; font-weight: 800; line-height: 1.1; margin-bottom: 10px; font-family: 'Merriweather', serif; }
-
-.poster-box {
-    background: white; border: 2px solid #cbd5e1; padding: 25px;
-    border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    height: fit-content; break-inside: avoid;
-}
-
-.aim-box { background: #eff6ff !important; border-color: #3b82f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-/* === PRINT OVERRIDES === */
 @media print {
-    #app-sidebar, #ig-banner, #auth-screen, .no-print, #top-bar, #chart-mode-controls, #stake-controls, button, .mermaid button {
+    .no-print {
         display: none !important;
     }
-    body { background: white; width: 100%; height: auto; overflow: visible; }
-    #main-wrapper { display: block !important; overflow: visible !important; height: auto !important; width: 100% !important; position: static !important; }
-    #content-area { overflow: visible !important; height: auto !important; }
-    body.printing-poster #main-wrapper { display: none !important; }
-    body.printing-poster #print-container { display: block !important; }
+    
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    #app-sidebar {
+        display: none !important;
+    }
+    
+    #content-area {
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+    
+    .view-section {
+        page-break-inside: avoid;
+    }
+    
+    .bg-white {
+        box-shadow: none !important;
+        border: 1px solid #e2e8f0 !important;
+    }
 }
 
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+/* ==========================================================================
+   READ-ONLY MODE
+   ========================================================================== */
+
+.readonly-mode input,
+.readonly-mode textarea,
+.readonly-mode select {
+    pointer-events: none;
+    opacity: 0.7;
+    background-color: #f8fafc;
+}
+
+.readonly-mode button:not(.nav-btn):not([onclick*="router"]) {
+    pointer-events: none;
+    opacity: 0.5;
+}
+
+/* ==========================================================================
+   CHART STYLES
+   ========================================================================== */
+
+#mainChart,
+#poster-chart,
+#full-view-chart-canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* ==========================================================================
+   MERMAID DIAGRAM OVERRIDES
+   ========================================================================== */
+
+.mermaid {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 200px;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    height: auto;
+}
+
+/* ==========================================================================
+   GANTT CHART STYLES
+   ========================================================================== */
+
+#gantt-scroll-container {
+    scrollbar-width: thin;
+}
+
+#gantt-container {
+    background-image: 
+        linear-gradient(to right, #f1f5f9 1px, transparent 1px);
+    background-size: 25px 100%;
+}
+
+/* ==========================================================================
+   STAKEHOLDER MATRIX
+   ========================================================================== */
+
+#stakeholder-canvas {
+    position: relative;
+    min-height: 500px;
+    background: white;
+}
+
+#stakeholder-canvas .absolute {
+    transition: transform 0.1s ease-out;
+}
+
+/* ==========================================================================
+   NAVIGATION STYLES
+   ========================================================================== */
+
+.nav-btn {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.nav-btn:hover {
+    transform: translateX(4px);
+}
+
+.nav-btn.bg-rcem-purple {
+    background-color: #2d2e83;
+    color: white;
+}
+
+.nav-btn .status-badge {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* ==========================================================================
+   FORM STYLES
+   ========================================================================== */
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    border-color: #2d2e83;
+    box-shadow: 0 0 0 3px rgba(45, 46, 131, 0.1);
+}
+
+input[type="date"] {
+    appearance: none;
+    -webkit-appearance: none;
+}
+
+/* ==========================================================================
+   BUTTON STYLES
+   ========================================================================== */
+
+button {
+    transition: all 0.2s ease;
+}
+
+button:active {
+    transform: scale(0.98);
+}
+
+/* ==========================================================================
+   CARD HOVER EFFECTS
+   ========================================================================== */
+
+.hover\:shadow-md:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* ==========================================================================
+   LINE CLAMP UTILITY
+   ========================================================================== */
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ==========================================================================
+   SKELETON LOADING
+   ========================================================================== */
+
+.skeleton {
+    animation: skeleton-pulse 1.5s ease-in-out infinite;
+    background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+    background-size: 200% 100%;
+}
+
+@keyframes skeleton-pulse {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ==========================================================================
+   PROSE STYLES (for rich text display)
+   ========================================================================== */
+
+.prose {
+    max-width: 65ch;
+    line-height: 1.75;
+}
+
+.prose p {
+    margin-top: 1em;
+    margin-bottom: 1em;
+}
+
+.prose strong {
+    font-weight: 600;
+}
+
+.prose ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+}
+
+.prose ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+}
+
+/* ==========================================================================
+   RESPONSIVE UTILITIES
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .fishbone-label {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+    
+    .fishbone-label.category {
+        font-size: 11px;
+        padding: 4px 12px;
+    }
+    
+    #stakeholder-canvas {
+        min-height: 400px;
+    }
+}
+
+@media (max-width: 640px) {
+    #toast-container {
+        left: 16px;
+        right: 16px;
+    }
+    
+    #toast-container > * {
+        max-width: 100%;
+    }
+}
+
+/* ==========================================================================
+   DRIVER.JS TOUR OVERRIDES
+   ========================================================================== */
+
+.driver-popover {
+    font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+.driver-popover-title {
+    font-weight: 700 !important;
+}
+
+.driver-popover-next-btn,
+.driver-popover-prev-btn {
+    background-color: #2d2e83 !important;
+    border: none !important;
+}
+
+.driver-popover-next-btn:hover,
+.driver-popover-prev-btn:hover {
+    background-color: #1e1f5c !important;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY
+   ========================================================================== */
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+    outline: 2px solid #2d2e83;
+    outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .fishbone-label {
+        border-width: 2px;
+    }
+    
+    button {
+        border: 2px solid currentColor;
+    }
+}
