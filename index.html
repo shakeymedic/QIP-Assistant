@@ -171,7 +171,7 @@
                     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <div class="bg-white p-6 rounded-xl shadow-sm h-fit">
                             <h3 class="font-bold text-slate-800 mb-4">Add Data Point</h3>
-                            <div class="space-y-4"></div>
+                            <div class="space-y-4" id="data-form-container"></div>
                             <div class="mt-8"><h4 class="text-xs font-bold text-slate-400 uppercase border-b pb-1 mb-2">Recent History</h4><div id="data-history" class="max-h-48 overflow-y-auto text-sm"></div></div>
                         </div>
                         <div class="lg:col-span-2 space-y-6">
@@ -210,18 +210,126 @@
         </main>
     </div>
 
-    <div id="poster-modal" class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl modal-animate"><div class="p-4 border-b flex justify-between items-center bg-slate-50"><h3 class="font-bold text-lg text-slate-800">Poster Preview</h3><div class="flex gap-2"><button onclick="window.printPosterOnly()" class="bg-rcem-purple text-white px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> Print</button><button onclick="document.getElementById('poster-modal').classList.add('hidden')"><i data-lucide="x"></i></button></div></div><div class="p-6 overflow-y-auto flex-1 bg-slate-100 flex justify-center" id="poster-preview-area"></div></div></div>
-    <div id="member-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800">Add Member</h3><button onclick="document.getElementById('member-modal').classList.add('hidden')"><i data-lucide="x"></i></button></div><div class="space-y-4"></div></div></div>
-    <div id="task-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm"><div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate"><div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800">Add Task</h3><button onclick="document.getElementById('task-modal').classList.add('hidden')"><i data-lucide="x"></i></button></div><div class="space-y-4"></div></div></div>
+    <!-- Hidden File Inputs -->
+    <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="window.importCSV(this)">
+    <input type="file" id="project-upload-input" accept=".json" class="hidden" onchange="window.importProjectFromFile(this)">
+
+    <!-- Poster Modal -->
+    <div id="poster-modal" class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl modal-animate">
+            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
+                <h3 class="font-bold text-lg text-slate-800">Poster Preview</h3>
+                <div class="flex gap-2">
+                    <button onclick="window.printPosterOnly()" class="bg-rcem-purple text-white px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> Print</button>
+                    <button onclick="document.getElementById('poster-modal').classList.add('hidden')"><i data-lucide="x"></i></button>
+                </div>
+            </div>
+            <div class="p-6 overflow-y-auto flex-1 bg-slate-100 flex justify-center" id="poster-preview-area"></div>
+        </div>
+    </div>
+
+    <!-- Member Modal -->
+    <div id="member-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Add Team Member</h3>
+                <button onclick="document.getElementById('member-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Name *</label>
+                    <input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="Dr. Jane Smith" required>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
+                    <input type="text" id="member-role" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Project Lead, Data Analyst">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade</label>
+                    <input type="text" id="member-grade" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. ST4, Band 7, Consultant">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Responsibilities</label>
+                    <textarea id="member-resp" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" rows="2" placeholder="Key responsibilities in the project..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Initials (optional)</label>
+                    <input type="text" id="member-init" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" maxlength="3" placeholder="Auto-generated if left blank">
+                </div>
+                <button onclick="window.saveMember()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 transition-colors shadow">Add Member</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal (Gantt) -->
+    <div id="task-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Add Task</h3>
+                <button onclick="document.getElementById('task-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
+            </div>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Task Name *</label>
+                    <input type="text" id="task-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Baseline Audit" required>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Start Date</label>
+                        <input type="date" id="task-start" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">End Date</label>
+                        <input type="date" id="task-end" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase</label>
+                    <select id="task-type" class="w-full p-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-rcem-purple">
+                        <option value="plan">Plan</option>
+                        <option value="do">Do</option>
+                        <option value="study">Study</option>
+                        <option value="act">Act</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Owner</label>
+                    <input type="text" id="task-owner" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Dr. Smith">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Dependency (Optional)</label>
+                    <select id="task-dep" class="w-full p-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-rcem-purple">
+                        <option value="">None</option>
+                        <!-- Options populated dynamically -->
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="checkbox" id="task-milestone" class="w-4 h-4 text-rcem-purple rounded">
+                    <label for="task-milestone" class="text-sm text-slate-700">Mark as Milestone</label>
+                </div>
+                <button onclick="window.saveGanttTask()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 transition-colors shadow">Add Task</button>
+            </div>
+        </div>
+    </div>
     
+    <!-- Chart Settings Modal -->
     <div id="chart-settings-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 relative overflow-hidden modal-animate">
-            <div class="flex justify-between items-center mb-4"><h3 class="text-lg font-bold text-slate-800">Chart Settings</h3><button onclick="document.getElementById('chart-settings-modal').classList.add('hidden')"><i data-lucide="x"></i></button></div>
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-slate-800">Chart Settings</h3>
+                <button onclick="document.getElementById('chart-settings-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
+            </div>
             <div class="space-y-4">
-                <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Chart Title</label><input type="text" id="chart-setting-title" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
-                <div><label class="block text-xs font-bold uppercase text-slate-500 mb-1">Y-Axis Label</label><input type="text" id="chart-setting-yaxis" class="w-full p-2 border border-slate-300 rounded text-sm"></div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Chart Title</label>
+                    <input type="text" id="chart-setting-title" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Sepsis 6 Compliance">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Y-Axis Label</label>
+                    <input type="text" id="chart-setting-yaxis" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. % Compliance">
+                </div>
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="chart-setting-annotations" class="w-4 h-4 text-rcem-purple">
+                    <input type="checkbox" id="chart-setting-annotations" class="w-4 h-4 text-rcem-purple rounded">
                     <label for="chart-setting-annotations" class="text-sm font-medium text-slate-700">Show PDSA Annotations</label>
                 </div>
                 <button onclick="window.saveChartSettings()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all">Apply Changes</button>
@@ -229,8 +337,36 @@
         </div>
     </div>
     
+    <!-- Print Container -->
     <div id="print-container" class="hidden"></div>
 
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
     <script type="module" src="app.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+        
+        // Online/Offline event listeners
+        window.addEventListener('online', function() {
+            document.getElementById('offline-indicator').classList.add('hidden');
+        });
+        
+        window.addEventListener('offline', function() {
+            document.getElementById('offline-indicator').classList.remove('hidden');
+        });
+    </script>
 </body>
 </html>
