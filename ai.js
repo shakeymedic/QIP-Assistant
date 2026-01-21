@@ -29,7 +29,7 @@ function getProjectContext() {
 }
 
 export async function callAI(userPrompt, jsonMode = false, useContext = true) {
-    // SECURITY NOTE: In a production app, do not store keys in localStorage or make calls from the client.
+    // SECURITY NOTE: In production, do not store keys in localStorage or make calls from the client.
     // Move this logic to a Firebase Cloud Function to protect your API key.
     if (!state.aiKey) {
         showToast("No API Key found. Check Settings.", "error");
