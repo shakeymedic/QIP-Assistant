@@ -440,7 +440,7 @@ function renderDataView() {
 }
 
 // ==========================================
-// 5. PUBLISH VIEW
+// 5. PUBLISH VIEW (QIAT UPDATE)
 // ==========================================
 
 function renderPublish(mode = 'qiat') {
@@ -458,12 +458,23 @@ function renderPublish(mode = 'qiat') {
             : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
     });
 
-    const copyBtn = (id, label = 'Copy') => `
+    const copyBtn = (id) => `
         <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); window.showToast ? window.showToast('Copied!', 'success') : alert('Copied!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
-            <i data-lucide="copy" class="w-3 h-3"></i> ${label}
+            <i data-lucide="copy" class="w-3 h-3"></i> Copy
         </button>`;
 
     const cl = d.checklist || {};
+
+    // Helper for QIAT blocks
+    const QiatBlock = (id, label, text) => `
+        <div class="qiat-section mb-6">
+            <div class="flex justify-between items-end mb-2">
+                <label class="text-sm font-bold text-slate-800 uppercase tracking-wide border-l-4 border-rcem-purple pl-2">${label}</label>
+                ${copyBtn(id)}
+            </div>
+            <div id="${id}" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap text-slate-700">${escapeHtml(text || 'Not documented')}</div>
+        </div>
+    `;
 
     if (mode === 'abstract') {
         content.innerHTML = `
@@ -473,7 +484,7 @@ function renderPublish(mode = 'qiat') {
                         <h2 class="text-xl font-bold">RCEM Abstract Generator</h2>
                         <p class="text-sky-200 text-sm">Structured abstract for conference submission</p>
                     </div>
-                    ${copyBtn('abstract-output', 'Copy Abstract')}
+                    ${copyBtn('abstract-output')}
                 </div>
                 <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl">
                     <div id="abstract-output" class="prose max-w-none">
@@ -505,56 +516,43 @@ function renderPublish(mode = 'qiat') {
                             <p><strong>Team:</strong> ${escapeHtml(cl.team || (d.teamMembers ? d.teamMembers.map(m => m.name).join(', ') : 'Not specified'))}</p>
                         </div>
                     </div>
-                    <div class="report-section">
-                        <div class="flex justify-between items-end mb-2"><h3 class="text-lg font-bold text-slate-800">2. Problem & Aim</h3>${copyBtn('report-problem')}</div>
-                        <div id="report-problem" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm">
-                            <p><strong>Problem:</strong> ${escapeHtml(cl.problem_desc || 'Not defined')}</p>
-                            <p class="mt-2"><strong>Aim:</strong> ${escapeHtml(cl.aim || 'Not defined')}</p>
-                        </div>
-                    </div>
-                    <div class="report-section">
-                        <div class="flex justify-between items-end mb-2"><h3 class="text-lg font-bold text-slate-800">3. Results</h3>${copyBtn('report-results')}</div>
-                        <div id="report-results" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm">${escapeHtml(cl.results_text || 'Not documented')}</div>
-                    </div>
-                    <div class="report-section">
-                        <div class="flex justify-between items-end mb-2"><h3 class="text-lg font-bold text-slate-800">4. Learning</h3>${copyBtn('report-learning')}</div>
-                        <div id="report-learning" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm">
-                            <p><strong>Key Learning:</strong> ${escapeHtml(cl.learning || 'Not documented')}</p>
-                            <p class="mt-2"><strong>Sustainability:</strong> ${escapeHtml(cl.sustain || 'Not documented')}</p>
-                        </div>
-                    </div>
+                    ${QiatBlock('rep-prob', '2. Problem & Aim', `Problem: ${cl.problem_desc}\n\nAim: ${cl.aim}`)}
+                    ${QiatBlock('rep-res', '3. Results', cl.results_text)}
+                    ${QiatBlock('rep-learn', '4. Learning & Sustainability', `Learning: ${cl.learning}\n\nSustainability: ${cl.sustain}`)}
                 </div>
             </div>
         `;
     } else {
-        const s1_1 = `${cl.problem_desc || ''}\n\nContext:\n${cl.context || ''}`.trim();
-        const s1_3 = cl.aim || '';
-        const s1_4 = `Outcome: ${cl.measure_outcome || 'Not specified'}\nProcess: ${cl.measure_process || 'Not specified'}\n\nAnalysis: ${cl.results_text || 'Not documented'}`;
+        // FULL QIAT MODE
+        const teamStr = d.teamMembers ? d.teamMembers.map(m => `${m.name} (${m.role})`).join(', ') : '';
+        const driverStr = d.drivers ? `Primary: ${d.drivers.primary.join(', ')}\nSecondary: ${d.drivers.secondary.join(', ')}\nChange Ideas: ${d.drivers.changes.join(', ')}` : '';
+        const measureStr = `Outcome: ${cl.measure_outcome || ''}\nProcess: ${cl.measure_process || ''}\nBalance: ${cl.measure_balance || ''}`;
+        const pdsaStr = d.pdsa ? d.pdsa.map((p,i) => `Cycle ${i+1}: ${p.title} (${p.start})\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n') : '';
 
         content.innerHTML = `
             <div class="max-w-5xl mx-auto">
                 <div class="bg-indigo-900 text-white p-6 rounded-t-xl">
-                    <h2 class="text-xl font-bold">RCEM QIAT Report Generator</h2>
-                    <p class="text-indigo-200 text-sm">Copy directly into your portfolio</p>
+                    <h2 class="text-xl font-bold">Full QIAT / Risr Form Data</h2>
+                    <p class="text-indigo-200 text-sm">Every section required for the official submission.</p>
                 </div>
-                <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl space-y-8">
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.1 Problem</label>${copyBtn('qiat-1-1')}</div>
-                        <div id="qiat-1-1" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_1) || 'Not defined'}</div>
-                    </div>
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.3 Aim</label>${copyBtn('qiat-1-3')}</div>
-                        <div id="qiat-1-3" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_3) || 'Not defined'}</div>
-                    </div>
-                    <div class="qiat-section">
-                        <div class="flex justify-between items-end mb-2"><label class="text-sm font-bold text-slate-800 uppercase tracking-wide">1.4 Measurement</label>${copyBtn('qiat-1-4')}</div>
-                        <div id="qiat-1-4" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap">${escapeHtml(s1_4)}</div>
-                    </div>
+                <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl">
+                    ${QiatBlock('qiat-title', 'Project Title', d.meta?.title)}
+                    ${QiatBlock('qiat-team', 'Project Team / Leadership', teamStr)}
+                    ${QiatBlock('qiat-context', 'Context / Setting', cl.context)}
+                    ${QiatBlock('qiat-prob', 'Problem / Background', cl.problem_desc)}
+                    ${QiatBlock('qiat-evidence', 'Baseline Evidence', cl.problem_evidence)}
+                    ${QiatBlock('qiat-aim', 'SMART Aim', cl.aim)}
+                    ${QiatBlock('qiat-drivers', 'Drivers & Change Ideas', driverStr)}
+                    ${QiatBlock('qiat-measures', 'Measures (Outcome, Process, Balance)', measureStr)}
+                    ${QiatBlock('qiat-pdsa', 'PDSA Cycles Summary', pdsaStr)}
+                    ${QiatBlock('qiat-results', 'Results & Analysis', cl.results_text)}
+                    ${QiatBlock('qiat-learning', 'Key Learning / Conclusions', cl.learning)}
+                    ${QiatBlock('qiat-sustain', 'Sustainability Plan', cl.sustain)}
+                    ${QiatBlock('qiat-ethics', 'Ethics / Governance', cl.ethics)}
                 </div>
             </div>
         `;
     }
-    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -772,7 +770,7 @@ function renderGreen() {
 }
 
 // ==========================================
-// 8. PDSA VIEW
+// 8. PDSA VIEW (IMPROVED)
 // ==========================================
 
 function renderPDSA() {
@@ -782,37 +780,56 @@ function renderPDSA() {
     const container = document.getElementById('pdsa-container');
     if (!container) return;
     
+    // AI Button Logic
+    const aiButton = window.hasAI && window.hasAI() 
+        ? `<button onclick="window.aiGeneratePDSA()" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate Cycle</button>`
+        : '';
+
     container.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
-                <h3 class="font-bold text-lg text-slate-800 mb-4">New Cycle</h3>
-                <div class="space-y-3">
-                    <input id="pdsa-title" class="w-full p-2 border rounded text-sm" placeholder="Cycle Title">
-                    <div class="grid grid-cols-2 gap-2">
-                        <input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm">
-                        <input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-4 space-y-6">
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-lg text-slate-800">Plan New Cycle</h3>
+                        <button onclick="document.getElementById('pdsa-guide').classList.toggle('hidden')" class="text-xs text-rcem-purple hover:underline font-bold flex items-center gap-1"><i data-lucide="book-open" class="w-3 h-3"></i> Guide</button>
                     </div>
-                    <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm" rows="3" placeholder="Plan: What will you test?"></textarea>
-                    <button onclick="window.addPDSA()" class="w-full bg-slate-800 text-white py-2 rounded font-bold text-sm hover:bg-slate-900">Add Cycle</button>
+                    
+                    <div id="pdsa-guide" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 text-xs space-y-2 text-slate-600">
+                        <p><strong class="text-blue-600">Plan:</strong> Objective, predictions, and plan for data collection. (Who, what, when, where).</p>
+                        <p><strong class="text-amber-600">Do:</strong> Carry out the plan. Document problems and unexpected observations.</p>
+                        <p><strong class="text-purple-600">Study:</strong> Analyse the data. Compare to predictions. Summarise learnings.</p>
+                        <p><strong class="text-emerald-600">Act:</strong> What next? Adopt (standardise), Adapt (tweak and re-test), or Abandon?</p>
+                    </div>
+
+                    <div class="space-y-3">
+                        <div><label class="text-[10px] font-bold uppercase text-slate-500">Title</label><input id="pdsa-title" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none" placeholder="e.g. Test new checklist"></div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><label class="text-[10px] font-bold uppercase text-slate-500">Start</label><input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none"></div>
+                            <div><label class="text-[10px] font-bold uppercase text-slate-500">End</label><input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none"></div>
+                        </div>
+                        <div><label class="text-[10px] font-bold uppercase text-slate-500">Initial Plan</label><textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none" rows="4" placeholder="What exactly will you do?"></textarea></div>
+                        <button onclick="window.addPDSA()" class="w-full bg-slate-800 text-white py-2 rounded-lg font-bold text-sm hover:bg-slate-900 shadow-md transition-all">Add Cycle</button>
+                        ${aiButton}
+                    </div>
                 </div>
             </div>
 
-            <div class="lg:col-span-2 space-y-6">
-                ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-10 text-slate-400 italic">No PDSA cycles yet.</div>' : ''}
+            <div class="lg:col-span-8 space-y-6">
+                ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">No PDSA cycles started yet. Use the form on the left to begin.</div>' : ''}
                 ${d.pdsa ? d.pdsa.map((p, i) => `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-center">
-                        <div>
-                            <h4 class="font-bold text-slate-800 text-lg">Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</h4>
-                            <div class="text-xs text-slate-500 font-mono">${p.start || 'No start'} → ${p.end || 'No end'}</div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md group">
+                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-start">
+                        <div class="flex gap-4 items-center">
+                            <div class="bg-rcem-purple text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm flex-shrink-0">${i + 1}</div>
+                            <div><h4 class="font-bold text-slate-800 text-lg leading-tight">${escapeHtml(p.title || 'Untitled')}</h4><div class="text-xs text-slate-500 font-mono mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ${p.start || '...'} → ${p.end || '...'}</div></div>
                         </div>
-                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500 p-2 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
-                    <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div><label class="text-[10px] font-bold uppercase text-slate-400">Plan</label><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm min-h-[80px]">${escapeHtml(p.desc || '')}</textarea></div>
-                        <div><label class="text-[10px] font-bold uppercase text-slate-400">Do</label><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm min-h-[80px]">${escapeHtml(p.do || '')}</textarea></div>
-                        <div><label class="text-[10px] font-bold uppercase text-slate-400">Study</label><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm min-h-[80px]">${escapeHtml(p.study || '')}</textarea></div>
-                        <div><label class="text-[10px] font-bold uppercase text-slate-400">Act</label><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-2 bg-slate-50 border border-slate-200 rounded text-sm min-h-[80px]">${escapeHtml(p.act || '')}</textarea></div>
+                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div><label class="text-xs font-bold uppercase text-slate-600">Plan</label></div><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3">${escapeHtml(p.desc || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-amber-500"></div><label class="text-xs font-bold uppercase text-slate-600">Do</label></div><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="What happened?">${escapeHtml(p.do || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div><label class="text-xs font-bold uppercase text-slate-600">Study</label></div><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="Analyze results">${escapeHtml(p.study || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><label class="text-xs font-bold uppercase text-slate-600">Act</label></div><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="Next steps">${escapeHtml(p.act || '')}</textarea></div>
                     </div>
                 </div>`).join('') : ''}
             </div>
@@ -918,16 +935,15 @@ function renderStakeholders() {
 }
 
 // ==========================================
-// 10. GANTT VIEW
+// 10. GANTT VIEW (IMPROVED)
 // ==========================================
 
 function renderGantt(targetId = 'gantt-container') {
     const d = state.projectData;
     if (!d) return;
-    
     const container = document.getElementById(targetId);
     if (!container) return;
-    
+
     if (!d.gantt || d.gantt.length === 0) {
         container.innerHTML = `<div class="text-center p-12 text-slate-400 italic"><i data-lucide="calendar-clock" class="w-12 h-12 mx-auto mb-4 opacity-30"></i><p>No tasks yet. Click "Add Task" to start.</p></div>`;
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -943,15 +959,46 @@ function renderGantt(targetId = 'gantt-container') {
     const minDate = new Date(Math.min(...dates));
     const maxDate = new Date(Math.max(...dates));
     minDate.setDate(minDate.getDate() - 7);
-    maxDate.setDate(maxDate.getDate() + 14);
+    maxDate.setDate(maxDate.getDate() + 30);
     
-    const pxPerDay = 25;
+    const pxPerDay = 30;
+    const rowHeight = 50;
+    const headerHeight = 40;
     const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
     const totalWidth = Math.max(800, totalDays * pxPerDay);
     
-    let headerHTML = '<div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20">';
+    // Draw SVG Dependencies
+    let svgLines = '';
+    const sortedTasks = [...d.gantt].sort((a, b) => new Date(a.start) - new Date(b.start));
+    const taskPositions = {};
+    sortedTasks.forEach((t, idx) => {
+        const start = new Date(t.start);
+        const end = new Date(t.end);
+        if(!isNaN(start) && !isNaN(end)) {
+            const offsetDays = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
+            const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+            taskPositions[t.id] = {
+                x: offsetDays * pxPerDay,
+                width: duration * pxPerDay,
+                y: idx * rowHeight + (rowHeight / 2) + headerHeight,
+                rightX: (offsetDays * pxPerDay) + (duration * pxPerDay)
+            };
+        }
+    });
+
+    sortedTasks.forEach(t => {
+        if(t.dependency && taskPositions[t.dependency] && taskPositions[t.id]) {
+            const from = taskPositions[t.dependency];
+            const to = taskPositions[t.id];
+            const p1 = { x: from.rightX, y: from.y };
+            const p2 = { x: to.x, y: to.y };
+            const midX = p1.x + 15;
+            svgLines += `<path d="M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowhead)" />`;
+        }
+    });
+
+    let headerHTML = `<div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20 h-[${headerHeight}px]">`;
     let current = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-    
     while (current <= maxDate) {
         const monthStr = current.toLocaleString('default', { month: 'short', year: '2-digit' });
         const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
@@ -959,44 +1006,49 @@ function renderGantt(targetId = 'gantt-container') {
         const visibleEnd = new Date(Math.min(monthEnd.getTime(), maxDate.getTime()));
         const visibleDays = Math.ceil((visibleEnd - visibleStart) / (1000 * 60 * 60 * 24)) + 1;
         const width = visibleDays * pxPerDay;
-        
-        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0 text-center" style="width: ${width}px">${monthStr}</div>`;
+        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0 text-center flex items-center justify-center" style="width: ${width}px">${monthStr}</div>`;
         current.setMonth(current.getMonth() + 1);
     }
     headerHTML += '</div>';
 
-    let rowsHTML = '<div class="relative" style="min-height: ' + (d.gantt.length * 48 + 50) + 'px;">';
-    const sortedTasks = [...d.gantt].sort((a, b) => new Date(a.start) - new Date(b.start));
+    let rowsHTML = `<div class="relative" style="min-height: ${d.gantt.length * rowHeight + 50}px;">`;
+    // SVG Layer
+    rowsHTML += `<svg class="absolute inset-0 w-full h-full pointer-events-none z-0"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" /></marker></defs>${svgLines}</svg>`;
     
+    // Today Line
+    const today = new Date();
+    if(today >= minDate && today <= maxDate) {
+        const todayOffset = Math.floor((today - minDate) / (1000 * 60 * 60 * 24)) * pxPerDay;
+        rowsHTML += `<div class="absolute top-0 bottom-0 border-l-2 border-red-400 border-dashed z-10" style="left: ${todayOffset}px;"><div class="bg-red-400 text-white text-[9px] px-1 font-bold absolute -top-4 -left-3 rounded">TODAY</div></div>`;
+    }
+
     sortedTasks.forEach((t, idx) => {
         const start = new Date(t.start);
         const end = new Date(t.end);
-        if (isNaN(start.getTime()) || isNaN(end.getTime())) return;
-        
         const offsetDays = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
-        const durationDays = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-        const left = offsetDays * pxPerDay;
-        const width = Math.max(60, durationDays * pxPerDay);
-        const colorClass = t.type === 'plan' ? 'bg-blue-500' : t.type === 'do' ? 'bg-amber-500' : t.type === 'study' ? 'bg-purple-500' : 'bg-emerald-500';
-        const topOffset = idx * 48 + 10;
+        const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+        const width = duration * pxPerDay;
+        const typeColors = { plan: 'from-blue-500 to-blue-600', do: 'from-amber-500 to-amber-600', study: 'from-purple-500 to-purple-600', act: 'from-emerald-500 to-emerald-600' };
+        const bg = typeColors[t.type] || 'from-slate-500 to-slate-600';
         
         rowsHTML += `
-            <div class="absolute h-10 flex items-center" style="top: ${topOffset}px; left: 0; right: 0;">
-                <div class="absolute h-8 rounded shadow-sm text-white text-[11px] font-bold flex items-center px-3 cursor-pointer ${colorClass} hover:brightness-110 z-10 truncate" 
-                     style="left: ${left}px; width: ${width}px;"
-                     onclick="if(confirm('Delete task: ${escapeHtml(t.name)}?')) window.deleteGantt('${t.id}')"
-                     title="${escapeHtml(t.name)}: ${t.start} to ${t.end}">
-                    ${escapeHtml(t.name)}
+            <div class="absolute h-[${rowHeight}px] flex items-center w-full hover:bg-slate-50 transition-colors border-b border-slate-100" style="top: ${idx * rowHeight}px;">
+                <div class="absolute h-8 rounded-lg shadow-sm text-white text-xs font-bold flex items-center px-3 cursor-pointer bg-gradient-to-r ${bg} z-10 hover:shadow-md hover:scale-[1.01] transition-all group" 
+                     style="left: ${offsetDays * pxPerDay}px; width: ${Math.max(40, width)}px;"
+                     onclick="if(confirm('Delete task: ${escapeHtml(t.name)}?')) window.deleteGantt('${t.id}')">
+                    <span class="truncate drop-shadow-md">${escapeHtml(t.name)}</span>
+                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded z-30 whitespace-nowrap shadow-xl">
+                        <div class="font-bold">${escapeHtml(t.name)}</div>
+                        <div class="text-slate-300 font-mono text-[10px]">${t.start} - ${t.end}</div>
+                    </div>
                 </div>
             </div>
         `;
     });
     rowsHTML += '</div>';
 
-    const legendHTML = `<div class="flex gap-4 p-4 border-t border-slate-200 text-xs"><span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-blue-500"></span> Plan</span><span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-amber-500"></span> Do</span><span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-purple-500"></span> Study</span><span class="flex items-center gap-1"><span class="w-3 h-3 rounded bg-emerald-500"></span> Act</span></div>`;
-
     container.style.minWidth = `${totalWidth}px`;
-    container.innerHTML = headerHTML + rowsHTML + legendHTML;
+    container.innerHTML = headerHTML + rowsHTML;
 }
 
 // ==========================================
@@ -1013,8 +1065,46 @@ function renderTeam() {
     list.innerHTML = `
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users-2" class="text-rcem-purple"></i> Team Members</h2>
-            <button onclick="window.openMemberModal()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Member</button>
+            <div class="flex gap-2">
+                 <button onclick="document.getElementById('stakeholder-guide').classList.toggle('hidden')" class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded shadow hover:bg-indigo-100 flex items-center gap-2 border border-indigo-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Who to include?</button>
+                 <button onclick="window.openMemberModal()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Member</button>
+            </div>
         </div>
+
+        <div id="stakeholder-guide" class="hidden mb-8 bg-white border border-indigo-200 rounded-xl p-6 shadow-sm">
+            <h3 class="font-bold text-indigo-900 mb-4 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Team Composition Guide</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-600">
+                <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Nursing Leadership</strong>
+                    Engage Unit Managers (Band 7s) who manage flow. They are critical for implementation.
+                </div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Infection Control (IPC)</strong>
+                    Include the department IPC lead. Ensure all changes are IPC compliant early.
+                </div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Procurement & Stores</strong>
+                    Unit Ops Managers for costs. Housekeeping/Stores leads for restocking plans.
+                </div>
+                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Safety & Governance</strong>
+                    Consult the Patient Safety Team regarding LOCSIPPs documentation.
+                </div>
+                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Clinical Leads</strong>
+                    e.g. Resus Lead if changing equipment in Resus. Specialty leads if relevant.
+                </div>
+                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Juniors/Residents</strong>
+                    Often seeking projects. Great for data collection and testing.
+                </div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-100">
+                    <strong class="text-slate-800 block mb-1">Sustainability</strong>
+                    Link with Green ED team if using pre-packs or changing consumables.
+                </div>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             ${!d.teamMembers || d.teamMembers.length === 0 ? `<div class="col-span-full text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : d.teamMembers.map((m, i) => `
                 <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm relative group hover:shadow-md">
