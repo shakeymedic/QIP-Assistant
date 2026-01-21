@@ -10,7 +10,8 @@ export const state = {
     isReadOnly: false,
     historyStack: [],
     redoStack: [],
-    MAX_HISTORY: 50
+    MAX_HISTORY: 50,
+    aiKey: localStorage.getItem('rcem_qip_ai_key') || null // AI Key Persistence
 };
 
 // Empty Project Template
