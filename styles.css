@@ -2,14 +2,12 @@
    RCEM QIP ASSISTANT - CLINICAL GLASS UI
    ========================================================================== */
 
-/* ==========================================================================
-   BASE STYLES
-   ========================================================================== */
 :root {
     --glass-bg: rgba(255, 255, 255, 0.95);
     --glass-border: rgba(226, 232, 240, 0.8);
     --glass-shadow: 0 4px 20px -2px rgba(45, 46, 131, 0.08);
     --rcem-purple: #2d2e83;
+    --rcem-orange: #f36f21;
 }
 
 * { box-sizing: border-box; }
@@ -21,10 +19,11 @@ body {
     background-color: #f8fafc;
     background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
     background-size: 24px 24px;
+    color: #0f172a;
 }
 
 /* ==========================================================================
-   MODERN UI UTILITIES
+   MODERN UI UTILITIES ("The Look")
    ========================================================================== */
 
 /* The "Clinical Glass" Card */
@@ -61,6 +60,11 @@ body {
 /* ==========================================================================
    COMPONENTS
    ========================================================================== */
+
+/* Navigation Buttons */
+.nav-btn { position: relative; transition: all 0.2s ease; }
+.nav-btn:hover { transform: translateX(4px); }
+.nav-btn.bg-rcem-purple { background-color: #2d2e83; color: white; box-shadow: 0 4px 6px -1px rgba(45, 46, 131, 0.3); }
 
 /* Toggle Switch */
 .toggle-checkbox:checked { right: 0; border-color: #2d2e83; background-color: #2d2e83; }
@@ -107,16 +111,17 @@ body {
 }
 #toast-container > * { pointer-events: auto; }
 
-/* Print */
+/* Print Styles */
 @media print {
     .no-print { display: none !important; }
     body { background: white !important; }
     #app-sidebar { display: none !important; }
     #content-area { padding: 0 !important; margin: 0 !important; }
     .card-modern { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; }
+    .view-section { page-break-inside: avoid; }
 }
 
-/* Read Only */
+/* Read Only Mode */
 .readonly-mode input, .readonly-mode textarea, .readonly-mode select { pointer-events: none; opacity: 0.7; background-color: #f8fafc; }
 .readonly-mode button:not(.nav-btn):not([onclick*="router"]) { pointer-events: none; opacity: 0.5; }
 
@@ -129,12 +134,15 @@ body {
 #gantt-scroll-container { scrollbar-width: thin; }
 #gantt-container { background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px); background-size: 25px 100%; }
 
+/* Stakeholder Matrix */
+#stakeholder-canvas { position: relative; min-height: 500px; background: white; border-radius: 0.75rem; }
+
 /* Form Elements */
 input:focus, textarea:focus, select:focus {
     outline: none; border-color: #2d2e83; box-shadow: 0 0 0 3px rgba(45, 46, 131, 0.1);
 }
 
-/* Skeleton */
+/* Skeleton Loading */
 .skeleton {
     animation: skeleton-pulse 1.5s ease-in-out infinite;
     background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
@@ -142,8 +150,18 @@ input:focus, textarea:focus, select:focus {
 }
 @keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
+/* Prose & Typography */
+.prose { max-width: 65ch; line-height: 1.75; }
+.prose p { margin-top: 1em; margin-bottom: 1em; }
+.prose strong { font-weight: 600; }
+.prose ul { list-style-type: disc; padding-left: 1.5em; }
+
 /* Responsive */
 @media (max-width: 768px) {
     .fishbone-label { font-size: 10px; padding: 3px 8px; }
     #stakeholder-canvas { min-height: 400px; }
+}
+@media (max-width: 640px) {
+    #toast-container { left: 16px; right: 16px; }
+    #toast-container > * { max-width: 100%; }
 }
