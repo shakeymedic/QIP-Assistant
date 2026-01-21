@@ -46,7 +46,7 @@ window.router = (view) => {
 
     // Close Mobile Menu if open
     const sidebar = document.getElementById('app-sidebar');
-    if (sidebar.classList.contains('z-50')) { 
+    if (sidebar && sidebar.classList.contains('z-50')) { 
         sidebar.classList.add('hidden'); 
         sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
     }
@@ -58,50 +58,12 @@ window.returnToProjects = () => {
     state.currentProjectId = null; 
     state.projectData = null; 
     state.isReadOnly = false;
-    document.getElementById('readonly-indicator').classList.add('hidden');
+    const ind = document.getElementById('readonly-indicator');
+    if(ind) ind.classList.add('hidden');
     document.body.classList.remove('readonly-mode');
     
     if (window.unsubscribeProject) window.unsubscribeProject();
     loadProjectList();
-};
-
-// --- GLOBAL SETTINGS (AI KEY) ---
-window.openGlobalSettings = () => {
-    document.getElementById('settings-ai-key').value = state.aiKey || '';
-    document.getElementById('global-settings-modal').classList.remove('hidden');
-};
-
-window.saveGlobalSettings = () => {
-    const key = document.getElementById('settings-ai-key').value.trim();
-    state.aiKey = key;
-    if(key) {
-        localStorage.setItem('rcem_qip_ai_key', key);
-        showToast("Settings saved. AI features enabled.", "success");
-    } else {
-        localStorage.removeItem('rcem_qip_ai_key');
-        showToast("Settings saved. AI features disabled.", "info");
-    }
-    document.getElementById('global-settings-modal').classList.add('hidden');
-    // Re-render current view to show/hide AI buttons
-    let currentView = document.querySelector('.view-section:not(.hidden)');
-    if (currentView) {
-        let viewName = currentView.id.replace('view-', '');
-        window.router(viewName);
-    }
-};
-
-window.toggleKeyVis = () => {
-    const input = document.getElementById('settings-ai-key');
-    input.type = input.type === 'password' ? 'text' : 'password';
-};
-
-window.hasAI = () => !!state.aiKey;
-
-// Placeholder AI Function
-window.aiGeneratePDSA = async () => {
-    if(!window.hasAI()) { showToast("No API Key found in Settings", "error"); return; }
-    // NOTE: This is where you would call the OpenAI/Gemini API using state.aiKey
-    alert("AI Integration: This would now call the API using your key: " + state.aiKey.substring(0,5) + "...");
 };
 
 // --- DATA PORTABILITY (Backup/Restore) ---
@@ -147,6 +109,47 @@ window.importProjectFromFile = function(input) {
     reader.readAsText(file);
     input.value = '';
 }
+
+// --- GLOBAL SETTINGS (AI & Keys) ---
+window.openGlobalSettings = () => {
+    const el = document.getElementById('settings-ai-key');
+    if(el) el.value = state.aiKey || '';
+    const modal = document.getElementById('global-settings-modal');
+    if(modal) modal.classList.remove('hidden');
+};
+
+window.saveGlobalSettings = () => {
+    const key = document.getElementById('settings-ai-key').value.trim();
+    state.aiKey = key;
+    if(key) {
+        localStorage.setItem('rcem_qip_ai_key', key);
+        showToast("Settings saved. AI features enabled.", "success");
+    } else {
+        localStorage.removeItem('rcem_qip_ai_key');
+        showToast("Settings saved. AI features disabled.", "info");
+    }
+    document.getElementById('global-settings-modal').classList.add('hidden');
+    
+    // Refresh view to show/hide AI buttons
+    let currentView = document.querySelector('.view-section:not(.hidden)');
+    if (currentView) {
+        let viewName = currentView.id.replace('view-', '');
+        window.router(viewName);
+    }
+};
+
+window.toggleKeyVis = () => {
+    const input = document.getElementById('settings-ai-key');
+    if(input) input.type = input.type === 'password' ? 'text' : 'password';
+};
+
+window.hasAI = () => !!state.aiKey;
+
+window.aiGeneratePDSA = async () => {
+    if(!window.hasAI()) { showToast("No API Key found in Settings", "error"); return; }
+    // Placeholder for actual API call
+    alert("AI Feature: This would connect to the API using your key: " + state.aiKey.substring(0,5) + "...");
+};
 
 // --- EXPORT FUNCTIONS ---
 window.exportPPTX = exportPPTX;
@@ -420,7 +423,8 @@ async function checkShareLink() {
 
     if (sharePid && shareUid) {
         state.isReadOnly = true;
-        document.getElementById('readonly-indicator').classList.remove('hidden');
+        const ind = document.getElementById('readonly-indicator');
+        if(ind) ind.classList.remove('hidden');
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-sidebar').classList.add('lg:flex');
         document.body.classList.add('readonly-mode');
@@ -448,7 +452,8 @@ async function checkShareLink() {
 async function loadProjectList() {
     if(state.isReadOnly) return;
     window.router('projects');
-    document.getElementById('top-bar').classList.add('hidden');
+    const topBar = document.getElementById('top-bar');
+    if(topBar) topBar.classList.add('hidden');
     const listEl = document.getElementById('project-list');
     
     // --- DEMO MODE RENDER ---
@@ -462,7 +467,7 @@ async function loadProjectList() {
                 <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 2 Cycles</span>
             </div>
         </div>`;
-        lucide.createIcons();
+        if(typeof lucide !== 'undefined') lucide.createIcons();
         return;
     }
 
@@ -486,7 +491,7 @@ async function loadProjectList() {
                     <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
         });
-        lucide.createIcons();
+        if(typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         console.error("Error loading projects:", e);
         showToast("Failed to load projects: " + e.message, "error");
@@ -553,7 +558,8 @@ window.openProject = (id) => {
             if(!state.projectData.process) state.projectData.process = ["Start", "End"];
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             
-            document.getElementById('project-header-title').textContent = state.projectData.meta.title;
+            const headerTitle = document.getElementById('project-header-title');
+            if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
             
             // If inside a view, refresh it to show new data
             let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -567,87 +573,112 @@ window.openProject = (id) => {
         showToast("Connection error: " + error.message, "error");
     });
     
-    document.getElementById('top-bar').classList.remove('hidden');
+    const topBar = document.getElementById('top-bar');
+    if(topBar) topBar.classList.remove('hidden');
     window.router('dashboard');
 };
 
 // --- HANDLERS ---
-document.getElementById('auth-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try { 
-        await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
-        showToast("Signed in successfully", "success");
-    } 
-    catch (error) { 
-        showToast("Login failed: " + error.message, "error"); 
-    }
-});
+const authForm = document.getElementById('auth-form');
+if(authForm) {
+    authForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        try { 
+            await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
+            showToast("Signed in successfully", "success");
+        } 
+        catch (error) { 
+            showToast("Login failed: " + error.message, "error"); 
+        }
+    });
+}
 
-document.getElementById('btn-register').addEventListener('click', async () => {
-    const email = document.getElementById('email').value;
-    const password = document.getElementById('password').value;
-    
-    if (!email || !password) {
-        showToast("Please enter email and password", "error");
-        return;
-    }
-    
-    if (password.length < 6) {
-        showToast("Password must be at least 6 characters", "error");
-        return;
-    }
-    
-    try { 
-        await createUserWithEmailAndPassword(auth, email, password); 
-        showToast("Account created!", "success"); 
-    } 
-    catch (error) { 
-        showToast("Registration failed: " + error.message, "error"); 
-    }
-});
+const btnRegister = document.getElementById('btn-register');
+if(btnRegister) {
+    btnRegister.addEventListener('click', async () => {
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        
+        if (!email || !password) {
+            showToast("Please enter email and password", "error");
+            return;
+        }
+        
+        if (password.length < 6) {
+            showToast("Password must be at least 6 characters", "error");
+            return;
+        }
+        
+        try { 
+            await createUserWithEmailAndPassword(auth, email, password); 
+            showToast("Account created!", "success"); 
+        } 
+        catch (error) { 
+            showToast("Registration failed: " + error.message, "error"); 
+        }
+    });
+}
 
-document.getElementById('logout-btn').addEventListener('click', () => { 
-    signOut(auth); 
-    window.location.reload(); 
-});
+const logoutBtn = document.getElementById('logout-btn');
+if(logoutBtn) {
+    logoutBtn.addEventListener('click', () => { 
+        signOut(auth); 
+        window.location.reload(); 
+    });
+}
 
-document.getElementById('mobile-menu-btn').addEventListener('click', () => {
-    const sidebar = document.getElementById('app-sidebar');
-    if (sidebar.classList.contains('hidden')) {
-        sidebar.classList.remove('hidden'); 
-        sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-    } else {
-        sidebar.classList.add('hidden'); 
-        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-    }
-});
+const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+if(mobileMenuBtn) {
+    mobileMenuBtn.addEventListener('click', () => {
+        const sidebar = document.getElementById('app-sidebar');
+        if (sidebar.classList.contains('hidden')) {
+            sidebar.classList.remove('hidden'); 
+            sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+        } else {
+            sidebar.classList.add('hidden'); 
+            sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+        }
+    });
+}
 
 // Demo Mode Toggle
-document.getElementById('demo-toggle').addEventListener('change', (e) => {
-    state.isDemoMode = e.target.checked;
-    state.currentProjectId = null; 
-    state.projectData = null;
-    const wm = document.getElementById('demo-watermark');
-    if (state.isDemoMode) { 
-        wm.classList.remove('hidden'); 
-        loadProjectList(); 
-    } 
-    else { 
-        wm.classList.add('hidden'); 
-        if (state.currentUser) loadProjectList(); 
-        else document.getElementById('auth-screen').classList.remove('hidden'); 
-    }
-});
+const demoToggle = document.getElementById('demo-toggle');
+if(demoToggle) {
+    demoToggle.addEventListener('change', (e) => {
+        state.isDemoMode = e.target.checked;
+        state.currentProjectId = null; 
+        state.projectData = null;
+        const wm = document.getElementById('demo-watermark');
+        if (state.isDemoMode) { 
+            if(wm) wm.classList.remove('hidden'); 
+            loadProjectList(); 
+        } 
+        else { 
+            if(wm) wm.classList.add('hidden'); 
+            if (state.currentUser) loadProjectList(); 
+            else {
+                const authScreen = document.getElementById('auth-screen');
+                if(authScreen) authScreen.classList.remove('hidden');
+            }
+        }
+    });
+}
 
-document.getElementById('demo-auth-btn').onclick = () => {
-    state.isDemoMode = true;
-    state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
-    document.getElementById('app-sidebar').classList.add('lg:flex');
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('demo-watermark').classList.remove('hidden');
-    document.getElementById('demo-toggle').checked = true;
-    loadProjectList();
-};
+const demoAuthBtn = document.getElementById('demo-auth-btn');
+if(demoAuthBtn) {
+    demoAuthBtn.onclick = () => {
+        state.isDemoMode = true;
+        state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+        const sb = document.getElementById('app-sidebar');
+        if(sb) sb.classList.add('lg:flex');
+        const as = document.getElementById('auth-screen');
+        if(as) as.classList.add('hidden');
+        const wm = document.getElementById('demo-watermark');
+        if(wm) wm.classList.remove('hidden');
+        if(demoToggle) demoToggle.checked = true;
+        loadProjectList();
+    };
+}
 
 window.openDemoProject = () => {
     state.projectData = getDemoData();
@@ -656,8 +687,11 @@ window.openDemoProject = () => {
     state.redoStack = [];
     updateUndoRedoButtons();
 
-    document.getElementById('project-header-title').textContent = state.projectData.meta.title + " (DEMO)";
-    document.getElementById('top-bar').classList.remove('hidden');
+    const header = document.getElementById('project-header-title');
+    if(header) header.textContent = state.projectData.meta.title + " (DEMO)";
+    
+    const topBar = document.getElementById('top-bar');
+    if(topBar) topBar.classList.remove('hidden');
     window.router('dashboard');
     showToast("Gold Standard Example Loaded", "info");
 };
