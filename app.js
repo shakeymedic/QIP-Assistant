@@ -5,6 +5,7 @@ import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc
 // Import State & Utils
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
+import { callAI } from "./ai.js";
 
 // Import Logic Modules
 import { 
@@ -145,10 +146,133 @@ window.toggleKeyVis = () => {
 
 window.hasAI = () => !!state.aiKey;
 
+// ==========================================
+// 2. AI FUNCTIONS (New Section)
+// ==========================================
+
+window.aiRefineAim = async () => {
+    const d = state.projectData.checklist;
+    if (!d.problem_desc && !d.aim) { showToast("Enter a problem or draft aim first", "error"); return; }
+    
+    const btn = document.getElementById('btn-ai-aim');
+    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Refining...`;
+    
+    const prompt = `
+        Context: Quality Improvement in Emergency Medicine.
+        Problem: "${d.problem_desc || 'Not defined'}"
+        Draft Aim: "${d.aim || 'Not defined'}"
+        Task: Rewrite the aim to be strictly SMART (Specific, Measurable, Achievable, Relevant, Time-bound). 
+        Keep it under 35 words. Return ONLY the aim statement text, no quotes.
+    `;
+    
+    const result = await callAI(prompt);
+    if (result) {
+        state.projectData.checklist.aim = result.trim();
+        window.saveData();
+        R.renderChecklist();
+        showToast("Aim refined by AI", "success");
+    }
+    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> Refine Aim`;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.aiSuggestDrivers = async () => {
+    const d = state.projectData.checklist;
+    if (!d.aim) { showToast("Define an Aim first", "error"); return; }
+
+    const btn = document.getElementById('btn-ai-driver');
+    if(btn) {
+        btn.disabled = true;
+        btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Generating...`;
+    }
+
+    const prompt = `
+        The QIP Aim is: "${d.aim}".
+        Problem Context: "${d.problem_desc}".
+        Task: Generate a Driver Diagram structure in JSON format.
+        Schema: { "primary": ["string"], "secondary": ["string"], "changes": ["string"] }
+        Requirements: 3 Primary Drivers, 4 Secondary Drivers, 5 Specific Change Ideas.
+    `;
+
+    const result = await callAI(prompt, true); // JSON mode
+
+    if (result && result.primary) {
+        state.projectData.drivers = result;
+        window.saveData();
+        window.renderTools();
+        showToast("Driver Diagram generated", "success");
+    }
+
+    if(btn) {
+        btn.disabled = false;
+        btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> Auto-Generate`;
+    }
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+};
+
 window.aiGeneratePDSA = async () => {
-    if(!window.hasAI()) { showToast("No API Key found in Settings", "error"); return; }
-    // Placeholder for actual API call
-    alert("AI Feature: This would connect to the API using your key: " + state.aiKey.substring(0,5) + "...");
+    const title = document.getElementById('pdsa-title').value;
+    if(!title) { showToast("Enter a title for the cycle first", "error"); return; }
+    
+    const d = state.projectData.checklist;
+    const btn = document.getElementById('btn-ai-pdsa');
+    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Drafting...`;
+
+    const prompt = `
+        Project Aim: "${d.aim}".
+        PDSA Title: "${title}".
+        Task: Draft a realistic PDSA cycle for this project.
+        Return JSON format: { "desc": "Plan details...", "do": "Do details...", "study": "Study details...", "act": "Act details..." }
+        Keep sections concise (2-3 sentences each).
+    `;
+
+    const result = await callAI(prompt, true);
+    
+    if(result) {
+        document.getElementById('pdsa-plan').value = result.desc || "";
+        // We only populate the Plan in the 'Add' form usually, but if we want to pre-fill others we can't easily as the form is simple.
+        // Let's just append the Plan for now, or update the logic to allow full drafting.
+        // Better UX: Fill the 'Plan' box with the Plan, and maybe append the rest to it for the user to split? 
+        // Or simplified: Just ask AI for the PLAN part since it's a new cycle.
+        
+        // Actually, let's just use the 'desc' (Plan) part for the new cycle form
+        document.getElementById('pdsa-plan').value = `${result.desc}\n\n[AI Drafted - Prediction]\n${result.study}`;
+        showToast("Plan drafted", "success");
+    }
+    
+    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Draft`;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.aiAnalyseChart = async () => {
+    const d = state.projectData.chartData;
+    if(!d || d.length < 5) { showToast("Need at least 5 data points", "error"); return; }
+    
+    const btn = document.getElementById('btn-ai-chart');
+    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Analysing...`;
+    
+    // Sort and format data for token efficiency
+    const sorted = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
+    const dataStr = sorted.map(x => `${x.date}:${x.value}`).join(', ');
+    
+    const prompt = `
+        Aim: "${state.projectData.checklist.aim}".
+        Data (Date:Value): [${dataStr}].
+        Task: Analyze this SPC/Run chart data. Identify shifts, trends, or outliers. 
+        Conclude if there is improvement. Write a short paragraph for the "Results" section.
+    `;
+    
+    const result = await callAI(prompt);
+    
+    if(result) {
+        const box = document.getElementById('results-text');
+        box.value = result.trim();
+        window.saveResults(result.trim());
+        showToast("Analysis complete", "success");
+    }
+    
+    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse`;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
 };
 
 // --- EXPORT FUNCTIONS ---
@@ -318,7 +442,7 @@ window.showHelp = R.showHelp;
 window.startTour = R.startTour;
 
 // ==========================================================================
-// 2. CORE LOGIC (Auth, Save, Load)
+// 3. CORE LOGIC (Auth, Save, Load)
 // ==========================================================================
 
 // Main Save Function (Debounced & History Push)
