@@ -225,6 +225,11 @@ function renderChecklist() {
     const container = document.getElementById('checklist-container');
     if (!container) return;
 
+    // AI Button Logic
+    const aiAimBtn = (window.hasAI && window.hasAI()) 
+        ? `<button onclick="window.aiRefineAim()" id="btn-ai-aim" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1 rounded shadow hover:shadow-md flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Refine Aim</button>` 
+        : '';
+
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2 space-y-8">
@@ -273,8 +278,11 @@ function renderChecklist() {
                             <input type="text" class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. August 2026" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
                         </div>
                     </div>
-                    <div class="bg-indigo-50 p-3 rounded border border-indigo-100">
-                        <label class="block text-xs font-bold text-indigo-400 uppercase mb-1">Aim Statement</label>
+                    <div class="bg-indigo-50 p-3 rounded border border-indigo-100 relative">
+                        <div class="flex justify-between items-start mb-1">
+                            <label class="block text-xs font-bold text-indigo-400 uppercase">Aim Statement</label>
+                            ${aiAimBtn}
+                        </div>
                         <p class="text-sm text-indigo-900 font-bold font-serif">${escapeHtml(buildAim()) || '<span class="text-indigo-400 font-normal">Complete the fields above to generate your SMART aim.</span>'}</p>
                     </div>
                 </div>
@@ -407,6 +415,23 @@ function renderDataView() {
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
         resultsText.value = d.checklist.results_text || '';
+    }
+
+    // AI Analysis Button
+    const aiChartBtn = (window.hasAI && window.hasAI()) 
+        ? `<button onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-1 rounded shadow hover:shadow-md flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse</button>` 
+        : '';
+        
+    // Inject button into the Results header if not there
+    const resultsContainer = resultsText?.parentElement;
+    if (resultsContainer) {
+        const header = resultsContainer.querySelector('h3');
+        if(header && !header.querySelector('button')) {
+            const wrap = document.createElement('div');
+            wrap.className = "flex justify-between items-center mb-2";
+            wrap.innerHTML = `<span class="font-bold text-slate-800">Results & Interpretation</span>${aiChartBtn}`;
+            header.replaceWith(wrap);
+        }
     }
 
     // Render history
@@ -781,8 +806,8 @@ function renderPDSA() {
     if (!container) return;
     
     // AI Button Logic
-    const aiButton = window.hasAI && window.hasAI() 
-        ? `<button onclick="window.aiGeneratePDSA()" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate Cycle</button>`
+    const aiButton = (window.hasAI && window.hasAI()) 
+        ? `<button onclick="window.aiGeneratePDSA()" id="btn-ai-pdsa" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Draft Cycle</button>`
         : '';
 
     container.innerHTML = `
@@ -1335,57 +1360,4 @@ function startTour() {
                 { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
                 { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
                 { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan, Do, Study, Act - document your improvement cycles here.' }},
-                { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and abstracts for your portfolio.' }}
-            ]
-        });
-        driverObj.drive();
-    } catch (e) {
-        console.error("Tour error:", e);
-        showToast("Could not start tour", "error");
-    }
-}
-
-// ==========================================
-// EXPORTS
-// ==========================================
-
-export { 
-    renderDashboard, 
-    renderAll, 
-    renderDataView, 
-    renderPDSA, 
-    renderGantt, 
-    renderTools, 
-    renderTeam, 
-    renderPublish, 
-    renderChecklist, 
-    renderFullProject, 
-    renderStakeholders, 
-    renderGreen, 
-    openMemberModal, 
-    openGanttModal, 
-    toggleToolList, 
-    updateFishCat, 
-    updateFishCause, 
-    addFishCause, 
-    removeFishCause,
-    addLeadershipLog, 
-    deleteLeadershipLog,
-    addStakeholder, 
-    updateStake, 
-    removeStake, 
-    toggleStakeView,
-    addPDSA, 
-    updatePDSA, 
-    deletePDSA,
-    saveSmartAim, 
-    openPortfolioExport, 
-    copyReport,
-    calcGreen, 
-    calcMoney,
-    calcTime, 
-    calcEdu,
-    showHelp, 
-    startTour
-};
+                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description
