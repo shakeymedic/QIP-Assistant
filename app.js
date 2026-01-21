@@ -65,6 +65,45 @@ window.returnToProjects = () => {
     loadProjectList();
 };
 
+// --- GLOBAL SETTINGS (AI KEY) ---
+window.openGlobalSettings = () => {
+    document.getElementById('settings-ai-key').value = state.aiKey || '';
+    document.getElementById('global-settings-modal').classList.remove('hidden');
+};
+
+window.saveGlobalSettings = () => {
+    const key = document.getElementById('settings-ai-key').value.trim();
+    state.aiKey = key;
+    if(key) {
+        localStorage.setItem('rcem_qip_ai_key', key);
+        showToast("Settings saved. AI features enabled.", "success");
+    } else {
+        localStorage.removeItem('rcem_qip_ai_key');
+        showToast("Settings saved. AI features disabled.", "info");
+    }
+    document.getElementById('global-settings-modal').classList.add('hidden');
+    // Re-render current view to show/hide AI buttons
+    let currentView = document.querySelector('.view-section:not(.hidden)');
+    if (currentView) {
+        let viewName = currentView.id.replace('view-', '');
+        window.router(viewName);
+    }
+};
+
+window.toggleKeyVis = () => {
+    const input = document.getElementById('settings-ai-key');
+    input.type = input.type === 'password' ? 'text' : 'password';
+};
+
+window.hasAI = () => !!state.aiKey;
+
+// Placeholder AI Function
+window.aiGeneratePDSA = async () => {
+    if(!window.hasAI()) { showToast("No API Key found in Settings", "error"); return; }
+    // NOTE: This is where you would call the OpenAI/Gemini API using state.aiKey
+    alert("AI Integration: This would now call the API using your key: " + state.aiKey.substring(0,5) + "...");
+};
+
 // --- DATA PORTABILITY (Backup/Restore) ---
 window.exportProjectToFile = function() {
     if (!state.projectData) { showToast("No data to export", "error"); return; }
