@@ -15,7 +15,7 @@ const TOOL_HELP = {
     driver: {
         title: "Driver Diagram",
         desc: "Map your Aim to Drivers and Change Ideas in a hierarchical structure.",
-        tips: "Primary Drivers are high-level factors affecting your aim. Secondary Drivers are more specific. Change Ideas are specific interventions you can test."
+        tips: "Click on any box to edit text. Primary Drivers are high-level factors. Secondary Drivers are specific. Change Ideas are interventions."
     },
     process: {
         title: "Process Map",
@@ -132,7 +132,7 @@ function renderToolUI() {
     if(!helpPanel && relativeContainer) {
         helpPanel = document.createElement('div');
         helpPanel.id = 'tool-help-panel';
-        helpPanel.className = 'absolute top-4 right-4 w-64 bg-white shadow-xl rounded-xl border border-slate-200 p-4 z-30 hidden';
+        helpPanel.className = 'absolute top-4 right-4 w-64 bg-white/95 backdrop-blur shadow-xl rounded-xl border border-slate-200 p-4 z-30 hidden transition-all';
         relativeContainer.appendChild(helpPanel);
     }
     
@@ -144,7 +144,7 @@ function renderToolUI() {
                 <button onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-slate-800"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
             <p class="text-xs text-slate-600 mb-3">${info.desc}</p>
-            <div class="bg-indigo-50 p-2 rounded text-[10px] text-indigo-800 font-medium">
+            <div class="bg-indigo-50 p-2 rounded text-[10px] text-indigo-800 font-medium border border-indigo-100">
                 <strong>Tip:</strong> ${info.tips}
             </div>
         `;
@@ -296,19 +296,57 @@ function renderFishboneVisual(container, enableInteraction = false) {
     });
 }
 
+// === INTERACTIVE DRIVER DIAGRAM LOGIC ===
+
+// Global handler for Mermaid Click Events
+window.editDriver = (type, index) => {
+    if(state.isReadOnly) return;
+    
+    const labels = { primary: 'Primary Driver', secondary: 'Secondary Driver', changes: 'Change Idea' };
+    const currentVal = state.projectData.drivers[type][index];
+    const newVal = prompt(`Edit ${labels[type]}:`, currentVal);
+    
+    if(newVal !== null && newVal !== currentVal) {
+        state.projectData.drivers[type][index] = newVal;
+        window.saveData();
+        window.renderTools(); // Re-render to reflect changes
+    }
+};
+
 function renderDriverVisual(container, enableInteraction = false) {
     const d = state.projectData.drivers;
-    const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 30) : '...';
+    const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 40) + (t.length>40?'...':'') : '...';
     
     let mCode = `graph LR\n`;
     mCode += `  AIM["<b>AIM</b><br/>${clean(state.projectData.checklist?.aim || 'Define your aim')}"]\n`;
-    mCode += `  AIM --> P["<b>Primary Drivers</b>"]\n`;
-    mCode += `  P --> S["<b>Secondary</b>"]\n`;
-    mCode += `  S --> C["<b>Change Ideas</b>"]\n`;
+    mCode += `  style AIM fill:#eef2ff,stroke:#2d2e83,stroke-width:2px,color:#1e1b4b\n`;
     
-    d.primary.forEach((x, i) => mCode += `  P --> P${i}["${clean(x)}"]\n`);
-    d.secondary.forEach((x, i) => mCode += `  S --> S${i}["${clean(x)}"]\n`);
-    d.changes.forEach((x, i) => mCode += `  C --> C${i}["${clean(x)}"]\n`);
+    // Primary Drivers
+    d.primary.forEach((x, i) => {
+        mCode += `  AIM --> P${i}["${clean(x)}"]\n`;
+        mCode += `  click P${i} call window.editDriver('primary', ${i})\n`;
+        mCode += `  style P${i} fill:#fff,stroke:#2d2e83,color:#1e1b4b\n`;
+    });
+    
+    // Secondary Drivers
+    d.secondary.forEach((x, i) => {
+        // Just link to first primary for visual flow if exists, else Aim
+        if (d.primary.length > 0) mCode += `  P0 --> S${i}["${clean(x)}"]\n`;
+        else mCode += `  AIM --> S${i}["${clean(x)}"]\n`;
+        
+        mCode += `  click S${i} call window.editDriver('secondary', ${i})\n`;
+        mCode += `  style S${i} fill:#fff,stroke:#4f46e5,color:#1e1b4b\n`;
+    });
+
+    // Change Ideas
+    d.changes.forEach((x, i) => {
+        if (d.secondary.length > 0) mCode += `  S0 --> C${i}["${clean(x)}"]\n`;
+        else if (d.primary.length > 0) mCode += `  P0 --> C${i}["${clean(x)}"]\n`;
+        else mCode += `  AIM --> C${i}["${clean(x)}"]\n`;
+        
+        mCode += `  click C${i} call window.editDriver('changes', ${i})\n`;
+        mCode += `  style C${i} fill:#fff7ed,stroke:#f97316,color:#7c2d12\n`;
+    });
     
     const wrapper = document.createElement('div');
     wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
@@ -317,54 +355,28 @@ function renderDriverVisual(container, enableInteraction = false) {
     
     try { 
         if (typeof mermaid !== 'undefined') {
+            mermaid.initialize({ 
+                startOnLoad: false, 
+                securityLevel: 'loose', // REQUIRED for click events to work
+                theme: 'base',
+                themeVariables: { fontFamily: 'Inter' }
+            });
             mermaid.run({ nodes: [wrapper] }); 
         }
     } catch(e) { 
         console.error("Mermaid rendering error:", e); 
     }
 
-    // Editor Overlay
+    // Editor Overlay Controls
     if (enableInteraction && !state.isReadOnly) {
-        const overlay = document.createElement('div');
-        overlay.className = "absolute top-0 right-0 w-64 h-full bg-white/95 border-l border-slate-200 shadow-lg flex flex-col p-4 overflow-y-auto";
-        overlay.innerHTML = `
-            <h4 class="font-bold text-slate-800 text-sm mb-4">Edit Diagram</h4>
-            
-            <div class="mb-4">
-                <div class="text-[10px] font-bold uppercase text-rcem-purple mb-1">Primary Drivers</div>
-                ${d.primary.map((x, i) => `
-                    <div class="flex gap-1 mb-1">
-                        <input class="text-xs border rounded p-1 w-full" value="${escapeHtml(x)}" onchange="state.projectData.drivers.primary[${i}]=this.value;window.saveData();window.renderTools()">
-                        <button onclick="state.projectData.drivers.primary.splice(${i},1);window.saveData();window.renderTools()" class="text-red-500 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                    </div>
-                `).join('')}
-                <button onclick="window.addDriver('primary')" class="text-xs text-blue-600 hover:underline font-bold">+ Add Primary</button>
-            </div>
-            
-            <div class="mb-4">
-                <div class="text-[10px] font-bold uppercase text-rcem-purple mb-1">Secondary Drivers</div>
-                ${d.secondary.map((x, i) => `
-                    <div class="flex gap-1 mb-1">
-                        <input class="text-xs border rounded p-1 w-full" value="${escapeHtml(x)}" onchange="state.projectData.drivers.secondary[${i}]=this.value;window.saveData();window.renderTools()">
-                        <button onclick="state.projectData.drivers.secondary.splice(${i},1);window.saveData();window.renderTools()" class="text-red-500 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                    </div>
-                `).join('')}
-                <button onclick="window.addDriver('secondary')" class="text-xs text-blue-600 hover:underline font-bold">+ Add Secondary</button>
-            </div>
-
-            <div class="mb-4">
-                <div class="text-[10px] font-bold uppercase text-rcem-purple mb-1">Change Ideas</div>
-                ${d.changes.map((x, i) => `
-                    <div class="flex gap-1 mb-1">
-                        <input class="text-xs border rounded p-1 w-full" value="${escapeHtml(x)}" onchange="state.projectData.drivers.changes[${i}]=this.value;window.saveData();window.renderTools()">
-                        <button onclick="state.projectData.drivers.changes.splice(${i},1);window.saveData();window.renderTools()" class="text-red-500 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                    </div>
-                `).join('')}
-                <button onclick="window.addDriver('changes')" class="text-xs text-blue-600 hover:underline font-bold">+ Add Change Idea</button>
-            </div>
+        const controls = document.createElement('div');
+        controls.className = "absolute bottom-4 left-4 flex gap-2";
+        controls.innerHTML = `
+            <button onclick="window.addDriver('primary')" class="bg-white border border-rcem-purple text-rcem-purple text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition-colors">+ Primary</button>
+            <button onclick="window.addDriver('secondary')" class="bg-white border border-rcem-purple text-rcem-purple text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition-colors">+ Secondary</button>
+            <button onclick="window.addDriver('changes')" class="bg-white border border-orange-500 text-orange-600 text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-orange-50 transition-colors">+ Change Idea</button>
         `;
-        container.appendChild(overlay);
-        if(typeof lucide !== 'undefined') lucide.createIcons();
+        container.appendChild(controls);
     }
 }
 
@@ -386,19 +398,21 @@ function renderProcessVisual(container, enableInteraction = false) {
     
     if (enableInteraction && !state.isReadOnly) {
         const overlay = document.createElement('div');
-        overlay.className = "absolute top-0 right-0 w-64 h-full bg-white/95 border-l border-slate-200 shadow-lg flex flex-col p-4 overflow-y-auto";
+        overlay.className = "absolute top-0 right-0 w-64 h-full bg-white/95 border-l border-slate-200 shadow-lg flex flex-col p-4 overflow-y-auto backdrop-blur-sm";
         overlay.innerHTML = `
             <h4 class="font-bold text-slate-800 text-sm mb-4">Edit Process</h4>
+            <div class="space-y-2">
             ${p.map((x, i) => `
-                <div class="flex gap-1 mb-1">
-                    <span class="text-xs w-4 text-slate-400">${i + 1}.</span>
-                    <input class="text-xs border rounded p-1 w-full" value="${escapeHtml(x)}" onchange="state.projectData.process[${i}]=this.value;window.saveData();window.renderTools()">
-                    <button onclick="state.projectData.process.splice(${i},1);window.saveData();window.renderTools()" class="text-red-500 hover:bg-red-50 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
+                <div class="flex gap-1 items-center">
+                    <span class="text-[10px] w-4 text-slate-400 font-mono">${i + 1}</span>
+                    <input class="text-xs border border-slate-300 rounded p-1.5 w-full focus:border-rcem-purple outline-none" value="${escapeHtml(x)}" onchange="state.projectData.process[${i}]=this.value;window.saveData();window.renderTools()">
+                    <button onclick="state.projectData.process.splice(${i},1);window.saveData();window.renderTools()" class="text-slate-300 hover:text-red-500 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
                 </div>
             `).join('')}
-            <div class="flex gap-2 mt-4">
-                <button onclick="window.addStep()" class="text-xs bg-slate-800 text-white px-3 py-1.5 rounded font-bold">+ Add Step</button>
-                <button onclick="window.resetProcess()" class="text-xs text-red-500 hover:bg-red-50 px-2 py-1 rounded border border-red-200">Reset</button>
+            </div>
+            <div class="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+                <button onclick="window.addStep()" class="flex-1 text-xs bg-slate-800 text-white px-3 py-2 rounded font-bold hover:bg-slate-900 shadow-sm">+ Add Step</button>
+                <button onclick="window.resetProcess()" class="text-xs text-red-500 hover:bg-red-50 px-2 py-2 rounded border border-red-200">Reset</button>
             </div>
         `;
         container.appendChild(overlay);
@@ -1010,7 +1024,7 @@ function renderSPCChart(ctx, canvasId) {
             datasets: [{
                 label: settings.yAxisLabel || 'Measure', 
                 data: data, 
-                borderColor: '#64748b',
+                borderColor: '#64748b', 
                 backgroundColor: '#64748b',
                 pointBackgroundColor: pointColors,
                 pointBorderColor: '#fff',
