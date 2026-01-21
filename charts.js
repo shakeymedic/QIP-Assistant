@@ -652,15 +652,35 @@ export function importCSV(input) {
                     continue;
                 }
                 
-                // Validate date format
-                const parsedDate = new Date(dateVal);
-                if (isNaN(parsedDate.getTime())) {
+                // Parse Date (UK Format Support DD/MM/YYYY)
+                let parsedDateStr = '';
+                if (dateVal.includes('/')) {
+                    const parts = dateVal.split('/');
+                    if (parts.length === 3) {
+                        // Assume DD/MM/YYYY or DD/MM/YY
+                        const day = parts[0].padStart(2, '0');
+                        const month = parts[1].padStart(2, '0');
+                        let year = parts[2];
+                        if (year.length === 2) year = '20' + year;
+                        parsedDateStr = `${year}-${month}-${day}`;
+                    } else {
+                         parsedDateStr = new Date(dateVal).toISOString().split('T')[0];
+                    }
+                } else {
+                    // Try ISO
+                    const d = new Date(dateVal);
+                    if (!isNaN(d.getTime())) {
+                        parsedDateStr = d.toISOString().split('T')[0];
+                    }
+                }
+
+                if (!parsedDateStr || isNaN(new Date(parsedDateStr).getTime())) {
                     skipped++;
                     continue;
                 }
                 
                 const dataPoint = {
-                    date: dateVal,
+                    date: parsedDateStr,
                     value: parsedValue,
                     grade: gradeIdx !== -1 ? (cols[gradeIdx]?.trim() || '') : '',
                     note: noteIdx !== -1 ? (cols[noteIdx]?.trim() || '') : ''
@@ -678,7 +698,7 @@ export function importCSV(input) {
             
             let message = `Imported ${imported} data point${imported !== 1 ? 's' : ''}`;
             if (skipped > 0) {
-                message += ` (${skipped} row${skipped !== 1 ? 's' : ''} skipped)`;
+                message += ` (${skipped} row${skipped !== 1 ? 's' : ''} skipped/invalid)`;
             }
             showToast(message, "success");
             
@@ -721,12 +741,12 @@ function parseCSVLine(line) {
 
 export function downloadCSVTemplate() {
     const csvContent = `Date,Value,Grade,Note
-2026-01-01,85,Baseline,Initial measurement
-2026-01-08,87,Baseline,Second baseline point
-2026-01-15,82,Baseline,Third baseline point
-2026-01-22,90,Intervention,First intervention started
-2026-01-29,92,Intervention,Improvement noted
-2026-02-05,95,Intervention,Sustained improvement`;
+01/01/2026,85,Baseline,Initial measurement
+08/01/2026,87,Baseline,Second baseline point
+15/01/2026,82,Baseline,Third baseline point
+22/01/2026,90,Intervention,First intervention started
+29/01/2026,92,Intervention,Improvement noted
+05/02/2026,95,Intervention,Sustained improvement`;
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
