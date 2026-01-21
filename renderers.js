@@ -458,7 +458,6 @@ function renderPublish(mode = 'qiat') {
             : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
     });
 
-    // FIXED: Use window.showToast consistently in inline onclick handlers
     const copyBtn = (id, label = 'Copy') => `
         <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); window.showToast ? window.showToast('Copied!', 'success') : alert('Copied!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
             <i data-lucide="copy" class="w-3 h-3"></i> ${label}
@@ -573,61 +572,147 @@ function renderFullProject() {
     const container = document.getElementById('full-project-container');
     if (!container) return;
 
+    // Helper for sections
+    const Section = (title, content) => `
+        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">${title}</h2>
+            ${content}
+        </div>`;
+
+    // 1. Team & Stakeholders Content
+    let teamHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">`;
+    if(d.teamMembers && d.teamMembers.length > 0) {
+        teamHtml += d.teamMembers.map(m => `
+            <div class="p-4 border border-slate-200 rounded-lg flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">${escapeHtml(m.initials || '??')}</div>
+                <div><div class="font-bold text-sm">${escapeHtml(m.name)}</div><div class="text-xs text-slate-500">${escapeHtml(m.role)}</div></div>
+            </div>
+        `).join('');
+    } else { teamHtml += `<div class="col-span-full text-slate-400 italic">No team members.</div>`; }
+    teamHtml += `</div>`;
+    
+    let stakeHtml = `<h3 class="font-bold text-slate-700 text-sm uppercase mb-3">Stakeholders</h3><div class="overflow-x-auto"><table class="w-full text-sm text-left">
+        <thead class="bg-slate-50 text-slate-500 font-bold"><tr class="border-b"><th class="p-2">Name</th><th class="p-2">Power</th><th class="p-2">Interest</th></tr></thead><tbody>`;
+    if(d.stakeholders && d.stakeholders.length > 0) {
+        stakeHtml += d.stakeholders.map(s => `<tr class="border-b"><td class="p-2">${escapeHtml(s.name)}</td><td class="p-2">${s.y}</td><td class="p-2">${s.x}</td></tr>`).join('');
+    } else { stakeHtml += `<tr><td colspan="3" class="p-2 text-slate-400 italic">No stakeholders.</td></tr>`; }
+    stakeHtml += `</tbody></table></div>`;
+
+    // 2. Charter Content
+    const charterHtml = `
+        <div class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Context</h3><p class="text-sm text-slate-600 bg-slate-50 p-3 rounded">${has(cl.context)}</p></div>
+                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Ethics</h3><p class="text-sm text-slate-600 bg-slate-50 p-3 rounded">${has(cl.ethics)}</p></div>
+            </div>
+            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem Statement</h3><p class="text-slate-700 bg-slate-50 p-4 rounded border-l-4 border-rcem-purple">${has(cl.problem_desc)}</p></div>
+            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">SMART Aim</h3><p class="text-indigo-900 font-bold font-serif bg-indigo-50 p-4 rounded border border-indigo-100">${has(cl.aim)}</p></div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Outcome Measure</h4><p class="text-sm">${has(cl.measure_outcome)}</p></div>
+                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Process Measure</h4><p class="text-sm">${has(cl.measure_process)}</p></div>
+                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Balancing Measure</h4><p class="text-sm">${has(cl.measure_balance)}</p></div>
+            </div>
+        </div>
+    `;
+
+    // 3. Diagnosis
+    const diagHtml = `
+        <div class="space-y-8">
+            <div>
+                <h3 class="font-bold text-slate-700 mb-2">Process Map</h3>
+                <div id="full-view-process-container" class="border border-slate-200 rounded min-h-[200px] flex justify-center p-4"></div>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-700 mb-2">Driver Diagram</h3>
+                <div id="full-view-driver-container" class="border border-slate-200 rounded min-h-[300px] flex justify-center p-4"></div>
+            </div>
+        </div>
+    `;
+
+    // 4. Timeline
+    const timelineHtml = `<div id="full-view-gantt-container" class="overflow-x-auto min-h-[200px]"></div>`;
+
+    // 5. Results
+    const resultsHtml = `
+        <div id="full-view-chart-container" class="mb-6 h-80 relative">
+            <canvas id="full-view-chart-canvas"></canvas>
+        </div>
+        <div class="bg-emerald-50 p-4 rounded border border-emerald-100">
+            <h3 class="font-bold text-emerald-900 text-sm uppercase mb-2">Interpretation</h3>
+            <p class="text-emerald-800">${has(cl.results_text)}</p>
+        </div>
+    `;
+
+    // 6. PDSA
+    const pdsaHtml = `
+        <div class="space-y-4">
+            ${d.pdsa && d.pdsa.length > 0 ? d.pdsa.map((p, i) => `
+                <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
+                    <h4 class="font-bold text-slate-800 flex justify-between">
+                        <span>Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</span>
+                        <span class="text-xs font-normal text-slate-500 font-mono">${p.start} - ${p.end}</span>
+                    </h4>
+                    <p class="text-sm text-slate-600 mt-1 mb-3 italic">${escapeHtml(p.desc)}</p>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
+                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-amber-600 block mb-1">Do</strong>${escapeHtml(p.do)}</div>
+                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-purple-600 block mb-1">Study</strong>${escapeHtml(p.study)}</div>
+                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-emerald-600 block mb-1">Act</strong>${escapeHtml(p.act)}</div>
+                    </div>
+                </div>
+            `).join('') : '<p class="text-slate-400 italic">No cycles.</p>'}
+        </div>
+    `;
+
+    // 7. Sustain
+    const sustainHtml = `
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Key Learning</h3><p class="text-sm text-slate-600 bg-amber-50 p-4 rounded border border-amber-100">${has(cl.learning)}</p></div>
+            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Sustainability Plan</h3><p class="text-sm text-slate-600 bg-emerald-50 p-4 rounded border border-emerald-100">${has(cl.sustain)}</p></div>
+        </div>
+    `;
+
+    // 8. Logs
+    let logHtml = `<div class="space-y-2">`;
+    if(d.leadershipLogs && d.leadershipLogs.length > 0) {
+        logHtml += d.leadershipLogs.map(l => `
+            <div class="text-sm border-l-2 border-slate-300 pl-3 py-1">
+                <span class="font-bold text-slate-700 mr-2">${l.date}:</span>
+                <span class="text-slate-600">${escapeHtml(l.note)}</span>
+            </div>
+        `).join('');
+    } else { logHtml += `<p class="text-slate-400 italic">No logs recorded.</p>`; }
+    logHtml += `</div>`;
+
+    // Assemble
     container.innerHTML = `
-        <div class="max-w-6xl mx-auto space-y-8">
+        <div class="max-w-5xl mx-auto space-y-8 pb-20">
             <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
                 <h1 class="text-3xl font-bold text-rcem-purple mb-2">${escapeHtml(d.meta?.title || 'Untitled Project')}</h1>
                 <p class="text-slate-500">Project Lead: ${escapeHtml(d.teamMembers && d.teamMembers[0] ? d.teamMembers[0].name : 'Not specified')}</p>
-            </div>
-
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">1. Project Charter</h2>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem</h3><p class="text-slate-600 bg-slate-50 p-4 rounded">${has(cl.problem_desc)}</p></div>
-                    <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Aim</h3><p class="text-indigo-900 font-bold font-serif bg-indigo-50 p-4 rounded border border-indigo-100">${has(cl.aim)}</p></div>
+                <div class="mt-4 flex justify-center gap-2">
+                    <button onclick="window.print()" class="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded flex items-center gap-1"><i data-lucide="printer" class="w-3 h-3"></i> Print Report</button>
                 </div>
             </div>
 
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">2. Driver Diagram</h2>
-                <div id="full-view-driver-container" class="flex justify-center p-4 bg-slate-50 rounded border border-slate-200 min-h-[300px]"></div>
-            </div>
-            
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">3. Results</h2>
-                <div id="full-view-chart-container" class="mb-6 h-80 relative">
-                    <canvas id="full-view-chart-canvas"></canvas>
-                </div>
-                <div class="bg-emerald-50 p-4 rounded border border-emerald-100">
-                    <h3 class="font-bold text-emerald-900 text-sm uppercase mb-2">Interpretation</h3>
-                    <p class="text-emerald-800">${has(cl.results_text)}</p>
-                </div>
-            </div>
-
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">4. PDSA Cycles</h2>
-                <div class="space-y-4">
-                    ${d.pdsa && d.pdsa.length > 0 ? d.pdsa.map((p, i) => `
-                        <div class="border border-slate-200 rounded-lg p-4">
-                            <h4 class="font-bold text-slate-800">Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</h4>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2 text-sm text-slate-600">
-                                <div class="bg-slate-50 p-2 rounded"><strong class="block text-xs uppercase text-slate-400">Plan</strong>${escapeHtml(p.desc || 'N/A')}</div>
-                                <div class="bg-slate-50 p-2 rounded"><strong class="block text-xs uppercase text-slate-400">Do</strong>${escapeHtml(p.do || 'N/A')}</div>
-                                <div class="bg-slate-50 p-2 rounded"><strong class="block text-xs uppercase text-slate-400">Study</strong>${escapeHtml(p.study || 'N/A')}</div>
-                                <div class="bg-slate-50 p-2 rounded"><strong class="block text-xs uppercase text-slate-400">Act</strong>${escapeHtml(p.act || 'N/A')}</div>
-                            </div>
-                        </div>
-                    `).join('') : '<p class="text-slate-400 italic text-center py-8">No PDSA cycles documented yet.</p>'}
-                </div>
-            </div>
+            ${Section('1. Team & Stakeholders', teamHtml + '<div class="mt-6">' + stakeHtml + '</div>')}
+            ${Section('2. Project Charter', charterHtml)}
+            ${Section('3. Diagnosis & Process', diagHtml)}
+            ${Section('4. Project Timeline', timelineHtml)}
+            ${Section('5. Results & Analysis', resultsHtml)}
+            ${Section('6. PDSA Cycles', pdsaHtml)}
+            ${Section('7. Learning & Sustainability', sustainHtml)}
+            ${Section('8. Leadership Log', logHtml)}
         </div>
     `;
     
     setTimeout(() => {
         renderFullViewChart();
         renderTools('full-view-driver-container', 'driver');
+        renderTools('full-view-process-container', 'process');
+        renderGantt('full-view-gantt-container');
         if (typeof lucide !== 'undefined') lucide.createIcons();
-    }, 100);
+    }, 150);
 }
 
 // ==========================================
@@ -836,11 +921,11 @@ function renderStakeholders() {
 // 10. GANTT VIEW
 // ==========================================
 
-function renderGantt() {
+function renderGantt(targetId = 'gantt-container') {
     const d = state.projectData;
     if (!d) return;
     
-    const container = document.getElementById('gantt-container');
+    const container = document.getElementById(targetId);
     if (!container) return;
     
     if (!d.gantt || d.gantt.length === 0) {
