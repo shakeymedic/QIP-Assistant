@@ -1,6 +1,7 @@
 import { state } from "./state.js";
 import { escapeHtml, showToast } from "./utils.js";
 import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart, makeDraggable, chartMode } from "./charts.js";
+import { suggestEvidence } from "./ai.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -92,9 +93,6 @@ function renderDashboard() {
     const d = state.projectData;
     if (!d) return;
     
-    const values = d.chartData ? d.chartData.map(x => Number(x.value)).filter(n => !isNaN(n)) : [];
-    const avg = values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : 0;
-    
     // Calculate Project Progress Score
     let score = 0;
     if(d.checklist && d.checklist.aim && d.checklist.problem_desc) score += 20;
@@ -113,8 +111,8 @@ function renderDashboard() {
             <div class="flex items-center gap-6">
                 <div class="relative w-24 h-24 flex items-center justify-center">
                     <svg class="w-full h-full transform -rotate-90">
-                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" class="text-slate-100" />
-                        <circle cx="48" cy="48" r="40" stroke="currentColor" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * totalProg / 100)}" class="text-emerald-500 transition-all duration-1000" />
+                        <circle cx="48" cy="48" r="40" stroke="#f1f5f9" stroke-width="8" fill="transparent" />
+                        <circle cx="48" cy="48" r="40" stroke="#2d2e83" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * totalProg / 100)}" class="transition-all duration-1000" />
                     </svg>
                     <span class="absolute text-xl font-bold text-slate-700">${totalProg}%</span>
                 </div>
@@ -133,27 +131,27 @@ function renderDashboard() {
     const coachEl = document.getElementById('qi-coach-banner');
     let msg = { t: "Next Step: Data", m: "You need a baseline. Add at least 6 data points.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
     
-    if (!d.checklist || d.checklist.aim === "" || !d.checklist.aim) {
+    if (!d.checklist || !d.checklist.aim) {
         msg = { t: "Next Step: Define Aim", m: "Use the wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
     } else if (!d.drivers || d.drivers.primary.length === 0) {
         msg = { t: "Next Step: Diagnosis", m: "Build your Driver Diagram to understand the problem.", i: "git-branch", c: "amber-500", b: "Build Diagram", a: "tools" };
     } else if (d.chartData && d.chartData.length >= 6 && (!d.pdsa || d.pdsa.length === 0)) {
         msg = { t: "Next Step: PDSA", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
-    } else if (d.pdsa && d.pdsa.length > 0 && (!d.checklist.sustain || d.checklist.sustain === "")) {
+    } else if (d.pdsa && d.pdsa.length > 0 && (!d.checklist.sustain)) {
         msg = { t: "Next Step: Sustainability", m: "Document how you'll sustain improvements.", i: "leaf", c: "emerald-600", b: "Add Plan", a: "checklist" };
     }
     
     if (coachEl) {
         coachEl.innerHTML = `
-            <div class="bg-white border-l-4 border-${msg.c} p-6 mb-8 rounded-r-xl shadow-sm flex flex-col md:flex-row gap-6 items-start md:items-center relative overflow-hidden transition-all hover:shadow-md">
-                <div class="bg-slate-50 p-4 rounded-full shadow-inner text-${msg.c}">
-                    <i data-lucide="${msg.i}" class="w-8 h-8"></i>
+            <div class="card-modern p-6 mb-8 flex flex-col md:flex-row gap-6 items-center border-l-4 border-l-rcem-purple relative overflow-hidden">
+                <div class="bg-indigo-50 p-4 rounded-full text-rcem-purple">
+                    <i data-lucide="${msg.i}" class="w-6 h-6"></i>
                 </div>
                 <div class="flex-1">
                     <h4 class="font-bold text-slate-800 text-lg">${msg.t}</h4>
-                    <p class="text-slate-600 mt-1 text-sm">${msg.m}</p>
+                    <p class="text-slate-600 text-sm">${msg.m}</p>
                 </div>
-                <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-6 py-3 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg flex items-center gap-2">
+                <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg flex items-center gap-2">
                     ${msg.b} <i data-lucide="arrow-right" class="w-4 h-4"></i>
                 </button>
             </div>
@@ -163,187 +161,149 @@ function renderDashboard() {
     // 3. Mini Stats
     const statsContainer = document.getElementById('stat-pdsa');
     if (statsContainer && statsContainer.parentElement && statsContainer.parentElement.parentElement) {
-        statsContainer.parentElement.parentElement.innerHTML = `
-            <div class="col-span-2 sm:col-span-4 bg-slate-800 text-white p-6 rounded-xl shadow-lg flex flex-wrap gap-4 lg:gap-8 items-center justify-around">
-                <div class="text-center">
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Average</div>
-                    <div class="text-2xl font-bold font-mono text-white">${avg}</div>
-                </div>
-                <div class="h-8 w-px bg-white/20 hidden sm:block"></div>
-                <div class="text-center">
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Data Points</div>
-                    <div class="text-2xl font-bold font-mono text-amber-400">${d.chartData ? d.chartData.length : 0}</div>
-                </div>
-                <div class="h-8 w-px bg-white/20 hidden sm:block"></div>
-                <div class="text-center">
-                    <div class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">PDSA Cycles</div>
-                    <div class="text-2xl font-bold font-mono text-emerald-400">${d.pdsa ? d.pdsa.length : 0}</div>
-                </div>
-            </div>
+        const container = statsContainer.parentElement.parentElement;
+        container.className = "grid grid-cols-2 md:grid-cols-4 gap-4";
+        container.innerHTML = `
+             <div class="card-modern p-4 text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Data Points</div>
+                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.chartData?.length || 0}</div>
+             </div>
+             <div class="card-modern p-4 text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">PDSA Cycles</div>
+                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.pdsa?.length || 0}</div>
+             </div>
+             <div class="card-modern p-4 text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Drivers</div>
+                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.drivers?.primary?.length || 0}</div>
+             </div>
+             <div class="card-modern p-4 text-center">
+                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Team</div>
+                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.teamMembers?.length || 0}</div>
+             </div>
         `;
     }
 
     // 4. Aim Display
     const aimEl = document.getElementById('dash-aim-display');
     if (aimEl) {
-        const aimText = d.checklist && d.checklist.aim ? d.checklist.aim : '';
-        aimEl.innerHTML = aimText || `<span class="text-slate-400">No aim defined yet. <a href="#" onclick="window.router('checklist'); return false;" class="text-rcem-purple hover:underline">Define your aim →</a></span>`;
-        aimEl.className = aimText 
-            ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-bold font-serif" 
+        aimEl.innerHTML = d.checklist?.aim || `<span class="text-slate-400">No aim defined yet.</span>`;
+        aimEl.className = d.checklist?.aim 
+            ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-medium font-serif" 
             : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
     }
 }
 
 // ==========================================
-// 3. THE "QI SHERPA" WIZARD (Checklist)
+// 3. CHECKLIST (WIZARD)
 // ==========================================
+
+window.runEvidenceAI = async () => {
+    const btn = document.getElementById('btn-evidence-ai');
+    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Researching...`;
+    
+    const result = await suggestEvidence();
+    if (result) {
+        state.projectData.checklist.lit_review = result;
+        window.saveData();
+        renderChecklist();
+        showToast("Evidence added", "success");
+    }
+    if(btn) btn.innerHTML = `<i data-lucide="book-open" class="w-3 h-3"></i> Auto-Evidence`;
+    if(typeof lucide !== 'undefined') lucide.createIcons();
+};
 
 function renderChecklist() {
     const d = state.projectData;
     if (!d) return;
-    
     const cl = d.checklist || {};
-
-    const buildProblem = () => {
-        const parts = [cl.problem_context, cl.problem_evidence, cl.problem_specific].filter(Boolean);
-        const p = parts.join(' ').trim();
-        if (p && p !== (cl.problem_desc || '')) {
-            window.saveChecklist('problem_desc', p);
-        }
-        return p || cl.problem_desc || '';
-    };
-    
-    const buildAim = () => {
-        if (!cl.aim_measure || !cl.aim_target || !cl.aim_date) return cl.aim || ''; 
-        const a = `To increase ${cl.aim_measure} from ${cl.aim_baseline || 'baseline'} to ${cl.aim_target} by ${cl.aim_date}.`;
-        if (a !== (cl.aim || '')) {
-            window.saveChecklist('aim', a);
-        }
-        return a;
-    };
-
     const container = document.getElementById('checklist-container');
     if (!container) return;
 
-    // AI Button Logic
+    // AI Buttons
     const aiAimBtn = (window.hasAI && window.hasAI()) 
-        ? `<button onclick="window.aiRefineAim()" id="btn-ai-aim" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-3 py-1 rounded shadow hover:shadow-md flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> Refine Aim</button>` 
+        ? `<button onclick="window.aiRefineAim()" id="btn-ai-aim" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-200 font-bold flex items-center gap-1 transition-colors"><i data-lucide="sparkles" class="w-3 h-3"></i> Refine</button>` 
+        : '';
+        
+    const aiEvBtn = (window.hasAI && window.hasAI()) 
+        ? `<button onclick="window.runEvidenceAI()" id="btn-evidence-ai" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-200 font-bold flex items-center gap-1 transition-colors"><i data-lucide="book-open" class="w-3 h-3"></i> Auto-Evidence</button>` 
         : '';
 
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div class="lg:col-span-2 space-y-8">
                 
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="card-modern p-6">
                     <div class="flex items-center gap-3 mb-4 border-b pb-2">
                         <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">1</div>
                         <h3 class="text-lg font-bold text-slate-800">Define the Problem</h3>
                     </div>
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
-                            <input class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="Why is this important? What's the background?" value="${escapeHtml(cl.problem_context || '')}" onchange="window.saveChecklist('problem_context', this.value); window.renderChecklist()">
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Problem Description</label>
+                            <textarea class="w-full p-3 border rounded text-sm focus:border-rcem-purple bg-slate-50 focus:bg-white transition-colors" rows="3" placeholder="What is the issue? Why does it matter?" onchange="window.saveChecklist('problem_desc', this.value)">${escapeHtml(cl.problem_desc || '')}</textarea>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Evidence</label>
-                            <input class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="What is the baseline data? What does the audit show?" value="${escapeHtml(cl.problem_evidence || '')}" onchange="window.saveChecklist('problem_evidence', this.value); window.renderChecklist()">
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded border border-slate-200 mt-2">
-                            <label class="block text-xs font-bold text-slate-400 uppercase mb-1">Problem Statement</label>
-                            <p class="text-sm text-slate-700 italic">${escapeHtml(buildProblem()) || '<span class="text-slate-400">Complete the fields above to generate your problem statement.</span>'}</p>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
+                            <input class="w-full p-2 border rounded text-sm focus:border-rcem-purple" placeholder="Dept size, throughput, etc." value="${escapeHtml(cl.problem_context || '')}" onchange="window.saveChecklist('problem_context', this.value)">
                         </div>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                <div class="card-modern p-6">
                     <div class="flex items-center gap-3 mb-4 border-b pb-2">
                         <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">2</div>
-                        <h3 class="text-lg font-bold text-slate-800">Build a SMART Aim</h3>
+                        <h3 class="text-lg font-bold text-slate-800">SMART Aim</h3>
                     </div>
-                    <div class="grid grid-cols-2 gap-4 mb-4">
-                        <div class="col-span-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Measure (Specific & Measurable)</label>
-                            <input class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. delivery of IV antibiotics <1hr" value="${escapeHtml(cl.aim_measure || '')}" onchange="window.saveChecklist('aim_measure', this.value); window.renderChecklist()">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Measure</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_measure || '')}" onchange="window.saveChecklist('aim_measure', this.value)"></div>
+                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Baseline</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_baseline || '')}" onchange="window.saveChecklist('aim_baseline', this.value)"></div>
+                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Target</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_target || '')}" onchange="window.saveChecklist('aim_target', this.value)"></div>
+                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Date</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value)"></div>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Baseline (Achievable)</label>
-                            <input class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. 45%" value="${escapeHtml(cl.aim_baseline || '')}" onchange="window.saveChecklist('aim_baseline', this.value); window.renderChecklist()">
+                        <div class="bg-indigo-50 p-4 rounded border border-indigo-100 relative">
+                             <div class="flex justify-between items-start mb-2">
+                                <label class="block text-xs font-bold text-indigo-400 uppercase">Aim Statement</label>
+                                ${aiAimBtn}
+                            </div>
+                            <textarea class="w-full p-2 bg-transparent border-none text-sm font-medium text-indigo-900 focus:ring-0 font-serif" rows="3" placeholder="To increase..." onchange="window.saveChecklist('aim', this.value)">${escapeHtml(cl.aim || '')}</textarea>
                         </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Target (Relevant)</label>
-                            <input class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. 90%" value="${escapeHtml(cl.aim_target || '')}" onchange="window.saveChecklist('aim_target', this.value); window.renderChecklist()">
-                        </div>
-                        <div class="col-span-2">
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">By When? (Time-bound)</label>
-                            <input type="text" class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. August 2026" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value); window.renderChecklist()">
-                        </div>
-                    </div>
-                    <div class="bg-indigo-50 p-3 rounded border border-indigo-100 relative">
-                        <div class="flex justify-between items-start mb-1">
-                            <label class="block text-xs font-bold text-indigo-400 uppercase">Aim Statement</label>
-                            ${aiAimBtn}
-                        </div>
-                        <p class="text-sm text-indigo-900 font-bold font-serif">${escapeHtml(buildAim()) || '<span class="text-indigo-400 font-normal">Complete the fields above to generate your SMART aim.</span>'}</p>
                     </div>
                 </div>
 
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-                    <div class="flex items-center gap-3 mb-4 border-b pb-2">
+                <div class="card-modern p-6">
+                     <div class="flex items-center gap-3 mb-4 border-b pb-2">
                         <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">3</div>
-                        <h3 class="text-lg font-bold text-slate-800">Sustainability & Learning</h3>
+                        <h3 class="text-lg font-bold text-slate-800">Sustainability</h3>
                     </div>
                     <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Key Learning Points</label>
-                            <textarea class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" rows="3" placeholder="What did you learn from this project?" onchange="window.saveChecklist('learning', this.value)">${escapeHtml(cl.learning || '')}</textarea>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sustainability Plan</label>
-                            <textarea class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" rows="3" placeholder="How will you sustain these improvements?" onchange="window.saveChecklist('sustain', this.value)">${escapeHtml(cl.sustain || '')}</textarea>
-                        </div>
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Key Learning</label><textarea class="w-full p-2 border rounded text-sm" rows="3" onchange="window.saveChecklist('learning', this.value)">${escapeHtml(cl.learning || '')}</textarea></div>
+                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sustain Plan</label><textarea class="w-full p-2 border rounded text-sm" rows="3" onchange="window.saveChecklist('sustain', this.value)">${escapeHtml(cl.sustain || '')}</textarea></div>
                     </div>
                 </div>
             </div>
 
             <div class="space-y-6">
-                <div class="bg-white p-5 rounded-xl border border-slate-200">
-                    <h4 class="font-bold text-slate-800 mb-3">Measures Definitions</h4>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Outcome Measure (The Aim)</label>
-                            <input placeholder="What you're trying to improve" class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" value="${escapeHtml(cl.measure_outcome || '')}" onchange="window.saveChecklist('measure_outcome', this.value)">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Process Measure (Compliance)</label>
-                            <input placeholder="Are you doing what you planned?" class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" value="${escapeHtml(cl.measure_process || '')}" onchange="window.saveChecklist('measure_process', this.value)">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Balancing Measure (Safety)</label>
-                            <input placeholder="Unintended consequences to monitor" class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" value="${escapeHtml(cl.measure_balance || '')}" onchange="window.saveChecklist('measure_balance', this.value)">
-                        </div>
+                 <div class="card-modern p-5">
+                    <div class="flex justify-between items-center mb-3">
+                        <h4 class="font-bold text-slate-800">Evidence Base</h4>
+                        ${aiEvBtn}
                     </div>
+                    <textarea class="w-full p-2 border rounded text-sm focus:border-rcem-purple bg-slate-50" rows="8" placeholder="NICE Guidelines, RCEM Standards..." onchange="window.saveChecklist('lit_review', this.value)">${escapeHtml(cl.lit_review || '')}</textarea>
                 </div>
 
-                <div class="bg-white p-5 rounded-xl border border-slate-200">
-                    <h4 class="font-bold text-slate-800 mb-3">Ethics & Governance</h4>
-                    <div>
-                        <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Ethics Statement</label>
-                        <textarea class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" rows="2" placeholder="e.g. Service Evaluation - No approval required" onchange="window.saveChecklist('ethics', this.value)">${escapeHtml(cl.ethics || '')}</textarea>
+                <div class="card-modern p-5">
+                    <h4 class="font-bold text-slate-800 mb-3">Measures</h4>
+                    <div class="space-y-3">
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Outcome</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_outcome || '')}" onchange="window.saveChecklist('measure_outcome', this.value)"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Process</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_process || '')}" onchange="window.saveChecklist('measure_process', this.value)"></div>
+                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Balance</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_balance || '')}" onchange="window.saveChecklist('measure_balance', this.value)"></div>
                     </div>
                 </div>
-
-                <div class="bg-white p-5 rounded-xl border border-slate-200">
-                    <h4 class="font-bold text-slate-800 mb-3">Context & Literature</h4>
-                    <div class="space-y-3">
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Setting Context</label>
-                            <textarea class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" rows="2" placeholder="Describe your department/setting" onchange="window.saveChecklist('context', this.value)">${escapeHtml(cl.context || '')}</textarea>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-bold text-slate-400 uppercase mb-1">Literature Review</label>
-                            <textarea class="w-full p-2 border rounded text-sm outline-none focus:border-rcem-purple" rows="2" placeholder="Key references and evidence" onchange="window.saveChecklist('lit_review', this.value)">${escapeHtml(cl.lit_review || '')}</textarea>
-                        </div>
-                    </div>
+                
+                <div class="card-modern p-5">
+                    <h4 class="font-bold text-slate-800 mb-3">Ethics</h4>
+                    <textarea class="w-full p-2 border rounded text-sm" rows="2" placeholder="Statement..." onchange="window.saveChecklist('ethics', this.value)">${escapeHtml(cl.ethics || '')}</textarea>
                 </div>
             </div>
         </div>
@@ -360,22 +320,21 @@ function renderDataView() {
     if (!d) return;
     
     const formContainer = document.getElementById('data-form-container');
-    
     if (formContainer) {
         formContainer.innerHTML = `
             <div class="grid grid-cols-2 gap-2">
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple">
+                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:border-rcem-purple">
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="0" step="any">
+                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:border-rcem-purple" placeholder="0" step="any">
                 </div>
             </div>
             <div>
                 <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
-                <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-rcem-purple">
+                <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white focus:border-rcem-purple">
                     <option value="Audit Point">Audit Point</option>
                     <option value="Baseline">Baseline</option>
                     <option value="Intervention">Intervention</option>
@@ -411,18 +370,17 @@ function renderDataView() {
         }
     }
 
-    // Update results textarea
+    // Results Box
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
         resultsText.value = d.checklist.results_text || '';
     }
 
-    // AI Analysis Button
+    // AI Chart Button
     const aiChartBtn = (window.hasAI && window.hasAI()) 
         ? `<button onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-1 rounded shadow hover:shadow-md flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse</button>` 
         : '';
         
-    // Inject button into the Results header if not there
     const resultsContainer = resultsText?.parentElement;
     if (resultsContainer) {
         const header = resultsContainer.querySelector('h3');
@@ -434,11 +392,11 @@ function renderDataView() {
         }
     }
 
-    // Render history
+    // History
     const historyContainer = document.getElementById('data-history');
     if (historyContainer) {
         if (!d.chartData || d.chartData.length === 0) {
-            historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet. Add your first data point above.</div>`;
+            historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet.</div>`;
         } else {
             const sorted = [...d.chartData].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
             historyContainer.innerHTML = `
@@ -450,9 +408,7 @@ function renderDataView() {
                                 <td class="py-2 font-mono">${escapeHtml(item.date)}</td>
                                 <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
                                 <td class="py-2 text-slate-400">${escapeHtml(item.grade || '-')}</td>
-                                <td class="py-2 text-right">
-                                    <button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500 transition-colors"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
-                                </td>
+                                <td class="py-2 text-right"><button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td>
                             </tr>`).join('')}
                     </tbody>
                 </table>
@@ -503,15 +459,15 @@ function renderPublish(mode = 'qiat') {
 
     if (mode === 'abstract') {
         content.innerHTML = `
-            <div class="max-w-4xl mx-auto">
-                <div class="bg-sky-900 text-white p-6 rounded-t-xl flex justify-between items-center">
+            <div class="max-w-4xl mx-auto card-modern overflow-hidden">
+                <div class="bg-sky-900 text-white p-6 flex justify-between items-center">
                     <div>
                         <h2 class="text-xl font-bold">RCEM Abstract Generator</h2>
                         <p class="text-sky-200 text-sm">Structured abstract for conference submission</p>
                     </div>
                     ${copyBtn('abstract-output')}
                 </div>
-                <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl">
+                <div class="p-8">
                     <div id="abstract-output" class="prose max-w-none">
                         <h3 class="text-lg font-bold text-slate-800 mb-2">${escapeHtml(d.meta?.title || 'Untitled Project')}</h3>
                         <div class="space-y-4 text-sm text-slate-700">
@@ -527,12 +483,12 @@ function renderPublish(mode = 'qiat') {
         `;
     } else if (mode === 'report') {
         content.innerHTML = `
-            <div class="max-w-4xl mx-auto">
-                <div class="bg-emerald-900 text-white p-6 rounded-t-xl">
+            <div class="max-w-4xl mx-auto card-modern overflow-hidden">
+                <div class="bg-emerald-900 text-white p-6">
                     <h2 class="text-xl font-bold">FRCEM QIP Report</h2>
                     <p class="text-emerald-200 text-sm">Structured report for FRCEM portfolio</p>
                 </div>
-                <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl space-y-8">
+                <div class="p-8 space-y-8">
                     <div class="report-section">
                         <div class="flex justify-between items-end mb-2"><h3 class="text-lg font-bold text-slate-800">1. Project Overview</h3>${copyBtn('report-overview')}</div>
                         <div id="report-overview" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm">
@@ -555,12 +511,12 @@ function renderPublish(mode = 'qiat') {
         const pdsaStr = d.pdsa ? d.pdsa.map((p,i) => `Cycle ${i+1}: ${p.title} (${p.start})\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n') : '';
 
         content.innerHTML = `
-            <div class="max-w-5xl mx-auto">
-                <div class="bg-indigo-900 text-white p-6 rounded-t-xl">
+            <div class="max-w-5xl mx-auto card-modern overflow-hidden">
+                <div class="bg-indigo-900 text-white p-6">
                     <h2 class="text-xl font-bold">Full QIAT / Risr Form Data</h2>
                     <p class="text-indigo-200 text-sm">Every section required for the official submission.</p>
                 </div>
-                <div class="bg-white border-x border-b border-slate-200 p-8 rounded-b-xl">
+                <div class="p-8">
                     ${QiatBlock('qiat-title', 'Project Title', d.meta?.title)}
                     ${QiatBlock('qiat-team', 'Project Team / Leadership', teamStr)}
                     ${QiatBlock('qiat-context', 'Context / Setting', cl.context)}
@@ -597,7 +553,7 @@ function renderFullProject() {
 
     // Helper for sections
     const Section = (title, content) => `
-        <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+        <div class="card-modern p-8 mb-8">
             <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">${title}</h2>
             ${content}
         </div>`;
@@ -710,7 +666,7 @@ function renderFullProject() {
     // Assemble
     container.innerHTML = `
         <div class="max-w-5xl mx-auto space-y-8 pb-20">
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center">
+            <div class="card-modern p-8 text-center">
                 <h1 class="text-3xl font-bold text-rcem-purple mb-2">${escapeHtml(d.meta?.title || 'Untitled Project')}</h1>
                 <p class="text-slate-500">Project Lead: ${escapeHtml(d.teamMembers && d.teamMembers[0] ? d.teamMembers[0].name : 'Not specified')}</p>
                 <div class="mt-4 flex justify-center gap-2">
@@ -745,45 +701,29 @@ function renderFullProject() {
 function renderGreen() {
     const el = document.getElementById('view-green');
     if (!el) return;
-    
     el.innerHTML = `
         <div class="max-w-4xl mx-auto space-y-8">
-            <div class="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+            <div class="card-modern p-8">
                 <div class="flex items-center gap-3 mb-6 border-b pb-4">
                     <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg"><i data-lucide="leaf" class="w-6 h-6"></i></div>
-                    <div>
-                        <h3 class="font-bold text-xl text-slate-800">Sustainable Value Calculator</h3>
-                        <p class="text-slate-500 text-sm">Triple Bottom Line: Financial, Environmental, Social.</p>
-                    </div>
+                    <div><h3 class="font-bold text-xl text-slate-800">Sustainable Value</h3><p class="text-slate-500 text-sm">Triple Bottom Line Calculator.</p></div>
                 </div>
-                
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div class="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
-                        <h4 class="font-bold text-emerald-800 mb-2 flex items-center gap-2"><i data-lucide="tree-pine" class="w-4 h-4"></i> Environmental</h4>
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-emerald-700">Paper Saved (Sheets)</label>
-                            <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm bg-white" placeholder="e.g. 500">
-                        </div>
+                        <h4 class="font-bold text-emerald-800 mb-2">Environmental</h4>
+                        <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm bg-white" placeholder="Sheets saved">
                         <button onclick="window.calcGreen()" class="mt-4 w-full bg-emerald-600 text-white py-2 rounded font-bold text-xs hover:bg-emerald-700">Calculate CO₂</button>
                         <div id="res-green" class="mt-2 text-center text-xl font-bold text-emerald-900">-</div>
                     </div>
-
                     <div class="p-6 bg-blue-50 rounded-xl border border-blue-100">
-                        <h4 class="font-bold text-blue-800 mb-2 flex items-center gap-2"><i data-lucide="pound-sterling" class="w-4 h-4"></i> Financial</h4>
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-blue-700">Hours Saved (monthly)</label>
-                            <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm bg-white" placeholder="e.g. 10">
-                        </div>
+                        <h4 class="font-bold text-blue-800 mb-2">Financial</h4>
+                        <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm bg-white" placeholder="Hours saved">
                         <button onclick="window.calcTime()" class="mt-4 w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">Calculate Savings</button>
                         <div id="res-time" class="mt-2 text-center text-xl font-bold text-blue-900">-</div>
                     </div>
-                    
                     <div class="p-6 bg-purple-50 rounded-xl border border-purple-100">
-                        <h4 class="font-bold text-purple-800 mb-2 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4"></i> Social</h4>
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase text-purple-700">Staff Trained</label>
-                            <input type="number" id="calc-edu-ppl" class="w-full p-2 border border-purple-200 rounded text-sm bg-white" placeholder="e.g. 25">
-                        </div>
+                        <h4 class="font-bold text-purple-800 mb-2">Social</h4>
+                        <input type="number" id="calc-edu-ppl" class="w-full p-2 border border-purple-200 rounded text-sm bg-white" placeholder="Staff trained">
                         <button onclick="window.calcEdu()" class="mt-4 w-full bg-purple-600 text-white py-2 rounded font-bold text-xs hover:bg-purple-700">Log Impact</button>
                         <div id="res-edu" class="mt-2 text-center text-lg font-bold text-purple-900">-</div>
                     </div>
@@ -813,19 +753,10 @@ function renderPDSA() {
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
             <div class="lg:col-span-4 space-y-6">
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 sticky top-4">
+                <div class="card-modern p-6 sticky top-4">
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="font-bold text-lg text-slate-800">Plan New Cycle</h3>
-                        <button onclick="document.getElementById('pdsa-guide').classList.toggle('hidden')" class="text-xs text-rcem-purple hover:underline font-bold flex items-center gap-1"><i data-lucide="book-open" class="w-3 h-3"></i> Guide</button>
                     </div>
-                    
-                    <div id="pdsa-guide" class="hidden bg-slate-50 p-4 rounded-lg border border-slate-200 mb-4 text-xs space-y-2 text-slate-600">
-                        <p><strong class="text-blue-600">Plan:</strong> Objective, predictions, and plan for data collection. (Who, what, when, where).</p>
-                        <p><strong class="text-amber-600">Do:</strong> Carry out the plan. Document problems and unexpected observations.</p>
-                        <p><strong class="text-purple-600">Study:</strong> Analyse the data. Compare to predictions. Summarise learnings.</p>
-                        <p><strong class="text-emerald-600">Act:</strong> What next? Adopt (standardise), Adapt (tweak and re-test), or Abandon?</p>
-                    </div>
-
                     <div class="space-y-3">
                         <div><label class="text-[10px] font-bold uppercase text-slate-500">Title</label><input id="pdsa-title" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none" placeholder="e.g. Test new checklist"></div>
                         <div class="grid grid-cols-2 gap-2">
@@ -840,21 +771,21 @@ function renderPDSA() {
             </div>
 
             <div class="lg:col-span-8 space-y-6">
-                ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">No PDSA cycles started yet. Use the form on the left to begin.</div>' : ''}
+                ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">No PDSA cycles started yet.</div>' : ''}
                 ${d.pdsa ? d.pdsa.map((p, i) => `
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden transition-all hover:shadow-md group">
+                <div class="card-modern overflow-hidden group">
                     <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-start">
                         <div class="flex gap-4 items-center">
                             <div class="bg-rcem-purple text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm flex-shrink-0">${i + 1}</div>
                             <div><h4 class="font-bold text-slate-800 text-lg leading-tight">${escapeHtml(p.title || 'Untitled')}</h4><div class="text-xs text-slate-500 font-mono mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ${p.start || '...'} → ${p.end || '...'}</div></div>
                         </div>
-                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500 p-2 transition-colors"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
                     <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div><label class="text-xs font-bold uppercase text-slate-600">Plan</label></div><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3">${escapeHtml(p.desc || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-amber-500"></div><label class="text-xs font-bold uppercase text-slate-600">Do</label></div><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="What happened?">${escapeHtml(p.do || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div><label class="text-xs font-bold uppercase text-slate-600">Study</label></div><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="Analyze results">${escapeHtml(p.study || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><label class="text-xs font-bold uppercase text-slate-600">Act</label></div><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white focus:border-rcem-purple outline-none transition-colors resize-y" rows="3" placeholder="Next steps">${escapeHtml(p.act || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div><label class="text-xs font-bold uppercase text-slate-600">Plan</label></div><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.desc || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-amber-500"></div><label class="text-xs font-bold uppercase text-slate-600">Do</label></div><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.do || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div><label class="text-xs font-bold uppercase text-slate-600">Study</label></div><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.study || '')}</textarea></div>
+                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><label class="text-xs font-bold uppercase text-slate-600">Act</label></div><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.act || '')}</textarea></div>
                     </div>
                 </div>`).join('') : ''}
             </div>
@@ -879,7 +810,7 @@ function renderStakeholders() {
     if (!stakeControls) {
         const header = document.createElement('div');
         header.id = 'stake-controls';
-        header.className = 'flex justify-between items-center p-4 bg-white border-b border-slate-200';
+        header.className = 'flex justify-between items-center p-4 bg-white border-b border-slate-200 rounded-t-xl';
         header.innerHTML = `
             <h3 class="font-bold text-slate-800">Stakeholder Matrix</h3>
             <div class="flex gap-2">
@@ -893,20 +824,18 @@ function renderStakeholders() {
     if (isList) {
         canvas.innerHTML = `
             <div class="p-8 max-w-4xl mx-auto">
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="card-modern overflow-hidden">
                     <table class="w-full text-left">
                         <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power (Y)</th><th class="p-4">Interest (X)</th><th class="p-4 text-right">Actions</th></tr></thead>
                         <tbody class="divide-y divide-slate-100">
-                            ${state.projectData.stakeholders && state.projectData.stakeholders.length > 0 ? 
-                                state.projectData.stakeholders.map((s, i) => `
-                                    <tr class="hover:bg-slate-50">
-                                        <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name || '')}" onchange="window.updateStake(${i},'name',this.value)"></td>
-                                        <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y || 50}" onchange="window.updateStake(${i},'y',parseInt(this.value))"></td>
-                                        <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x || 50}" onchange="window.updateStake(${i},'x',parseInt(this.value))"></td>
-                                        <td class="p-2 text-right"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-                                    </tr>
-                                `).join('') 
-                            : `<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">No stakeholders added yet.</td></tr>`}
+                            ${state.projectData.stakeholders?.map((s, i) => `
+                                <tr class="hover:bg-slate-50">
+                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name || '')}" onchange="window.updateStake(${i},'name',this.value)"></td>
+                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y || 50}" onchange="window.updateStake(${i},'y',parseInt(this.value))"></td>
+                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x || 50}" onchange="window.updateStake(${i},'x',parseInt(this.value))"></td>
+                                    <td class="p-2 text-right"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
+                                </tr>
+                            `).join('') || `<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">No stakeholders added yet.</td></tr>`}
                         </tbody>
                     </table>
                 </div>
@@ -914,48 +843,34 @@ function renderStakeholders() {
         `;
     } else {
         canvas.innerHTML = `
-            <div class="absolute inset-0 bg-white" style="min-height: 500px;">
+            <div class="absolute inset-0 bg-white" style="min-height: 500px; border-radius: 0.75rem;">
                 <div class="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300"></div>
                 <div class="absolute top-1/2 left-0 right-0 h-px bg-slate-300"></div>
                 <div class="absolute top-4 left-4 text-xs font-bold text-slate-400 uppercase">Keep Satisfied</div>
                 <div class="absolute top-4 right-4 text-xs font-bold text-slate-400 uppercase">Manage Closely</div>
                 <div class="absolute bottom-4 left-4 text-xs font-bold text-slate-400 uppercase">Monitor</div>
                 <div class="absolute bottom-4 right-4 text-xs font-bold text-slate-400 uppercase">Keep Informed</div>
-                <div class="absolute top-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-500 uppercase bg-white px-2">High Power</div>
-                <div class="absolute bottom-2 left-1/2 -translate-x-1/2 text-xs font-bold text-slate-500 uppercase bg-white px-2">Low Power</div>
             </div>
         `;
         
-        if (state.projectData.stakeholders) {
-            state.projectData.stakeholders.forEach((s, i) => {
-                const bubble = document.createElement('div');
-                bubble.className = 'absolute bg-white border-2 border-rcem-purple text-rcem-purple px-3 py-1 rounded-full shadow-lg cursor-grab z-10 text-sm font-bold flex items-center gap-2 group max-w-[150px]';
-                
-                const xPos = Math.max(5, Math.min(90, s.x || 50));
-                const yPos = Math.max(5, Math.min(90, 100 - (s.y || 50)));
-                
-                bubble.style.left = `${xPos}%`; 
-                bubble.style.top = `${yPos}%`;
-                bubble.style.transform = 'translate(-50%, -50%)';
-                
-                bubble.innerHTML = `
-                    <span class="truncate pointer-events-none">${escapeHtml(s.name || 'Unnamed')}</span>
-                    <button onclick="event.stopPropagation(); window.removeStake(${i})" class="hidden group-hover:block text-red-500 hover:bg-red-50 rounded-full p-0.5"><i data-lucide="x" class="w-3 h-3"></i></button>
-                `;
-                
-                if (!state.isReadOnly) {
-                    makeDraggable(bubble, canvas, false, null, null, (newX, newY) => {
-                        state.projectData.stakeholders[i].x = Math.round(Math.max(0, Math.min(100, newX)));
-                        state.projectData.stakeholders[i].y = Math.round(Math.max(0, Math.min(100, 100 - newY)));
-                        window.saveData();
-                    });
-                }
-                
-                canvas.appendChild(bubble);
-            });
-        }
+        state.projectData.stakeholders?.forEach((s, i) => {
+            const bubble = document.createElement('div');
+            bubble.className = 'absolute bg-white border-2 border-rcem-purple text-rcem-purple px-3 py-1 rounded-full shadow-lg cursor-grab z-10 text-sm font-bold flex items-center gap-2 group max-w-[150px]';
+            const xPos = Math.max(5, Math.min(90, s.x || 50));
+            const yPos = Math.max(5, Math.min(90, 100 - (s.y || 50)));
+            bubble.style.left = `${xPos}%`; bubble.style.top = `${yPos}%`;
+            bubble.style.transform = 'translate(-50%, -50%)';
+            bubble.innerHTML = `<span class="truncate pointer-events-none">${escapeHtml(s.name || 'Unnamed')}</span><button onclick="event.stopPropagation(); window.removeStake(${i})" class="hidden group-hover:block text-red-500 hover:bg-red-50 rounded-full p-0.5"><i data-lucide="x" class="w-3 h-3"></i></button>`;
+            if (!state.isReadOnly) {
+                makeDraggable(bubble, canvas, false, null, null, (newX, newY) => {
+                    state.projectData.stakeholders[i].x = Math.round(Math.max(0, Math.min(100, newX)));
+                    state.projectData.stakeholders[i].y = Math.round(Math.max(0, Math.min(100, 100 - newY)));
+                    window.saveData();
+                });
+            }
+            canvas.appendChild(bubble);
+        });
     }
-    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -1083,7 +998,6 @@ function renderGantt(targetId = 'gantt-container') {
 function renderTeam() {
     const d = state.projectData;
     if (!d) return;
-    
     const list = document.getElementById('team-list');
     if (!list) return;
     
@@ -1096,50 +1010,24 @@ function renderTeam() {
             </div>
         </div>
 
-        <div id="stakeholder-guide" class="hidden mb-8 bg-white border border-indigo-200 rounded-xl p-6 shadow-sm">
+        <div id="stakeholder-guide" class="hidden mb-8 card-modern p-6">
             <h3 class="font-bold text-indigo-900 mb-4 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Team Composition Guide</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-600">
-                <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Nursing Leadership</strong>
-                    Engage Unit Managers (Band 7s) who manage flow. They are critical for implementation.
-                </div>
-                <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Infection Control (IPC)</strong>
-                    Include the department IPC lead. Ensure all changes are IPC compliant early.
-                </div>
-                <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Procurement & Stores</strong>
-                    Unit Ops Managers for costs. Housekeeping/Stores leads for restocking plans.
-                </div>
-                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Safety & Governance</strong>
-                    Consult the Patient Safety Team regarding LOCSIPPs documentation.
-                </div>
-                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Clinical Leads</strong>
-                    e.g. Resus Lead if changing equipment in Resus. Specialty leads if relevant.
-                </div>
-                 <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Juniors/Residents</strong>
-                    Often seeking projects. Great for data collection and testing.
-                </div>
-                <div class="bg-slate-50 p-3 rounded border border-slate-100">
-                    <strong class="text-slate-800 block mb-1">Sustainability</strong>
-                    Link with Green ED team if using pre-packs or changing consumables.
-                </div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-100"><strong class="text-slate-800 block mb-1">Nursing Leadership</strong>Engage Unit Managers (Band 7s).</div>
+                <div class="bg-slate-50 p-3 rounded border border-slate-100"><strong class="text-slate-800 block mb-1">Infection Control</strong>Include IPC lead if relevant.</div>
             </div>
         </div>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             ${!d.teamMembers || d.teamMembers.length === 0 ? `<div class="col-span-full text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : d.teamMembers.map((m, i) => `
-                <div class="p-4 bg-white border border-slate-200 rounded-xl shadow-sm relative group hover:shadow-md">
+                <div class="p-4 card-modern relative group hover:shadow-md">
                     <button onclick="window.deleteMember(${i})" class="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-bold shadow-md flex-shrink-0">${escapeHtml(m.initials || 'NA')}</div>
                         <div class="flex-1 min-w-0">
                             <div class="font-bold text-slate-800 truncate">${escapeHtml(m.name || 'Unnamed')}</div>
                             <div class="text-xs font-bold text-rcem-purple uppercase tracking-wide mb-1">${escapeHtml(m.role || 'No role')}</div>
-                            ${m.grade ? `<div class="text-xs text-slate-500"><span class="font-semibold">Grade:</span> ${escapeHtml(m.grade)}</div>` : ''}
+                            ${m.grade ? `<div class="text-xs text-slate-500">${escapeHtml(m.grade)}</div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -1147,18 +1035,18 @@ function renderTeam() {
         </div>
     `;
     
+    // Logs
     const logList = document.getElementById('leadership-log-list');
     if (logList) {
-        const logs = d.leadershipLogs || [];
         logList.innerHTML = `
-            <div class="mt-8 bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+            <div class="mt-8 card-modern p-6">
                 <div class="flex justify-between items-center mb-4 border-b pb-2">
                     <h3 class="text-lg font-bold text-slate-800">Leadership Log</h3>
                     <button onclick="window.addLeadershipLog()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded border border-slate-300">+ Add Log Entry</button>
                 </div>
-                ${logs.length === 0 ? `<div class="text-slate-400 text-sm italic py-4">Record meetings and leadership activities here.</div>` : `
+                ${!d.leadershipLogs?.length ? `<div class="text-slate-400 text-sm italic py-4">Record meetings and leadership activities here.</div>` : `
                     <div class="space-y-3">
-                        ${logs.map((log, i) => `
+                        ${d.leadershipLogs.map((log, i) => `
                             <div class="bg-slate-50 p-3 rounded border border-slate-200 text-sm relative group">
                                 <button onclick="window.deleteLeadershipLog(${i})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="x" class="w-3 h-3"></i></button>
                                 <div class="font-bold text-slate-700 text-xs mb-1">${escapeHtml(log.date || 'No date')}</div>
@@ -1170,7 +1058,6 @@ function renderTeam() {
             </div>
         `;
     }
-    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
@@ -1360,4 +1247,26 @@ function startTour() {
                 { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
                 { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
                 { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description
+                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan-Do-Study-Act cycles to test changes.' }},
+                { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and export your project.' }}
+            ]
+        });
+        driverObj.drive();
+    } catch (e) {
+        console.error(e);
+        showToast("Tour error", "error");
+    }
+}
+
+// Re-export all necessary functions
+export { 
+    renderAll, renderDashboard, renderChecklist, renderDataView, 
+    renderFullProject, renderGantt, renderGreen, renderPDSA, 
+    renderPublish, renderStakeholders, renderTeam, toggleToolList, 
+    openMemberModal, openGanttModal, openPortfolioExport, 
+    copyReport, updateFishCat, updateFishCause, addFishCause, 
+    removeFishCause, addLeadershipLog, deleteLeadershipLog, 
+    addStakeholder, updateStake, removeStake, toggleStakeView, 
+    addPDSA, updatePDSA, deletePDSA, saveSmartAim, showHelp, startTour,
+    calcGreen, calcMoney, calcTime, calcEdu
+};
