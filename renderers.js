@@ -1338,28 +1338,28 @@ function showHelp() {
 }
 
 function startTour() {
-    if (typeof driver === 'undefined' || !driver.js) {
+    // Fix: Ensure we are accessing the driver object from the window global scope correctly based on the IIFE import
+    if (typeof window.driver !== 'undefined' && window.driver.js && window.driver.js.driver) {
+        try {
+            const driverObj = window.driver.js.driver({
+                showProgress: true,
+                animate: true,
+                steps: [
+                    { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Overview of your project progress and key metrics.' }},
+                    { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
+                    { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
+                    { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
+                    { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan-Do-Study-Act cycles to test changes.' }},
+                    { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and export your project.' }}
+                ]
+            });
+            driverObj.drive();
+        } catch (e) {
+            console.error(e);
+            showToast("Tour error", "error");
+        }
+    } else {
         showToast("Tour feature loading...", "info");
-        return;
-    }
-    
-    try {
-        const driverObj = driver.js.driver({
-            showProgress: true,
-            animate: true,
-            steps: [
-                { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Overview of your project progress and key metrics.' }},
-                { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
-                { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
-                { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan-Do-Study-Act cycles to test changes.' }},
-                { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and export your project.' }}
-            ]
-        });
-        driverObj.drive();
-    } catch (e) {
-        console.error(e);
-        showToast("Tour error", "error");
     }
 }
 
