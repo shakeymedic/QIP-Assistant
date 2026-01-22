@@ -791,7 +791,7 @@ export function resetProcess() {
 }
 
 // Drag Helper for Fishbone
-export function makeDraggable(el, container, isCat, catIdx, causeIdx) {
+export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd) {
     if(state.isReadOnly) return;
     const handleMove = (cx, cy, sl, st, sx, sy) => {
         const pw = container.offsetWidth || 1000;
@@ -801,12 +801,23 @@ export function makeDraggable(el, container, isCat, catIdx, causeIdx) {
         const nl = Math.max(0, Math.min(100, sl + (dx / pw * 100)));
         const nt = Math.max(0, Math.min(100, st + (dy / ph * 100)));
         el.style.left = `${nl}%`; el.style.top = `${nt}%`;
+        return { x: nl, y: nt };
     };
     const handleEnd = () => {
         const nx = parseFloat(el.style.left);
         const ny = parseFloat(el.style.top);
-        if (isCat) { state.projectData.fishbone.categories[catIdx].x = nx; state.projectData.fishbone.categories[catIdx].y = ny; }
-        else { state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = nx; state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = ny; }
+        
+        if (onDragEnd) {
+            onDragEnd(nx, ny);
+        } else {
+            if (isCat) { 
+                state.projectData.fishbone.categories[catIdx].x = nx; 
+                state.projectData.fishbone.categories[catIdx].y = ny; 
+            } else { 
+                state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = nx; 
+                state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = ny; 
+            }
+        }
         window.saveData(true);
     };
     el.onmousedown = (e) => {
