@@ -5,8 +5,8 @@ import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 // 1. CONFIGURATION & STATE
 // ==========================================
 
-export let toolMode = 'driver'; // 'driver', 'fishbone', 'process'
-export let chartMode = 'run';   // 'run', 'spc', 'histogram', 'pareto'
+export let toolMode = 'driver'; // Options: 'driver', 'fishbone', 'process'
+export let chartMode = 'run';   // Options: 'run', 'spc', 'histogram', 'pareto'
 let zoomLevel = 1.0;
 let myChart = null; // Holds the Chart.js instance
 
@@ -44,7 +44,7 @@ const CHART_EDUCATION = {
         title: "Statistical Process Control (SPC) Chart",
         desc: "An SPC chart adds Upper and Lower Control Limits (UCL/LCL) to identify special cause variation. Points outside limits or non-random patterns indicate special causes.",
         rules: [
-            "Point outside control limits",
+            "Point outside control limits (3σ)",
             "8 consecutive points on one side of the mean",
             "6 consecutive increasing/decreasing points",
             "2 of 3 consecutive points near a control limit"
@@ -126,10 +126,6 @@ function renderToolUI() {
     const header = document.querySelector('#view-tools header');
     if(!header) return;
 
-    // We reuse the existing header or inject controls if missing
-    // Ideally this is handled in renderers.js, but we ensure logic here
-    const isActive = (m) => toolMode === m ? 'bg-rcem-purple text-white shadow' : 'text-slate-500 hover:bg-slate-50';
-    
     // Inject Help Panel if missing
     let helpPanel = document.getElementById('tool-help-panel');
     const toolsView = document.getElementById('view-tools');
@@ -164,7 +160,6 @@ function renderToolUI() {
 // ==========================================
 
 // --- FISHBONE DIAGRAM ---
-// Uses SVG for the bone structure and absolute positioning for labels
 function renderFishboneVisual(container, enableInteraction = false) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); 
@@ -227,7 +222,6 @@ function renderFishboneVisual(container, enableInteraction = false) {
 }
 
 // --- DRIVER DIAGRAM (HTML COLUMNS) ---
-// Replaces Mermaid.js with editable HTML cards for better text handling
 function renderDriverVisual(container, enableInteraction = false) {
     const d = state.projectData.drivers;
     
@@ -289,7 +283,6 @@ function renderDriverVisual(container, enableInteraction = false) {
                     // AI Button for Secondary Drivers
                     let aiBtn = '';
                     if (col.type === 'secondary' && window.hasAI && window.hasAI()) {
-                         // Calls wrapper function in window (see bottom of file)
                         aiBtn = `
                             <button onclick="window.runChangeGen('${escapeHtml(item.replace(/'/g, "\\'"))}')" 
                                     title="Generate Change Ideas" 
@@ -337,19 +330,15 @@ function renderDriverVisual(container, enableInteraction = false) {
     });
 }
 
-// --- PROCESS MAP (MERMAID) ---
+// --- PROCESS MAP ---
 function renderProcessVisual(container, enableInteraction = false) {
     const p = state.projectData.process || ["Start", "End"];
     const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 30) : '...';
     
-    // We create a vertical column of cards for better editing, OR use Mermaid.
-    // Given requirements, let's use the same "Card" approach as Driver Diagram for consistency and editing.
-    // It's much easier to edit than Mermaid prompts.
-    
     container.className = "flex flex-col items-center py-8 min-h-[500px] gap-0";
     
     p.forEach((step, i) => {
-        // Draw Connector Arrow (except for the first element)
+        // Draw Connector Arrow
         if (i > 0) {
             const arrow = document.createElement('div');
             arrow.className = "h-8 w-px bg-slate-300 relative";
@@ -438,7 +427,6 @@ export function renderChart(canvasId = 'mainChart') {
     
     const d = state.projectData.chartData;
     if (d.length === 0 && canvasId === 'mainChart') {
-        // Show empty state message handled in renderer view, but safe to clear here
         const context = ctx.getContext('2d');
         context.clearRect(0,0,ctx.width, ctx.height);
         return;
@@ -763,10 +751,6 @@ window.removeStep = (index) => {
 };
 
 window.runChangeGen = async (driverName) => {
-    // Dynamic import to avoid circular dependencies if needed, or assume global ai.js availability
-    // Here we rely on the function being available on window via ai.js loading, or we import if modules allow
-    // Ideally: import { generateChangeIdeas } from "./ai.js";
-    // For now, assuming ai.js is loaded:
     if(window.generateChangeIdeas) {
          showToast("Generating ideas...", "info");
          const ideas = await window.generateChangeIdeas(driverName);
