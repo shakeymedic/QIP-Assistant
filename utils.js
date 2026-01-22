@@ -22,6 +22,16 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Auto-resize textarea based on content
+ * @param {HTMLTextAreaElement} element 
+ */
+export function autoResizeTextarea(element) {
+    if (!element) return;
+    element.style.height = 'auto';
+    element.style.height = element.scrollHeight + 'px';
+}
+
+/**
  * Show toast notification
  * @param {string} msg - Message to display
  * @param {string} type - Type: 'success', 'error', 'info', 'warning'
