@@ -7,7 +7,7 @@ import { suggestEvidence } from "./ai.js";
 // 1. MAIN ROUTER & NAVIGATION
 // ==========================================
 
-function renderAll(view) {
+export function renderAll(view) {
     updateNavigationUI(view);
     
     // Router
@@ -94,7 +94,7 @@ function updateNavigationUI(currentView) {
 // 2. DASHBOARD (HOME)
 // ==========================================
 
-function renderDashboard() {
+export function renderDashboard() {
     const d = state.projectData;
     if (!d) return;
     
@@ -217,7 +217,7 @@ window.runEvidenceAI = async () => {
     if(typeof lucide !== 'undefined') lucide.createIcons();
 };
 
-function renderChecklist() {
+export function renderChecklist() {
     const d = state.projectData;
     if (!d) return;
     const cl = d.checklist || {};
@@ -320,7 +320,7 @@ function renderChecklist() {
 // 4. DATA VIEW
 // ==========================================
 
-function renderDataView() {
+export function renderDataView() {
     const d = state.projectData;
     if (!d) return;
     
@@ -429,7 +429,7 @@ function renderDataView() {
 // 5. PUBLISH VIEW (QIAT UPDATE)
 // ==========================================
 
-function renderPublish(mode = 'qiat') {
+export function renderPublish(mode = 'qiat') {
     const d = state.projectData;
     if (!d) return;
     
@@ -546,7 +546,7 @@ function renderPublish(mode = 'qiat') {
 // 6. FULL PROJECT VIEW
 // ==========================================
 
-function renderFullProject() {
+export function renderFullProject() {
     const d = state.projectData;
     if (!d) return;
     
@@ -703,7 +703,7 @@ function renderFullProject() {
 // 7. GREEN VIEW
 // ==========================================
 
-function renderGreen() {
+export function renderGreen() {
     const el = document.getElementById('view-green');
     if (!el) return;
     el.innerHTML = `
@@ -743,7 +743,7 @@ function renderGreen() {
 // 8. PDSA VIEW (IMPROVED - STACKED & BIGGER)
 // ==========================================
 
-function renderPDSA() {
+export function renderPDSA() {
     const d = state.projectData;
     if (!d) return;
     
@@ -836,7 +836,7 @@ function renderPDSA() {
 // 9. STAKEHOLDERS VIEW
 // ==========================================
 
-function renderStakeholders() {
+export function renderStakeholders() {
     const el = document.getElementById('view-stakeholders');
     if (!el) return;
     
@@ -918,7 +918,7 @@ function renderStakeholders() {
 
 let ganttMode = 'compact'; // default to compact for better viewing
 
-function renderGantt(targetId = 'gantt-container') {
+export function renderGantt(targetId = 'gantt-container') {
     const d = state.projectData;
     if (!d) return;
     const container = document.getElementById(targetId);
@@ -1060,7 +1060,7 @@ function renderGantt(targetId = 'gantt-container') {
 // 11. TEAM VIEW (EXPANDED GUIDANCE)
 // ==========================================
 
-function renderTeam() {
+export function renderTeam() {
     const d = state.projectData;
     if (!d) return;
     const list = document.getElementById('team-list');
@@ -1170,37 +1170,11 @@ function renderTeam() {
 // 12. HELPER FUNCTIONS
 // ==========================================
 
-function calcGreen() { 
-    const paper = parseFloat(document.getElementById('calc-paper').value) || 0;
-    const co2 = (paper * 0.005).toFixed(2);
-    document.getElementById('res-green').innerText = `${co2} kg CO₂ saved`;
-    showToast("Environmental impact calculated", "success");
-}
-
-function calcMoney() {
-    // Placeholder for additional financial calculation
-}
-
-function calcTime() { 
-    const hours = parseFloat(document.getElementById('calc-hours').value) || 0;
-    const savings = (hours * 30).toFixed(2);
-    document.getElementById('res-time').innerText = `£${savings} / month`;
-    showToast("Financial impact calculated", "success");
-}
-
-function calcEdu() { 
-    const ppl = document.getElementById('calc-edu-ppl').value;
-    if(ppl) { 
-        document.getElementById('res-edu').innerText = `${ppl} staff upskilled!`;
-        showToast("Social impact logged", "success");
-    }
-}
-
-function openMemberModal() { 
+export function openMemberModal() { 
     document.getElementById('member-modal').classList.remove('hidden'); 
 }
 
-function openGanttModal() { 
+export function openGanttModal() { 
     // Populate dependency dropdown
     const depSelect = document.getElementById('task-dep');
     if (depSelect && state.projectData.gantt) {
@@ -1212,33 +1186,33 @@ function openGanttModal() {
     document.getElementById('task-modal').classList.remove('hidden'); 
 }
 
-function toggleToolList() { 
+export function toggleToolList() { 
     renderTools(); 
 }
 
-function updateFishCat(i, v) { 
+export function updateFishCat(i, v) { 
     state.projectData.fishbone.categories[i].text = v; 
     window.saveData(); 
 }
 
-function updateFishCause(i, j, v) { 
+export function updateFishCause(i, j, v) { 
     state.projectData.fishbone.categories[i].causes[j].text = v; 
     window.saveData(); 
 }
 
-function addFishCause(i) { 
+export function addFishCause(i) { 
     state.projectData.fishbone.categories[i].causes.push({text: "New Cause", x: 50, y: 50}); 
     window.saveData(); 
     renderTools(); 
 }
 
-function removeFishCause(i, j) { 
+export function removeFishCause(i, j) { 
     state.projectData.fishbone.categories[i].causes.splice(j, 1); 
     window.saveData(); 
     renderTools(); 
 }
 
-function addLeadershipLog() { 
+export function addLeadershipLog() { 
     const n = prompt("Log Entry:"); 
     if(n) { 
         if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = []; 
@@ -1249,7 +1223,7 @@ function addLeadershipLog() {
     } 
 }
 
-function deleteLeadershipLog(i) { 
+export function deleteLeadershipLog(i) { 
     if(confirm("Delete this log entry?")) { 
         state.projectData.leadershipLogs.splice(i, 1); 
         window.saveData(); 
@@ -1257,7 +1231,7 @@ function deleteLeadershipLog(i) {
     } 
 }
 
-function addStakeholder() { 
+export function addStakeholder() { 
     const n = prompt("Stakeholder Name:"); 
     if(n) { 
         if(!state.projectData.stakeholders) state.projectData.stakeholders = [];
@@ -1268,12 +1242,12 @@ function addStakeholder() {
     } 
 }
 
-function updateStake(i, k, v) { 
+export function updateStake(i, k, v) { 
     state.projectData.stakeholders[i][k] = v; 
     window.saveData(); 
 }
 
-function removeStake(i) { 
+export function removeStake(i) { 
     if(confirm("Remove this stakeholder?")) { 
         state.projectData.stakeholders.splice(i, 1); 
         window.saveData(); 
@@ -1281,7 +1255,7 @@ function removeStake(i) {
     } 
 }
 
-function toggleStakeView() { 
+export function toggleStakeView() { 
     const e = document.getElementById('view-stakeholders'); 
     e.setAttribute('data-view', e.getAttribute('data-view') === 'list' ? 'visual' : 'list'); 
     // Remove and recreate controls to update button text
@@ -1290,7 +1264,7 @@ function toggleStakeView() {
     renderStakeholders(); 
 }
 
-function addPDSA() { 
+export function addPDSA() { 
     const t = document.getElementById('pdsa-title').value; 
     const s = document.getElementById('pdsa-start').value; 
     const e = document.getElementById('pdsa-end').value; 
@@ -1307,12 +1281,12 @@ function addPDSA() {
     } 
 }
 
-function updatePDSA(i, f, v) { 
+export function updatePDSA(i, f, v) { 
     state.projectData.pdsa[i][f] = v; 
     window.saveData(); 
 }
 
-function deletePDSA(i) { 
+export function deletePDSA(i) { 
     if(confirm("Delete this PDSA cycle?")) { 
         state.projectData.pdsa.splice(i, 1); 
         window.saveData(); 
@@ -1320,25 +1294,24 @@ function deletePDSA(i) {
     } 
 }
 
-function saveSmartAim() { 
+export function saveSmartAim() { 
     showToast("Aim saved", "info"); 
 }
 
-function openPortfolioExport() { 
+export function openPortfolioExport() { 
     showToast("Portfolio export coming soon", "info"); 
 }
 
-function copyReport() { 
+export function copyReport() { 
     navigator.clipboard.writeText("Report copied"); 
     showToast("Copied to clipboard", "success"); 
 }
 
-function showHelp() { 
+export function showHelp() { 
     alert("Use the tabs to navigate your QIP journey. Start with Define & Measure, then build your Driver Diagram, add data, and document PDSA cycles."); 
 }
 
-function startTour() {
-    // Fix: Ensure we are accessing the driver object from the window global scope correctly based on the IIFE import
+export function startTour() {
     if (typeof window.driver !== 'undefined' && window.driver.js && window.driver.js.driver) {
         try {
             const driverObj = window.driver.js.driver({
@@ -1363,15 +1336,26 @@ function startTour() {
     }
 }
 
-// Re-export all necessary functions
-export { 
-    renderAll, renderDashboard, renderChecklist, renderDataView, 
-    renderFullProject, renderGantt, renderGreen, renderPDSA, 
-    renderPublish, renderStakeholders, renderTeam, toggleToolList, 
-    openMemberModal, openGanttModal, openPortfolioExport, 
-    copyReport, updateFishCat, updateFishCause, addFishCause, 
-    removeFishCause, addLeadershipLog, deleteLeadershipLog, 
-    addStakeholder, updateStake, removeStake, toggleStakeView, 
-    addPDSA, updatePDSA, deletePDSA, saveSmartAim, showHelp, startTour,
-    calcGreen, calcMoney, calcTime, calcEdu
-};
+export function calcGreen() { 
+    const paper = parseFloat(document.getElementById('calc-paper').value) || 0;
+    const co2 = (paper * 0.005).toFixed(2);
+    document.getElementById('res-green').innerText = `${co2} kg CO₂ saved`;
+    showToast("Environmental impact calculated", "success");
+}
+
+export function calcMoney() {}
+
+export function calcTime() { 
+    const hours = parseFloat(document.getElementById('calc-hours').value) || 0;
+    const savings = (hours * 30).toFixed(2);
+    document.getElementById('res-time').innerText = `£${savings} / month`;
+    showToast("Financial impact calculated", "success");
+}
+
+export function calcEdu() { 
+    const ppl = document.getElementById('calc-edu-ppl').value;
+    if(ppl) { 
+        document.getElementById('res-edu').innerText = `${ppl} staff upskilled!`;
+        showToast("Social impact logged", "success");
+    }
+}
