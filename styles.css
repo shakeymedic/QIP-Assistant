@@ -111,16 +111,6 @@ body {
 }
 #toast-container > * { pointer-events: auto; }
 
-/* Print Styles */
-@media print {
-    .no-print { display: none !important; }
-    body { background: white !important; }
-    #app-sidebar { display: none !important; }
-    #content-area { padding: 0 !important; margin: 0 !important; }
-    .card-modern { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; }
-    .view-section { page-break-inside: avoid; }
-}
-
 /* Read Only Mode */
 .readonly-mode input, .readonly-mode textarea, .readonly-mode select { pointer-events: none; opacity: 0.7; background-color: #f8fafc; }
 .readonly-mode button:not(.nav-btn):not([onclick*="router"]) { pointer-events: none; opacity: 0.5; }
@@ -164,4 +154,26 @@ input:focus, textarea:focus, select:focus {
 @media (max-width: 640px) {
     #toast-container { left: 16px; right: 16px; }
     #toast-container > * { max-width: 100%; }
+}
+
+/* Print Styles - ENHANCED */
+@media print {
+    .no-print { display: none !important; }
+    body { background: white !important; }
+    #app-sidebar { display: none !important; }
+    #content-area { padding: 0 !important; margin: 0 !important; }
+    .card-modern { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; }
+    .view-section { page-break-inside: avoid; }
+    
+    /* Fix for background colors in print */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+    
+    /* Ensure charts resize for A4 */
+    canvas {
+        max-width: 100% !important;
+        max-height: 400px !important;
+    }
 }
