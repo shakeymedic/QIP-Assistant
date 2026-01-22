@@ -1,9 +1,14 @@
-import { state } from './state.js';
-import { showToast, escapeHtml } from './utils.js';
+import { state } from "./state.js";
+import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 
-export let toolMode = 'fishbone';
-export let chartMode = 'run'; 
+// ==========================================
+// 1. CONFIGURATION & STATE
+// ==========================================
+
+export let toolMode = 'driver'; // 'driver', 'fishbone', 'process'
+export let chartMode = 'run';   // 'run', 'spc', 'histogram', 'pareto'
 let zoomLevel = 1.0;
+let myChart = null; // Holds the Chart.js instance
 
 // HELP CONTENT
 const TOOL_HELP = {
@@ -15,7 +20,7 @@ const TOOL_HELP = {
     driver: {
         title: "Driver Diagram",
         desc: "Map your Aim to Drivers and Change Ideas in a hierarchical structure.",
-        tips: "Click on any box to edit text. Primary Drivers are high-level factors. Secondary Drivers are specific. Change Ideas are interventions."
+        tips: "Primary Drivers are high-level factors. Secondary Drivers are specific interventions. Change Ideas are the actual tests you will run."
     },
     process: {
         title: "Process Map",
@@ -24,7 +29,6 @@ const TOOL_HELP = {
     }
 };
 
-// CHART EDUCATION CONTENT
 const CHART_EDUCATION = {
     run: {
         title: "Run Chart",
@@ -68,13 +72,23 @@ const CHART_EDUCATION = {
 };
 
 // ==========================================
-// 1. TOOL & TAB MANAGEMENT
+// 2. TOOL & TAB MANAGEMENT
 // ==========================================
 
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
     applyZoom();
+    // Update active tab styling
+    document.querySelectorAll('.tool-tab-btn').forEach(btn => {
+        if(btn.dataset.mode === m) {
+            btn.classList.add('bg-rcem-purple', 'text-white', 'shadow');
+            btn.classList.remove('text-slate-500', 'hover:bg-slate-50');
+        } else {
+            btn.classList.remove('bg-rcem-purple', 'text-white', 'shadow');
+            btn.classList.add('text-slate-500', 'hover:bg-slate-50');
+        }
+    });
     renderTools();
 }
 
@@ -88,7 +102,7 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     const canvas = document.getElementById(targetId);
     if (!canvas) return;
 
-    // 1. Render Tabs (Only if we are in the main view)
+    // Render Tabs only if we are in the main diagram view
     if (targetId === 'diagram-canvas') {
         renderToolUI();
     }
@@ -96,6 +110,7 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     const mode = overrideMode || toolMode;
     canvas.innerHTML = ''; 
     
+    // Dispatch to specific renderer
     if (mode === 'fishbone') {
         renderFishboneVisual(canvas, targetId === 'diagram-canvas');
     } 
@@ -111,19 +126,10 @@ function renderToolUI() {
     const header = document.querySelector('#view-tools header');
     if(!header) return;
 
+    // We reuse the existing header or inject controls if missing
+    // Ideally this is handled in renderers.js, but we ensure logic here
     const isActive = (m) => toolMode === m ? 'bg-rcem-purple text-white shadow' : 'text-slate-500 hover:bg-slate-50';
     
-    header.innerHTML = `
-        <div class="flex items-center gap-1 overflow-x-auto no-scrollbar">
-            <button onclick="window.setToolMode('fishbone')" class="px-4 py-2 rounded-lg text-sm font-bold transition-all ${isActive('fishbone')}">Fishbone</button>
-            <button onclick="window.setToolMode('driver')" class="px-4 py-2 rounded-lg text-sm font-bold transition-all ${isActive('driver')}">Driver Diagram</button>
-            <button onclick="window.setToolMode('process')" class="px-4 py-2 rounded-lg text-sm font-bold transition-all ${isActive('process')}">Process Map</button>
-        </div>
-        <div class="ml-auto flex items-center gap-2">
-            <button onclick="window.toggleToolHelp()" class="text-xs font-bold text-slate-500 flex items-center gap-1 px-2 py-1 hover:bg-slate-100 rounded border border-transparent hover:border-slate-200"><i data-lucide="help-circle" class="w-4 h-4"></i> Guide</button>
-        </div>
-    `;
-
     // Inject Help Panel if missing
     let helpPanel = document.getElementById('tool-help-panel');
     const toolsView = document.getElementById('view-tools');
@@ -154,90 +160,11 @@ function renderToolUI() {
 }
 
 // ==========================================
-// 2. INTERACTIVE DIAGRAMS
+// 3. INTERACTIVE DIAGRAM RENDERERS
 // ==========================================
 
-// Generic Drag Handler
-export function makeDraggable(el, container, isCat, catIdx, causeIdx, onEndCallback) {
-    if(state.isReadOnly) return;
-
-    const handleMove = (clientX, clientY, startLeft, startTop, startX, startY) => {
-        const parentW = container.offsetWidth || 1000;
-        const parentH = container.offsetHeight || 600;
-        
-        const deltaX = clientX - startX;
-        const deltaY = clientY - startY;
-        
-        const newLeft = startLeft + (deltaX / parentW * 100);
-        const newTop = startTop + (deltaY / parentH * 100);
-
-        // Clamp values to stay within bounds
-        const clampedLeft = Math.max(0, Math.min(100, newLeft));
-        const clampedTop = Math.max(0, Math.min(100, newTop));
-
-        el.style.left = `${clampedLeft}%`;
-        el.style.top = `${clampedTop}%`;
-    };
-
-    const handleEnd = () => {
-        const newX = parseFloat(el.style.left);
-        const newY = parseFloat(el.style.top);
-        if (onEndCallback) {
-            onEndCallback(newX, newY);
-        } else {
-            // Fishbone default save
-            if (isCat) { 
-                state.projectData.fishbone.categories[catIdx].x = newX; 
-                state.projectData.fishbone.categories[catIdx].y = newY; 
-            } else { 
-                state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = newX; 
-                state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = newY; 
-            }
-            window.saveData(true);
-        }
-    };
-
-    // Mouse
-    el.onmousedown = (e) => {
-        e.preventDefault(); 
-        e.stopPropagation();
-        const startX = e.clientX; 
-        const startY = e.clientY;
-        const startLeft = parseFloat(el.style.left) || 0; 
-        const startTop = parseFloat(el.style.top) || 0;
-        
-        const onMove = (ev) => handleMove(ev.clientX, ev.clientY, startLeft, startTop, startX, startY);
-        const onUp = () => { 
-            document.removeEventListener('mousemove', onMove); 
-            document.removeEventListener('mouseup', onUp); 
-            handleEnd(); 
-        };
-        document.addEventListener('mousemove', onMove); 
-        document.addEventListener('mouseup', onUp);
-    };
-
-    // Touch
-    el.ontouchstart = (e) => {
-        if(e.touches.length > 1) return;
-        e.preventDefault(); 
-        e.stopPropagation();
-        const touch = e.touches[0];
-        const startX = touch.clientX; 
-        const startY = touch.clientY;
-        const startLeft = parseFloat(el.style.left) || 0; 
-        const startTop = parseFloat(el.style.top) || 0;
-        
-        const onTouchMove = (ev) => handleMove(ev.touches[0].clientX, ev.touches[0].clientY, startLeft, startTop, startX, startY);
-        const onTouchEnd = () => { 
-            document.removeEventListener('touchmove', onTouchMove); 
-            document.removeEventListener('touchend', onTouchEnd); 
-            handleEnd(); 
-        };
-        document.addEventListener('touchmove', onTouchMove, {passive: false}); 
-        document.addEventListener('touchend', onTouchEnd);
-    };
-}
-
+// --- FISHBONE DIAGRAM ---
+// Uses SVG for the bone structure and absolute positioning for labels
 function renderFishboneVisual(container, enableInteraction = false) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); 
@@ -245,7 +172,9 @@ function renderFishboneVisual(container, enableInteraction = false) {
     svg.style.position = 'absolute'; 
     svg.style.top = '0'; 
     svg.style.left = '0'; 
-    svg.style.pointerEvents = 'none';
+    svg.style.pointerEvents = 'none'; // Allow clicks to pass through to labels
+    
+    // Draw the "bones"
     svg.innerHTML = `
         <line x1="5%" y1="50%" x2="95%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
         <path d="M 95% 50% L 92% 48% L 92% 52% Z" fill="#2d2e83"/>
@@ -282,6 +211,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
         container.appendChild(el);
     };
 
+    // Render Data
     state.projectData.fishbone.categories.forEach((cat, i) => {
         const defaultX = i % 2 === 0 ? 20 : 70;
         const defaultY = i < 2 ? 20 : 80;
@@ -296,491 +226,205 @@ function renderFishboneVisual(container, enableInteraction = false) {
     });
 }
 
-// === INTERACTIVE DRIVER DIAGRAM LOGIC ===
-
-// Global handler for Mermaid Click Events
-window.editDriver = (type, index) => {
-    if(state.isReadOnly) return;
-    
-    const labels = { primary: 'Primary Driver', secondary: 'Secondary Driver', changes: 'Change Idea' };
-    const currentVal = state.projectData.drivers[type][index];
-    const newVal = prompt(`Edit ${labels[type]}:`, currentVal);
-    
-    if(newVal !== null && newVal !== currentVal) {
-        state.projectData.drivers[type][index] = newVal;
-        window.saveData();
-        window.renderTools(); // Re-render to reflect changes
-    }
-};
-
+// --- DRIVER DIAGRAM (HTML COLUMNS) ---
+// Replaces Mermaid.js with editable HTML cards for better text handling
 function renderDriverVisual(container, enableInteraction = false) {
     const d = state.projectData.drivers;
-    const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 40) + (t.length>40?'...':'') : '...';
     
-    let mCode = `graph LR\n`;
-    mCode += `  AIM["<b>AIM</b><br/>${clean(state.projectData.checklist?.aim || 'Define your aim')}"]\n`;
-    mCode += `  style AIM fill:#eef2ff,stroke:#2d2e83,stroke-width:2px,color:#1e1b4b\n`;
+    // Main Flex Container
+    container.className = "flex flex-col md:flex-row gap-4 items-stretch overflow-x-auto p-4 min-h-[500px]";
     
-    // Primary Drivers
-    d.primary.forEach((x, i) => {
-        mCode += `  AIM --> P${i}["${clean(x)}"]\n`;
-        mCode += `  click P${i} call window.editDriver('primary', ${i})\n`;
-        mCode += `  style P${i} fill:#fff,stroke:#2d2e83,color:#1e1b4b\n`;
-    });
-    
-    // Secondary Drivers
-    d.secondary.forEach((x, i) => {
-        // Just link to first primary for visual flow if exists, else Aim
-        if (d.primary.length > 0) mCode += `  P0 --> S${i}["${clean(x)}"]\n`;
-        else mCode += `  AIM --> S${i}["${clean(x)}"]\n`;
-        
-        mCode += `  click S${i} call window.editDriver('secondary', ${i})\n`;
-        mCode += `  style S${i} fill:#fff,stroke:#4f46e5,color:#1e1b4b\n`;
-    });
-
-    // Change Ideas
-    d.changes.forEach((x, i) => {
-        if (d.secondary.length > 0) mCode += `  S0 --> C${i}["${clean(x)}"]\n`;
-        else if (d.primary.length > 0) mCode += `  P0 --> C${i}["${clean(x)}"]\n`;
-        else mCode += `  AIM --> C${i}["${clean(x)}"]\n`;
-        
-        mCode += `  click C${i} call window.editDriver('changes', ${i})\n`;
-        mCode += `  style C${i} fill:#fff7ed,stroke:#f97316,color:#7c2d12\n`;
-    });
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
-    wrapper.textContent = mCode;
-    container.appendChild(wrapper);
-    
-    try { 
-        if (typeof mermaid !== 'undefined') {
-            mermaid.initialize({ 
-                startOnLoad: false, 
-                securityLevel: 'loose', // REQUIRED for click events to work
-                theme: 'base',
-                themeVariables: { fontFamily: 'Inter' }
-            });
-            mermaid.run({ nodes: [wrapper] }); 
+    // Define the 4 Columns
+    const cols = [
+        { 
+            title: 'Aim', 
+            color: 'bg-indigo-50 border-indigo-200 text-indigo-900', 
+            items: [state.projectData.checklist?.aim || 'Define Aim in Checklist first'], 
+            type: 'aim',
+            readonly: true 
+        },
+        { 
+            title: 'Primary Drivers', 
+            color: 'bg-blue-50 border-blue-200 text-blue-900', 
+            items: d.primary, 
+            type: 'primary',
+            readonly: false 
+        },
+        { 
+            title: 'Secondary Drivers', 
+            color: 'bg-sky-50 border-sky-200 text-sky-900', 
+            items: d.secondary, 
+            type: 'secondary',
+            readonly: false 
+        },
+        { 
+            title: 'Change Ideas', 
+            color: 'bg-emerald-50 border-emerald-200 text-emerald-900', 
+            items: d.changes, 
+            type: 'changes',
+            readonly: false 
         }
-    } catch(e) { 
-        console.error("Mermaid rendering error:", e); 
-    }
+    ];
 
-    // Editor Overlay Controls
-    if (enableInteraction && !state.isReadOnly) {
-        const controls = document.createElement('div');
-        controls.className = "absolute bottom-4 left-4 flex gap-2";
-        controls.innerHTML = `
-            <button onclick="window.addDriver('primary')" class="bg-white border border-rcem-purple text-rcem-purple text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition-colors">+ Primary</button>
-            <button onclick="window.addDriver('secondary')" class="bg-white border border-rcem-purple text-rcem-purple text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-slate-50 transition-colors">+ Secondary</button>
-            <button onclick="window.addDriver('changes')" class="bg-white border border-orange-500 text-orange-600 text-xs font-bold px-3 py-1.5 rounded shadow-sm hover:bg-orange-50 transition-colors">+ Change Idea</button>
-        `;
-        container.appendChild(controls);
-    }
+    cols.forEach((col, colIdx) => {
+        const colDiv = document.createElement('div');
+        colDiv.className = "flex-1 min-w-[220px] flex flex-col gap-3";
+        
+        // Column Header
+        colDiv.innerHTML = `<h4 class="font-bold text-center uppercase text-xs text-slate-500 mb-2 tracking-wider sticky top-0 bg-white z-10 py-2 border-b border-transparent">${col.title}</h4>`;
+        
+        // Render Items
+        col.items.forEach((item, itemIdx) => {
+            const card = document.createElement('div');
+            card.className = `${col.color} p-4 rounded-lg border shadow-sm text-sm font-medium relative group hover:shadow-md transition-all`;
+            
+            if (col.readonly) {
+                // Aim is read-only here
+                card.innerHTML = `<div class="italic leading-relaxed text-slate-700">${escapeHtml(item)}</div>`;
+            } else {
+                // Editable Textareas
+                if (state.isReadOnly) {
+                    card.textContent = item;
+                } else {
+                    // AI Button for Secondary Drivers
+                    let aiBtn = '';
+                    if (col.type === 'secondary' && window.hasAI && window.hasAI()) {
+                         // Calls wrapper function in window (see bottom of file)
+                        aiBtn = `
+                            <button onclick="window.runChangeGen('${escapeHtml(item.replace(/'/g, "\\'"))}')" 
+                                    title="Generate Change Ideas" 
+                                    class="absolute -top-2 -right-2 bg-white text-emerald-600 border border-emerald-200 rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-emerald-50 transition-all z-20">
+                                <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
+                            </button>`;
+                    }
+
+                    // Textarea with auto-resize logic
+                    card.innerHTML = `
+                        <textarea 
+                            class="w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm leading-relaxed overflow-hidden outline-none" 
+                            oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
+                            onchange="window.updateDriver('${col.type}', ${itemIdx}, this.value)">${escapeHtml(item)}</textarea>
+                        <button onclick="window.removeDriver('${col.type}', ${itemIdx})" 
+                                class="absolute top-1 right-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-white/50">
+                            <i data-lucide="x" class="w-3 h-3"></i>
+                        </button>
+                        ${aiBtn}
+                    `;
+                }
+            }
+            colDiv.appendChild(card);
+            
+            // Trigger auto-resize on initial render
+            const textarea = card.querySelector('textarea');
+            if(textarea) {
+                setTimeout(() => {
+                        textarea.style.height = 'auto';
+                        textarea.style.height = textarea.scrollHeight + 'px';
+                }, 0);
+            }
+        });
+
+        // "Add" Button
+        if (!col.readonly && !state.isReadOnly) {
+            const addBtn = document.createElement('button');
+            addBtn.className = "w-full py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-rcem-purple hover:text-rcem-purple hover:bg-slate-50 font-bold text-xs transition-colors flex items-center justify-center gap-2 mt-auto";
+            addBtn.innerHTML = `<i data-lucide="plus" class="w-3 h-3"></i> Add ${col.title.slice(0, -1)}`; 
+            addBtn.onclick = () => window.addDriver(col.type);
+            colDiv.appendChild(addBtn);
+        }
+
+        container.appendChild(colDiv);
+    });
 }
 
+// --- PROCESS MAP (MERMAID) ---
 function renderProcessVisual(container, enableInteraction = false) {
     const p = state.projectData.process || ["Start", "End"];
-    const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 25) : '...';
+    const clean = (t) => t ? t.replace(/["()]/g, '').substring(0, 30) : '...';
     
-    let mCode = `graph TD\n`;
+    // We create a vertical column of cards for better editing, OR use Mermaid.
+    // Given requirements, let's use the same "Card" approach as Driver Diagram for consistency and editing.
+    // It's much easier to edit than Mermaid prompts.
+    
+    container.className = "flex flex-col items-center py-8 min-h-[500px] gap-0";
+    
     p.forEach((step, i) => {
-        if (i < p.length - 1) {
-            mCode += `  n${i}["${clean(step)}"] --> n${i + 1}["${clean(p[i + 1])}"]\n`;
+        // Draw Connector Arrow (except for the first element)
+        if (i > 0) {
+            const arrow = document.createElement('div');
+            arrow.className = "h-8 w-px bg-slate-300 relative";
+            arrow.innerHTML = `<div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-slate-300"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>`;
+            container.appendChild(arrow);
         }
-    });
-    
-    const wrapper = document.createElement('div');
-    wrapper.className = 'mermaid w-full h-full flex items-center justify-center text-sm';
-    wrapper.textContent = mCode;
-    container.appendChild(wrapper);
-    
-    if (enableInteraction && !state.isReadOnly) {
-        const overlay = document.createElement('div');
-        overlay.className = "absolute top-0 right-0 w-64 h-full bg-white/95 border-l border-slate-200 shadow-lg flex flex-col p-4 overflow-y-auto backdrop-blur-sm";
-        overlay.innerHTML = `
-            <h4 class="font-bold text-slate-800 text-sm mb-4">Edit Process</h4>
-            <div class="space-y-2">
-            ${p.map((x, i) => `
-                <div class="flex gap-1 items-center">
-                    <span class="text-[10px] w-4 text-slate-400 font-mono">${i + 1}</span>
-                    <input class="text-xs border border-slate-300 rounded p-1.5 w-full focus:border-rcem-purple outline-none" value="${escapeHtml(x)}" onchange="state.projectData.process[${i}]=this.value;window.saveData();window.renderTools()">
-                    <button onclick="state.projectData.process.splice(${i},1);window.saveData();window.renderTools()" class="text-slate-300 hover:text-red-500 p-1 rounded"><i data-lucide="x" class="w-3 h-3"></i></button>
-                </div>
-            `).join('')}
-            </div>
-            <div class="flex gap-2 mt-4 pt-4 border-t border-slate-100">
-                <button onclick="window.addStep()" class="flex-1 text-xs bg-slate-800 text-white px-3 py-2 rounded font-bold hover:bg-slate-900 shadow-sm">+ Add Step</button>
-                <button onclick="window.resetProcess()" class="text-xs text-red-500 hover:bg-red-50 px-2 py-2 rounded border border-red-200">Reset</button>
-            </div>
-        `;
-        container.appendChild(overlay);
-    }
-    
-    try { 
-        if (typeof mermaid !== 'undefined') {
-            mermaid.run({ nodes: [wrapper] }); 
-        }
-    } catch(e) { 
-        console.error("Mermaid rendering error:", e); 
-    }
-}
 
-// === TOOL ACTION EXPORTS ===
-export function addCauseWithWhys(catIdx) {
-    if(state.isReadOnly) return;
-    let cause = prompt("What is the cause?");
-    if (!cause) return;
-    
-    const cat = state.projectData.fishbone.categories[catIdx];
-    const defaultX = catIdx % 2 === 0 ? 20 : 70;
-    const defaultY = catIdx < 2 ? 20 : 80;
-    
-    cat.causes.push({ 
-        text: cause, 
-        x: (cat.x || defaultX) + (cat.causes.length * 3) + 5, 
-        y: (cat.y || defaultY) + (cat.causes.length * 3) + 5 
-    });
-    window.saveData();
-    renderTools();
-}
+        const wrapper = document.createElement('div');
+        wrapper.className = "relative group w-72 z-10";
 
-export function addDriver(type) {
-    if(state.isReadOnly) return;
-    const labels = {
-        primary: "Primary Driver",
-        secondary: "Secondary Driver",
-        changes: "Change Idea"
-    };
-    const v = prompt(`Add ${labels[type] || type}:`);
-    if(v) { 
-        state.projectData.drivers[type].push(v); 
-        window.saveData(); 
-        renderTools(); 
-    }
-}
-
-export function addStep() {
-    if(state.isReadOnly) return;
-    const v = prompt("Step Description:");
-    if(v) { 
-        if(!state.projectData.process) state.projectData.process = ["Start", "End"];
-        // Insert before the last element ("End")
-        state.projectData.process.splice(state.projectData.process.length - 1, 0, v);
-        window.saveData(); 
-        renderTools(); 
-    }
-}
-
-export function resetProcess() {
-    if(state.isReadOnly) return;
-    if(confirm("Reset process map to default? This will remove all steps.")) { 
-        state.projectData.process = ["Start", "End"]; 
-        window.saveData(); 
-        renderTools(); 
-    }
-}
-
-// ==========================================
-// 3. ZOOM CONTROLS
-// ==========================================
-
-export function zoomIn() {
-    zoomLevel = Math.min(2.0, zoomLevel + 0.1);
-    applyZoom();
-    showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info");
-}
-
-export function zoomOut() {
-    zoomLevel = Math.max(0.5, zoomLevel - 0.1);
-    applyZoom();
-    showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info");
-}
-
-export function resetZoom() {
-    zoomLevel = 1.0;
-    applyZoom();
-    showToast("Zoom reset to 100%", "info");
-}
-
-function applyZoom() {
-    const canvas = document.getElementById('diagram-canvas');
-    if (canvas) {
-        canvas.style.transform = `scale(${zoomLevel})`;
-        canvas.style.transformOrigin = 'center center';
-    }
-}
-
-// ==========================================
-// 4. CHART SETTINGS
-// ==========================================
-
-export function openChartSettings() {
-    const modal = document.getElementById('chart-settings-modal');
-    if (!modal) {
-        showToast("Settings modal not found", "error");
-        return;
-    }
-    
-    const settings = state.projectData.chartSettings || {};
-    
-    const titleInput = document.getElementById('chart-setting-title');
-    const yAxisInput = document.getElementById('chart-setting-yaxis');
-    const annotationsInput = document.getElementById('chart-setting-annotations');
-    
-    if (titleInput) titleInput.value = settings.title || '';
-    if (yAxisInput) yAxisInput.value = settings.yAxisLabel || '';
-    if (annotationsInput) annotationsInput.checked = settings.showAnnotations || false;
-    
-    modal.classList.remove('hidden');
-}
-
-export function saveChartSettings() {
-    if (!state.projectData.chartSettings) state.projectData.chartSettings = {};
-    
-    const titleInput = document.getElementById('chart-setting-title');
-    const yAxisInput = document.getElementById('chart-setting-yaxis');
-    const annotationsInput = document.getElementById('chart-setting-annotations');
-    
-    state.projectData.chartSettings.title = titleInput ? titleInput.value : '';
-    state.projectData.chartSettings.yAxisLabel = yAxisInput ? yAxisInput.value : '';
-    state.projectData.chartSettings.showAnnotations = annotationsInput ? annotationsInput.checked : false;
-    
-    window.saveData();
-    document.getElementById('chart-settings-modal').classList.add('hidden');
-    renderChart();
-    showToast("Chart settings saved", "success");
-}
-
-export function copyChartImage() {
-    const canvas = document.getElementById('mainChart');
-    if (!canvas) {
-        showToast("No chart to copy", "error");
-        return;
-    }
-    
-    try {
-        canvas.toBlob((blob) => {
-            if (!blob) {
-                showToast("Failed to create image", "error");
-                return;
-            }
-            
-            const item = new ClipboardItem({ 'image/png': blob });
-            navigator.clipboard.write([item]).then(() => {
-                showToast("Chart copied to clipboard", "success");
-            }).catch(err => {
-                console.error("Clipboard write failed:", err);
-                // Fallback: Open in new tab
-                const url = canvas.toDataURL('image/png');
-                const link = document.createElement('a');
-                link.download = 'chart.png';
-                link.href = url;
-                link.click();
-                showToast("Chart downloaded (clipboard not available)", "info");
-            });
-        }, 'image/png');
-    } catch (err) {
-        console.error("Copy chart error:", err);
-        showToast("Failed to copy chart: " + err.message, "error");
-    }
-}
-
-export function updateChartEducation() {
-    const educationPanel = document.getElementById('chart-education-panel');
-    if (!educationPanel) return;
-    
-    const info = CHART_EDUCATION[chartMode];
-    if (!info) return;
-    
-    educationPanel.innerHTML = `
-        <h4 class="font-bold text-slate-800 text-sm mb-2">${info.title}</h4>
-        <p class="text-xs text-slate-600 mb-3">${info.desc}</p>
-        <div class="space-y-1">
-            ${info.rules.map(rule => `
-                <div class="text-[10px] text-slate-500 flex items-start gap-2">
-                    <span class="text-rcem-purple">•</span>
-                    <span>${rule}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
-}
-
-// ==========================================
-// 5. CSV IMPORT/EXPORT
-// ==========================================
-
-export function importCSV(input) {
-    const file = input.files[0];
-    if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const text = e.target.result;
-            const lines = text.split('\n').filter(line => line.trim() !== '');
-            
-            if (lines.length < 2) {
-                showToast("CSV file is empty or has no data rows", "error");
-                return;
-            }
-            
-            // Parse headers (case-insensitive)
-            const headers = lines[0].toLowerCase().split(',').map(h => h.trim().replace(/"/g, ''));
-            
-            const dateIdx = headers.findIndex(h => h === 'date' || h === 'dates');
-            const valueIdx = headers.findIndex(h => h === 'value' || h === 'values' || h === 'measure');
-            const gradeIdx = headers.findIndex(h => h === 'grade' || h === 'type' || h === 'category' || h === 'context');
-            const noteIdx = headers.findIndex(h => h === 'note' || h === 'notes' || h === 'comment' || h === 'comments');
-            
-            if (dateIdx === -1) {
-                showToast("CSV must have a 'Date' column", "error");
-                return;
-            }
-            
-            if (valueIdx === -1) {
-                showToast("CSV must have a 'Value' column", "error");
-                return;
-            }
-            
-            let imported = 0;
-            let skipped = 0;
-            
-            for (let i = 1; i < lines.length; i++) {
-                // Handle CSV parsing with possible quoted values
-                const cols = parseCSVLine(lines[i]);
-                
-                const dateVal = cols[dateIdx]?.trim();
-                const valueVal = cols[valueIdx]?.trim();
-                
-                if (!dateVal || !valueVal) {
-                    skipped++;
-                    continue;
-                }
-                
-                const parsedValue = parseFloat(valueVal);
-                if (isNaN(parsedValue)) {
-                    skipped++;
-                    continue;
-                }
-                
-                // Parse Date (UK Format Support DD/MM/YYYY)
-                let parsedDateStr = '';
-                if (dateVal.includes('/')) {
-                    const parts = dateVal.split('/');
-                    if (parts.length === 3) {
-                        // Assume DD/MM/YYYY or DD/MM/YY
-                        const day = parts[0].padStart(2, '0');
-                        const month = parts[1].padStart(2, '0');
-                        let year = parts[2];
-                        if (year.length === 2) year = '20' + year;
-                        parsedDateStr = `${year}-${month}-${day}`;
-                    } else {
-                         parsedDateStr = new Date(dateVal).toISOString().split('T')[0];
-                    }
-                } else {
-                    // Try ISO
-                    const d = new Date(dateVal);
-                    if (!isNaN(d.getTime())) {
-                        parsedDateStr = d.toISOString().split('T')[0];
-                    }
-                }
-
-                if (!parsedDateStr || isNaN(new Date(parsedDateStr).getTime())) {
-                    skipped++;
-                    continue;
-                }
-                
-                const dataPoint = {
-                    date: parsedDateStr,
-                    value: parsedValue,
-                    grade: gradeIdx !== -1 ? (cols[gradeIdx]?.trim() || '') : '',
-                    note: noteIdx !== -1 ? (cols[noteIdx]?.trim() || '') : ''
-                };
-                
-                state.projectData.chartData.push(dataPoint);
-                imported++;
-            }
-            
-            // Sort by date
-            state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
-            
-            window.saveData();
-            if (window.renderDataView) window.renderDataView();
-            
-            let message = `Imported ${imported} data point${imported !== 1 ? 's' : ''}`;
-            if (skipped > 0) {
-                message += ` (${skipped} row${skipped !== 1 ? 's' : ''} skipped/invalid)`;
-            }
-            showToast(message, "success");
-            
-        } catch (err) {
-            console.error("CSV import error:", err);
-            showToast("Failed to parse CSV: " + err.message, "error");
-        }
-    };
-    
-    reader.onerror = () => {
-        showToast("Failed to read file", "error");
-    };
-    
-    reader.readAsText(file);
-    input.value = ''; // Reset input for future uploads
-}
-
-// Helper function to parse CSV line handling quoted values
-function parseCSVLine(line) {
-    const result = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-        const char = line[i];
-        
-        if (char === '"') {
-            inQuotes = !inQuotes;
-        } else if (char === ',' && !inQuotes) {
-            result.push(current.trim());
-            current = '';
+        if (state.isReadOnly) {
+                wrapper.innerHTML = `<div class="bg-white border-2 border-slate-800 p-4 rounded-lg text-center font-bold shadow-sm">${escapeHtml(step)}</div>`;
         } else {
-            current += char;
+            const isTerminator = i === 0 || i === p.length - 1;
+            // Terminators are Black, Steps are White with Border
+            const bgClass = isTerminator 
+                ? 'bg-slate-800 text-white shadow-md' 
+                : 'bg-white border-2 border-slate-800 text-slate-800 shadow-sm';
+            
+            wrapper.innerHTML = `
+                <div class="${bgClass} p-4 rounded-lg transition-transform hover:scale-[1.01]">
+                    <textarea 
+                        class="w-full bg-transparent text-center font-bold outline-none resize-none overflow-hidden ${isTerminator ? 'text-white placeholder-slate-400' : 'text-slate-800'}"
+                        placeholder="Step Description"
+                        rows="1"
+                        oninput="this.style.height='';this.style.height=this.scrollHeight+'px'"
+                        onchange="window.updateStep(${i}, this.value)">${escapeHtml(step)}</textarea>
+                </div>
+                
+                <div class="absolute left-full top-1/2 -translate-y-1/2 ml-3 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white p-1 rounded-lg shadow-lg border border-slate-100 z-20">
+                        <button onclick="window.addStep(${i})" class="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded" title="Add Step After">
+                        <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                        ${!isTerminator ? `
+                        <button onclick="window.removeStep(${i})" class="text-red-600 hover:bg-red-50 p-1.5 rounded" title="Delete Step">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>` : ''}
+                </div>
+            `;
         }
+        container.appendChild(wrapper);
+        
+        // Auto resize initial
+        setTimeout(() => {
+            const ta = wrapper.querySelector('textarea');
+            if(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+        },0);
+    });
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// ==========================================
+// 4. CHART RENDERING (CHART.JS)
+// ==========================================
+
+export function setChartMode(m) { 
+    chartMode = m; 
+    
+    // Update button styles
+    const modeControls = document.getElementById('chart-mode-controls');
+    if (modeControls) {
+        modeControls.querySelectorAll('button').forEach(btn => {
+            const btnMode = btn.getAttribute('data-mode');
+            if (btnMode === m) {
+                btn.className = 'px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow';
+            } else {
+                btn.className = 'px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50';
+            }
+        });
     }
     
-    result.push(current.trim());
-    return result;
+    renderChart(); 
+    updateChartEducation();
 }
-
-export function downloadCSVTemplate() {
-    const csvContent = `Date,Value,Grade,Note
-01/01/2026,85,Baseline,Initial measurement
-08/01/2026,87,Baseline,Second baseline point
-15/01/2026,82,Baseline,Third baseline point
-22/01/2026,90,Intervention,First intervention started
-29/01/2026,92,Intervention,Improvement noted
-05/02/2026,95,Intervention,Sustained improvement`;
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    
-    link.setAttribute("href", url);
-    link.setAttribute("download", "qip_data_template.csv");
-    link.style.visibility = 'hidden';
-    
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    URL.revokeObjectURL(url);
-    showToast("Template downloaded", "success");
-}
-
-// ==========================================
-// 6. CHART RENDERERS
-// ==========================================
 
 export function renderChart(canvasId = 'mainChart') {
     const ctx = document.getElementById(canvasId);
@@ -794,7 +438,9 @@ export function renderChart(canvasId = 'mainChart') {
     
     const d = state.projectData.chartData;
     if (d.length === 0 && canvasId === 'mainChart') {
-        // Show empty state message
+        // Show empty state message handled in renderer view, but safe to clear here
+        const context = ctx.getContext('2d');
+        context.clearRect(0,0,ctx.width, ctx.height);
         return;
     }
     
@@ -881,36 +527,13 @@ function renderRunChart(ctx, canvasId) {
             responsive: true, 
             maintainAspectRatio: false,
             plugins: { 
-                title: {
-                    display: !!settings.title,
-                    text: settings.title || '',
-                    font: { size: 16, weight: 'bold' },
-                    color: '#1e293b'
-                },
-                legend: {
-                    display: true,
-                    position: 'top'
-                },
-                annotation: { 
-                    annotations: annotations
-                }
+                title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b' },
+                legend: { display: true, position: 'top' },
+                annotation: { annotations: annotations }
             },
             scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: 'Date',
-                        font: { weight: 'bold' }
-                    }
-                },
-                y: {
-                    title: {
-                        display: !!settings.yAxisLabel,
-                        text: settings.yAxisLabel || '',
-                        font: { weight: 'bold' }
-                    },
-                    beginAtZero: false
-                }
+                x: { title: { display: true, text: 'Date', font: { weight: 'bold' } } },
+                y: { title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } }, beginAtZero: false }
             }
         }
     });
@@ -926,155 +549,46 @@ function renderSPCChart(ctx, canvasId) {
     const data = sortedD.map(x => x.value);
     const labels = sortedD.map(x => x.date);
     
-    // Calculate mean
     const avg = data.reduce((a, b) => a + b, 0) / data.length;
-    
-    // Calculate moving range and average moving range
     let mRSum = 0; 
-    for(let i = 1; i < data.length; i++) {
-        mRSum += Math.abs(data[i] - data[i - 1]);
-    }
+    for(let i = 1; i < data.length; i++) { mRSum += Math.abs(data[i] - data[i - 1]); }
     const avgMR = mRSum / (data.length - 1);
     
-    // Calculate control limits (using 2.66 constant for individuals chart)
     const ucl = avg + (2.66 * avgMR);
     const lcl = Math.max(0, avg - (2.66 * avgMR));
     
-    // Identify special cause points
-    const pointColors = data.map(v => {
-        if (v > ucl || v < lcl) return '#ef4444'; // Red for out of control
-        return '#64748b';
-    });
+    const pointColors = data.map(v => (v > ucl || v < lcl) ? '#ef4444' : '#64748b');
 
-    // Build annotations
     const annotations = {
-        ucl: { 
-            type: 'line', 
-            yMin: ucl, 
-            yMax: ucl, 
-            borderColor: '#ef4444', 
-            borderDash: [2, 2],
-            borderWidth: 2,
-            label: {
-                display: true,
-                content: `UCL: ${ucl.toFixed(1)}`,
-                position: 'end',
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                font: { size: 9 }
-            }
-        }, 
-        lcl: { 
-            type: 'line', 
-            yMin: lcl, 
-            yMax: lcl, 
-            borderColor: '#ef4444', 
-            borderDash: [2, 2],
-            borderWidth: 2,
-            label: {
-                display: true,
-                content: `LCL: ${lcl.toFixed(1)}`,
-                position: 'end',
-                backgroundColor: 'rgba(239, 68, 68, 0.8)',
-                font: { size: 9 }
-            }
-        }, 
-        avg: { 
-            type: 'line', 
-            yMin: avg, 
-            yMax: avg, 
-            borderColor: '#22c55e',
-            borderWidth: 2,
-            label: {
-                display: true,
-                content: `Mean: ${avg.toFixed(1)}`,
-                position: 'end',
-                backgroundColor: 'rgba(34, 197, 94, 0.8)',
-                font: { size: 9 }
-            }
-        }
+        ucl: { type: 'line', yMin: ucl, yMax: ucl, borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: `UCL: ${ucl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.8)', font: { size: 9 } } }, 
+        lcl: { type: 'line', yMin: lcl, yMax: lcl, borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, label: { display: true, content: `LCL: ${lcl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.8)', font: { size: 9 } } }, 
+        avg: { type: 'line', yMin: avg, yMax: avg, borderColor: '#22c55e', borderWidth: 2, label: { display: true, content: `Mean: ${avg.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(34, 197, 94, 0.8)', font: { size: 9 } } }
     };
 
-    // Add PDSA annotations if enabled
-    if (settings.showAnnotations && state.projectData.pdsa && state.projectData.pdsa.length > 0) {
+    if (settings.showAnnotations && state.projectData.pdsa) {
         state.projectData.pdsa.forEach((p, i) => {
             if (p.start) {
-                annotations[`pdsa${i}`] = {
-                    type: 'line',
-                    xMin: p.start,
-                    xMax: p.start,
-                    borderColor: '#f36f21',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    label: {
-                        display: true,
-                        content: `PDSA ${i + 1}`,
-                        position: 'start',
-                        backgroundColor: 'rgba(243, 111, 33, 0.8)',
-                        font: { size: 9 }
-                    }
-                };
+                annotations[`pdsa${i}`] = { type: 'line', xMin: p.start, xMax: p.start, borderColor: '#f36f21', borderWidth: 2, borderDash: [5, 5], label: { display: true, content: `PDSA ${i + 1}`, position: 'start', backgroundColor: 'rgba(243, 111, 33, 0.8)', font: { size: 9 } } };
             }
         });
     }
 
     const chart = new Chart(ctx, {
         type: 'line',
-        data: { 
-            labels: labels, 
-            datasets: [{
-                label: settings.yAxisLabel || 'Measure', 
-                data: data, 
-                borderColor: '#64748b', 
-                backgroundColor: '#64748b',
-                pointBackgroundColor: pointColors,
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 6,
-                tension: 0,
-                fill: false
-            }] 
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { 
-                title: {
-                    display: !!settings.title,
-                    text: settings.title || '',
-                    font: { size: 16, weight: 'bold' },
-                    color: '#1e293b'
-                },
-                annotation: { 
-                    annotations: annotations 
-                }
-            },
-            scales: {
-                y: {
-                    title: {
-                        display: !!settings.yAxisLabel,
-                        text: settings.yAxisLabel || '',
-                        font: { weight: 'bold' }
-                    }
-                }
-            }
-        }
+        data: { labels: labels, datasets: [{ label: settings.yAxisLabel || 'Measure', data: data, borderColor: '#64748b', backgroundColor: '#64748b', pointBackgroundColor: pointColors, pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 6, tension: 0, fill: false }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b' }, annotation: { annotations: annotations } }, scales: { y: { title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } } } } }
     });
     ctx.chartInstance = chart;
 }
 
 function renderHistogram(ctx, canvasId) {
     const d = state.projectData.chartData.map(x => x.value);
-    if(d.length < 2) {
-        showToast("Need at least 2 data points for histogram", "info");
-        return;
-    }
+    if(d.length < 2) { showToast("Need at least 2 data points for histogram", "info"); return; }
     
     const settings = state.projectData.chartSettings || {};
     const min = Math.min(...d); 
     const max = Math.max(...d);
     const range = max - min;
-    
-    // Calculate optimal number of bins using Sturges' rule
     const bins = Math.max(3, Math.min(10, Math.ceil(Math.log2(d.length) + 1)));
     const step = range / bins || 1;
     
@@ -1093,48 +607,8 @@ function renderHistogram(ctx, canvasId) {
     
     const chart = new Chart(ctx, { 
         type: 'bar', 
-        data: { 
-            labels: labels, 
-            datasets: [{
-                label: 'Frequency', 
-                data: buckets, 
-                backgroundColor: '#8b5cf6',
-                borderColor: '#7c3aed',
-                borderWidth: 1
-            }] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: !!settings.title,
-                    text: settings.title || 'Data Distribution',
-                    font: { size: 16, weight: 'bold' },
-                    color: '#1e293b'
-                }
-            },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: settings.yAxisLabel || 'Value Range',
-                        font: { weight: 'bold' }
-                    }
-                },
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Frequency',
-                        font: { weight: 'bold' }
-                    },
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    }
-                }
-            }
-        } 
+        data: { labels: labels, datasets: [{ label: 'Frequency', data: buckets, backgroundColor: '#8b5cf6', borderColor: '#7c3aed', borderWidth: 1 }] }, 
+        options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: !!settings.title, text: settings.title || 'Data Distribution', font: { size: 16, weight: 'bold' }, color: '#1e293b' } }, scales: { x: { title: { display: true, text: settings.yAxisLabel || 'Value Range', font: { weight: 'bold' } } }, y: { title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, beginAtZero: true, ticks: { stepSize: 1 } } } } 
     });
     ctx.chartInstance = chart;
 }
@@ -1144,131 +618,27 @@ function renderPareto(ctx, canvasId) {
     if(d.length === 0) return;
     
     const settings = state.projectData.chartSettings || {};
-    
-    // Count frequencies by grade/category
     const counts = {}; 
-    d.forEach(x => { 
-        const cat = x.grade || x.category || "Uncategorised"; 
-        counts[cat] = (counts[cat] || 0) + 1; 
-    });
+    d.forEach(x => { const cat = x.grade || x.category || "Uncategorised"; counts[cat] = (counts[cat] || 0) + 1; });
     
-    // Sort categories by frequency (descending)
     const sortedCats = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
     const values = sortedCats.map(c => counts[c]);
     const total = values.reduce((a, b) => a + b, 0);
     
-    // Calculate cumulative percentages
     let cum = 0; 
-    const cumulative = values.map(v => { 
-        cum += v; 
-        return (cum / total) * 100; 
-    });
+    const cumulative = values.map(v => { cum += v; return (cum / total) * 100; });
 
     const chart = new Chart(ctx, { 
         type: 'bar', 
-        data: { 
-            labels: sortedCats, 
-            datasets: [ 
-                { 
-                    type: 'line', 
-                    label: 'Cumulative %', 
-                    data: cumulative, 
-                    borderColor: '#f36f21',
-                    backgroundColor: 'rgba(243, 111, 33, 0.1)',
-                    pointBackgroundColor: '#f36f21',
-                    pointRadius: 4,
-                    yAxisID: 'y1',
-                    tension: 0.2,
-                    fill: false
-                }, 
-                { 
-                    type: 'bar', 
-                    label: 'Frequency', 
-                    data: values, 
-                    backgroundColor: '#2d2e83',
-                    borderColor: '#1e1f5c',
-                    borderWidth: 1,
-                    yAxisID: 'y'
-                } 
-            ] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: {
-                title: {
-                    display: !!settings.title,
-                    text: settings.title || 'Pareto Analysis',
-                    font: { size: 16, weight: 'bold' },
-                    color: '#1e293b'
-                }
-            },
-            scales: { 
-                y: {
-                    title: {
-                        display: true,
-                        text: 'Count',
-                        font: { weight: 'bold' }
-                    },
-                    beginAtZero: true
-                },
-                y1: { 
-                    position: 'right', 
-                    max: 100,
-                    title: {
-                        display: true,
-                        text: 'Cumulative %',
-                        font: { weight: 'bold' }
-                    },
-                    grid: {
-                        drawOnChartArea: false
-                    }
-                }
-            }
-        } 
+        data: { labels: sortedCats, datasets: [ { type: 'line', label: 'Cumulative %', data: cumulative, borderColor: '#f36f21', backgroundColor: 'rgba(243, 111, 33, 0.1)', pointBackgroundColor: '#f36f21', pointRadius: 4, yAxisID: 'y1', tension: 0.2, fill: false }, { type: 'bar', label: 'Frequency', data: values, backgroundColor: '#2d2e83', borderColor: '#1e1f5c', borderWidth: 1, yAxisID: 'y' } ] }, 
+        options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: !!settings.title, text: settings.title || 'Pareto Analysis', font: { size: 16, weight: 'bold' }, color: '#1e293b' } }, scales: { y: { title: { display: true, text: 'Count', font: { weight: 'bold' } }, beginAtZero: true }, y1: { position: 'right', max: 100, title: { display: true, text: 'Cumulative %', font: { weight: 'bold' } }, grid: { drawOnChartArea: false } } } } 
     });
     ctx.chartInstance = chart;
 }
 
 // ==========================================
-// 7. CHART MODE & RENDER EXPORTS
+// 5. DATA HELPERS
 // ==========================================
-
-export function setChartMode(m) { 
-    chartMode = m; 
-    
-    // Update button styles
-    const modeControls = document.getElementById('chart-mode-controls');
-    if (modeControls) {
-        modeControls.querySelectorAll('button').forEach(btn => {
-            const btnMode = btn.getAttribute('data-mode');
-            if (btnMode === m) {
-                btn.className = 'px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow';
-            } else {
-                btn.className = 'px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50';
-            }
-        });
-    }
-    
-    renderChart(); 
-    updateChartEducation();
-}
-
-export function renderFullViewChart() { 
-    // Check if canvas exists, if not create it
-    const container = document.getElementById('full-view-chart-container');
-    if (!container) return;
-    
-    let canvas = document.getElementById('full-view-chart-canvas');
-    if (!canvas) {
-        canvas = document.createElement('canvas');
-        canvas.id = 'full-view-chart-canvas';
-        container.innerHTML = '';
-        container.appendChild(canvas);
-    }
-    
-    renderChart('full-view-chart-canvas'); 
-}
 
 export function addDataPoint() {
     const dateInput = document.getElementById('chart-date');
@@ -1279,41 +649,15 @@ export function addDataPoint() {
     const v = valueInput ? valueInput.value : '';
     const g = gradeInput ? gradeInput.value : '';
     
-    if(!d) { 
-        showToast("Date is required", "error"); 
-        return; 
-    }
-    
-    if(!v && v !== 0) { 
-        showToast("Value is required", "error"); 
-        return; 
-    }
+    if(!d || v === '') { showToast("Date and Value are required", "error"); return; }
     
     const parsedValue = parseFloat(v);
-    if (isNaN(parsedValue)) {
-        showToast("Value must be a number", "error");
-        return;
-    }
+    if (isNaN(parsedValue)) { showToast("Value must be a number", "error"); return; }
     
-    // Validate date
-    const parsedDate = new Date(d);
-    if (isNaN(parsedDate.getTime())) {
-        showToast("Invalid date format", "error");
-        return;
-    }
-    
-    state.projectData.chartData.push({ 
-        date: d, 
-        value: parsedValue, 
-        grade: g 
-    });
-    
-    // Sort by date
+    state.projectData.chartData.push({ date: d, value: parsedValue, grade: g });
     state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
     
-    // Clear input
     if (valueInput) valueInput.value = '';
-    
     window.saveData();
     if(window.renderDataView) window.renderDataView();
     showToast("Data point added", "success");
@@ -1329,4 +673,216 @@ export function deleteDataPoint(date) {
             showToast("Data point deleted", "info");
         }
     }
+}
+
+export function downloadCSVTemplate() {
+    const csvContent = "data:text/csv;charset=utf-8,Date,Value,Context\n2025-01-01,10,Baseline\n2025-01-02,12,Intervention";
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "qip_data_template.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+}
+
+export function importCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(l => l.trim() !== '');
+        let count = 0;
+        lines.forEach((l, i) => {
+            if(i === 0) return; // Header
+            const parts = l.split(',');
+            if(parts.length >= 2) {
+                const d = parts[0].trim();
+                const v = parseFloat(parts[1].trim());
+                if(d && !isNaN(v)) {
+                    state.projectData.chartData.push({date: d, value: v, grade: parts[2]?parts[2].trim():'Baseline'});
+                    count++;
+                }
+            }
+        });
+        window.saveData();
+        if(window.renderDataView) window.renderDataView();
+        showToast(`Imported ${count} points`, "success");
+    };
+    reader.readAsText(file);
+    input.value = '';
+}
+
+// ==========================================
+// 6. GLOBAL WINDOW EXPORTS
+// ==========================================
+
+window.addDriver = (type) => {
+    if (!state.projectData.drivers) state.projectData.drivers = {primary:[], secondary:[], changes:[]};
+    if (!state.projectData.drivers[type]) state.projectData.drivers[type] = [];
+    state.projectData.drivers[type].push("New Item");
+    window.saveData();
+    renderTools();
+};
+
+window.updateDriver = (type, index, value) => {
+    if (state.projectData.drivers && state.projectData.drivers[type]) {
+        state.projectData.drivers[type][index] = value;
+        window.saveData();
+        // Do not re-render to keep focus
+    }
+};
+
+window.removeDriver = (type, index) => {
+    if(confirm("Remove this item?")) {
+        state.projectData.drivers[type].splice(index, 1);
+        window.saveData();
+        renderTools();
+    }
+};
+
+window.addStep = (index) => {
+    if(!state.projectData.process) state.projectData.process = ["Start", "End"];
+    state.projectData.process.splice(index + 1, 0, "New Step");
+    window.saveData();
+    renderTools(null, 'process'); 
+};
+
+window.updateStep = (index, val) => {
+    if(!state.projectData.process) return;
+    state.projectData.process[index] = val;
+    window.saveData();
+};
+
+window.removeStep = (index) => {
+    if(!state.projectData.process) return;
+    state.projectData.process.splice(index, 1);
+    window.saveData();
+    renderTools(null, 'process'); 
+};
+
+window.runChangeGen = async (driverName) => {
+    // Dynamic import to avoid circular dependencies if needed, or assume global ai.js availability
+    // Here we rely on the function being available on window via ai.js loading, or we import if modules allow
+    // Ideally: import { generateChangeIdeas } from "./ai.js";
+    // For now, assuming ai.js is loaded:
+    if(window.generateChangeIdeas) {
+         showToast("Generating ideas...", "info");
+         const ideas = await window.generateChangeIdeas(driverName);
+         if(ideas) {
+             state.projectData.drivers.changes.push(...ideas);
+             window.saveData();
+             renderTools();
+             showToast("Ideas added!", "success");
+         }
+    } else {
+        alert("AI module not loaded");
+    }
+};
+
+window.addCauseWithWhys = (catIdx) => {
+    if(state.isReadOnly) return;
+    let cause = prompt("What is the cause?");
+    if (!cause) return;
+    const cat = state.projectData.fishbone.categories[catIdx];
+    const defaultX = catIdx % 2 === 0 ? 20 : 70;
+    const defaultY = catIdx < 2 ? 20 : 80;
+    cat.causes.push({ 
+        text: cause, 
+        x: (cat.x || defaultX) + (cat.causes.length * 3) + 5, 
+        y: (cat.y || defaultY) + (cat.causes.length * 3) + 5 
+    });
+    window.saveData();
+    renderTools();
+};
+
+export function resetProcess() {
+    if(state.isReadOnly) return;
+    if(confirm("Reset process map?")) { 
+        state.projectData.process = ["Start", "End"]; 
+        window.saveData(); 
+        renderTools(); 
+    }
+}
+
+// Drag Helper for Fishbone
+export function makeDraggable(el, container, isCat, catIdx, causeIdx) {
+    if(state.isReadOnly) return;
+    const handleMove = (cx, cy, sl, st, sx, sy) => {
+        const pw = container.offsetWidth || 1000;
+        const ph = container.offsetHeight || 600;
+        const dx = cx - sx;
+        const dy = cy - sy;
+        const nl = Math.max(0, Math.min(100, sl + (dx / pw * 100)));
+        const nt = Math.max(0, Math.min(100, st + (dy / ph * 100)));
+        el.style.left = `${nl}%`; el.style.top = `${nt}%`;
+    };
+    const handleEnd = () => {
+        const nx = parseFloat(el.style.left);
+        const ny = parseFloat(el.style.top);
+        if (isCat) { state.projectData.fishbone.categories[catIdx].x = nx; state.projectData.fishbone.categories[catIdx].y = ny; }
+        else { state.projectData.fishbone.categories[catIdx].causes[causeIdx].x = nx; state.projectData.fishbone.categories[catIdx].causes[causeIdx].y = ny; }
+        window.saveData(true);
+    };
+    el.onmousedown = (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const sx = e.clientX, sy = e.clientY, sl = parseFloat(el.style.left)||0, st = parseFloat(el.style.top)||0;
+        const onMove = (ev) => handleMove(ev.clientX, ev.clientY, sl, st, sx, sy);
+        const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); handleEnd(); };
+        document.addEventListener('mousemove', onMove); document.addEventListener('mouseup', onUp);
+    };
+    el.ontouchstart = (e) => {
+        if(e.touches.length > 1) return;
+        e.preventDefault(); e.stopPropagation();
+        const t = e.touches[0], sx = t.clientX, sy = t.clientY, sl = parseFloat(el.style.left)||0, st = parseFloat(el.style.top)||0;
+        const onMove = (ev) => handleMove(ev.touches[0].clientX, ev.touches[0].clientY, sl, st, sx, sy);
+        const onEnd = () => { document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onEnd); handleEnd(); };
+        document.addEventListener('touchmove', onMove, {passive: false}); document.addEventListener('touchend', onEnd);
+    };
+}
+
+export function zoomIn() { zoomLevel = Math.min(2.0, zoomLevel + 0.1); applyZoom(); showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info"); }
+export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info"); }
+export function resetZoom() { zoomLevel = 1.0; applyZoom(); showToast("Zoom reset", "info"); }
+function applyZoom() { const c = document.getElementById('diagram-canvas'); if (c) { c.style.transform = `scale(${zoomLevel})`; c.style.transformOrigin = 'center center'; } }
+
+export function openChartSettings() { 
+    const m = document.getElementById('chart-settings-modal'); 
+    if(m) {
+        const s = state.projectData.chartSettings || {};
+        const t = document.getElementById('chart-setting-title'); if(t) t.value = s.title || '';
+        const y = document.getElementById('chart-setting-yaxis'); if(y) y.value = s.yAxisLabel || '';
+        const a = document.getElementById('chart-setting-annotations'); if(a) a.checked = s.showAnnotations || false;
+        m.classList.remove('hidden'); 
+    } 
+}
+export function saveChartSettings() {
+    if (!state.projectData.chartSettings) state.projectData.chartSettings = {};
+    const t = document.getElementById('chart-setting-title'); state.projectData.chartSettings.title = t ? t.value : '';
+    const y = document.getElementById('chart-setting-yaxis'); state.projectData.chartSettings.yAxisLabel = y ? y.value : '';
+    const a = document.getElementById('chart-setting-annotations'); state.projectData.chartSettings.showAnnotations = a ? a.checked : false;
+    window.saveData();
+    document.getElementById('chart-settings-modal').classList.add('hidden');
+    renderChart();
+    showToast("Settings saved", "success");
+}
+export function copyChartImage() {
+    const c = document.getElementById('mainChart');
+    if(c) c.toBlob(b => { 
+        navigator.clipboard.write([new ClipboardItem({'image/png': b})]).then(() => showToast("Copied!", "success")).catch(() => showToast("Copy failed", "error")); 
+    });
+}
+export function updateChartEducation() {
+    const p = document.getElementById('chart-education-panel');
+    if (!p) return;
+    const i = CHART_EDUCATION[chartMode];
+    if (i) p.innerHTML = `<h4 class="font-bold text-slate-800 text-sm mb-2">${i.title}</h4><p class="text-xs text-slate-600 mb-3">${i.desc}</p><div class="space-y-1">${i.rules.map(r => `<div class="text-[10px] text-slate-500 flex items-start gap-2"><span class="text-rcem-purple">•</span><span>${r}</span></div>`).join('')}</div>`;
+}
+export function renderFullViewChart() {
+    const c = document.getElementById('full-view-chart-container');
+    if (!c) return;
+    let cv = document.getElementById('full-view-chart-canvas');
+    if (!cv) { cv = document.createElement('canvas'); cv.id = 'full-view-chart-canvas'; c.innerHTML = ''; c.appendChild(cv); }
+    renderChart('full-view-chart-canvas');
 }
