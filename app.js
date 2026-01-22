@@ -19,6 +19,10 @@ import {
 import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 
+console.log('🚀 App starting...');
+console.log('Auth:', auth ? '✅' : '❌');
+console.log('DB:', db ? '✅' : '❌');
+
 // ==========================================================================
 // 1. GLOBAL BINDINGS (Connecting HTML Buttons to JS Logic)
 // ==========================================================================
@@ -229,13 +233,6 @@ window.aiGeneratePDSA = async () => {
     const result = await callAI(prompt, true);
     
     if(result) {
-        document.getElementById('pdsa-plan').value = result.desc || "";
-        // We only populate the Plan in the 'Add' form usually, but if we want to pre-fill others we can't easily as the form is simple.
-        // Let's just append the Plan for now, or update the logic to allow full drafting.
-        // Better UX: Fill the 'Plan' box with the Plan, and maybe append the rest to it for the user to split? 
-        // Or simplified: Just ask AI for the PLAN part since it's a new cycle.
-        
-        // Actually, let's just use the 'desc' (Plan) part for the new cycle form
         document.getElementById('pdsa-plan').value = `${result.desc}\n\n[AI Drafted - Prediction]\n${result.study}`;
         showToast("Plan drafted", "success");
     }
@@ -526,6 +523,8 @@ function updateUndoRedoButtons() {
 
 // --- AUTH LISTENER ---
 onAuthStateChanged(auth, async (user) => {
+    console.log('🔐 Auth state changed:', user ? user.email : 'No user');
+    
     const isShared = await checkShareLink();
     if (isShared) return;
 
@@ -702,107 +701,212 @@ window.openProject = (id) => {
     window.router('dashboard');
 };
 
-// --- HANDLERS ---
-const authForm = document.getElementById('auth-form');
-if(authForm) {
-    authForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        try { 
-            await signInWithEmailAndPassword(auth, document.getElementById('email').value, document.getElementById('password').value); 
-            showToast("Signed in successfully", "success");
-        } 
-        catch (error) { 
-            showToast("Login failed: " + error.message, "error"); 
-        }
-    });
-}
-
-const btnRegister = document.getElementById('btn-register');
-if(btnRegister) {
-    btnRegister.addEventListener('click', async () => {
-        const email = document.getElementById('email').value;
-        const password = document.getElementById('password').value;
-        
-        if (!email || !password) {
-            showToast("Please enter email and password", "error");
-            return;
-        }
-        
-        if (password.length < 6) {
-            showToast("Password must be at least 6 characters", "error");
-            return;
-        }
-        
-        try { 
-            await createUserWithEmailAndPassword(auth, email, password); 
-            showToast("Account created!", "success"); 
-        } 
-        catch (error) { 
-            showToast("Registration failed: " + error.message, "error"); 
-        }
-    });
-}
-
-const logoutBtn = document.getElementById('logout-btn');
-if(logoutBtn) {
-    logoutBtn.addEventListener('click', () => { 
-        signOut(auth); 
-        window.location.reload(); 
-    });
-}
-
-const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-if(mobileMenuBtn) {
-    mobileMenuBtn.addEventListener('click', () => {
-        const sidebar = document.getElementById('app-sidebar');
-        if (sidebar.classList.contains('hidden')) {
-            sidebar.classList.remove('hidden'); 
-            sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-        } else {
-            sidebar.classList.add('hidden'); 
-            sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-        }
-    });
-}
-
-// Demo Mode Toggle
-const demoToggle = document.getElementById('demo-toggle');
-if(demoToggle) {
-    demoToggle.addEventListener('change', (e) => {
-        state.isDemoMode = e.target.checked;
-        state.currentProjectId = null; 
-        state.projectData = null;
-        const wm = document.getElementById('demo-watermark');
-        if (state.isDemoMode) { 
-            if(wm) wm.classList.remove('hidden'); 
-            loadProjectList(); 
-        } 
-        else { 
-            if(wm) wm.classList.add('hidden'); 
-            if (state.currentUser) loadProjectList(); 
-            else {
-                const authScreen = document.getElementById('auth-screen');
-                if(authScreen) authScreen.classList.remove('hidden');
+// --- HANDLERS (FIXED FOR AUTH) ---
+// Wait for DOM to be fully loaded
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM loaded');
+    
+    // Auth Form Handler
+    const authForm = document.getElementById('auth-form');
+    console.log('Auth form:', authForm ? '✅ Found' : '❌ Not found');
+    
+    if(authForm) {
+        authForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            console.log('🔑 Form submitted');
+            
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            const submitBtn = authForm.querySelector('button[type="submit"]');
+            
+            if (!emailInput || !passwordInput) {
+                console.error('❌ Email or password input not found');
+                return;
             }
-        }
-    });
-}
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            console.log('Attempting login for:', email);
+            
+            // Disable form & show loading
+            submitBtn.disabled = true;
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Signing in...';
+            
+            try { 
+                await signInWithEmailAndPassword(auth, email, password);
+                console.log('✅ Login successful');
+                showToast("Signed in successfully", "success");
+            } 
+            catch (error) {
+                console.error('❌ Login error:', error.code, error.message);
+                
+                // User-friendly error messages
+                let errorMsg = "Login failed: ";
+                switch(error.code) {
+                    case 'auth/invalid-email':
+                        errorMsg += "Invalid email address";
+                        break;
+                    case 'auth/user-disabled':
+                        errorMsg += "This account has been disabled";
+                        break;
+                    case 'auth/user-not-found':
+                        errorMsg += "No account found with this email";
+                        break;
+                    case 'auth/wrong-password':
+                        errorMsg += "Incorrect password";
+                        break;
+                    case 'auth/invalid-credential':
+                        errorMsg += "Invalid email or password";
+                        break;
+                    case 'auth/network-request-failed':
+                        errorMsg += "Network error. Check your connection.";
+                        break;
+                    default:
+                        errorMsg += error.message;
+                }
+                
+                showToast(errorMsg, "error");
+                
+                // Re-enable form
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+    }
 
-const demoAuthBtn = document.getElementById('demo-auth-btn');
-if(demoAuthBtn) {
-    demoAuthBtn.onclick = () => {
-        state.isDemoMode = true;
-        state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
-        const sb = document.getElementById('app-sidebar');
-        if(sb) sb.classList.add('lg:flex');
-        const as = document.getElementById('auth-screen');
-        if(as) as.classList.add('hidden');
-        const wm = document.getElementById('demo-watermark');
-        if(wm) wm.classList.remove('hidden');
-        if(demoToggle) demoToggle.checked = true;
-        loadProjectList();
-    };
-}
+    // Register Button Handler
+    const btnRegister = document.getElementById('btn-register');
+    console.log('Register button:', btnRegister ? '✅ Found' : '❌ Not found');
+    
+    if(btnRegister) {
+        btnRegister.addEventListener('click', async () => {
+            const emailInput = document.getElementById('email');
+            const passwordInput = document.getElementById('password');
+            
+            if (!emailInput || !passwordInput) {
+                console.error('❌ Email or password input not found');
+                return;
+            }
+            
+            const email = emailInput.value.trim();
+            const password = passwordInput.value;
+            
+            if (!email || !password) {
+                showToast("Please enter email and password", "error");
+                return;
+            }
+            
+            if (password.length < 6) {
+                showToast("Password must be at least 6 characters", "error");
+                return;
+            }
+            
+            // Disable button & show loading
+            btnRegister.disabled = true;
+            const originalText = btnRegister.innerHTML;
+            btnRegister.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Creating...';
+            
+            try { 
+                await createUserWithEmailAndPassword(auth, email, password);
+                console.log('✅ Account created');
+                showToast("Account created! You can now sign in.", "success");
+            } 
+            catch (error) {
+                console.error('❌ Registration error:', error.code, error.message);
+                
+                let errorMsg = "Registration failed: ";
+                switch(error.code) {
+                    case 'auth/email-already-in-use':
+                        errorMsg += "Email already registered. Try signing in instead.";
+                        break;
+                    case 'auth/invalid-email':
+                        errorMsg += "Invalid email address";
+                        break;
+                    case 'auth/operation-not-allowed':
+                        errorMsg += "Email/password accounts are not enabled";
+                        break;
+                    case 'auth/weak-password':
+                        errorMsg += "Password is too weak";
+                        break;
+                    default:
+                        errorMsg += error.message;
+                }
+                
+                showToast(errorMsg, "error");
+            } finally {
+                // Re-enable button
+                btnRegister.disabled = false;
+                btnRegister.innerHTML = originalText;
+            }
+        });
+    }
+
+    // Logout Button
+    const logoutBtn = document.getElementById('logout-btn');
+    if(logoutBtn) {
+        logoutBtn.addEventListener('click', () => { 
+            signOut(auth); 
+            window.location.reload(); 
+        });
+    }
+
+    // Mobile Menu
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    if(mobileMenuBtn) {
+        mobileMenuBtn.addEventListener('click', () => {
+            const sidebar = document.getElementById('app-sidebar');
+            if (sidebar.classList.contains('hidden')) {
+                sidebar.classList.remove('hidden'); 
+                sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+            } else {
+                sidebar.classList.add('hidden'); 
+                sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+            }
+        });
+    }
+
+    // Demo Mode Toggle
+    const demoToggle = document.getElementById('demo-toggle');
+    if(demoToggle) {
+        demoToggle.addEventListener('change', (e) => {
+            state.isDemoMode = e.target.checked;
+            state.currentProjectId = null; 
+            state.projectData = null;
+            const wm = document.getElementById('demo-watermark');
+            if (state.isDemoMode) { 
+                if(wm) wm.classList.remove('hidden'); 
+                loadProjectList(); 
+            } 
+            else { 
+                if(wm) wm.classList.add('hidden'); 
+                if (state.currentUser) loadProjectList(); 
+                else {
+                    const authScreen = document.getElementById('auth-screen');
+                    if(authScreen) authScreen.classList.remove('hidden');
+                }
+            }
+        });
+    }
+
+    // Demo Auth Button
+    const demoAuthBtn = document.getElementById('demo-auth-btn');
+    if(demoAuthBtn) {
+        demoAuthBtn.onclick = () => {
+            state.isDemoMode = true;
+            state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+            const sb = document.getElementById('app-sidebar');
+            if(sb) sb.classList.add('lg:flex');
+            const as = document.getElementById('auth-screen');
+            if(as) as.classList.add('hidden');
+            const wm = document.getElementById('demo-watermark');
+            if(wm) wm.classList.remove('hidden');
+            if(demoToggle) demoToggle.checked = true;
+            loadProjectList();
+        };
+    }
+});
 
 window.openDemoProject = () => {
     state.projectData = getDemoData();
@@ -872,3 +976,5 @@ if (typeof mermaid !== 'undefined') {
 if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
+
+console.log('✅ App initialization complete');
