@@ -4,7 +4,6 @@ import { showToast, formatDate } from "./utils.js";
 // ==========================================================================
 // POWERPOINT EXPORT (PptxGenJS)
 // ==========================================================================
-// This relies on PptxGenJS library being loaded in index.html via CDN.
 
 export async function exportPPTX() {
     // 1. Verify Library Availability
@@ -136,11 +135,22 @@ export async function exportPPTX() {
     slide = pres.addSlide();
     slide.addText("Results", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: RCEM_PURPLE });
     
-    // Attempt to capture the chart canvas
-    // NOTE: The chart must be visible in the DOM for this to work.
+    // Fix: Temporarily unhide chart if it's not currently visible to allow canvas capture
     const canvas = document.getElementById('mainChart');
-    if (canvas) {
+    const dataView = document.getElementById('view-data');
+    let wasHidden = false;
+
+    if (canvas && dataView) {
+        if (dataView.classList.contains('hidden')) {
+            wasHidden = true;
+            dataView.style.position = 'absolute';
+            dataView.style.left = '-9999px';
+            dataView.classList.remove('hidden');
+        }
+
         try {
+            // Slight delay to allow render
+            await new Promise(r => setTimeout(r, 50));
             const dataUrl = canvas.toDataURL('image/png');
             slide.addImage({ data: dataUrl, x: 1, y: 1.2, w: 8, h: 4.5 });
             
@@ -153,14 +163,21 @@ export async function exportPPTX() {
                 });
             }
         } catch (e) {
-            slide.addText("Chart image capture failed (Canvas tainted or hidden).", { x: 1, y: 3, color: "red" });
+            console.error(e);
+            slide.addText("Chart image capture failed.", { x: 1, y: 3, color: "red" });
+        } finally {
+            if (wasHidden) {
+                dataView.classList.add('hidden');
+                dataView.style.position = '';
+                dataView.style.left = '';
+            }
         }
     } else {
-        slide.addText("Chart not currently active in view. Go to Data view to capture.", { x: 1, y: 3, italic: true });
+        slide.addText("Chart not initialized.", { x: 1, y: 3, italic: true });
     }
 
     // =======================================
-    // SLIDE 5: LEADERSHIP LOG (New Feature)
+    // SLIDE 5: LEADERSHIP LOG
     // =======================================
     slide = pres.addSlide();
     slide.addText("Leadership & Engagement Log", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: RCEM_PURPLE });
@@ -283,8 +300,6 @@ export function printPosterOnly() {
     
     document.body.classList.add('printing-poster-mode');
     window.print();
-    // Remove class after print dialog closes (in most browsers this happens immediately or pauses JS)
-    // To be safe, we remove it after a short delay or listen for afterprint
     setTimeout(() => {
         document.body.classList.remove('printing-poster-mode');
     }, 1000);
