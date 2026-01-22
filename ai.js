@@ -71,7 +71,8 @@ export async function callAI(userPrompt, jsonMode = false) {
 
         // Clean up markdown code blocks if they exist despite instructions
         if (jsonMode) {
-            text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+            // Fix: Regex now handles ```json, ```JSON, or just ```
+            text = text.replace(/```(json)?/gi, '').replace(/```/g, '').trim();
             return JSON.parse(text);
         }
 
