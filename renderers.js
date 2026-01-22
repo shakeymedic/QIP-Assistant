@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { escapeHtml, showToast } from "./utils.js";
+import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart, makeDraggable, chartMode } from "./charts.js";
 import { suggestEvidence } from "./ai.js";
 
@@ -50,6 +50,11 @@ function renderAll(view) {
         default: 
             renderDashboard();
     }
+
+    // Trigger auto-resize on all textareas after render
+    setTimeout(() => {
+        document.querySelectorAll('textarea').forEach(el => autoResizeTextarea(el));
+    }, 50);
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -735,7 +740,7 @@ function renderGreen() {
 }
 
 // ==========================================
-// 8. PDSA VIEW (IMPROVED)
+// 8. PDSA VIEW (IMPROVED - STACKED & BIGGER)
 // ==========================================
 
 function renderPDSA() {
@@ -770,22 +775,55 @@ function renderPDSA() {
                 </div>
             </div>
 
-            <div class="lg:col-span-8 space-y-6">
+            <div class="lg:col-span-8 space-y-8">
                 ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">No PDSA cycles started yet.</div>' : ''}
                 ${d.pdsa ? d.pdsa.map((p, i) => `
                 <div class="card-modern overflow-hidden group">
-                    <div class="bg-slate-50 p-4 border-b border-slate-200 flex justify-between items-start">
+                    <div class="bg-white p-4 border-b border-slate-200 flex justify-between items-start sticky top-0 z-10 shadow-sm">
                         <div class="flex gap-4 items-center">
                             <div class="bg-rcem-purple text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm flex-shrink-0">${i + 1}</div>
-                            <div><h4 class="font-bold text-slate-800 text-lg leading-tight">${escapeHtml(p.title || 'Untitled')}</h4><div class="text-xs text-slate-500 font-mono mt-1 flex items-center gap-2"><i data-lucide="calendar" class="w-3 h-3"></i> ${p.start || '...'} → ${p.end || '...'}</div></div>
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-lg leading-tight">${escapeHtml(p.title || 'Untitled')}</h4>
+                                <div class="text-xs text-slate-500 font-mono mt-1 flex items-center gap-2">
+                                    <i data-lucide="calendar" class="w-3 h-3"></i> ${p.start || '...'} → ${p.end || '...'}
+                                </div>
+                            </div>
                         </div>
                         <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                     </div>
-                    <div class="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-blue-500"></div><label class="text-xs font-bold uppercase text-slate-600">Plan</label></div><textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.desc || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-amber-500"></div><label class="text-xs font-bold uppercase text-slate-600">Do</label></div><textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.do || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-purple-500"></div><label class="text-xs font-bold uppercase text-slate-600">Study</label></div><textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.study || '')}</textarea></div>
-                        <div class="space-y-1"><div class="flex items-center gap-2 mb-1"><div class="w-2 h-2 rounded-full bg-emerald-500"></div><label class="text-xs font-bold uppercase text-slate-600">Act</label></div><textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-slate-50 border border-slate-200 rounded text-sm focus:bg-white transition-colors" rows="3">${escapeHtml(p.act || '')}</textarea></div>
+                    
+                    <div class="p-6 space-y-6">
+                        <div class="space-y-2 pdsa-stack-item bg-pastel-blue p-4 rounded-xl border">
+                            <div class="flex items-center gap-2 mb-1 text-blue-800">
+                                <i data-lucide="map" class="w-4 h-4"></i>
+                                <label class="text-sm font-bold uppercase tracking-wide">Plan</label>
+                            </div>
+                            <textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-white/50 border border-blue-100 rounded text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.desc || '')}</textarea>
+                        </div>
+
+                        <div class="space-y-2 pdsa-stack-item bg-pastel-orange p-4 rounded-xl border">
+                            <div class="flex items-center gap-2 mb-1 text-orange-800">
+                                <i data-lucide="play" class="w-4 h-4"></i>
+                                <label class="text-sm font-bold uppercase tracking-wide">Do</label>
+                            </div>
+                            <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-white/50 border border-orange-100 rounded text-sm focus:ring-2 focus:ring-orange-200 focus:border-orange-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.do || '')}</textarea>
+                        </div>
+
+                        <div class="space-y-2 pdsa-stack-item bg-pastel-purple p-4 rounded-xl border">
+                            <div class="flex items-center gap-2 mb-1 text-purple-800">
+                                <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
+                                <label class="text-sm font-bold uppercase tracking-wide">Study</label>
+                            </div>
+                            <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-white/50 border border-purple-100 rounded text-sm focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.study || '')}</textarea>
+                        </div>
+
+                        <div class="space-y-2 pdsa-stack-item bg-pastel-green p-4 rounded-xl border">
+                            <div class="flex items-center gap-2 mb-1 text-emerald-800">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                                <label class="text-sm font-bold uppercase tracking-wide">Act</label>
+                            </div>
+                            <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-white/50 border border-emerald-100 rounded text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.act || '')}</textarea>
+                        </div>
                     </div>
                 </div>`).join('') : ''}
             </div>
@@ -875,14 +913,31 @@ function renderStakeholders() {
 }
 
 // ==========================================
-// 10. GANTT VIEW (IMPROVED)
+// 10. GANTT VIEW (CONDENSED MODE)
 // ==========================================
+
+let ganttMode = 'compact'; // default to compact for better viewing
 
 function renderGantt(targetId = 'gantt-container') {
     const d = state.projectData;
     if (!d) return;
     const container = document.getElementById(targetId);
     if (!container) return;
+
+    // View Toggle Control (Only in main view)
+    if (targetId === 'gantt-container' && !document.getElementById('gantt-view-toggle')) {
+        const header = container.previousElementSibling; // The header div
+        if(header && !header.querySelector('#gantt-view-toggle')) {
+            const toggleDiv = document.createElement('div');
+            toggleDiv.id = 'gantt-view-toggle';
+            toggleDiv.className = 'flex bg-slate-100 p-1 rounded-lg ml-4';
+            toggleDiv.innerHTML = `
+                <button onclick="ganttMode='standard'; window.renderGantt()" class="${ganttMode === 'standard' ? 'bg-white shadow text-slate-800' : 'text-slate-500'} px-3 py-1 text-xs font-bold rounded transition-all">Daily</button>
+                <button onclick="ganttMode='compact'; window.renderGantt()" class="${ganttMode === 'compact' ? 'bg-white shadow text-slate-800' : 'text-slate-500'} px-3 py-1 text-xs font-bold rounded transition-all">Weekly (Compact)</button>
+            `;
+            header.querySelector('div').appendChild(toggleDiv);
+        }
+    }
 
     if (!d.gantt || d.gantt.length === 0) {
         container.innerHTML = `<div class="text-center p-12 text-slate-400 italic"><i data-lucide="calendar-clock" class="w-12 h-12 mx-auto mb-4 opacity-30"></i><p>No tasks yet. Click "Add Task" to start.</p></div>`;
@@ -896,13 +951,19 @@ function renderGantt(targetId = 'gantt-container') {
         return;
     }
     
+    // CONDENSED VIEW LOGIC
+    const isCompact = ganttMode === 'compact';
+    const pxPerDay = isCompact ? 5 : 30; // Significantly reduced for compact mode
+    const rowHeight = isCompact ? 35 : 50;
+    
+    // Set container class for styling overrides
+    container.className = isCompact ? 'min-w-[800px] p-6 min-h-[300px] relative gantt-compact' : 'min-w-[800px] p-6 min-h-[300px] relative';
+
     const minDate = new Date(Math.min(...dates));
     const maxDate = new Date(Math.max(...dates));
     minDate.setDate(minDate.getDate() - 7);
     maxDate.setDate(maxDate.getDate() + 30);
     
-    const pxPerDay = 30;
-    const rowHeight = 50;
     const headerHeight = 40;
     const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
     const totalWidth = Math.max(800, totalDays * pxPerDay);
@@ -932,7 +993,7 @@ function renderGantt(targetId = 'gantt-container') {
             const to = taskPositions[t.id];
             const p1 = { x: from.rightX, y: from.y };
             const p2 = { x: to.x, y: to.y };
-            const midX = p1.x + 15;
+            const midX = p1.x + (isCompact ? 5 : 15);
             svgLines += `<path d="M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowhead)" />`;
         }
     });
@@ -946,7 +1007,8 @@ function renderGantt(targetId = 'gantt-container') {
         const visibleEnd = new Date(Math.min(monthEnd.getTime(), maxDate.getTime()));
         const visibleDays = Math.ceil((visibleEnd - visibleStart) / (1000 * 60 * 60 * 24)) + 1;
         const width = visibleDays * pxPerDay;
-        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0 text-center flex items-center justify-center" style="width: ${width}px">${monthStr}</div>`;
+        // In compact mode, we center the label more aggressively
+        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0 text-center flex items-center justify-center overflow-hidden" style="width: ${width}px">${monthStr}</div>`;
         current.setMonth(current.getMonth() + 1);
     }
     headerHTML += '</div>';
@@ -971,10 +1033,13 @@ function renderGantt(targetId = 'gantt-container') {
         const typeColors = { plan: 'from-blue-500 to-blue-600', do: 'from-amber-500 to-amber-600', study: 'from-purple-500 to-purple-600', act: 'from-emerald-500 to-emerald-600' };
         const bg = typeColors[t.type] || 'from-slate-500 to-slate-600';
         
+        // Compact mode: Smaller bars, text might need to float outside if too small
+        const barHeight = isCompact ? 'h-5 text-[10px]' : 'h-8 text-xs';
+        
         rowsHTML += `
-            <div class="absolute h-[${rowHeight}px] flex items-center w-full hover:bg-slate-50 transition-colors border-b border-slate-100" style="top: ${idx * rowHeight}px;">
-                <div class="absolute h-8 rounded-lg shadow-sm text-white text-xs font-bold flex items-center px-3 cursor-pointer bg-gradient-to-r ${bg} z-10 hover:shadow-md hover:scale-[1.01] transition-all group" 
-                     style="left: ${offsetDays * pxPerDay}px; width: ${Math.max(40, width)}px;"
+            <div class="absolute h-[${rowHeight}px] flex items-center w-full hover:bg-slate-50 transition-colors border-b border-slate-100 gantt-task-row" style="top: ${idx * rowHeight}px;">
+                <div class="absolute ${barHeight} rounded-lg shadow-sm text-white font-bold flex items-center px-3 cursor-pointer bg-gradient-to-r ${bg} z-10 hover:shadow-md hover:scale-[1.01] transition-all group gantt-bar" 
+                     style="left: ${offsetDays * pxPerDay}px; width: ${Math.max(isCompact ? 20 : 40, width)}px;"
                      onclick="if(confirm('Delete task: ${escapeHtml(t.name)}?')) window.deleteGantt('${t.id}')">
                     <span class="truncate drop-shadow-md">${escapeHtml(t.name)}</span>
                     <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded z-30 whitespace-nowrap shadow-xl">
@@ -992,7 +1057,7 @@ function renderGantt(targetId = 'gantt-container') {
 }
 
 // ==========================================
-// 11. TEAM VIEW
+// 11. TEAM VIEW (EXPANDED GUIDANCE)
 // ==========================================
 
 function renderTeam() {
@@ -1010,11 +1075,51 @@ function renderTeam() {
             </div>
         </div>
 
-        <div id="stakeholder-guide" class="hidden mb-8 card-modern p-6">
-            <h3 class="font-bold text-indigo-900 mb-4 flex items-center gap-2"><i data-lucide="info" class="w-5 h-5"></i> Team Composition Guide</h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-xs text-slate-600">
-                <div class="bg-slate-50 p-3 rounded border border-slate-100"><strong class="text-slate-800 block mb-1">Nursing Leadership</strong>Engage Unit Managers (Band 7s).</div>
-                <div class="bg-slate-50 p-3 rounded border border-slate-100"><strong class="text-slate-800 block mb-1">Infection Control</strong>Include IPC lead if relevant.</div>
+        <div id="stakeholder-guide" class="hidden mb-8 card-modern p-6 border-l-4 border-l-rcem-purple">
+            <h3 class="font-bold text-indigo-900 mb-4 flex items-center gap-2 text-lg"><i data-lucide="info" class="w-5 h-5"></i> NHS Team Composition Guide</h3>
+            <p class="text-sm text-slate-600 mb-4">Successful QIPs require a multidisciplinary team. Consider engaging these key roles in your ED:</p>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs text-slate-700">
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <strong class="text-rcem-purple block mb-1 text-sm">Nursing Leadership</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Matron / Band 8:</strong> Essential for departmental policy changes.</li>
+                        <li><strong>Senior Sister / Band 7:</strong> Critical for shop-floor enforcement and culture change.</li>
+                    </ul>
+                </div>
+                
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <strong class="text-rcem-purple block mb-1 text-sm">Medical Team</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Consultant Sponsor:</strong> Mandatory for governance and high-level blockage removal.</li>
+                        <li><strong>Junior Docs (Rotational):</strong> Excellent for data collection but high turnover risks continuity.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <strong class="text-rcem-purple block mb-1 text-sm">Operational & Support</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Service Manager:</strong> Key if your project needs funding or business cases.</li>
+                        <li><strong>Porters:</strong> Vital for flow, radiology, and transfer projects.</li>
+                        <li><strong>Reception:</strong> First point of contact for patient stream projects.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <strong class="text-rcem-purple block mb-1 text-sm">Clinical Support</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Pharmacy:</strong> For antimicrobial stewardship or drug chart safety.</li>
+                        <li><strong>Microbiology:</strong> For sepsis or infection control protocols.</li>
+                    </ul>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
+                    <strong class="text-rcem-purple block mb-1 text-sm">Governance</strong>
+                    <ul class="list-disc pl-4 space-y-1">
+                        <li><strong>Audit Lead:</strong> Ensures registration and compliance.</li>
+                        <li><strong>Patient Voice:</strong> PALS or patient representative for service design.</li>
+                    </ul>
+                </div>
             </div>
         </div>
 
