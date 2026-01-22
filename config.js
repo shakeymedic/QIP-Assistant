@@ -12,15 +12,28 @@ const firebaseConfig = {
     measurementId: "G-XHXTBQ29FX"
 };
 
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const db = getFirestore(app);
+let app, auth, db;
+
+try {
+    app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    console.log('✅ Firebase initialized successfully');
+} catch (error) {
+    console.error('❌ Firebase initialization error:', error);
+}
+
+export { auth, db };
 
 // Enable Offline Persistence
-enableIndexedDbPersistence(db).catch((err) => {
-    if (err.code == 'failed-precondition') {
-        console.warn('Persistence failed: Multiple tabs open');
-    } else if (err.code == 'unimplemented') {
-        console.warn('Persistence not supported by this browser');
-    }
-});
+if (db) {
+    enableIndexedDbPersistence(db).catch((err) => {
+        if (err.code === 'failed-precondition') {
+            console.warn('⚠️ Persistence failed: Multiple tabs open');
+        } else if (err.code === 'unimplemented') {
+            console.warn('⚠️ Persistence not supported by this browser');
+        } else {
+            console.error('❌ Persistence error:', err);
+        }
+    });
+}
