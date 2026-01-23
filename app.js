@@ -8,9 +8,10 @@ import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
 import { callAI } from "./ai.js";
 
 // Import Logic Modules
+// NOTE: addCauseWithWhys, addDriver, addStep are window globals defined in charts.js, not exports
 import { 
     renderChart, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, 
-    zoomIn, zoomOut, resetZoom, addCauseWithWhys, addDriver, addStep, resetProcess, 
+    zoomIn, zoomOut, resetZoom, resetProcess, 
     setToolMode, setChartMode, updateChartEducation, renderTools, toolMode,
     openChartSettings, saveChartSettings, copyChartImage, renderFullViewChart,
     toggleToolHelp
@@ -298,12 +299,10 @@ window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
 
 // --- TOOL FUNCTIONS (Fishbone/Driver) ---
+// Note: addCauseWithWhys, addDriver, addStep are defined as window globals in charts.js
 window.setToolMode = setToolMode;
 window.toggleToolList = R.toggleToolList;
 window.toggleToolHelp = toggleToolHelp;
-window.addCauseWithWhys = addCauseWithWhys;
-window.addDriver = addDriver;
-window.addStep = addStep;
 window.resetProcess = resetProcess;
 window.updateFishCat = R.updateFishCat;
 window.updateFishCause = R.updateFishCause;
@@ -1200,6 +1199,7 @@ function initAuthHandlers() {
     const demoAuthBtn = document.getElementById('demo-auth-btn');
     if(demoAuthBtn) {
         demoAuthBtn.onclick = () => {
+            console.log('🎮 Demo mode button clicked');
             state.isDemoMode = true;
             state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
             const sb = document.getElementById('app-sidebar');
@@ -1213,6 +1213,8 @@ function initAuthHandlers() {
             showToast("Demo mode activated", "success");
         };
     }
+    
+    console.log('Demo button:', demoAuthBtn ? '✅ Found' : '❌ Not found');
 }
 
 // ROBUST LOADING CHECK:
