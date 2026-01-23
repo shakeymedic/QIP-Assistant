@@ -100,30 +100,30 @@
             <form id="auth-form" class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
-                    <input type="email" id="auth-email" required 
+                    <input type="email" id="email" required 
                         class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
                         placeholder="your.email@nhs.net">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
-                    <input type="password" id="auth-password" required minlength="6"
+                    <input type="password" id="password" required minlength="6"
                         class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
                         placeholder="••••••••">
                 </div>
-                <button type="submit" id="auth-submit"
+                <button type="submit" id="btn-signin"
                     class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
                     <span>Sign In</span>
                 </button>
             </form>
             
             <div class="mt-4 text-center">
-                <button id="auth-toggle" class="text-sm text-rcem-purple hover:underline">
+                <button id="btn-register" class="text-sm text-rcem-purple hover:underline">
                     Don't have an account? Sign Up
                 </button>
             </div>
             
             <div class="mt-6 pt-6 border-t border-slate-200">
-                <button id="demo-btn" 
+                <button id="demo-auth-btn" 
                     class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3 rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2">
                     <i data-lucide="flask-conical" class="w-4 h-4"></i>
                     <span>Try Demo Mode</span>
@@ -198,6 +198,7 @@
                 </nav>
                 
                 <div class="p-3 border-t border-white/10">
+                    <div id="user-display" class="text-xs text-slate-400 mb-2 px-2 truncate"></div>
                     <div class="flex items-center justify-between text-xs text-slate-400 mb-2 px-2">
                         <span>Demo Mode</span>
                         <div class="relative inline-flex items-center">
@@ -207,6 +208,9 @@
                     </div>
                     <button onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project
+                    </button>
+                    <button onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                        <i data-lucide="settings" class="w-3 h-3"></i> Settings
                     </button>
                     <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs">
                         <i data-lucide="log-out" class="w-3 h-3"></i> Sign Out
@@ -530,7 +534,7 @@
     </div>
 
     <!-- Gantt Task Modal -->
-    <div id="gantt-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div id="task-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Add/Edit Task</h3>
             <input type="hidden" id="task-index">
@@ -541,22 +545,29 @@
                 </div>
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date *</label>
                         <input type="date" id="task-start" class="w-full p-2 border rounded">
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date *</label>
                         <input type="date" id="task-end" class="w-full p-2 border rounded">
                     </div>
                 </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
-                    <select id="task-status" class="w-full p-2 border rounded">
-                        <option value="not-started">Not Started</option>
-                        <option value="in-progress">In Progress</option>
-                        <option value="complete">Complete</option>
-                        <option value="blocked">Blocked</option>
-                    </select>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Type</label>
+                        <select id="task-type" class="w-full p-2 border rounded">
+                            <option value="plan">Planning</option>
+                            <option value="data">Data Collection</option>
+                            <option value="pdsa">PDSA Cycle</option>
+                            <option value="review">Review</option>
+                            <option value="sustain">Sustain</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Owner</label>
+                        <input type="text" id="task-owner" class="w-full p-2 border rounded" placeholder="Dr Smith">
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Depends On</label>
@@ -570,7 +581,7 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('gantt-modal').classList.add('hidden'); document.getElementById('gantt-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="document.getElementById('task-modal').classList.add('hidden'); document.getElementById('task-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button onclick="window.saveGanttTask()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
@@ -600,6 +611,45 @@
             </div>
         </div>
     </div>
+
+    <!-- Global Settings Modal -->
+    <div id="global-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <i data-lucide="settings" class="w-5 h-5 text-rcem-purple"></i>
+                Settings
+            </h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Google AI (Gemini) API Key</label>
+                    <div class="flex gap-2">
+                        <input type="password" id="settings-ai-key" class="flex-1 p-2 border rounded text-sm font-mono" placeholder="AIza...">
+                        <button onclick="window.toggleKeyVis()" class="text-slate-400 hover:text-slate-700 p-2" title="Show/Hide">
+                            <i data-lucide="eye" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" class="text-rcem-purple hover:underline">Google AI Studio</a></p>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-3">
+                    <h4 class="text-sm font-bold text-slate-700 mb-2">AI Features</h4>
+                    <ul class="text-xs text-slate-600 space-y-1">
+                        <li>• Refine SMART aims automatically</li>
+                        <li>• Generate driver diagrams</li>
+                        <li>• Analyse chart data</li>
+                        <li>• Draft PDSA cycles</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden File Inputs -->
+    <input type="file" id="project-upload-input" accept=".json" onchange="window.importProjectFromFile(this)" class="hidden">
+    <input type="file" id="csv-upload-hidden" accept=".csv" onchange="window.importCSV(event)" class="hidden">
 
     <!-- Service Worker Registration -->
     <script>
