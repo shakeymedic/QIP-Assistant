@@ -121,7 +121,7 @@
             </div>
 
             <div id="content-area" class="flex-1 overflow-y-auto relative scroll-smooth p-4 md:p-8 pb-20">
-                <!-- ========== AUTH SCREEN - IMPROVED ========== -->
+                <!-- ========== AUTH SCREEN - SECURITY FIXED ========== -->
                 <div id="auth-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center p-4">
                     <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
                         <div class="bg-slate-50 p-8 text-center border-b border-slate-100">
@@ -130,10 +130,16 @@
                             <p class="text-slate-500 text-sm mt-1">Professional Portfolio Tool</p>
                         </div>
                         <div class="p-8 space-y-4">
-                            <!-- Auth Error Alert Container (populated by JS if needed) -->
+                            <!-- Auth Error Alert Container -->
                             <div id="auth-error-container"></div>
                             
-                            <form id="auth-form" class="space-y-4" novalidate>
+                            <!-- 
+                                SECURITY FIX: 
+                                - method="POST" prevents credentials appearing in URL
+                                - action="javascript:void(0);" prevents any form submission
+                                - onsubmit returns false as extra protection
+                            -->
+                            <form id="auth-form" method="POST" action="javascript:void(0);" onsubmit="return false;" class="space-y-4" novalidate autocomplete="off">
                                 <div>
                                     <label for="email" class="text-xs font-bold text-slate-500 uppercase block mb-1">Email</label>
                                     <input 
@@ -179,7 +185,7 @@
                                 </div>
                             </div>
                             
-                            <button id="demo-auth-btn" class="w-full border border-slate-300 text-slate-600 py-2.5 rounded text-sm font-medium hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
+                            <button type="button" id="demo-auth-btn" class="w-full border border-slate-300 text-slate-600 py-2.5 rounded text-sm font-medium hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
                                 <i data-lucide="play-circle" class="w-4 h-4"></i>
                                 Try Demo Mode
                             </button>
