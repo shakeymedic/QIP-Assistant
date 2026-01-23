@@ -8,7 +8,6 @@ import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
 import { callAI } from "./ai.js";
 
 // Import Logic Modules
-// NOTE: addCauseWithWhys, addDriver, addStep are window globals defined in charts.js, not exports
 import { 
     renderChart, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, 
     zoomIn, zoomOut, resetZoom, resetProcess, 
@@ -36,7 +35,6 @@ console.log('🚀 App starting...');
         }
     });
     
-    // Also check if email param exists (from form GET submission)
     if (url.searchParams.has('email') && !url.searchParams.has('share')) {
         url.searchParams.delete('email');
         needsClean = true;
@@ -132,7 +130,6 @@ window.importProjectFromFile = function(input) {
             if (!json.meta || !json.checklist) throw new Error("Invalid QIP file");
             
             state.projectData = json;
-            // Immediate cloud save to persist imported data (if logged in)
             window.saveData(true); 
             R.renderAll('dashboard');
             showToast("Project loaded from file", "success");
@@ -225,10 +222,10 @@ window.aiSuggestDrivers = async () => {
         Problem Context: "${d.problem_desc}".
         Task: Generate a Driver Diagram structure in JSON format.
         Schema: { "primary": ["string"], "secondary": ["string"], "changes": ["string"] }
-        Requirements: 3 Primary Drivers, 4 Secondary Drivers, 5 Specific Change Ideas.
+        Requirements: 3-4 Primary Drivers, 4-6 Secondary Drivers, 5-8 Specific Change Ideas.
     `;
 
-    const result = await callAI(prompt, true); // JSON mode
+    const result = await callAI(prompt, true);
 
     if (result && result.primary) {
         state.projectData.drivers = result;
@@ -278,7 +275,6 @@ window.aiAnalyseChart = async () => {
     const btn = document.getElementById('btn-ai-chart');
     if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Analysing...`;
     
-    // Sort and format data for token efficiency
     const sorted = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
     const dataStr = sorted.map(x => `${x.date}:${x.value}`).join(', ');
     
@@ -300,6 +296,31 @@ window.aiAnalyseChart = async () => {
     
     if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse`;
     if(typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.aiSuggestEvidence = async () => {
+    const d = state.projectData.checklist;
+    if (!d.problem_desc && !d.aim) { showToast("Define a problem or aim first", "error"); return; }
+    
+    const prompt = `
+        Context: Quality Improvement in UK Emergency Medicine.
+        Problem: "${d.problem_desc || 'Not defined'}"
+        Aim: "${d.aim || 'Not defined'}"
+        Task: Suggest relevant evidence, guidelines, and standards for this QIP.
+        Include: NICE guidelines, RCEM standards, key research papers, CQC requirements.
+        Format as a brief paragraph suitable for a literature review section.
+        Keep under 150 words.
+    `;
+    
+    const result = await callAI(prompt);
+    
+    if(result) {
+        const existing = d.lit_review || '';
+        state.projectData.checklist.lit_review = existing ? existing + '\n\n[AI Suggestions]\n' + result.trim() : result.trim();
+        window.saveData();
+        R.renderChecklist();
+        showToast("Evidence suggestions added", "success");
+    }
 };
 
 // --- EXPORT FUNCTIONS ---
@@ -326,8 +347,7 @@ window.openChartSettings = openChartSettings;
 window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
 
-// --- TOOL FUNCTIONS (Fishbone/Driver) ---
-// Note: addCauseWithWhys, addDriver, addStep are defined as window globals in charts.js
+// --- TOOL FUNCTIONS (Fishbone/Driver/Process) ---
 window.setToolMode = setToolMode;
 window.toggleToolList = R.toggleToolList;
 window.toggleToolHelp = toggleToolHelp;
@@ -344,6 +364,7 @@ window.saveChecklist = (key, val) => {
     state.projectData.checklist[key] = val; 
     window.saveData(); 
 };
+window.saveChecklistField = window.saveChecklist; // Alias for HTML compatibility
 window.saveSmartAim = R.saveSmartAim; 
 window.renderChecklist = R.renderChecklist; 
 
@@ -450,6 +471,14 @@ window.deleteGantt = (id) => {
         showToast("Task deleted", "info");
     }
 };
+window.deleteGanttTask = (index) => {
+    if(confirm("Delete this task?")) {
+        state.projectData.gantt.splice(index, 1);
+        window.saveData();
+        R.renderGantt();
+        showToast("Task deleted", "info");
+    }
+};
 
 // --- PUBLISH & CALCULATORS ---
 window.switchPublishMode = R.renderPublish;
@@ -480,7 +509,6 @@ window.saveData = async function(skipHistory = false) {
         let currentView = document.querySelector('.view-section:not(.hidden)');
         if (currentView) {
             let viewName = currentView.id.replace('view-', '');
-            // Refresh specific views that depend on data
             if(viewName === 'tools' || viewName === 'data' || viewName === 'dashboard') {
                 R.renderAll(viewName);
             }
@@ -491,7 +519,6 @@ window.saveData = async function(skipHistory = false) {
     // Firebase Save
     if (!state.currentProjectId || !state.currentUser) return;
     
-    // FIX: Check if DB is initialized
     if (!db) {
         showToast("Database not connected. Changes saved locally.", "warning");
         return;
@@ -501,7 +528,6 @@ window.saveData = async function(skipHistory = false) {
     
     try {
         await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
-        // Optional: Trigger a UI "Saved" indicator
         const s = document.getElementById('save-status');
         if(s) { s.classList.remove('opacity-0'); setTimeout(() => s.classList.add('opacity-0'), 2000); }
     } catch (e) {
@@ -556,25 +582,19 @@ function updateUndoRedoButtons() {
 }
 
 // ==========================================================================
-// AUTHENTICATION ERROR HANDLING - COMPREHENSIVE
+// AUTHENTICATION ERROR HANDLING
 // ==========================================================================
 
-/**
- * Get user-friendly error message from Firebase Auth error code
- * @param {Error} error - Firebase Auth error object
- * @returns {Object} - { message: string, type: string, field: string|null }
- */
 function getAuthErrorDetails(error) {
     const errorCode = error.code || '';
     const errorDetails = {
         message: 'An unexpected error occurred. Please try again.',
         type: 'error',
-        field: null, // 'email', 'password', or null for general errors
+        field: null,
         suggestion: null
     };
 
     switch (errorCode) {
-        // Email-related errors
         case 'auth/invalid-email':
             errorDetails.message = 'Please enter a valid email address.';
             errorDetails.field = 'email';
@@ -589,74 +609,38 @@ function getAuthErrorDetails(error) {
             errorDetails.field = 'email';
             errorDetails.suggestion = 'register';
             break;
-            
-        // Password-related errors
         case 'auth/wrong-password':
             errorDetails.message = 'Incorrect password. Please try again.';
             errorDetails.field = 'password';
             errorDetails.suggestion = 'reset';
             break;
         case 'auth/weak-password':
-            errorDetails.message = 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.';
+            errorDetails.message = 'Password is too weak. Use at least 6 characters.';
             errorDetails.field = 'password';
             break;
         case 'auth/missing-password':
             errorDetails.message = 'Please enter your password.';
             errorDetails.field = 'password';
             break;
-            
-        // Combined credential errors (Firebase v9+ returns this for security)
         case 'auth/invalid-credential':
-            errorDetails.message = 'Invalid email or password. Please check your details and try again.';
-            errorDetails.field = null; // Could be either
-            break;
         case 'auth/invalid-login-credentials':
-            errorDetails.message = 'Invalid email or password. Please check your details and try again.';
+            errorDetails.message = 'Invalid email or password. Please check your details.';
             errorDetails.field = null;
             break;
-            
-        // Account status errors
         case 'auth/user-disabled':
             errorDetails.message = 'This account has been disabled. Please contact support.';
             errorDetails.type = 'warning';
             break;
-        case 'auth/account-exists-with-different-credential':
-            errorDetails.message = 'An account already exists with this email using a different sign-in method.';
-            errorDetails.field = 'email';
-            break;
-            
-        // Rate limiting and security
         case 'auth/too-many-requests':
-            errorDetails.message = 'Too many failed attempts. Please wait a few minutes before trying again, or reset your password.';
+            errorDetails.message = 'Too many failed attempts. Please wait before trying again.';
             errorDetails.type = 'warning';
             errorDetails.suggestion = 'wait';
             break;
-        case 'auth/operation-not-allowed':
-            errorDetails.message = 'Email/password sign-in is not enabled. Please contact support.';
-            errorDetails.type = 'warning';
-            break;
-            
-        // Network errors
         case 'auth/network-request-failed':
-            errorDetails.message = 'Network error. Please check your internet connection and try again.';
+            errorDetails.message = 'Network error. Please check your internet connection.';
             errorDetails.type = 'warning';
             break;
-        case 'auth/internal-error':
-            errorDetails.message = 'A server error occurred. Please try again in a moment.';
-            break;
-        case 'auth/timeout':
-            errorDetails.message = 'The request timed out. Please check your connection and try again.';
-            errorDetails.type = 'warning';
-            break;
-            
-        // Popup/redirect errors (for OAuth - future use)
-        case 'auth/popup-closed-by-user':
-            errorDetails.message = 'Sign-in was cancelled. Please try again.';
-            errorDetails.type = 'info';
-            break;
-            
         default:
-            // Log unknown errors for debugging
             console.error('Unknown auth error:', errorCode, error.message);
             errorDetails.message = `Authentication error: ${error.message || 'Unknown error'}`;
     }
@@ -664,12 +648,6 @@ function getAuthErrorDetails(error) {
     return errorDetails;
 }
 
-/**
- * Show/hide field-level error styling
- * @param {string} fieldId - The input field ID
- * @param {boolean} hasError - Whether to show error state
- * @param {string} message - Error message (optional)
- */
 function setFieldError(fieldId, hasError, message = '') {
     const field = document.getElementById(fieldId);
     if (!field) return;
@@ -699,31 +677,16 @@ function setFieldError(fieldId, hasError, message = '') {
     }
 }
 
-/**
- * Clear all field errors
- */
 function clearFieldErrors() {
     setFieldError('email', false);
     setFieldError('password', false);
 }
 
-/**
- * Validate email format
- * @param {string} email 
- * @returns {boolean}
- */
 function isValidEmail(email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
 }
 
-/**
- * Set button loading state
- * @param {HTMLElement} button 
- * @param {boolean} isLoading 
- * @param {string} loadingText 
- * @param {string} originalText 
- */
 function setButtonLoading(button, isLoading, loadingText = 'Loading...', originalText = null) {
     if (!button) return;
     
@@ -735,7 +698,6 @@ function setButtonLoading(button, isLoading, loadingText = 'Loading...', origina
     } else {
         button.disabled = false;
         button.innerHTML = originalText || button.dataset.originalText || 'Submit';
-        // Recreate icons if needed
         if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [button] });
     }
 }
@@ -760,29 +722,7 @@ if (auth) {
         }
     });
 } else {
-    console.error("⚠️ Firebase Auth not initialized. Check your API configuration.");
-    // Show error in UI
-    window.addEventListener('DOMContentLoaded', () => {
-        const authScreen = document.getElementById('auth-screen');
-        if (authScreen) {
-            const formContainer = authScreen.querySelector('.p-8.space-y-4');
-            if (formContainer) {
-                const errorAlert = document.createElement('div');
-                errorAlert.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm';
-                errorAlert.innerHTML = `
-                    <div class="flex items-center gap-2">
-                        <i data-lucide="alert-circle" class="w-5 h-5"></i>
-                        <div>
-                            <strong>Connection Error</strong>
-                            <p class="text-xs mt-1">Unable to connect to authentication services. Please refresh the page or try again later.</p>
-                        </div>
-                    </div>
-                `;
-                formContainer.insertBefore(errorAlert, formContainer.firstChild);
-                if (typeof lucide !== 'undefined') lucide.createIcons();
-            }
-        }
-    });
+    console.error("⚠️ Firebase Auth not initialized.");
 }
 
 async function checkShareLink() {
@@ -829,12 +769,13 @@ async function loadProjectList() {
     // --- DEMO MODE RENDER ---
     if (state.isDemoMode) {
         listEl.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple relative cursor-pointer group hover:shadow-md transition-all" onclick="window.openDemoProject()">
-             <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide">Gold Standard</div>
-             <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery</h3>
-             <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ED Registrar)</p>
-             <div class="flex gap-2 text-xs font-medium text-slate-500">
-                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> 40 Data</span>
-                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 2 Cycles</span>
+             <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-bl">Gold Standard</div>
+             <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery in the ED</h3>
+             <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ST6 Emergency Medicine)</p>
+             <div class="flex gap-2 text-xs font-medium text-slate-500 flex-wrap">
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> 52 Data Points</span>
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 5 PDSA Cycles</span>
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="users" class="w-3 h-3"></i> 6 Team Members</span>
             </div>
         </div>`;
         if(typeof lucide !== 'undefined') lucide.createIcons();
@@ -907,7 +848,6 @@ window.openProject = (id) => {
     state.currentProjectId = id;
     if (window.unsubscribeProject) window.unsubscribeProject();
     
-    // Real-time listener for collaboration
     if (!db) { showToast("No DB connection", "error"); return; }
     
     window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
@@ -936,7 +876,6 @@ window.openProject = (id) => {
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
             
-            // If inside a view, refresh it to show new data
             let currentView = document.querySelector('.view-section:not(.hidden)');
             if (currentView) {
                 let viewName = currentView.id.replace('view-', '');
@@ -954,26 +893,21 @@ window.openProject = (id) => {
 };
 
 // ==========================================================================
-// AUTHENTICATION HANDLERS - IMPROVED
+// AUTHENTICATION HANDLERS
 // ==========================================================================
 
 function initAuthHandlers() {
     console.log('📄 Initializing Auth Handlers');
     
-    // Auth Form Handler
     const authForm = document.getElementById('auth-form');
-    console.log('Auth form:', authForm ? '✅ Found' : '❌ Not found');
     
     if(authForm) {
-        // SECURITY: Multiple layers to prevent form submission leaking credentials
         authForm.onsubmit = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
         
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            console.log('🔑 Form submitted');
             
-            // Clear previous errors
             clearFieldErrors();
             
             const emailInput = document.getElementById('email');
@@ -981,7 +915,6 @@ function initAuthHandlers() {
             const submitBtn = authForm.querySelector('button[type="submit"]');
             
             if (!emailInput || !passwordInput) {
-                console.error('❌ Email or password input not found');
                 showToast('Form error: Input fields not found', 'error');
                 return;
             }
@@ -989,7 +922,6 @@ function initAuthHandlers() {
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
-            // Client-side validation
             if (!email) {
                 setFieldError('email', true, 'Email is required');
                 emailInput.focus();
@@ -1014,182 +946,100 @@ function initAuthHandlers() {
                 return;
             }
             
-            // Check if auth is available
             if (!auth) {
-                showToast("Authentication service unavailable. Please refresh the page.", "error");
+                showToast("Authentication service unavailable. Please refresh.", "error");
                 return;
             }
             
-            console.log('Attempting login for:', email);
-            
-            // Show loading state
             setButtonLoading(submitBtn, true, 'Signing in...');
             
             try { 
                 await signInWithEmailAndPassword(auth, email, password);
-                console.log('✅ Login successful');
                 showToast("Signed in successfully!", "success");
             } 
             catch (error) {
-                console.error('❌ Login error:', error.code, error.message);
-                
                 const errorDetails = getAuthErrorDetails(error);
-                
-                // Show field-specific error if applicable
                 if (errorDetails.field) {
                     setFieldError(errorDetails.field, true, errorDetails.message);
                 }
-                
-                // Show toast with error message
                 showToast(errorDetails.message, errorDetails.type);
-                
-                // Clear password field on error (security best practice)
                 passwordInput.value = '';
-                
-                // Show suggestion if available
-                if (errorDetails.suggestion === 'register') {
-                    setTimeout(() => {
-                        showToast("Don't have an account? Click 'Register' to create one.", "info");
-                    }, 1500);
-                } else if (errorDetails.suggestion === 'signin') {
-                    setTimeout(() => {
-                        showToast("Already have an account? Use 'Sign In' instead.", "info");
-                    }, 1500);
-                } else if (errorDetails.suggestion === 'wait') {
-                    // Disable the form briefly
-                    submitBtn.disabled = true;
-                    setTimeout(() => {
-                        submitBtn.disabled = false;
-                        showToast("You can try again now.", "info");
-                    }, 30000); // 30 seconds
-                }
-                
-                // Reset button state
                 setButtonLoading(submitBtn, false, null, 'Sign In');
             }
         });
         
-        // Clear errors on input
         const emailInput = document.getElementById('email');
         const passwordInput = document.getElementById('password');
         
         if (emailInput) {
             emailInput.addEventListener('input', () => setFieldError('email', false));
-            emailInput.addEventListener('focus', () => setFieldError('email', false));
         }
         
         if (passwordInput) {
             passwordInput.addEventListener('input', () => setFieldError('password', false));
-            passwordInput.addEventListener('focus', () => setFieldError('password', false));
         }
     }
 
-    // Register Button Handler
     const btnRegister = document.getElementById('btn-register');
-    console.log('Register button:', btnRegister ? '✅ Found' : '❌ Not found');
     
     if(btnRegister) {
         btnRegister.addEventListener('click', async () => {
-            // Clear previous errors
             clearFieldErrors();
             
             const emailInput = document.getElementById('email');
             const passwordInput = document.getElementById('password');
             
-            if (!emailInput || !passwordInput) {
-                console.error('❌ Email or password input not found');
-                showToast('Form error: Input fields not found', 'error');
-                return;
-            }
-            
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
-            // Client-side validation
-            if (!email) {
-                setFieldError('email', true, 'Email is required');
-                emailInput.focus();
-                return;
-            }
-            
-            if (!isValidEmail(email)) {
+            if (!email || !isValidEmail(email)) {
                 setFieldError('email', true, 'Please enter a valid email address');
-                emailInput.focus();
                 return;
             }
             
-            if (!password) {
-                setFieldError('password', true, 'Password is required');
-                passwordInput.focus();
-                return;
-            }
-            
-            if (password.length < 6) {
+            if (!password || password.length < 6) {
                 setFieldError('password', true, 'Password must be at least 6 characters');
-                passwordInput.focus();
                 return;
             }
             
             if (!auth) {
-                showToast("Authentication service unavailable. Please refresh the page.", "error");
+                showToast("Authentication service unavailable.", "error");
                 return;
             }
             
-            // Show loading state
             setButtonLoading(btnRegister, true, 'Creating account...');
             
             try { 
                 await createUserWithEmailAndPassword(auth, email, password);
-                console.log('✅ Account created');
-                showToast("Account created successfully! You are now signed in.", "success");
+                showToast("Account created successfully!", "success");
             } 
             catch (error) {
-                console.error('❌ Registration error:', error.code, error.message);
-                
                 const errorDetails = getAuthErrorDetails(error);
-                
-                // Show field-specific error if applicable
                 if (errorDetails.field) {
                     setFieldError(errorDetails.field, true, errorDetails.message);
                 }
-                
-                // Show toast
                 showToast(errorDetails.message, errorDetails.type);
-                
-                // Show suggestion
-                if (errorDetails.suggestion === 'signin') {
-                    setTimeout(() => {
-                        showToast("Try clicking 'Sign In' instead.", "info");
-                    }, 1500);
-                }
-                
-                // Reset button
                 setButtonLoading(btnRegister, false, null, 'Register');
             }
         });
     }
 
-    // Logout Button
     const logoutBtn = document.getElementById('logout-btn');
     if(logoutBtn) {
         logoutBtn.addEventListener('click', async () => { 
             try {
                 if(auth) await signOut(auth);
                 showToast("Signed out successfully", "info");
-                // Clear state
                 state.currentUser = null;
                 state.currentProjectId = null;
                 state.projectData = null;
-                // Reload to reset everything cleanly
                 setTimeout(() => window.location.reload(), 500);
             } catch (error) {
-                console.error('Logout error:', error);
                 showToast("Error signing out. Please try again.", "error");
             }
         });
     }
 
-    // Mobile Menu
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     if(mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', () => {
@@ -1204,7 +1054,6 @@ function initAuthHandlers() {
         });
     }
 
-    // Demo Mode Toggle
     const demoToggle = document.getElementById('demo-toggle');
     if(demoToggle) {
         demoToggle.addEventListener('change', (e) => {
@@ -1227,11 +1076,10 @@ function initAuthHandlers() {
         });
     }
 
-    // Demo Auth Button
     const demoAuthBtn = document.getElementById('demo-auth-btn');
     if(demoAuthBtn) {
         demoAuthBtn.onclick = () => {
-            console.log('🎮 Demo mode button clicked');
+            console.log('🎮 Demo mode activated');
             state.isDemoMode = true;
             state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
             const sb = document.getElementById('app-sidebar');
@@ -1242,14 +1090,11 @@ function initAuthHandlers() {
             if(wm) wm.classList.remove('hidden');
             if(demoToggle) demoToggle.checked = true;
             loadProjectList();
-            showToast("Demo mode activated", "success");
+            showToast("Demo mode activated - explore the Gold Standard example!", "success");
         };
     }
-    
-    console.log('Demo button:', demoAuthBtn ? '✅ Found' : '❌ Not found');
 }
 
-// ROBUST LOADING CHECK:
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAuthHandlers);
 } else {
@@ -1269,7 +1114,7 @@ window.openDemoProject = () => {
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.remove('hidden');
     window.router('dashboard');
-    showToast("Gold Standard Example Loaded", "info");
+    showToast("Gold Standard Example Loaded - explore all features!", "info");
 };
 
 window.shareProject = () => {
@@ -1325,7 +1170,6 @@ if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
 
-// Debug helper - expose Firebase status to window
 window.checkFirebaseStatus = () => {
     const status = getFirebaseStatus();
     console.log('🔥 Firebase Status:', status);
