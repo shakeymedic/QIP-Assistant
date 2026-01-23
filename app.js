@@ -1,4 +1,4 @@
-import { auth, db } from "./config.js";
+import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
@@ -20,6 +20,7 @@ import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 
 console.log('🚀 App starting...');
+console.log('Firebase Status:', getFirebaseStatus());
 console.log('Auth:', auth ? '✅' : '❌');
 console.log('DB:', db ? '✅' : '❌');
 
@@ -527,6 +528,191 @@ function updateUndoRedoButtons() {
     if (redoBtn) redoBtn.disabled = state.redoStack.length === 0;
 }
 
+// ==========================================================================
+// AUTHENTICATION ERROR HANDLING - COMPREHENSIVE
+// ==========================================================================
+
+/**
+ * Get user-friendly error message from Firebase Auth error code
+ * @param {Error} error - Firebase Auth error object
+ * @returns {Object} - { message: string, type: string, field: string|null }
+ */
+function getAuthErrorDetails(error) {
+    const errorCode = error.code || '';
+    const errorDetails = {
+        message: 'An unexpected error occurred. Please try again.',
+        type: 'error',
+        field: null, // 'email', 'password', or null for general errors
+        suggestion: null
+    };
+
+    switch (errorCode) {
+        // Email-related errors
+        case 'auth/invalid-email':
+            errorDetails.message = 'Please enter a valid email address.';
+            errorDetails.field = 'email';
+            break;
+        case 'auth/email-already-in-use':
+            errorDetails.message = 'This email is already registered. Try signing in instead.';
+            errorDetails.field = 'email';
+            errorDetails.suggestion = 'signin';
+            break;
+        case 'auth/user-not-found':
+            errorDetails.message = 'No account found with this email address.';
+            errorDetails.field = 'email';
+            errorDetails.suggestion = 'register';
+            break;
+            
+        // Password-related errors
+        case 'auth/wrong-password':
+            errorDetails.message = 'Incorrect password. Please try again.';
+            errorDetails.field = 'password';
+            errorDetails.suggestion = 'reset';
+            break;
+        case 'auth/weak-password':
+            errorDetails.message = 'Password is too weak. Use at least 6 characters with a mix of letters and numbers.';
+            errorDetails.field = 'password';
+            break;
+        case 'auth/missing-password':
+            errorDetails.message = 'Please enter your password.';
+            errorDetails.field = 'password';
+            break;
+            
+        // Combined credential errors (Firebase v9+ returns this for security)
+        case 'auth/invalid-credential':
+            errorDetails.message = 'Invalid email or password. Please check your details and try again.';
+            errorDetails.field = null; // Could be either
+            break;
+        case 'auth/invalid-login-credentials':
+            errorDetails.message = 'Invalid email or password. Please check your details and try again.';
+            errorDetails.field = null;
+            break;
+            
+        // Account status errors
+        case 'auth/user-disabled':
+            errorDetails.message = 'This account has been disabled. Please contact support.';
+            errorDetails.type = 'warning';
+            break;
+        case 'auth/account-exists-with-different-credential':
+            errorDetails.message = 'An account already exists with this email using a different sign-in method.';
+            errorDetails.field = 'email';
+            break;
+            
+        // Rate limiting and security
+        case 'auth/too-many-requests':
+            errorDetails.message = 'Too many failed attempts. Please wait a few minutes before trying again, or reset your password.';
+            errorDetails.type = 'warning';
+            errorDetails.suggestion = 'wait';
+            break;
+        case 'auth/operation-not-allowed':
+            errorDetails.message = 'Email/password sign-in is not enabled. Please contact support.';
+            errorDetails.type = 'warning';
+            break;
+            
+        // Network errors
+        case 'auth/network-request-failed':
+            errorDetails.message = 'Network error. Please check your internet connection and try again.';
+            errorDetails.type = 'warning';
+            break;
+        case 'auth/internal-error':
+            errorDetails.message = 'A server error occurred. Please try again in a moment.';
+            break;
+        case 'auth/timeout':
+            errorDetails.message = 'The request timed out. Please check your connection and try again.';
+            errorDetails.type = 'warning';
+            break;
+            
+        // Popup/redirect errors (for OAuth - future use)
+        case 'auth/popup-closed-by-user':
+            errorDetails.message = 'Sign-in was cancelled. Please try again.';
+            errorDetails.type = 'info';
+            break;
+            
+        default:
+            // Log unknown errors for debugging
+            console.error('Unknown auth error:', errorCode, error.message);
+            errorDetails.message = `Authentication error: ${error.message || 'Unknown error'}`;
+    }
+
+    return errorDetails;
+}
+
+/**
+ * Show/hide field-level error styling
+ * @param {string} fieldId - The input field ID
+ * @param {boolean} hasError - Whether to show error state
+ * @param {string} message - Error message (optional)
+ */
+function setFieldError(fieldId, hasError, message = '') {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+
+    const wrapper = field.parentElement;
+    let errorSpan = wrapper.querySelector('.field-error');
+
+    if (hasError) {
+        field.classList.add('border-red-500', 'bg-red-50');
+        field.classList.remove('border-slate-300');
+        
+        if (message && !errorSpan) {
+            errorSpan = document.createElement('span');
+            errorSpan.className = 'field-error text-red-500 text-xs mt-1 block';
+            wrapper.appendChild(errorSpan);
+        }
+        if (errorSpan) {
+            errorSpan.textContent = message;
+        }
+    } else {
+        field.classList.remove('border-red-500', 'bg-red-50');
+        field.classList.add('border-slate-300');
+        
+        if (errorSpan) {
+            errorSpan.remove();
+        }
+    }
+}
+
+/**
+ * Clear all field errors
+ */
+function clearFieldErrors() {
+    setFieldError('email', false);
+    setFieldError('password', false);
+}
+
+/**
+ * Validate email format
+ * @param {string} email 
+ * @returns {boolean}
+ */
+function isValidEmail(email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+}
+
+/**
+ * Set button loading state
+ * @param {HTMLElement} button 
+ * @param {boolean} isLoading 
+ * @param {string} loadingText 
+ * @param {string} originalText 
+ */
+function setButtonLoading(button, isLoading, loadingText = 'Loading...', originalText = null) {
+    if (!button) return;
+    
+    if (isLoading) {
+        button.disabled = true;
+        button.dataset.originalText = button.innerHTML;
+        button.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> ${loadingText}`;
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [button] });
+    } else {
+        button.disabled = false;
+        button.innerHTML = originalText || button.dataset.originalText || 'Submit';
+        // Recreate icons if needed
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [button] });
+    }
+}
+
 // --- AUTH LISTENER ---
 if (auth) {
     onAuthStateChanged(auth, async (user) => {
@@ -548,7 +734,28 @@ if (auth) {
     });
 } else {
     console.error("⚠️ Firebase Auth not initialized. Check your API configuration.");
-    showToast("App Error: Authentication service unavailable.", "error");
+    // Show error in UI
+    window.addEventListener('DOMContentLoaded', () => {
+        const authScreen = document.getElementById('auth-screen');
+        if (authScreen) {
+            const formContainer = authScreen.querySelector('.p-8.space-y-4');
+            if (formContainer) {
+                const errorAlert = document.createElement('div');
+                errorAlert.className = 'bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4 text-sm';
+                errorAlert.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                        <div>
+                            <strong>Connection Error</strong>
+                            <p class="text-xs mt-1">Unable to connect to authentication services. Please refresh the page or try again later.</p>
+                        </div>
+                    </div>
+                `;
+                formContainer.insertBefore(errorAlert, formContainer.firstChild);
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        }
+    });
 }
 
 async function checkShareLink() {
@@ -719,8 +926,10 @@ window.openProject = (id) => {
     window.router('dashboard');
 };
 
-// --- HANDLERS (FIXED FOR AUTH) ---
-// We wrap this in a robust initializer to handle Module vs DOM timing
+// ==========================================================================
+// AUTHENTICATION HANDLERS - IMPROVED
+// ==========================================================================
+
 function initAuthHandlers() {
     console.log('📄 Initializing Auth Handlers');
     
@@ -733,58 +942,115 @@ function initAuthHandlers() {
             e.preventDefault();
             console.log('🔑 Form submitted');
             
+            // Clear previous errors
+            clearFieldErrors();
+            
             const emailInput = document.getElementById('email');
             const passwordInput = document.getElementById('password');
             const submitBtn = authForm.querySelector('button[type="submit"]');
             
             if (!emailInput || !passwordInput) {
                 console.error('❌ Email or password input not found');
-                return;
-            }
-            
-            // Pre-flight check for Auth
-            if (!auth) {
-                showToast("Firebase Auth not initialized. Cannot sign in.", "error");
+                showToast('Form error: Input fields not found', 'error');
                 return;
             }
             
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
+            // Client-side validation
+            if (!email) {
+                setFieldError('email', true, 'Email is required');
+                emailInput.focus();
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                setFieldError('email', true, 'Please enter a valid email address');
+                emailInput.focus();
+                return;
+            }
+            
+            if (!password) {
+                setFieldError('password', true, 'Password is required');
+                passwordInput.focus();
+                return;
+            }
+            
+            if (password.length < 6) {
+                setFieldError('password', true, 'Password must be at least 6 characters');
+                passwordInput.focus();
+                return;
+            }
+            
+            // Check if auth is available
+            if (!auth) {
+                showToast("Authentication service unavailable. Please refresh the page.", "error");
+                return;
+            }
+            
             console.log('Attempting login for:', email);
             
-            // Disable form & show loading
-            submitBtn.disabled = true;
-            const originalText = submitBtn.innerHTML;
-            submitBtn.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Signing in...';
+            // Show loading state
+            setButtonLoading(submitBtn, true, 'Signing in...');
             
             try { 
                 await signInWithEmailAndPassword(auth, email, password);
                 console.log('✅ Login successful');
-                showToast("Signed in successfully", "success");
+                showToast("Signed in successfully!", "success");
             } 
             catch (error) {
                 console.error('❌ Login error:', error.code, error.message);
                 
-                // User-friendly error messages
-                let errorMsg = "Login failed: ";
-                switch(error.code) {
-                    case 'auth/invalid-email': errorMsg += "Invalid email address"; break;
-                    case 'auth/user-disabled': errorMsg += "This account has been disabled"; break;
-                    case 'auth/user-not-found': errorMsg += "No account found with this email"; break;
-                    case 'auth/wrong-password': errorMsg += "Incorrect password"; break;
-                    case 'auth/invalid-credential': errorMsg += "Invalid email or password"; break;
-                    case 'auth/network-request-failed': errorMsg += "Network error. Check your connection."; break;
-                    default: errorMsg += error.message;
+                const errorDetails = getAuthErrorDetails(error);
+                
+                // Show field-specific error if applicable
+                if (errorDetails.field) {
+                    setFieldError(errorDetails.field, true, errorDetails.message);
                 }
                 
-                showToast(errorMsg, "error");
+                // Show toast with error message
+                showToast(errorDetails.message, errorDetails.type);
                 
-                // Re-enable form
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+                // Clear password field on error (security best practice)
+                passwordInput.value = '';
+                
+                // Show suggestion if available
+                if (errorDetails.suggestion === 'register') {
+                    setTimeout(() => {
+                        showToast("Don't have an account? Click 'Register' to create one.", "info");
+                    }, 1500);
+                } else if (errorDetails.suggestion === 'signin') {
+                    setTimeout(() => {
+                        showToast("Already have an account? Use 'Sign In' instead.", "info");
+                    }, 1500);
+                } else if (errorDetails.suggestion === 'wait') {
+                    // Disable the form briefly
+                    submitBtn.disabled = true;
+                    setTimeout(() => {
+                        submitBtn.disabled = false;
+                        showToast("You can try again now.", "info");
+                    }, 30000); // 30 seconds
+                }
+                
+                // Reset button state
+                setButtonLoading(submitBtn, false, null, 'Sign In');
             }
         });
+        
+        // Clear errors on input
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        
+        if (emailInput) {
+            emailInput.addEventListener('input', () => setFieldError('email', false));
+            emailInput.addEventListener('focus', () => setFieldError('email', false));
+        }
+        
+        if (passwordInput) {
+            passwordInput.addEventListener('input', () => setFieldError('password', false));
+            passwordInput.addEventListener('focus', () => setFieldError('password', false));
+        }
     }
 
     // Register Button Handler
@@ -793,59 +1059,81 @@ function initAuthHandlers() {
     
     if(btnRegister) {
         btnRegister.addEventListener('click', async () => {
+            // Clear previous errors
+            clearFieldErrors();
+            
             const emailInput = document.getElementById('email');
             const passwordInput = document.getElementById('password');
             
             if (!emailInput || !passwordInput) {
                 console.error('❌ Email or password input not found');
-                return;
-            }
-            
-            if (!auth) {
-                showToast("Auth not ready. Check config.", "error");
+                showToast('Form error: Input fields not found', 'error');
                 return;
             }
             
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
-            if (!email || !password) {
-                showToast("Please enter email and password", "error");
+            // Client-side validation
+            if (!email) {
+                setFieldError('email', true, 'Email is required');
+                emailInput.focus();
+                return;
+            }
+            
+            if (!isValidEmail(email)) {
+                setFieldError('email', true, 'Please enter a valid email address');
+                emailInput.focus();
+                return;
+            }
+            
+            if (!password) {
+                setFieldError('password', true, 'Password is required');
+                passwordInput.focus();
                 return;
             }
             
             if (password.length < 6) {
-                showToast("Password must be at least 6 characters", "error");
+                setFieldError('password', true, 'Password must be at least 6 characters');
+                passwordInput.focus();
                 return;
             }
             
-            // Disable button & show loading
-            btnRegister.disabled = true;
-            const originalText = btnRegister.innerHTML;
-            btnRegister.innerHTML = '<i data-lucide="loader-2" class="w-4 h-4 animate-spin inline mr-2"></i> Creating...';
+            if (!auth) {
+                showToast("Authentication service unavailable. Please refresh the page.", "error");
+                return;
+            }
+            
+            // Show loading state
+            setButtonLoading(btnRegister, true, 'Creating account...');
             
             try { 
                 await createUserWithEmailAndPassword(auth, email, password);
                 console.log('✅ Account created');
-                showToast("Account created! You can now sign in.", "success");
+                showToast("Account created successfully! You are now signed in.", "success");
             } 
             catch (error) {
                 console.error('❌ Registration error:', error.code, error.message);
                 
-                let errorMsg = "Registration failed: ";
-                switch(error.code) {
-                    case 'auth/email-already-in-use': errorMsg += "Email already registered. Try signing in instead."; break;
-                    case 'auth/invalid-email': errorMsg += "Invalid email address"; break;
-                    case 'auth/operation-not-allowed': errorMsg += "Email/password accounts are not enabled"; break;
-                    case 'auth/weak-password': errorMsg += "Password is too weak"; break;
-                    default: errorMsg += error.message;
+                const errorDetails = getAuthErrorDetails(error);
+                
+                // Show field-specific error if applicable
+                if (errorDetails.field) {
+                    setFieldError(errorDetails.field, true, errorDetails.message);
                 }
                 
-                showToast(errorMsg, "error");
-            } finally {
-                // Re-enable button
-                btnRegister.disabled = false;
-                btnRegister.innerHTML = originalText;
+                // Show toast
+                showToast(errorDetails.message, errorDetails.type);
+                
+                // Show suggestion
+                if (errorDetails.suggestion === 'signin') {
+                    setTimeout(() => {
+                        showToast("Try clicking 'Sign In' instead.", "info");
+                    }, 1500);
+                }
+                
+                // Reset button
+                setButtonLoading(btnRegister, false, null, 'Register');
             }
         });
     }
@@ -853,9 +1141,20 @@ function initAuthHandlers() {
     // Logout Button
     const logoutBtn = document.getElementById('logout-btn');
     if(logoutBtn) {
-        logoutBtn.addEventListener('click', () => { 
-            if(auth) signOut(auth); 
-            window.location.reload(); 
+        logoutBtn.addEventListener('click', async () => { 
+            try {
+                if(auth) await signOut(auth);
+                showToast("Signed out successfully", "info");
+                // Clear state
+                state.currentUser = null;
+                state.currentProjectId = null;
+                state.projectData = null;
+                // Reload to reset everything cleanly
+                setTimeout(() => window.location.reload(), 500);
+            } catch (error) {
+                console.error('Logout error:', error);
+                showToast("Error signing out. Please try again.", "error");
+            }
         });
     }
 
@@ -911,13 +1210,12 @@ function initAuthHandlers() {
             if(wm) wm.classList.remove('hidden');
             if(demoToggle) demoToggle.checked = true;
             loadProjectList();
+            showToast("Demo mode activated", "success");
         };
     }
 }
 
 // ROBUST LOADING CHECK:
-// If document is already loaded (because module was deferred), running initAuthHandlers immediately
-// ensures listeners are attached.
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAuthHandlers);
 } else {
@@ -992,5 +1290,12 @@ if (typeof mermaid !== 'undefined') {
 if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
+
+// Debug helper - expose Firebase status to window
+window.checkFirebaseStatus = () => {
+    const status = getFirebaseStatus();
+    console.log('🔥 Firebase Status:', status);
+    return status;
+};
 
 console.log('✅ App initialization complete');
