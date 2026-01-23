@@ -21,6 +21,34 @@ import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 
 console.log('🚀 App starting...');
+
+// SECURITY: Clean any accidentally leaked credentials from URL immediately
+(function cleanURL() {
+    const url = new URL(window.location.href);
+    const sensitiveParams = ['password', 'pass', 'pwd', 'passwd', 'secret', 'token', 'key', 'apikey'];
+    let needsClean = false;
+    
+    sensitiveParams.forEach(param => {
+        if (url.searchParams.has(param)) {
+            url.searchParams.delete(param);
+            needsClean = true;
+            console.warn('⚠️ SECURITY: Removed sensitive parameter from URL:', param);
+        }
+    });
+    
+    // Also check if email param exists (from form GET submission)
+    if (url.searchParams.has('email') && !url.searchParams.has('share')) {
+        url.searchParams.delete('email');
+        needsClean = true;
+        console.warn('⚠️ SECURITY: Removed email parameter from URL');
+    }
+    
+    if (needsClean) {
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        console.log('✅ URL cleaned of sensitive data');
+    }
+})();
+
 console.log('Firebase Status:', getFirebaseStatus());
 console.log('Auth:', auth ? '✅' : '❌');
 console.log('DB:', db ? '✅' : '❌');
@@ -937,8 +965,12 @@ function initAuthHandlers() {
     console.log('Auth form:', authForm ? '✅ Found' : '❌ Not found');
     
     if(authForm) {
+        // SECURITY: Multiple layers to prevent form submission leaking credentials
+        authForm.onsubmit = (e) => { e.preventDefault(); e.stopPropagation(); return false; };
+        
         authForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            e.stopPropagation();
             console.log('🔑 Form submitted');
             
             // Clear previous errors
