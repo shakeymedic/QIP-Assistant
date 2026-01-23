@@ -468,6 +468,12 @@ export function renderDataView() {
     // Render the main chart
     if (window.renderChart) window.renderChart();
     
+    // Update results text field
+    const resultsText = document.getElementById('results-text');
+    if (resultsText && d.checklist) {
+        resultsText.value = d.checklist.results_text || '';
+    }
+    
     // Update data history
     const historyContainer = document.getElementById('data-history');
     if (historyContainer) {
@@ -714,9 +720,17 @@ export function renderPDSA() {
                             <option value="complete">Complete</option>
                         </select>
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Initial Plan</label>
+                        <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm" rows="3" placeholder="What will you test? What do you predict will happen?"></textarea>
+                    </div>
                     <button onclick="window.addPDSA()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
                         Add PDSA Cycle
                     </button>
+                    ${window.hasAI && window.hasAI() ? `
+                    <button onclick="window.aiGeneratePDSA()" id="btn-ai-pdsa" class="w-full mt-2 border border-purple-200 text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="sparkles" class="w-4 h-4"></i> AI Draft Plan
+                    </button>` : ''}
                 </div>
             </div>
             
@@ -816,6 +830,7 @@ export function addPDSA() {
     const startDate = document.getElementById('pdsa-start')?.value || '';
     const owner = document.getElementById('pdsa-owner')?.value || '';
     const status = document.getElementById('pdsa-status')?.value || 'planning';
+    const plan = document.getElementById('pdsa-plan')?.value || '';
     
     if (!state.projectData.pdsa) state.projectData.pdsa = [];
     state.projectData.pdsa.push({
@@ -823,7 +838,7 @@ export function addPDSA() {
         startDate,
         owner,
         status,
-        plan: '',
+        plan,
         prediction: '',
         do: '',
         study: '',
@@ -835,6 +850,7 @@ export function addPDSA() {
     document.getElementById('pdsa-start').value = '';
     document.getElementById('pdsa-owner').value = '';
     document.getElementById('pdsa-status').value = 'planning';
+    document.getElementById('pdsa-plan').value = '';
     
     if (window.saveData) window.saveData();
     renderPDSA();
