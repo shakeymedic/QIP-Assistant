@@ -130,38 +130,38 @@ function renderToolUI() {
     if(!header) return;
 
     // Build the complete header with tabs and controls
-    header.innerHTML = `
+    header.innerHTML = \`
         <div class="flex items-center gap-4">
             <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <i data-lucide="git-branch" class="w-5 h-5 text-rcem-purple"></i>
                 Diagnosis Tools
             </h2>
             <div class="flex bg-slate-100 p-1 rounded-lg">
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'driver' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all \${toolMode === 'driver' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="driver" onclick="window.setToolMode('driver')">
                     <i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> Driver Diagram
                 </button>
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'fishbone' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all \${toolMode === 'fishbone' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="fishbone" onclick="window.setToolMode('fishbone')">
                     <i data-lucide="fish" class="w-4 h-4 inline mr-1"></i> Fishbone
                 </button>
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'process' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all \${toolMode === 'process' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="process" onclick="window.setToolMode('process')">
                     <i data-lucide="workflow" class="w-4 h-4 inline mr-1"></i> Process Map
                 </button>
             </div>
         </div>
         <div class="flex items-center gap-2">
-            ${toolMode === 'driver' && window.hasAI && window.hasAI() ? `
+            \${toolMode === 'driver' && window.hasAI && window.hasAI() ? \`
                 <button onclick="window.aiSuggestDrivers()" id="btn-ai-driver" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:shadow-lg transition-all flex items-center gap-2">
                     <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate
                 </button>
-            ` : ''}
+            \` : ''}
             <button onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
                 <i data-lucide="help-circle" class="w-5 h-5"></i>
             </button>
         </div>
-    `;
+    \`;
 
     // Inject Help Panel if missing
     let helpPanel = document.getElementById('tool-help-panel');
@@ -177,17 +177,17 @@ function renderToolUI() {
     
     if (helpPanel) {
         const info = TOOL_HELP[toolMode];
-        helpPanel.innerHTML = `
+        helpPanel.innerHTML = \`
             <div class="flex justify-between items-start mb-3">
-                <h4 class="font-bold text-slate-800 text-sm">${info.title}</h4>
+                <h4 class="font-bold text-slate-800 text-sm">\${info.title}</h4>
                 <button onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-slate-800 p-1 rounded hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
-            <p class="text-xs text-slate-600 mb-4 leading-relaxed">${info.desc}</p>
+            <p class="text-xs text-slate-600 mb-4 leading-relaxed">\${info.desc}</p>
             <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-800 border border-indigo-100">
                 <div class="font-bold mb-1 flex items-center gap-1"><i data-lucide="lightbulb" class="w-3 h-3"></i> Tips</div>
-                <p class="leading-relaxed">${info.tips}</p>
+                <p class="leading-relaxed">\${info.tips}</p>
             </div>
-        `;
+        \`;
     }
     
     if(typeof lucide !== 'undefined') lucide.createIcons();
@@ -217,7 +217,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
     const problem = state.projectData.checklist?.problem_desc?.substring(0, 50) || 'Problem';
     
     // Draw the fishbone structure
-    svg.innerHTML = `
+    svg.innerHTML = \`
         <!-- Main spine -->
         <line x1="8%" y1="50%" x2="92%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
         <!-- Arrow head (fish head) -->
@@ -232,7 +232,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
         <line x1="22%" y1="80%" x2="30%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="50%" y1="80%" x2="50%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="78%" y1="80%" x2="70%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
-    `;
+    \`;
     container.appendChild(svg);
 
     // Create label function
@@ -242,8 +242,8 @@ function renderFishboneVisual(container, enableInteraction = false) {
             ? 'fishbone-label category' 
             : 'fishbone-label';
         el.innerText = text || '...';
-        el.style.left = `${x}%`; 
-        el.style.top = `${y}%`;
+        el.style.left = \`\${x}%\`; 
+        el.style.top = \`\${y}%\`;
         
         if(!state.isReadOnly && enableInteraction) {
             makeDraggable(el, container, isCat, catIdx, causeIdx); 
@@ -271,7 +271,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
             if (!isCat) {
                 el.oncontextmenu = (e) => {
                     e.preventDefault();
-                    if (confirm(`Delete cause: "${text}"?`)) {
+                    if (confirm(\`Delete cause: "\${text}"?\`)) {
                         state.projectData.fishbone.categories[catIdx].causes.splice(causeIdx, 1);
                         window.saveData();
                         renderTools();
@@ -325,7 +325,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
     // Add problem/effect label at fish head
     const effectLabel = document.createElement('div');
     effectLabel.className = 'absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm max-w-[150px] text-center shadow-lg';
-    effectLabel.innerHTML = `<div class="text-[10px] uppercase opacity-75">Effect</div>${escapeHtml(problem)}...`;
+    effectLabel.innerHTML = \`<div class="text-[10px] uppercase opacity-75">Effect</div>\${escapeHtml(problem)}...\`;
     container.appendChild(effectLabel);
     
     // Add instruction text if interactive
@@ -385,13 +385,13 @@ function renderDriverVisual(container, enableInteraction = false) {
         colDiv.className = "flex-1 min-w-[220px] flex flex-col gap-3";
         
         // Column Header
-        colDiv.innerHTML = `
+        colDiv.innerHTML = \`
             <div class="font-bold text-center uppercase text-xs text-slate-500 tracking-wider sticky top-0 bg-white z-10 py-2 border-b border-slate-200 flex items-center justify-center gap-2">
-                <i data-lucide="${col.icon}" class="w-4 h-4"></i>
-                ${col.title}
-                <span class="text-slate-300 font-normal">(${col.items.length})</span>
+                <i data-lucide="\${col.icon}" class="w-4 h-4"></i>
+                \${col.title}
+                <span class="text-slate-300 font-normal">(\${col.items.length})</span>
             </div>
-        `;
+        \`;
         
         // Items container
         const itemsContainer = document.createElement('div');
@@ -400,11 +400,11 @@ function renderDriverVisual(container, enableInteraction = false) {
         // Render Items
         col.items.forEach((item, itemIdx) => {
             const card = document.createElement('div');
-            card.className = `${col.color} p-4 rounded-lg border shadow-sm text-sm font-medium relative group hover:shadow-md transition-all`;
+            card.className = \`\${col.color} p-4 rounded-lg border shadow-sm text-sm font-medium relative group hover:shadow-md transition-all\`;
             
             if (col.readonly) {
                 // Aim is read-only here
-                card.innerHTML = `<div class="italic leading-relaxed text-slate-700">${escapeHtml(item)}</div>`;
+                card.innerHTML = \`<div class="italic leading-relaxed text-slate-700">\${escapeHtml(item)}</div>\`;
             } else {
                 // Editable Textareas
                 if (state.isReadOnly) {
@@ -413,26 +413,26 @@ function renderDriverVisual(container, enableInteraction = false) {
                     // AI Button for Secondary Drivers
                     let aiBtn = '';
                     if (col.type === 'secondary' && window.hasAI && window.hasAI()) {
-                        aiBtn = `
-                            <button onclick="window.runChangeGen('${escapeHtml(item.replace(/'/g, "\\'"))}')" 
+                        aiBtn = \`
+                            <button onclick="window.runChangeGen('\${escapeHtml(item.replace(/'/g, "\\\\'"))}')" 
                                     title="Generate Change Ideas from this driver" 
                                     class="absolute -top-2 -right-2 bg-white text-emerald-600 border border-emerald-200 rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-emerald-50 transition-all z-20">
                                 <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
-                            </button>`;
+                            </button>\`;
                     }
 
                     // Textarea with auto-resize logic
-                    card.innerHTML = `
+                    card.innerHTML = \`
                         <textarea 
                             class="w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm leading-relaxed overflow-hidden outline-none" 
                             oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
-                            onchange="window.updateDriver('${col.type}', ${itemIdx}, this.value)">${escapeHtml(item)}</textarea>
-                        <button onclick="window.removeDriver('${col.type}', ${itemIdx})" 
+                            onchange="window.updateDriver('\${col.type}', \${itemIdx}, this.value)">\${escapeHtml(item)}</textarea>
+                        <button onclick="window.removeDriver('\${col.type}', \${itemIdx})" 
                                 class="absolute top-1 right-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-white/50">
                             <i data-lucide="x" class="w-3 h-3"></i>
                         </button>
-                        ${aiBtn}
-                    `;
+                        \${aiBtn}
+                    \`;
                 }
             }
             itemsContainer.appendChild(card);
@@ -453,7 +453,7 @@ function renderDriverVisual(container, enableInteraction = false) {
         if (!col.readonly && !state.isReadOnly) {
             const addBtn = document.createElement('button');
             addBtn.className = "w-full py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-rcem-purple hover:text-rcem-purple hover:bg-slate-50 font-bold text-xs transition-colors flex items-center justify-center gap-2 mt-auto";
-            addBtn.innerHTML = `<i data-lucide="plus" class="w-3 h-3"></i> Add ${col.title.replace('s', '')}`; 
+            addBtn.innerHTML = \`<i data-lucide="plus" class="w-3 h-3"></i> Add \${col.title.replace('s', '')}\`; 
             addBtn.onclick = () => window.addDriver(col.type);
             colDiv.appendChild(addBtn);
         }
@@ -464,11 +464,11 @@ function renderDriverVisual(container, enableInteraction = false) {
     // Add connecting arrows between columns (visual indicator)
     const arrows = document.createElement('div');
     arrows.className = 'hidden md:flex absolute inset-0 pointer-events-none items-center justify-around px-[15%]';
-    arrows.innerHTML = `
+    arrows.innerHTML = \`
         <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
         <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
         <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
-    `;
+    \`;
     // Don't append arrows as they need absolute positioning which conflicts with flex
 }
 
@@ -483,7 +483,7 @@ function renderProcessVisual(container, enableInteraction = false) {
         if (i > 0) {
             const arrow = document.createElement('div');
             arrow.className = "h-8 w-px bg-slate-300 relative";
-            arrow.innerHTML = `<div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>`;
+            arrow.innerHTML = \`<div class="absolute bottom-0 left-1/2 -translate-x-1/2 text-slate-400"><i data-lucide="chevron-down" class="w-4 h-4"></i></div>\`;
             container.appendChild(arrow);
         }
 
@@ -491,7 +491,7 @@ function renderProcessVisual(container, enableInteraction = false) {
         wrapper.className = "relative group w-72 z-10";
 
         if (state.isReadOnly) {
-            wrapper.innerHTML = `<div class="bg-white border-2 border-slate-800 p-4 rounded-lg text-center font-bold shadow-sm">${escapeHtml(step)}</div>`;
+            wrapper.innerHTML = \`<div class="bg-white border-2 border-slate-800 p-4 rounded-lg text-center font-bold shadow-sm">\${escapeHtml(step)}</div>\`;
         } else {
             const isTerminator = i === 0 || i === p.length - 1;
             // Terminators are Black (Start/End), Steps are White with Border
@@ -503,26 +503,26 @@ function renderProcessVisual(container, enableInteraction = false) {
             const isDecision = step.includes('?');
             const shapeClass = isDecision ? 'rotate-45' : '';
             
-            wrapper.innerHTML = `
-                <div class="${bgClass} p-4 rounded-lg transition-transform hover:scale-[1.01] ${isDecision ? 'border-amber-500' : ''}">
+            wrapper.innerHTML = \`
+                <div class="\${bgClass} p-4 rounded-lg transition-transform hover:scale-[1.01] \${isDecision ? 'border-amber-500' : ''}">
                     <textarea 
-                        class="w-full bg-transparent text-center font-bold outline-none resize-none overflow-hidden ${isTerminator ? 'text-white placeholder-slate-400' : 'text-slate-800'}"
+                        class="w-full bg-transparent text-center font-bold outline-none resize-none overflow-hidden \${isTerminator ? 'text-white placeholder-slate-400' : 'text-slate-800'}"
                         placeholder="Step Description"
                         rows="1"
                         oninput="this.style.height='';this.style.height=this.scrollHeight+'px'"
-                        onchange="window.updateStep(${i}, this.value)">${escapeHtml(step)}</textarea>
+                        onchange="window.updateStep(\${i}, this.value)">\${escapeHtml(step)}</textarea>
                 </div>
                 
                 <div class="absolute left-full top-1/2 -translate-y-1/2 ml-3 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white p-1 rounded-lg shadow-lg border border-slate-100 z-20">
-                    <button onclick="window.addStep(${i})" class="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded" title="Add Step After">
+                    <button onclick="window.addStep(\${i})" class="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded" title="Add Step After">
                         <i data-lucide="plus" class="w-4 h-4"></i>
                     </button>
-                    ${!isTerminator ? `
-                    <button onclick="window.removeStep(${i})" class="text-red-600 hover:bg-red-50 p-1.5 rounded" title="Delete Step">
+                    \${!isTerminator ? \`
+                    <button onclick="window.removeStep(\${i})" class="text-red-600 hover:bg-red-50 p-1.5 rounded" title="Delete Step">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
-                    </button>` : ''}
+                    </button>\` : ''}
                 </div>
-            `;
+            \`;
         }
         container.appendChild(wrapper);
         
@@ -621,7 +621,7 @@ function renderRunChart(ctx, canvasId) {
             borderWidth: 2,
             label: {
                 display: true,
-                content: `Median: ${median.toFixed(1)}`,
+                content: \`Median: \${median.toFixed(1)}\`,
                 position: 'end',
                 backgroundColor: 'rgba(148, 163, 184, 0.9)',
                 font: { size: 10, weight: 'bold' }
@@ -641,7 +641,7 @@ function renderRunChart(ctx, canvasId) {
             borderDash: [10, 5],
             label: {
                 display: true,
-                content: `Target: ${target}%`,
+                content: \`Target: \${target}%\`,
                 position: 'start',
                 backgroundColor: 'rgba(34, 197, 94, 0.9)',
                 font: { size: 10, weight: 'bold' }
@@ -652,17 +652,19 @@ function renderRunChart(ctx, canvasId) {
     // Add PDSA annotations if enabled
     if (settings.showAnnotations && state.projectData.pdsa && state.projectData.pdsa.length > 0) {
         state.projectData.pdsa.forEach((p, i) => {
-            if (p.start) {
-                annotations[`pdsa${i}`] = {
+            // Support both 'start' and 'startDate' field names
+            const startDate = p.startDate || p.start;
+            if (startDate) {
+                annotations[\`pdsa\${i}\`] = {
                     type: 'line',
-                    xMin: p.start,
-                    xMax: p.start,
+                    xMin: startDate,
+                    xMax: startDate,
                     borderColor: '#f36f21',
                     borderWidth: 2,
                     borderDash: [5, 5],
                     label: {
                         display: true,
-                        content: `PDSA ${i + 1}`,
+                        content: \`PDSA \${i + 1}\`,
                         position: 'start',
                         backgroundColor: 'rgba(243, 111, 33, 0.9)',
                         font: { size: 9, weight: 'bold' }
@@ -720,7 +722,7 @@ function renderRunChart(ctx, canvasId) {
                     callbacks: {
                         afterLabel: function(context) {
                             const point = sortedD[context.dataIndex];
-                            return point.grade ? `Phase: ${point.grade}` : '';
+                            return point.grade ? \`Phase: \${point.grade}\` : '';
                         }
                     }
                 }
@@ -766,27 +768,28 @@ function renderSPCChart(ctx, canvasId) {
         ucl: { 
             type: 'line', yMin: ucl, yMax: ucl, 
             borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, 
-            label: { display: true, content: `UCL: ${ucl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
+            label: { display: true, content: \`UCL: \${ucl.toFixed(1)}\`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
         }, 
         lcl: { 
             type: 'line', yMin: lcl, yMax: lcl, 
             borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, 
-            label: { display: true, content: `LCL: ${lcl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
+            label: { display: true, content: \`LCL: \${lcl.toFixed(1)}\`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
         }, 
         avg: { 
             type: 'line', yMin: avg, yMax: avg, 
             borderColor: '#22c55e', borderWidth: 2, 
-            label: { display: true, content: `Mean: ${avg.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(34, 197, 94, 0.9)', font: { size: 9 } } 
+            label: { display: true, content: \`Mean: \${avg.toFixed(1)}\`, position: 'end', backgroundColor: 'rgba(34, 197, 94, 0.9)', font: { size: 9 } } 
         }
     };
 
     if (settings.showAnnotations && state.projectData.pdsa) {
         state.projectData.pdsa.forEach((p, i) => {
-            if (p.start) {
-                annotations[`pdsa${i}`] = { 
-                    type: 'line', xMin: p.start, xMax: p.start, 
+            const startDate = p.startDate || p.start;
+            if (startDate) {
+                annotations[\`pdsa\${i}\`] = { 
+                    type: 'line', xMin: startDate, xMax: startDate, 
                     borderColor: '#f36f21', borderWidth: 2, borderDash: [5, 5], 
-                    label: { display: true, content: `PDSA ${i + 1}`, position: 'start', backgroundColor: 'rgba(243, 111, 33, 0.9)', font: { size: 9 } } 
+                    label: { display: true, content: \`PDSA \${i + 1}\`, position: 'start', backgroundColor: 'rgba(243, 111, 33, 0.9)', font: { size: 9 } } 
                 };
             }
         });
@@ -843,7 +846,7 @@ function renderHistogram(ctx, canvasId) {
     for(let i = 0; i < bins; i++) {
         const low = min + (i * step); 
         const high = low + step;
-        labels.push(`${Math.round(low)}-${Math.round(high)}`);
+        labels.push(\`\${Math.round(low)}-\${Math.round(high)}\`);
         buckets[i] = d.filter(v => {
             if (i === bins - 1) return v >= low && v <= high;
             return v >= low && v < high;
@@ -987,8 +990,9 @@ export function downloadCSVTemplate() {
     link.remove();
 }
 
+// FIXED: importCSV now accepts input element directly instead of event
 export function importCSV(input) {
-    const file = input.files[0];
+    const file = input.files ? input.files[0] : null;
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -1010,7 +1014,7 @@ export function importCSV(input) {
         });
         window.saveData();
         if(window.renderDataView) window.renderDataView();
-        showToast(`Imported ${count} data points`, "success");
+        showToast(\`Imported \${count} data points\`, "success");
     };
     reader.readAsText(file);
     input.value = '';
@@ -1073,7 +1077,7 @@ window.runChangeGen = async (driverName) => {
             state.projectData.drivers.changes.push(...ideas);
             window.saveData();
             renderTools();
-            showToast(`${ideas.length} ideas added!`, "success");
+            showToast(\`\${ideas.length} ideas added!\`, "success");
         }
     } else {
         showToast("AI module not loaded", "error");
@@ -1136,8 +1140,8 @@ export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd)
         const dy = cy - sy;
         const nl = Math.max(2, Math.min(98, sl + (dx / pw * 100)));
         const nt = Math.max(2, Math.min(98, st + (dy / ph * 100)));
-        el.style.left = `${nl}%`; 
-        el.style.top = `${nt}%`;
+        el.style.left = \`\${nl}%\`; 
+        el.style.top = \`\${nt}%\`;
         return { x: nl, y: nt };
     };
     
@@ -1197,13 +1201,13 @@ export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd)
     };
 }
 
-export function zoomIn() { zoomLevel = Math.min(2.0, zoomLevel + 0.1); applyZoom(); showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info"); }
-export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); showToast(`Zoom: ${Math.round(zoomLevel * 100)}%`, "info"); }
+export function zoomIn() { zoomLevel = Math.min(2.0, zoomLevel + 0.1); applyZoom(); showToast(\`Zoom: \${Math.round(zoomLevel * 100)}%\`, "info"); }
+export function zoomOut() { zoomLevel = Math.max(0.5, zoomLevel - 0.1); applyZoom(); showToast(\`Zoom: \${Math.round(zoomLevel * 100)}%\`, "info"); }
 export function resetZoom() { zoomLevel = 1.0; applyZoom(); showToast("Zoom reset", "info"); }
 function applyZoom() { 
     const c = document.getElementById('diagram-canvas'); 
     if (c) { 
-        c.style.transform = `scale(${zoomLevel})`; 
+        c.style.transform = \`scale(\${zoomLevel})\`; 
         c.style.transformOrigin = 'center center'; 
     } 
 }
@@ -1216,6 +1220,7 @@ export function openChartSettings() {
         const y = document.getElementById('chart-setting-yaxis'); if(y) y.value = s.yAxisLabel || '';
         const a = document.getElementById('chart-setting-annotations'); if(a) a.checked = s.showAnnotations || false;
         m.classList.remove('hidden'); 
+        m.classList.add('flex');
     } 
 }
 
@@ -1226,6 +1231,7 @@ export function saveChartSettings() {
     const a = document.getElementById('chart-setting-annotations'); state.projectData.chartSettings.showAnnotations = a ? a.checked : false;
     window.saveData();
     document.getElementById('chart-settings-modal').classList.add('hidden');
+    document.getElementById('chart-settings-modal').classList.remove('flex');
     renderChart();
     showToast("Chart settings saved", "success");
 }
@@ -1248,22 +1254,22 @@ export function updateChartEducation() {
     if (!p) return;
     const i = CHART_EDUCATION[chartMode];
     if (i) {
-        p.innerHTML = `
+        p.innerHTML = \`
             <h4 class="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
                 <i data-lucide="graduation-cap" class="w-4 h-4 text-rcem-purple"></i>
-                ${i.title}
+                \${i.title}
             </h4>
-            <p class="text-xs text-slate-600 mb-3 leading-relaxed">${i.desc}</p>
+            <p class="text-xs text-slate-600 mb-3 leading-relaxed">\${i.desc}</p>
             <div class="space-y-1.5">
                 <div class="text-xs font-bold text-slate-500 uppercase">Detection Rules:</div>
-                ${i.rules.map(r => `
+                \${i.rules.map(r => \`
                     <div class="text-xs text-slate-600 flex items-start gap-2">
                         <span class="text-rcem-purple mt-0.5">•</span>
-                        <span>${r}</span>
+                        <span>\${r}</span>
                     </div>
-                `).join('')}
+                \`).join('')}
             </div>
-        `;
+        \`;
     }
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
