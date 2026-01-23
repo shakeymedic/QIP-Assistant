@@ -1,295 +1,563 @@
 /* ==========================================================================
-   RCEM QIP ASSISTANT - CLINICAL GLASS UI
+   RCEM QIP ASSISTANT - CUSTOM STYLES
    ========================================================================== */
 
-:root {
-    --glass-bg: rgba(255, 255, 255, 0.95);
-    --glass-border: rgba(226, 232, 240, 0.8);
-    --glass-shadow: 0 4px 20px -2px rgba(45, 46, 131, 0.08);
-    --rcem-purple: #2d2e83;
-    --rcem-orange: #f36f21;
+/* ==========================================================================
+   BASE STYLES
+   ========================================================================== */
+
+* {
+    box-sizing: border-box;
 }
 
-* { box-sizing: border-box; }
-html { scroll-behavior: smooth; }
+html {
+    scroll-behavior: smooth;
+}
 
 body {
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     -webkit-font-smoothing: antialiased;
-    background-color: #f8fafc;
-    background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
-    background-size: 24px 24px;
-    color: #0f172a;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* ==========================================================================
-   MODERN UI UTILITIES ("The Look")
+   CUSTOM SCROLLBAR
    ========================================================================== */
 
-/* The "Clinical Glass" Card */
-.card-modern {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    box-shadow: var(--glass-shadow);
-    backdrop-filter: blur(8px);
-    border-radius: 0.75rem; /* rounded-xl */
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.card-modern:hover {
-    box-shadow: 0 10px 25px -5px rgba(45, 46, 131, 0.12);
+::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 4px;
 }
 
-.gradient-text {
-    background: linear-gradient(135deg, #2d2e83 0%, #4f46e5 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }
 
 /* ==========================================================================
-   FORM VALIDATION & ERROR STATES
+   TOGGLE SWITCH
    ========================================================================== */
 
-/* Error state for inputs */
-input.border-red-500,
-textarea.border-red-500,
-select.border-red-500 {
-    border-color: #ef4444 !important;
-    background-color: #fef2f2 !important;
+.toggle-checkbox:checked {
+    right: 0;
+    border-color: #10b981;
 }
 
-input.border-red-500:focus,
-textarea.border-red-500:focus,
-select.border-red-500:focus {
-    border-color: #ef4444 !important;
-    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #10b981;
 }
 
-/* Field error message */
-.field-error {
-    color: #ef4444;
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-    display: flex;
-    align-items: center;
-    gap: 0.25rem;
+.toggle-label {
+    width: 36px;
+    transition: background-color 0.2s ease;
 }
 
-.field-error::before {
-    content: '!';
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    background-color: #ef4444;
-    color: white;
-    border-radius: 50%;
-    font-size: 10px;
-    font-weight: bold;
+/* ==========================================================================
+   NAVIGATION
+   ========================================================================== */
+
+.nav-btn {
+    position: relative;
+    overflow: hidden;
 }
 
-/* Success state for inputs */
-input.border-green-500,
-textarea.border-green-500,
-select.border-green-500 {
-    border-color: #22c55e !important;
-    background-color: #f0fdf4 !important;
+.nav-btn::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: #2d2e83;
+    transform: scaleY(0);
+    transition: transform 0.2s ease;
 }
 
-/* Auth form specific styling */
-#auth-form input:focus:not(.border-red-500) {
+.nav-btn.bg-rcem-purple::before,
+.nav-btn:hover::before {
+    transform: scaleY(1);
+}
+
+/* ==========================================================================
+   TOAST NOTIFICATIONS
+   ========================================================================== */
+
+#toast-container {
+    pointer-events: none;
+}
+
+#toast-container > * {
+    pointer-events: auto;
+}
+
+.toast {
+    animation: slideIn 0.3s ease-out;
+}
+
+.toast.removing {
+    animation: slideOut 0.3s ease-in forwards;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOut {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* ==========================================================================
+   FISHBONE DIAGRAM
+   ========================================================================== */
+
+.fishbone-label {
+    position: absolute;
+    padding: 6px 12px;
+    background: white;
+    border: 2px solid #cbd5e1;
+    border-radius: 6px;
+    font-size: 12px;
+    cursor: move;
+    user-select: none;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+    z-index: 10;
+}
+
+.fishbone-label:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     border-color: #2d2e83;
-    box-shadow: 0 0 0 3px rgba(45, 46, 131, 0.1);
 }
 
-#auth-form button:disabled {
-    opacity: 0.7;
+.fishbone-label.category {
+    font-weight: 700;
+    font-size: 13px;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-color: #2d2e83;
+    color: #2d2e83;
+}
+
+.fishbone-label.dragging {
+    opacity: 0.8;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    z-index: 100;
+}
+
+/* ==========================================================================
+   DRIVER DIAGRAM
+   ========================================================================== */
+
+.driver-column {
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border-radius: 12px;
+    padding: 16px;
+    min-height: 400px;
+}
+
+.driver-item {
+    background: white;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.driver-item:hover {
+    border-color: #2d2e83;
+    box-shadow: 0 2px 8px rgba(45, 46, 131, 0.1);
+}
+
+/* ==========================================================================
+   PROCESS MAP
+   ========================================================================== */
+
+.process-step {
+    background: white;
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 16px;
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.process-step:hover {
+    border-color: #2d2e83;
+}
+
+.process-step.decision {
+    transform: rotate(45deg);
+    width: 100px;
+    height: 100px;
+}
+
+.process-step.decision > * {
+    transform: rotate(-45deg);
+}
+
+.process-connector {
+    width: 40px;
+    height: 2px;
+    background: #cbd5e1;
+    position: relative;
+}
+
+.process-connector::after {
+    content: '';
+    position: absolute;
+    right: 0;
+    top: -4px;
+    border: 5px solid transparent;
+    border-left-color: #cbd5e1;
+}
+
+/* ==========================================================================
+   STAKEHOLDER MATRIX
+   ========================================================================== */
+
+.stakeholder-point {
+    transition: transform 0.2s ease;
+}
+
+.stakeholder-point:hover {
+    transform: scale(1.2);
+}
+
+/* ==========================================================================
+   GANTT CHART
+   ========================================================================== */
+
+.gantt-bar {
+    height: 24px;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.gantt-bar:hover {
+    filter: brightness(1.1);
+}
+
+.gantt-milestone {
+    width: 16px;
+    height: 16px;
+    transform: rotate(45deg);
+    background: #f59e0b;
+}
+
+/* ==========================================================================
+   CHARTS
+   ========================================================================== */
+
+#chart-wrapper {
+    position: relative;
+}
+
+#mainChart {
+    max-height: 400px;
+}
+
+.chart-annotation {
+    position: absolute;
+    padding: 4px 8px;
+    background: rgba(249, 115, 22, 0.9);
+    color: white;
+    font-size: 10px;
+    font-weight: 600;
+    border-radius: 4px;
+    white-space: nowrap;
+    z-index: 20;
+}
+
+/* ==========================================================================
+   MODALS
+   ========================================================================== */
+
+.modal-backdrop {
+    backdrop-filter: blur(4px);
+}
+
+/* ==========================================================================
+   CARDS & PANELS
+   ========================================================================== */
+
+.project-card {
+    transition: all 0.2s ease;
+}
+
+.project-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* ==========================================================================
+   FORM ELEMENTS
+   ========================================================================== */
+
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #2d2e83;
+    border-color: transparent;
+}
+
+textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* ==========================================================================
+   BUTTONS
+   ========================================================================== */
+
+button {
+    transition: all 0.2s ease;
+}
+
+button:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
 }
 
-#auth-form button:disabled:hover {
-    background-color: inherit;
-}
-
-/* Shake animation for errors */
-@keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
-    20%, 40%, 60%, 80% { transform: translateX(5px); }
-}
-
-.shake {
-    animation: shake 0.5s ease-in-out;
-}
-
-/* Loading spinner animation */
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-.animate-spin {
-    animation: spin 1s linear infinite;
-}
-
-/* Auth error alert */
-.auth-error-alert {
-    background-color: #fef2f2;
-    border: 1px solid #fecaca;
-    border-left: 4px solid #ef4444;
-    color: #991b1b;
-    padding: 12px 16px;
-    border-radius: 8px;
-    margin-bottom: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 12px;
-}
-
-.auth-error-alert i {
-    flex-shrink: 0;
-    margin-top: 2px;
-}
-
-.auth-error-alert strong {
-    display: block;
-    margin-bottom: 4px;
-}
-
-.auth-error-alert p {
-    margin: 0;
-    font-size: 0.875rem;
-}
-
 /* ==========================================================================
-   SCROLLBAR
-   ========================================================================== */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-* { scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent; }
-.no-scrollbar::-webkit-scrollbar { display: none; }
-.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* ==========================================================================
-   COMPONENTS
+   LOADING STATES
    ========================================================================== */
 
-/* Navigation Buttons */
-.nav-btn { position: relative; transition: all 0.2s ease; }
-.nav-btn:hover { transform: translateX(4px); }
-.nav-btn.bg-rcem-purple { background-color: #2d2e83; color: white; box-shadow: 0 4px 6px -1px rgba(45, 46, 131, 0.3); }
-
-/* Toggle Switch */
-.toggle-checkbox:checked { right: 0; border-color: #2d2e83; background-color: #2d2e83; }
-.toggle-checkbox:checked + .toggle-label { background-color: #818cf8; }
-.toggle-checkbox { transition: all 0.2s ease-in-out; }
-.toggle-label { transition: background-color 0.2s ease-in-out; }
-
-/* Fishbone Labels */
-.fishbone-label {
-    position: absolute;
-    background: white;
-    padding: 4px 12px;
-    border-radius: 9999px;
-    font-size: 11px;
-    font-weight: 600;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    cursor: grab;
-    transform: translate(-50%, -50%);
-    white-space: nowrap;
-    z-index: 10;
-    border: 1px solid #e2e8f0;
-    transition: all 0.2s;
-    user-select: none;
-}
-.fishbone-label:hover { box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-color: #2d2e83; transform: translate(-50%, -50%) scale(1.05); }
-.fishbone-label:active { cursor: grabbing; }
-.fishbone-label.category {
-    background: #2d2e83; color: white;
-    font-weight: 700; font-size: 12px;
-    padding: 6px 16px; border: none;
-}
-
-/* Modal Animation */
-.modal-animate { animation: modalSlideIn 0.3s cubic-bezier(0.16, 1, 0.3, 1); }
-@keyframes modalSlideIn {
-    from { opacity: 0; transform: translateY(20px) scale(0.98); }
-    to { opacity: 1; transform: translateY(0) scale(1); }
-}
-
-/* Toast */
-#toast-container {
-    position: fixed; top: 16px; right: 16px; z-index: 9999;
-    display: flex; flex-direction: column; gap: 8px; pointer-events: none;
-}
-#toast-container > * { pointer-events: auto; }
-
-/* Read Only Mode */
-.readonly-mode input, .readonly-mode textarea, .readonly-mode select { pointer-events: none; opacity: 0.7; background-color: #f8fafc; }
-.readonly-mode button:not(.nav-btn):not([onclick*="router"]) { pointer-events: none; opacity: 0.5; }
-
-/* Charts & Mermaid */
-#mainChart, #poster-chart, #full-view-chart-canvas { max-width: 100%; height: auto !important; }
-.mermaid { display: flex; justify-content: center; align-items: center; min-height: 200px; }
-.mermaid svg { max-width: 100%; height: auto; }
-
-/* Gantt */
-#gantt-scroll-container { scrollbar-width: thin; }
-#gantt-container { background-image: linear-gradient(to right, #f1f5f9 1px, transparent 1px); background-size: 25px 100%; }
-
-/* Stakeholder Matrix */
-#stakeholder-canvas { position: relative; min-height: 500px; background: white; border-radius: 0.75rem; }
-
-/* Form Elements */
-input:focus, textarea:focus, select:focus {
-    outline: none; border-color: #2d2e83; box-shadow: 0 0 0 3px rgba(45, 46, 131, 0.1);
-}
-
-/* Skeleton Loading */
 .skeleton {
-    animation: skeleton-pulse 1.5s ease-in-out infinite;
     background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
     background-size: 200% 100%;
-}
-@keyframes skeleton-pulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
-
-/* Prose & Typography */
-.prose { max-width: 65ch; line-height: 1.75; }
-.prose p { margin-top: 1em; margin-bottom: 1em; }
-.prose strong { font-weight: 600; }
-.prose ul { list-style-type: disc; padding-left: 1.5em; }
-
-/* Responsive */
-@media (max-width: 768px) {
-    .fishbone-label { font-size: 10px; padding: 3px 8px; }
-    #stakeholder-canvas { min-height: 400px; }
-}
-@media (max-width: 640px) {
-    #toast-container { left: 16px; right: 16px; }
-    #toast-container > * { max-width: 100%; }
+    animation: shimmer 1.5s infinite;
 }
 
-/* Print Styles - ENHANCED */
+@keyframes shimmer {
+    0% {
+        background-position: -200% 0;
+    }
+    100% {
+        background-position: 200% 0;
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* ==========================================================================
+   PRINT STYLES
+   ========================================================================== */
+
 @media print {
-    .no-print { display: none !important; }
-    body { background: white !important; }
-    #app-sidebar { display: none !important; }
-    #content-area { padding: 0 !important; margin: 0 !important; }
-    .card-modern { box-shadow: none !important; border: 1px solid #e2e8f0 !important; break-inside: avoid; }
-    .view-section { page-break-inside: avoid; }
-    
-    /* Fix for background colors in print */
-    * {
-        -webkit-print-color-adjust: exact !important;
-        print-color-adjust: exact !important;
+    .no-print {
+        display: none !important;
     }
     
-    /* Ensure charts resize for A4 */
-    canvas {
-        max-width: 100% !important;
-        max-height: 400px !important;
+    body {
+        background: white !important;
+    }
+    
+    #app-sidebar {
+        display: none !important;
+    }
+    
+    #main-wrapper {
+        margin-left: 0 !important;
+    }
+    
+    .view-section {
+        page-break-inside: avoid;
+    }
+    
+    .bg-white {
+        box-shadow: none !important;
+        border: 1px solid #e2e8f0 !important;
+    }
+}
+
+/* ==========================================================================
+   PROSE STYLING
+   ========================================================================== */
+
+.prose {
+    line-height: 1.7;
+}
+
+.prose h1, .prose h2, .prose h3, .prose h4 {
+    font-weight: 700;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+}
+
+.prose h1 { font-size: 1.875rem; }
+.prose h2 { font-size: 1.5rem; }
+.prose h3 { font-size: 1.25rem; }
+.prose h4 { font-size: 1.125rem; }
+
+.prose p {
+    margin-bottom: 1em;
+}
+
+.prose strong {
+    font-weight: 600;
+}
+
+.prose ul {
+    list-style-type: disc;
+    padding-left: 1.5em;
+}
+
+.prose ol {
+    list-style-type: decimal;
+    padding-left: 1.5em;
+}
+
+/* ==========================================================================
+   RESPONSIVE UTILITIES
+   ========================================================================== */
+
+@media (max-width: 768px) {
+    .fishbone-label {
+        font-size: 10px;
+        padding: 3px 8px;
+    }
+    
+    .fishbone-label.category {
+        font-size: 11px;
+        padding: 4px 12px;
+    }
+    
+    #stakeholder-canvas {
+        min-height: 400px;
+    }
+}
+
+@media (max-width: 640px) {
+    #toast-container {
+        left: 16px;
+        right: 16px;
+    }
+    
+    #toast-container > * {
+        max-width: 100%;
+    }
+}
+
+/* ==========================================================================
+   DRIVER.JS TOUR OVERRIDES
+   ========================================================================== */
+
+.driver-popover {
+    font-family: 'Inter', system-ui, sans-serif !important;
+}
+
+.driver-popover-title {
+    font-weight: 700 !important;
+}
+
+.driver-popover-next-btn,
+.driver-popover-prev-btn {
+    background-color: #2d2e83 !important;
+    border: none !important;
+}
+
+.driver-popover-next-btn:hover,
+.driver-popover-prev-btn:hover {
+    background-color: #1e1f5c !important;
+}
+
+/* ==========================================================================
+   ACCESSIBILITY
+   ========================================================================== */
+
+/* Focus visible for keyboard navigation */
+:focus-visible {
+    outline: 2px solid #2d2e83;
+    outline-offset: 2px;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .fishbone-label {
+        border-width: 2px;
+    }
+    
+    button {
+        border: 2px solid currentColor;
+    }
+}
+
+/* ==========================================================================
+   UTILITY CLASSES
+   ========================================================================== */
+
+.text-balance {
+    text-wrap: balance;
+}
+
+.line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* Safe area insets for mobile */
+@supports (padding: env(safe-area-inset-bottom)) {
+    #app-sidebar {
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    
+    #toast-container {
+        bottom: calc(16px + env(safe-area-inset-bottom));
     }
 }
