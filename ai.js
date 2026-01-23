@@ -160,3 +160,6 @@ export async function refineSmartAim(draftAim, problem) {
     `;
     return await callAI(prompt);
 }
+
+// Make generateChangeIdeas available globally for the driver diagram
+window.generateChangeIdeas = generateChangeIdeas;
