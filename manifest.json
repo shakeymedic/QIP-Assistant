@@ -1,21 +1,45 @@
 {
-  "name": "RCEM QIP Assistant",
-  "short_name": "QIP Tool",
-  "start_url": ".",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#2d2e83",
-  "description": "Assistant for Emergency Medicine Quality Improvement Projects",
-  "icons": [
-    {
-      "src": "https://iili.io/KGQOvkl.md.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "https://iili.io/KGQOvkl.md.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    }
-  ]
+    "name": "RCEM QIP Assistant",
+    "short_name": "QIP Assistant",
+    "description": "Professional Quality Improvement Portfolio tool for Emergency Medicine clinicians",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#1e293b",
+    "theme_color": "#2d2e83",
+    "orientation": "any",
+    "icons": [
+        {
+            "src": "https://iili.io/KGQOvkl.md.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://iili.io/KGQOvkl.md.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["medical", "productivity", "education"],
+    "lang": "en-GB",
+    "dir": "ltr",
+    "scope": "/",
+    "prefer_related_applications": false,
+    "shortcuts": [
+        {
+            "name": "New Project",
+            "short_name": "New",
+            "description": "Create a new QIP project",
+            "url": "/?action=new",
+            "icons": [{ "src": "https://iili.io/KGQOvkl.md.png", "sizes": "96x96" }]
+        },
+        {
+            "name": "Demo Mode",
+            "short_name": "Demo",
+            "description": "Explore with sample data",
+            "url": "/?demo=true",
+            "icons": [{ "src": "https://iili.io/KGQOvkl.md.png", "sizes": "96x96" }]
+        }
+    ]
 }
