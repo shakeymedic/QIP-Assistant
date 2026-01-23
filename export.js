@@ -92,7 +92,6 @@ export async function exportPPTX() {
     
     const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
     
-    // We visualize this as lists for simplicity in PPTX
     // Primary
     slide.addText("Primary Drivers", { x: 0.5, y: 1.2, fontSize: 14, bold: true });
     let yPos = 1.6;
@@ -135,7 +134,7 @@ export async function exportPPTX() {
     slide = pres.addSlide();
     slide.addText("Results", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: RCEM_PURPLE });
     
-    // Fix: Temporarily unhide chart if it's not currently visible to allow canvas capture
+    // Fix: Temporarily unhide chart if it's not currently visible
     const canvas = document.getElementById('mainChart');
     const dataView = document.getElementById('view-data');
     let wasHidden = false;
@@ -149,14 +148,12 @@ export async function exportPPTX() {
         }
 
         try {
-            // Slight delay to allow render
             await new Promise(r => setTimeout(r, 50));
             const dataUrl = canvas.toDataURL('image/png');
             slide.addImage({ data: dataUrl, x: 1, y: 1.2, w: 8, h: 4.5 });
             
-            // Add Interpretation Text
             if (d.checklist?.results_text) {
-                slide.addText(d.checklist.results_text, {
+                slide.addText(d.checklist.results_text.substring(0, 500), {
                     x: 1, y: 6, w: 8, h: 1,
                     fontSize: 11, italic: true, color: "475569",
                     shape: pres.ShapeType.rect, fill: "F1F5F9"
@@ -183,14 +180,12 @@ export async function exportPPTX() {
     slide.addText("Leadership & Engagement Log", { x: 0.5, y: 0.5, fontSize: 24, bold: true, color: RCEM_PURPLE });
     
     if (d.leadershipLogs && d.leadershipLogs.length > 0) {
-        // Prepare table data
-        const rows = d.leadershipLogs.map(l => [l.date, l.note]);
-        // Add Header Row
+        const rows = d.leadershipLogs.slice(0, 10).map(l => [l.date, l.note]);
         rows.unshift(["Date", "Activity / Engagement / Note"]); 
         
         slide.addTable(rows, {
             x: 0.5, y: 1.5, w: 9,
-            colW: [2, 7], // 2 inches date, 7 inches note
+            colW: [2, 7],
             fontSize: 11,
             border: { pt: 1, color: "E2E8F0" },
             fill: { color: "FFFFFF" },
@@ -217,45 +212,17 @@ export async function exportPPTX() {
             });
             
             // 4-Quadrant Grid
-            // PLAN
-            slide.addText("PLAN", { 
-                x: 0.5, y: 1.2, w: 4.5, h: 0.4, 
-                fontSize: 12, bold: true, fill: "DBEAFE", color: "1E3A8A" 
-            });
-            slide.addText(p.desc || "No plan details.", { 
-                x: 0.5, y: 1.6, w: 4.5, h: 2, 
-                fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "DBEAFE" } 
-            });
+            slide.addText("PLAN", { x: 0.5, y: 1.2, w: 4.5, h: 0.4, fontSize: 12, bold: true, fill: "DBEAFE", color: "1E3A8A" });
+            slide.addText(p.desc || "No plan details.", { x: 0.5, y: 1.6, w: 4.5, h: 2, fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "DBEAFE" } });
 
-            // DO
-            slide.addText("DO", { 
-                x: 5.1, y: 1.2, w: 4.5, h: 0.4, 
-                fontSize: 12, bold: true, fill: "FFEDD5", color: "9A3412" 
-            });
-            slide.addText(p.do || "No execution details.", { 
-                x: 5.1, y: 1.6, w: 4.5, h: 2, 
-                fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "FFEDD5" } 
-            });
+            slide.addText("DO", { x: 5.1, y: 1.2, w: 4.5, h: 0.4, fontSize: 12, bold: true, fill: "FFEDD5", color: "9A3412" });
+            slide.addText(p.do || "No execution details.", { x: 5.1, y: 1.6, w: 4.5, h: 2, fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "FFEDD5" } });
 
-            // STUDY
-            slide.addText("STUDY", { 
-                x: 0.5, y: 3.8, w: 4.5, h: 0.4, 
-                fontSize: 12, bold: true, fill: "F3E8FF", color: "6B21A8" 
-            });
-            slide.addText(p.study || "No analysis.", { 
-                x: 0.5, y: 4.2, w: 4.5, h: 2, 
-                fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "F3E8FF" } 
-            });
+            slide.addText("STUDY", { x: 0.5, y: 3.8, w: 4.5, h: 0.4, fontSize: 12, bold: true, fill: "F3E8FF", color: "6B21A8" });
+            slide.addText(p.study || "No analysis.", { x: 0.5, y: 4.2, w: 4.5, h: 2, fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "F3E8FF" } });
 
-            // ACT
-            slide.addText("ACT", { 
-                x: 5.1, y: 3.8, w: 4.5, h: 0.4, 
-                fontSize: 12, bold: true, fill: "DCFCE7", color: "166534" 
-            });
-            slide.addText(p.act || "No next steps.", { 
-                x: 5.1, y: 4.2, w: 4.5, h: 2, 
-                fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "DCFCE7" } 
-            });
+            slide.addText("ACT", { x: 5.1, y: 3.8, w: 4.5, h: 0.4, fontSize: 12, bold: true, fill: "DCFCE7", color: "166534" });
+            slide.addText(p.act || "No next steps.", { x: 5.1, y: 4.2, w: 4.5, h: 2, fontSize: 11, fill: "F8FAFC", valign: "top", border: { pt: 0.5, color: "DCFCE7" } });
         });
     }
 
@@ -270,16 +237,11 @@ export async function exportPPTX() {
 // PRINT POSTER (Browser Print Helper)
 // ==========================================================================
 
-/**
- * Standard Print
- */
 export function printPoster() {
-    // Force a redraw of the chart canvas onto the printable area if needed.
     const chartCanvas = document.getElementById('poster-chart');
     const mainCanvas = document.getElementById('mainChart');
     
     if (chartCanvas && mainCanvas) {
-        // Clone the main chart image to the poster's canvas
         const destCtx = chartCanvas.getContext('2d');
         destCtx.drawImage(mainCanvas, 0, 0, chartCanvas.width, chartCanvas.height);
     }
@@ -287,12 +249,8 @@ export function printPoster() {
     window.print();
 }
 
-/**
- * Prints ONLY the Poster content, hiding everything else
- * This relies on a 'printing-poster-mode' CSS class in styles.css that hides sidebar, nav, etc.
- */
 export function printPosterOnly() {
-    const poster = document.getElementById('view-full'); // We use the Full View as the "Poster"
+    const poster = document.getElementById('view-full');
     if (!poster) { 
         showToast("Go to 'Full Project' view first", "error"); 
         return; 
