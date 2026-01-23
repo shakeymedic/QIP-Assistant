@@ -151,7 +151,7 @@ window.toggleKeyVis = () => {
 window.hasAI = () => !!state.aiKey;
 
 // ==========================================
-// 2. AI FUNCTIONS (New Section)
+// 2. AI FUNCTIONS
 // ==========================================
 
 window.aiRefineAim = async () => {
@@ -463,6 +463,12 @@ window.saveData = async function(skipHistory = false) {
     // Firebase Save
     if (!state.currentProjectId || !state.currentUser) return;
     
+    // FIX: Check if DB is initialized
+    if (!db) {
+        showToast("Database not connected. Changes saved locally.", "warning");
+        return;
+    }
+    
     if(!skipHistory) pushHistory();
     
     try {
@@ -522,22 +528,28 @@ function updateUndoRedoButtons() {
 }
 
 // --- AUTH LISTENER ---
-onAuthStateChanged(auth, async (user) => {
-    console.log('🔐 Auth state changed:', user ? user.email : 'No user');
-    
-    const isShared = await checkShareLink();
-    if (isShared) return;
+if (auth) {
+    onAuthStateChanged(auth, async (user) => {
+        console.log('🔐 Auth state changed:', user ? user.email : 'No user');
+        
+        const isShared = await checkShareLink();
+        if (isShared) return;
 
-    state.currentUser = user;
-    if (user) {
-        document.getElementById('app-sidebar').classList.add('lg:flex');
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('user-display').textContent = user.email;
-        loadProjectList();
-    } else {
-        document.getElementById('auth-screen').classList.remove('hidden');
-    }
-});
+        state.currentUser = user;
+        if (user) {
+            document.getElementById('app-sidebar').classList.add('lg:flex');
+            document.getElementById('auth-screen').classList.add('hidden');
+            const ud = document.getElementById('user-display');
+            if(ud) ud.textContent = user.email;
+            loadProjectList();
+        } else {
+            document.getElementById('auth-screen').classList.remove('hidden');
+        }
+    });
+} else {
+    console.error("⚠️ Firebase Auth not initialized. Check your API configuration.");
+    showToast("App Error: Authentication service unavailable.", "error");
+}
 
 async function checkShareLink() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -553,6 +565,7 @@ async function checkShareLink() {
         document.body.classList.add('readonly-mode');
         
         try {
+            if (!db) throw new Error("Database not connected");
             const docRef = doc(db, `users/${shareUid}/projects`, sharePid);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
@@ -596,6 +609,7 @@ async function loadProjectList() {
 
     // --- FIREBASE PROJECT LIST ---
     try {
+        if (!db) throw new Error("No database connection");
         const snap = await getDocs(collection(db, `users/${state.currentUser.uid}/projects`));
         listEl.innerHTML = '';
         if (snap.empty) {
@@ -631,6 +645,7 @@ window.createNewProject = async () => {
     template.meta.updated = new Date().toISOString();
     
     try {
+        if(!db) throw new Error("No DB connection");
         await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
         loadProjectList();
         showToast("Project created", "success");
@@ -643,6 +658,7 @@ window.createNewProject = async () => {
 window.deleteProject = async (id) => {
     if (confirm("Are you sure? This cannot be undone.")) { 
         try {
+            if(!db) throw new Error("No DB connection");
             await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); 
             loadProjectList(); 
             showToast("Project deleted", "info");
@@ -658,6 +674,8 @@ window.openProject = (id) => {
     if (window.unsubscribeProject) window.unsubscribeProject();
     
     // Real-time listener for collaboration
+    if (!db) { showToast("No DB connection", "error"); return; }
+    
     window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
@@ -702,9 +720,9 @@ window.openProject = (id) => {
 };
 
 // --- HANDLERS (FIXED FOR AUTH) ---
-// Wait for DOM to be fully loaded
-document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM loaded');
+// We wrap this in a robust initializer to handle Module vs DOM timing
+function initAuthHandlers() {
+    console.log('📄 Initializing Auth Handlers');
     
     // Auth Form Handler
     const authForm = document.getElementById('auth-form');
@@ -721,6 +739,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!emailInput || !passwordInput) {
                 console.error('❌ Email or password input not found');
+                return;
+            }
+            
+            // Pre-flight check for Auth
+            if (!auth) {
+                showToast("Firebase Auth not initialized. Cannot sign in.", "error");
                 return;
             }
             
@@ -745,26 +769,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 // User-friendly error messages
                 let errorMsg = "Login failed: ";
                 switch(error.code) {
-                    case 'auth/invalid-email':
-                        errorMsg += "Invalid email address";
-                        break;
-                    case 'auth/user-disabled':
-                        errorMsg += "This account has been disabled";
-                        break;
-                    case 'auth/user-not-found':
-                        errorMsg += "No account found with this email";
-                        break;
-                    case 'auth/wrong-password':
-                        errorMsg += "Incorrect password";
-                        break;
-                    case 'auth/invalid-credential':
-                        errorMsg += "Invalid email or password";
-                        break;
-                    case 'auth/network-request-failed':
-                        errorMsg += "Network error. Check your connection.";
-                        break;
-                    default:
-                        errorMsg += error.message;
+                    case 'auth/invalid-email': errorMsg += "Invalid email address"; break;
+                    case 'auth/user-disabled': errorMsg += "This account has been disabled"; break;
+                    case 'auth/user-not-found': errorMsg += "No account found with this email"; break;
+                    case 'auth/wrong-password': errorMsg += "Incorrect password"; break;
+                    case 'auth/invalid-credential': errorMsg += "Invalid email or password"; break;
+                    case 'auth/network-request-failed': errorMsg += "Network error. Check your connection."; break;
+                    default: errorMsg += error.message;
                 }
                 
                 showToast(errorMsg, "error");
@@ -787,6 +798,11 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (!emailInput || !passwordInput) {
                 console.error('❌ Email or password input not found');
+                return;
+            }
+            
+            if (!auth) {
+                showToast("Auth not ready. Check config.", "error");
                 return;
             }
             
@@ -818,20 +834,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 let errorMsg = "Registration failed: ";
                 switch(error.code) {
-                    case 'auth/email-already-in-use':
-                        errorMsg += "Email already registered. Try signing in instead.";
-                        break;
-                    case 'auth/invalid-email':
-                        errorMsg += "Invalid email address";
-                        break;
-                    case 'auth/operation-not-allowed':
-                        errorMsg += "Email/password accounts are not enabled";
-                        break;
-                    case 'auth/weak-password':
-                        errorMsg += "Password is too weak";
-                        break;
-                    default:
-                        errorMsg += error.message;
+                    case 'auth/email-already-in-use': errorMsg += "Email already registered. Try signing in instead."; break;
+                    case 'auth/invalid-email': errorMsg += "Invalid email address"; break;
+                    case 'auth/operation-not-allowed': errorMsg += "Email/password accounts are not enabled"; break;
+                    case 'auth/weak-password': errorMsg += "Password is too weak"; break;
+                    default: errorMsg += error.message;
                 }
                 
                 showToast(errorMsg, "error");
@@ -847,7 +854,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logout-btn');
     if(logoutBtn) {
         logoutBtn.addEventListener('click', () => { 
-            signOut(auth); 
+            if(auth) signOut(auth); 
             window.location.reload(); 
         });
     }
@@ -906,7 +913,16 @@ document.addEventListener('DOMContentLoaded', () => {
             loadProjectList();
         };
     }
-});
+}
+
+// ROBUST LOADING CHECK:
+// If document is already loaded (because module was deferred), running initAuthHandlers immediately
+// ensures listeners are attached.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAuthHandlers);
+} else {
+    initAuthHandlers();
+}
 
 window.openDemoProject = () => {
     state.projectData = getDemoData();
