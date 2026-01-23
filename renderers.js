@@ -1089,7 +1089,7 @@ export function renderGantt() {
 }
 
 export function openGanttModal(index = null) {
-    const modal = document.getElementById('gantt-modal');
+    const modal = document.getElementById('task-modal');
     if (!modal) return;
     
     const d = state.projectData;
@@ -1099,7 +1099,8 @@ export function openGanttModal(index = null) {
     document.getElementById('task-name').value = task?.name || '';
     document.getElementById('task-start').value = task?.start || '';
     document.getElementById('task-end').value = task?.end || '';
-    document.getElementById('task-status').value = task?.status || 'not-started';
+    document.getElementById('task-type').value = task?.type || 'plan';
+    document.getElementById('task-owner').value = task?.owner || '';
     document.getElementById('task-milestone').checked = task?.milestone || false;
     
     // Populate dependency dropdown
@@ -1108,7 +1109,7 @@ export function openGanttModal(index = null) {
         const tasks = d.gantt || [];
         depSelect.innerHTML = `<option value="">None</option>` + 
             tasks.filter((_, i) => i !== index).map((t, i) => 
-                `<option value="${i}" ${task?.dependency === i ? 'selected' : ''}>${escapeHtml(t.name || `Task ${i + 1}`)}</option>`
+                `<option value="${t.id || i}" ${task?.dependency === (t.id || i) ? 'selected' : ''}>${escapeHtml(t.name || `Task ${i + 1}`)}</option>`
             ).join('');
     }
     
