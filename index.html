@@ -326,8 +326,13 @@
                     </div>
 
                     <!-- Tools View (Driver/Fishbone/Process) -->
-                    <div id="view-tools" class="view-section hidden max-w-6xl mx-auto">
-                        <div id="tools-container"></div>
+                    <div id="view-tools" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col">
+                        <header class="flex flex-wrap justify-between items-center p-4 gap-4 bg-white border-b border-slate-100"></header>
+                        <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative m-4">
+                            <div id="diagram-wrapper" class="flex-1 overflow-auto relative bg-slate-50 min-h-[500px]">
+                                <div id="diagram-canvas" class="w-full min-h-[500px] relative p-4"></div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Data View -->
@@ -393,15 +398,15 @@
                                     <div class="space-y-3">
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                                            <input type="date" id="data-date" class="w-full p-2 border rounded text-sm">
+                                            <input type="date" id="chart-date" class="w-full p-2 border rounded text-sm">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                                            <input type="number" id="data-value" class="w-full p-2 border rounded text-sm" placeholder="e.g. 45" step="any">
+                                            <input type="number" id="chart-value" class="w-full p-2 border rounded text-sm" placeholder="e.g. 45" step="any">
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase/Cycle</label>
-                                            <select id="data-phase" class="w-full p-2 border rounded text-sm">
+                                            <select id="chart-grade" class="w-full p-2 border rounded text-sm">
                                                 <option value="">Select phase...</option>
                                                 <option value="Baseline">Baseline</option>
                                                 <option value="PDSA 1">PDSA 1</option>
@@ -413,12 +418,22 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Note (optional)</label>
-                                            <input type="text" id="data-note" class="w-full p-2 border rounded text-sm" placeholder="Any context...">
+                                            <input type="text" id="chart-note" class="w-full p-2 border rounded text-sm" placeholder="Any context...">
                                         </div>
                                         <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700">
                                             Add Point
                                         </button>
                                     </div>
+                                </div>
+                                
+                                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Results Interpretation
+                                    </h3>
+                                    <textarea id="results-text" class="w-full p-2 border rounded text-sm" rows="4" placeholder="Describe what the data shows..." onchange="window.saveResults(this.value)"></textarea>
+                                    <button onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="w-full mt-2 border border-purple-200 text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
+                                        <i data-lucide="sparkles" class="w-4 h-4"></i> AI Analyse
+                                    </button>
                                 </div>
                                 
                                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
