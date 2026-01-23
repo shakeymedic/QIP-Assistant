@@ -1,7 +1,9 @@
 import { state } from "./state.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
-import { renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, setToolMode, renderFullViewChart, makeDraggable, chartMode } from "./charts.js";
-import { suggestEvidence } from "./ai.js";
+import { 
+    renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, 
+    setToolMode, renderFullViewChart, makeDraggable, chartMode, toolMode
+} from "./charts.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -10,51 +12,21 @@ import { suggestEvidence } from "./ai.js";
 export function renderAll(view) {
     updateNavigationUI(view);
     
-    // Router
     switch(view) {
-        case 'projects': 
-            break; 
-        case 'dashboard': 
-            renderDashboard(); 
-            break;
-        case 'checklist': 
-            renderChecklist(); 
-            break; 
-        case 'team': 
-            renderTeam(); 
-            break;
-        case 'tools': 
-            renderTools(); 
-            break;
-        case 'data': 
-            renderDataView(); 
-            break;       
-        case 'pdsa': 
-            renderPDSA(); 
-            break;
-        case 'stakeholders': 
-            renderStakeholders(); 
-            break;
-        case 'gantt': 
-            renderGantt(); 
-            break;
-        case 'green': 
-            renderGreen(); 
-            break;         
-        case 'full': 
-            renderFullProject(); 
-            break;    
-        case 'publish': 
-            renderPublish(); 
-            break;     
-        default: 
-            renderDashboard();
+        case 'projects': break; 
+        case 'dashboard': renderDashboard(); break;
+        case 'checklist': renderChecklist(); break; 
+        case 'team': renderTeam(); break;
+        case 'tools': renderTools(); break;
+        case 'data': renderDataView(); break;       
+        case 'pdsa': renderPDSA(); break;
+        case 'stakeholders': renderStakeholders(); break;
+        case 'gantt': renderGantt(); break;
+        case 'green': renderGreen(); break;         
+        case 'full': renderFullProject(); break;    
+        case 'publish': renderPublish(); break;     
+        default: renderDashboard();
     }
-
-    // Trigger auto-resize on all textareas after render
-    setTimeout(() => {
-        document.querySelectorAll('textarea').forEach(el => autoResizeTextarea(el));
-    }, 50);
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -69,7 +41,6 @@ function updateNavigationUI(currentView) {
         const d = state.projectData;
         if (!d) return;
         
-        // Logic for "Complete" badges
         if(id === 'checklist' && d.checklist && d.checklist.aim && d.checklist.problem_desc) status = '✓';
         else if(id === 'data' && d.chartData && d.chartData.length >= 6) status = '✓';
         else if(id === 'pdsa' && d.pdsa && d.pdsa.length > 0) status = '✓';
@@ -77,7 +48,6 @@ function updateNavigationUI(currentView) {
         else if(id === 'publish' && d.checklist && d.checklist.ethics) status = '✓';
         else if(id === 'tools' && d.drivers && (d.drivers.primary.length > 0 || d.drivers.changes.length > 0)) status = '✓';
         
-        // Remove existing badge
         const existingBadge = btn.querySelector('.status-badge');
         if(existingBadge) existingBadge.remove();
 
@@ -91,229 +61,400 @@ function updateNavigationUI(currentView) {
 }
 
 // ==========================================
-// 2. DASHBOARD (HOME)
+// 2. DASHBOARD VIEW
 // ==========================================
 
 export function renderDashboard() {
     const d = state.projectData;
     if (!d) return;
-    
-    // Calculate Project Progress Score
-    let score = 0;
-    if(d.checklist && d.checklist.aim && d.checklist.problem_desc) score += 20;
-    if(d.teamMembers && d.teamMembers.length > 0) score += 10;
-    if(d.drivers && (d.drivers.primary.length > 0 || (d.fishbone && d.fishbone.categories[0].causes.length > 0))) score += 20;
-    if(d.chartData && d.chartData.length >= 6) score += 20;
-    if(d.pdsa && d.pdsa.length > 0) score += 20;
-    if(d.checklist && d.checklist.sustain) score += 10;
-    
-    const totalProg = Math.min(100, score);
 
-    // 1. Circular Progress Display
-    const statProgress = document.getElementById('stat-progress');
-    if (statProgress) {
-        statProgress.innerHTML = `
-            <div class="flex items-center gap-6">
-                <div class="relative w-24 h-24 flex items-center justify-center">
-                    <svg class="w-full h-full transform -rotate-90">
-                        <circle cx="48" cy="48" r="40" stroke="#f1f5f9" stroke-width="8" fill="transparent" />
-                        <circle cx="48" cy="48" r="40" stroke="#2d2e83" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * totalProg / 100)}" class="transition-all duration-1000" />
-                    </svg>
-                    <span class="absolute text-xl font-bold text-slate-700">${totalProg}%</span>
-                </div>
-                <div>
-                    <h4 class="font-bold text-slate-800 text-lg">Project Health</h4>
-                    <p class="text-xs text-slate-500 mb-2">Completion Status</p>
-                    <div class="text-xs font-bold px-2 py-1 rounded bg-slate-100 text-slate-600 inline-block">
-                        ${totalProg < 30 ? 'Setting Up' : totalProg < 70 ? 'In Progress' : 'Near Completion'}
-                    </div>
-                </div>
-            </div>
-        `;
-    }
+    // Update header
+    const headerTitle = document.getElementById('project-header-title');
+    if(headerTitle) headerTitle.textContent = d.title || 'Untitled Project';
+
+    // Calculate progress
+    const checks = d.checklist || {};
+    const fields = ['problem_desc', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
+    const filled = fields.filter(f => checks[f] && checks[f].trim()).length;
+    const progress = Math.round((filled / fields.length) * 100);
     
-    // 2. QI Coach Logic (Smart Banners)
-    const coachEl = document.getElementById('qi-coach-banner');
-    let msg = { t: "Next Step: Data", m: "You need a baseline. Add at least 6 data points.", i: "bar-chart-2", c: "rcem-purple", b: "Enter Data", a: "data" };
-    
-    if (!d.checklist || !d.checklist.aim) {
-        msg = { t: "Next Step: Define Aim", m: "Use the wizard to define a SMART aim.", i: "target", c: "rose-500", b: "Go to Wizard", a: "checklist" };
-    } else if (!d.drivers || d.drivers.primary.length === 0) {
-        msg = { t: "Next Step: Diagnosis", m: "Build your Driver Diagram to understand the problem.", i: "git-branch", c: "amber-500", b: "Build Diagram", a: "tools" };
-    } else if (d.chartData && d.chartData.length >= 6 && (!d.pdsa || d.pdsa.length === 0)) {
-        msg = { t: "Next Step: PDSA", m: "Baseline established. Plan your first PDSA cycle.", i: "play-circle", c: "emerald-600", b: "Plan Cycle", a: "pdsa" };
-    } else if (d.pdsa && d.pdsa.length > 0 && (!d.checklist.sustain)) {
-        msg = { t: "Next Step: Sustainability", m: "Document how you'll sustain improvements.", i: "leaf", c: "emerald-600", b: "Add Plan", a: "checklist" };
-    }
-    
-    if (coachEl) {
-        coachEl.innerHTML = `
-            <div class="card-modern p-6 mb-8 flex flex-col md:flex-row gap-6 items-center border-l-4 border-l-rcem-purple relative overflow-hidden">
-                <div class="bg-indigo-50 p-4 rounded-full text-rcem-purple">
-                    <i data-lucide="${msg.i}" class="w-6 h-6"></i>
-                </div>
-                <div class="flex-1">
-                    <h4 class="font-bold text-slate-800 text-lg">${msg.t}</h4>
-                    <p class="text-slate-600 text-sm">${msg.m}</p>
-                </div>
-                <button onclick="window.router('${msg.a}')" class="bg-slate-800 text-white px-5 py-2 rounded-lg font-bold text-sm hover:bg-slate-900 transition-colors shadow-lg flex items-center gap-2">
-                    ${msg.b} <i data-lucide="arrow-right" class="w-4 h-4"></i>
-                </button>
+    const progressEl = document.getElementById('stat-progress');
+    if(progressEl) {
+        progressEl.innerHTML = `
+            <div class="text-2xl font-bold text-slate-800">${progress}%</div>
+            <div class="w-full bg-slate-200 rounded-full h-1.5 mt-1">
+                <div class="bg-emerald-500 h-1.5 rounded-full transition-all" style="width: ${progress}%"></div>
             </div>
         `;
     }
 
-    // 3. Mini Stats
-    const statsContainer = document.getElementById('stat-pdsa');
-    if (statsContainer && statsContainer.parentElement && statsContainer.parentElement.parentElement) {
-        const container = statsContainer.parentElement.parentElement;
-        container.className = "grid grid-cols-2 md:grid-cols-4 gap-4";
-        container.innerHTML = `
-             <div class="card-modern p-4 text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Data Points</div>
-                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.chartData?.length || 0}</div>
-             </div>
-             <div class="card-modern p-4 text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">PDSA Cycles</div>
-                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.pdsa?.length || 0}</div>
-             </div>
-             <div class="card-modern p-4 text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Drivers</div>
-                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.drivers?.primary?.length || 0}</div>
-             </div>
-             <div class="card-modern p-4 text-center">
-                <div class="text-[10px] uppercase font-bold text-slate-400 mb-1">Team</div>
-                <div class="text-2xl font-bold text-slate-800 gradient-text">${d.teamMembers?.length || 0}</div>
-             </div>
-        `;
+    // Update stats
+    const statPdsa = document.getElementById('stat-pdsa');
+    if(statPdsa) statPdsa.textContent = (d.pdsa || []).length;
+    
+    const statData = document.getElementById('stat-data');
+    if(statData) statData.textContent = (d.chartData || []).length;
+    
+    const statDrivers = document.getElementById('stat-drivers');
+    if(statDrivers) {
+        const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
+        statDrivers.textContent = drivers.primary.length + drivers.secondary.length + drivers.changes.length;
     }
 
-    // 4. Aim Display
-    const aimEl = document.getElementById('dash-aim-display');
-    if (aimEl) {
-        aimEl.innerHTML = d.checklist?.aim || `<span class="text-slate-400">No aim defined yet.</span>`;
-        aimEl.className = d.checklist?.aim 
-            ? "bg-indigo-50 p-4 rounded border border-indigo-100 text-rcem-purple font-medium font-serif" 
-            : "bg-slate-50 p-4 rounded border border-slate-200 text-slate-500 italic";
+    // Update aim display
+    const aimDisplay = document.getElementById('dash-aim-display');
+    if(aimDisplay) {
+        aimDisplay.innerHTML = checks.aim ? escapeHtml(checks.aim) : '<span class="text-slate-400">No aim defined yet. Go to Define & Measure to set your SMART aim.</span>';
     }
+
+    // Aim quality badge
+    const aimBadge = document.getElementById('aim-quality-badge');
+    if(aimBadge && checks.aim) {
+        const aim = checks.aim.toLowerCase();
+        const hasSpecific = aim.includes('%') || aim.includes('reduce') || aim.includes('increase') || aim.includes('improve');
+        const hasMeasurable = aim.includes('%') || /\d/.test(aim);
+        const hasTimebound = aim.includes('month') || aim.includes('week') || aim.includes('by ') || aim.includes('within');
+        
+        let quality = 0;
+        if(hasSpecific) quality++;
+        if(hasMeasurable) quality++;
+        if(hasTimebound) quality++;
+        
+        const badges = {
+            0: { text: 'Needs work', color: 'bg-red-100 text-red-700' },
+            1: { text: 'Basic', color: 'bg-amber-100 text-amber-700' },
+            2: { text: 'Good', color: 'bg-blue-100 text-blue-700' },
+            3: { text: 'SMART ✓', color: 'bg-emerald-100 text-emerald-700' }
+        };
+        
+        const b = badges[quality];
+        aimBadge.innerHTML = `<span class="px-2 py-0.5 rounded-full text-xs font-bold ${b.color}">${b.text}</span>`;
+    } else if (aimBadge) {
+        aimBadge.innerHTML = '';
+    }
+
+    // QI Coach Banner
+    renderQICoachBanner();
+    
+    // Mini Chart
+    renderMiniChart();
+    
+    // Recent Activity
+    renderRecentActivity();
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function renderQICoachBanner() {
+    const banner = document.getElementById('qi-coach-banner');
+    if (!banner) return;
+    
+    const d = state.projectData;
+    const checks = d.checklist || {};
+    const pdsa = d.pdsa || [];
+    const data = d.chartData || [];
+    const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
+    
+    let tip = '';
+    let icon = 'lightbulb';
+    let color = 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200';
+    
+    if (!checks.problem_desc) {
+        tip = "Start by defining your problem statement in Define & Measure. A clear problem is half the solution!";
+    } else if (!checks.aim) {
+        tip = "Now set a SMART aim: Specific, Measurable, Achievable, Relevant, Time-bound. What exactly do you want to achieve?";
+    } else if (drivers.primary.length === 0) {
+        tip = "Build your Driver Diagram in the Tools section. What are the main factors affecting your aim?";
+        icon = 'git-branch';
+    } else if (data.length < 6) {
+        tip = `You have ${data.length} data points. Collect at least 12 baseline points before making changes for a reliable run chart.`;
+        icon = 'bar-chart-2';
+    } else if (pdsa.length === 0) {
+        tip = "Ready to test a change? Document your first PDSA cycle. Start small - test with one patient, one shift, one clinician.";
+        icon = 'refresh-cw';
+        color = 'bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200';
+    } else if (!checks.ethics) {
+        tip = "Don't forget governance! Document your ethical considerations and any approvals needed.";
+        icon = 'shield-check';
+    } else {
+        tip = "Excellent progress! Keep iterating through PDSA cycles. Remember: 'Adopt, Adapt, or Abandon' after each test.";
+        icon = 'trophy';
+        color = 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200';
+    }
+    
+    banner.innerHTML = `
+        <div class="${color} border rounded-xl p-4 flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center">
+                <i data-lucide="${icon}" class="w-5 h-5 text-rcem-purple"></i>
+            </div>
+            <div class="flex-1">
+                <div class="text-xs font-bold text-slate-500 uppercase mb-1">QI Coach Tip</div>
+                <p class="text-sm text-slate-700">${tip}</p>
+            </div>
+        </div>
+    `;
+}
+
+function renderMiniChart() {
+    const container = document.getElementById('dash-mini-chart');
+    if (!container) return;
+    
+    const d = state.projectData;
+    const data = d.chartData || [];
+    
+    if (data.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-400 py-8 text-sm">No data yet. Add data points in the Data view.</div>';
+        return;
+    }
+    
+    // Create sparkline-style mini chart
+    const sorted = [...data].sort((a, b) => new Date(a.date) - new Date(b.date));
+    const values = sorted.map(x => x.value);
+    const max = Math.max(...values);
+    const min = Math.min(...values);
+    const range = max - min || 1;
+    
+    const points = values.map((v, i) => {
+        const x = (i / (values.length - 1 || 1)) * 280 + 10;
+        const y = 60 - ((v - min) / range) * 50;
+        return `${x},${y}`;
+    }).join(' ');
+    
+    container.innerHTML = `
+        <svg width="300" height="70" class="w-full">
+            <polyline fill="none" stroke="#2d2e83" stroke-width="2" points="${points}"/>
+            ${values.map((v, i) => {
+                const x = (i / (values.length - 1 || 1)) * 280 + 10;
+                const y = 60 - ((v - min) / range) * 50;
+                return `<circle cx="${x}" cy="${y}" r="3" fill="#2d2e83"/>`;
+            }).join('')}
+        </svg>
+        <div class="flex justify-between text-xs text-slate-400 mt-1">
+            <span>${sorted[0]?.date || ''}</span>
+            <span>${sorted[sorted.length - 1]?.date || ''}</span>
+        </div>
+    `;
+}
+
+function renderRecentActivity() {
+    const container = document.getElementById('dash-activity');
+    if (!container) return;
+    
+    const d = state.projectData;
+    const activities = [];
+    
+    // Add PDSA activities
+    (d.pdsa || []).forEach(p => {
+        activities.push({
+            type: 'pdsa',
+            icon: 'refresh-cw',
+            color: 'text-blue-500',
+            text: `PDSA Cycle: ${p.title || 'Untitled'}`,
+            date: p.startDate || ''
+        });
+    });
+    
+    // Add recent data points
+    const recentData = [...(d.chartData || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+    recentData.forEach(dp => {
+        activities.push({
+            type: 'data',
+            icon: 'plus-circle',
+            color: 'text-emerald-500',
+            text: `Data: ${dp.value} (${dp.grade || 'No phase'})`,
+            date: dp.date
+        });
+    });
+    
+    // Sort by date
+    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    if (activities.length === 0) {
+        container.innerHTML = '<div class="text-center text-slate-400 py-4 text-sm">No recent activity</div>';
+        return;
+    }
+    
+    container.innerHTML = activities.slice(0, 5).map(a => `
+        <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
+            <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
+            <div class="flex-1 text-sm text-slate-700 truncate">${escapeHtml(a.text)}</div>
+            <div class="text-xs text-slate-400">${a.date}</div>
+        </div>
+    `).join('');
 }
 
 // ==========================================
-// 3. CHECKLIST (WIZARD)
+// 3. CHECKLIST (DEFINE & MEASURE) VIEW
 // ==========================================
-
-window.runEvidenceAI = async () => {
-    const btn = document.getElementById('btn-evidence-ai');
-    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Researching...`;
-    
-    const result = await suggestEvidence();
-    if (result) {
-        state.projectData.checklist.lit_review = result;
-        window.saveData();
-        renderChecklist();
-        showToast("Evidence added", "success");
-    }
-    if(btn) btn.innerHTML = `<i data-lucide="book-open" class="w-3 h-3"></i> Auto-Evidence`;
-    if(typeof lucide !== 'undefined') lucide.createIcons();
-};
 
 export function renderChecklist() {
     const d = state.projectData;
     if (!d) return;
-    const cl = d.checklist || {};
+    
     const container = document.getElementById('checklist-container');
     if (!container) return;
-
-    // AI Buttons
-    const aiAimBtn = (window.hasAI && window.hasAI()) 
-        ? `<button onclick="window.aiRefineAim()" id="btn-ai-aim" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-200 font-bold flex items-center gap-1 transition-colors"><i data-lucide="sparkles" class="w-3 h-3"></i> Refine</button>` 
-        : '';
-        
-    const aiEvBtn = (window.hasAI && window.hasAI()) 
-        ? `<button onclick="window.runEvidenceAI()" id="btn-evidence-ai" class="text-xs bg-indigo-100 text-indigo-700 px-3 py-1 rounded hover:bg-indigo-200 font-bold flex items-center gap-1 transition-colors"><i data-lucide="book-open" class="w-3 h-3"></i> Auto-Evidence</button>` 
-        : '';
-
+    
+    const c = d.checklist || {};
+    
     container.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <div class="lg:col-span-2 space-y-8">
-                
-                <div class="card-modern p-6">
-                    <div class="flex items-center gap-3 mb-4 border-b pb-2">
-                        <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">1</div>
-                        <h3 class="text-lg font-bold text-slate-800">Define the Problem</h3>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Problem Description</label>
-                            <textarea class="w-full p-3 border rounded text-sm focus:border-rcem-purple bg-slate-50 focus:bg-white transition-colors" rows="3" placeholder="What is the issue? Why does it matter?" onchange="window.saveChecklist('problem_desc', this.value)">${escapeHtml(cl.problem_desc || '')}</textarea>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
-                            <input class="w-full p-2 border rounded text-sm focus:border-rcem-purple" placeholder="Dept size, throughput, etc." value="${escapeHtml(cl.problem_context || '')}" onchange="window.saveChecklist('problem_context', this.value)">
-                        </div>
-                    </div>
+        <header class="mb-8">
+            <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
+                <i data-lucide="clipboard-check" class="text-rcem-purple"></i>
+                Define & Measure
+            </h1>
+            <p class="text-slate-500 mt-2">Complete these sections to build a solid QIP foundation</p>
+        </header>
+        
+        <!-- Problem Definition -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">1</span>
+                Problem Definition
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Problem Statement *</label>
+                    <textarea id="check-problem" onchange="window.saveChecklistField('problem_desc', this.value)" 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
+                        placeholder="What is the current problem? Be specific about the gap between current and desired state.">${escapeHtml(c.problem_desc || '')}</textarea>
                 </div>
-
-                <div class="card-modern p-6">
-                    <div class="flex items-center gap-3 mb-4 border-b pb-2">
-                        <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">2</div>
-                        <h3 class="text-lg font-bold text-slate-800">SMART Aim</h3>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-4">
-                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Measure</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_measure || '')}" onchange="window.saveChecklist('aim_measure', this.value)"></div>
-                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Baseline</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_baseline || '')}" onchange="window.saveChecklist('aim_baseline', this.value)"></div>
-                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Target</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_target || '')}" onchange="window.saveChecklist('aim_target', this.value)"></div>
-                            <div><label class="text-[10px] font-bold uppercase text-slate-400">Date</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.aim_date || '')}" onchange="window.saveChecklist('aim_date', this.value)"></div>
-                        </div>
-                        <div class="bg-indigo-50 p-4 rounded border border-indigo-100 relative">
-                             <div class="flex justify-between items-start mb-2">
-                                <label class="block text-xs font-bold text-indigo-400 uppercase">Aim Statement</label>
-                                ${aiAimBtn}
-                            </div>
-                            <textarea class="w-full p-2 bg-transparent border-none text-sm font-medium text-indigo-900 focus:ring-0 font-serif" rows="3" placeholder="To increase..." onchange="window.saveChecklist('aim', this.value)">${escapeHtml(cl.aim || '')}</textarea>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="card-modern p-6">
-                     <div class="flex items-center gap-3 mb-4 border-b pb-2">
-                        <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold">3</div>
-                        <h3 class="text-lg font-bold text-slate-800">Sustainability</h3>
-                    </div>
-                    <div class="space-y-4">
-                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Key Learning</label><textarea class="w-full p-2 border rounded text-sm" rows="3" onchange="window.saveChecklist('learning', this.value)">${escapeHtml(cl.learning || '')}</textarea></div>
-                        <div><label class="block text-xs font-bold text-slate-500 uppercase mb-1">Sustain Plan</label><textarea class="w-full p-2 border rounded text-sm" rows="3" onchange="window.saveChecklist('sustain', this.value)">${escapeHtml(cl.sustain || '')}</textarea></div>
+            </div>
+        </section>
+        
+        <!-- SMART Aim -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold">2</span>
+                SMART Aim
+            </h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Aim Statement *</label>
+                    <textarea id="check-aim" onchange="window.saveChecklistField('aim', this.value)" 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
+                        placeholder="To [increase/decrease] [measure] from [baseline] to [target] by [date]">${escapeHtml(c.aim || '')}</textarea>
+                    <div class="mt-2 flex gap-2">
+                        <button onclick="window.aiRefineAim()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
+                            <i data-lucide="sparkles" class="w-3 h-3"></i> AI Refine
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <div class="space-y-6">
-                 <div class="card-modern p-5">
-                    <div class="flex justify-between items-center mb-3">
-                        <h4 class="font-bold text-slate-800">Evidence Base</h4>
-                        ${aiEvBtn}
-                    </div>
-                    <textarea class="w-full p-2 border rounded text-sm focus:border-rcem-purple bg-slate-50" rows="8" placeholder="NICE Guidelines, RCEM Standards..." onchange="window.saveChecklist('lit_review', this.value)">${escapeHtml(cl.lit_review || '')}</textarea>
+        </section>
+        
+        <!-- Measures -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
+                Family of Measures
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                        <span class="text-emerald-600">●</span> Outcome Measure *
+                    </label>
+                    <textarea id="check-outcome" onchange="window.saveChecklistField('outcome_measure', this.value)"
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                        placeholder="The voice of the patient - what result matters?">${escapeHtml(c.outcome_measure || '')}</textarea>
                 </div>
-
-                <div class="card-modern p-5">
-                    <h4 class="font-bold text-slate-800 mb-3">Measures</h4>
-                    <div class="space-y-3">
-                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Outcome</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_outcome || '')}" onchange="window.saveChecklist('measure_outcome', this.value)"></div>
-                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Process</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_process || '')}" onchange="window.saveChecklist('measure_process', this.value)"></div>
-                        <div><label class="block text-[10px] font-bold text-slate-400 uppercase">Balance</label><input class="w-full p-2 border rounded text-sm" value="${escapeHtml(cl.measure_balance || '')}" onchange="window.saveChecklist('measure_balance', this.value)"></div>
-                    </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                        <span class="text-blue-600">●</span> Process Measure *
+                    </label>
+                    <textarea id="check-process" onchange="window.saveChecklistField('process_measure', this.value)"
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                        placeholder="Are the steps being followed correctly?">${escapeHtml(c.process_measure || '')}</textarea>
                 </div>
-                
-                <div class="card-modern p-5">
-                    <h4 class="font-bold text-slate-800 mb-3">Ethics</h4>
-                    <textarea class="w-full p-2 border rounded text-sm" rows="2" placeholder="Statement..." onchange="window.saveChecklist('ethics', this.value)">${escapeHtml(cl.ethics || '')}</textarea>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">
+                        <span class="text-amber-600">●</span> Balancing Measure
+                    </label>
+                    <textarea id="check-balance" onchange="window.saveChecklistField('balance_measure', this.value)"
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                        placeholder="Are we causing problems elsewhere?">${escapeHtml(c.balance_measure || '')}</textarea>
                 </div>
             </div>
-        </div>
+        </section>
+        
+        <!-- Ethics & Governance -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">4</span>
+                Ethics & Governance
+            </h2>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Ethical Considerations & Approvals</label>
+                <textarea id="check-ethics" onchange="window.saveChecklistField('ethics', this.value)"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
+                    placeholder="QI vs Research distinction, confidentiality, consent, any approvals needed...">${escapeHtml(c.ethics || '')}</textarea>
+            </div>
+        </section>
+        
+        <!-- Literature Review -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold">5</span>
+                Literature Review
+            </h2>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Evidence Base & Guidelines</label>
+                <textarea id="check-litreview" onchange="window.saveChecklistField('lit_review', this.value)"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px]"
+                    placeholder="What does the evidence say? NICE guidelines, RCEM standards, relevant studies...">${escapeHtml(c.lit_review || '')}</textarea>
+                <div class="mt-2">
+                    <button onclick="window.aiSuggestEvidence()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
+                        <i data-lucide="sparkles" class="w-3 h-3"></i> AI Suggest Evidence
+                    </button>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Results Analysis -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold">6</span>
+                Results & Analysis
+            </h2>
+            <div>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Analysis of Results</label>
+                <textarea id="check-results" onchange="window.saveChecklistField('results_analysis', this.value)"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px]"
+                    placeholder="What do your charts show? Any special cause variation? What patterns emerged?">${escapeHtml(c.results_analysis || '')}</textarea>
+            </div>
+        </section>
+        
+        <!-- Learning & Sustainability -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+                <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">7</span>
+                Learning & Sustainability
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Key Learning Points</label>
+                    <textarea id="check-learning" onchange="window.saveChecklistField('learning_points', this.value)"
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
+                        placeholder="What worked? What didn't? What would you do differently?">${escapeHtml(c.learning_points || '')}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Sustainability Plan</label>
+                    <textarea id="check-sustainability" onchange="window.saveChecklistField('sustainability', this.value)"
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
+                        placeholder="How will improvements be maintained? Who owns this? What systems are in place?">${escapeHtml(c.sustainability || '')}</textarea>
+                </div>
+            </div>
+        </section>
     `;
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+export function saveSmartAim() {
+    const aim = document.getElementById('check-aim')?.value || '';
+    if (!state.projectData.checklist) state.projectData.checklist = {};
+    state.projectData.checklist.aim = aim;
+    if (window.saveData) window.saveData();
+    showToast('Aim saved', 'success');
 }
 
 // ==========================================
@@ -324,97 +465,39 @@ export function renderDataView() {
     const d = state.projectData;
     if (!d) return;
     
-    const formContainer = document.getElementById('data-form-container');
-    if (formContainer) {
-        formContainer.innerHTML = `
-            <div class="grid grid-cols-2 gap-2">
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                    <input type="date" id="chart-date" class="w-full p-2 border border-slate-300 rounded text-sm focus:border-rcem-purple">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                    <input type="number" id="chart-value" class="w-full p-2 border border-slate-300 rounded text-sm focus:border-rcem-purple" placeholder="0" step="any">
-                </div>
-            </div>
-            <div>
-                <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Context</label>
-                <select id="chart-grade" class="w-full p-2 border border-slate-300 rounded text-sm bg-white focus:border-rcem-purple">
-                    <option value="Audit Point">Audit Point</option>
-                    <option value="Baseline">Baseline</option>
-                    <option value="Intervention">Intervention</option>
-                    <option value="Post-Intervention">Post-Intervention</option>
-                </select>
-            </div>
-            <div class="pt-2">
-                <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-colors">Add Data Point</button>
-            </div>
-            <div class="pt-4 border-t border-slate-100 grid grid-cols-2 gap-2">
-                <button onclick="document.getElementById('csv-upload').click()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1 transition-colors"><i data-lucide="upload" class="w-3 h-3"></i> Upload CSV</button>
-                <button onclick="window.downloadCSVTemplate()" class="border border-slate-300 text-slate-600 py-1.5 rounded text-xs hover:bg-slate-50 flex items-center justify-center gap-1 transition-colors"><i data-lucide="download" class="w-3 h-3"></i> Template</button>
-            </div>
-        `;
-    }
-
-    // Chart Mode Controls
-    let chartModeControls = document.getElementById('chart-mode-controls');
-    if (!chartModeControls) {
-        const chartArea = document.querySelector('#view-data canvas');
-        if (chartArea && chartArea.parentElement) {
-            const wrapper = document.createElement('div');
-            wrapper.innerHTML = `
-                <div class="mb-4 bg-slate-100 p-2 rounded-lg flex flex-wrap gap-2 justify-center items-center" id="chart-mode-controls">
-                    <span class="text-xs font-bold text-slate-500 uppercase mr-2">Chart Type:</span>
-                    <button onclick="window.setChartMode('run')" data-mode="run" class="px-3 py-1 rounded text-xs font-bold bg-slate-800 text-white shadow">Run Chart</button>
-                    <button onclick="window.setChartMode('spc')" data-mode="spc" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
-                    <button onclick="window.setChartMode('histogram')" data-mode="histogram" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
-                    <button onclick="window.setChartMode('pareto')" data-mode="pareto" class="px-3 py-1 rounded text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Pareto</button>
-                </div>
-            `;
-            chartArea.parentElement.insertBefore(wrapper.firstElementChild, chartArea);
-        }
-    }
-
-    // Results Box
-    const resultsText = document.getElementById('results-text');
-    if (resultsText && d.checklist) {
-        resultsText.value = d.checklist.results_text || '';
-    }
-
-    // AI Chart Button
-    const aiChartBtn = (window.hasAI && window.hasAI()) 
-        ? `<button onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="text-xs bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-2 py-1 rounded shadow hover:shadow-md flex items-center gap-1"><i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse</button>` 
-        : '';
-        
-    const resultsContainer = resultsText?.parentElement;
-    if (resultsContainer) {
-        const header = resultsContainer.querySelector('h3');
-        if(header && !header.querySelector('button')) {
-            const wrap = document.createElement('div');
-            wrap.className = "flex justify-between items-center mb-2";
-            wrap.innerHTML = `<span class="font-bold text-slate-800">Results & Interpretation</span>${aiChartBtn}`;
-            header.replaceWith(wrap);
-        }
-    }
-
-    // History
+    // Render the main chart
+    if (window.renderChart) window.renderChart();
+    
+    // Update data history
     const historyContainer = document.getElementById('data-history');
     if (historyContainer) {
         if (!d.chartData || d.chartData.length === 0) {
-            historyContainer.innerHTML = `<div class="text-center py-8 text-slate-400 italic text-xs">No data yet.</div>`;
+            historyContainer.innerHTML = `<div class="text-center text-slate-400 py-4 text-sm">No data points yet. Add your first data point above.</div>`;
         } else {
-            const sorted = [...d.chartData].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10);
+            const sorted = [...d.chartData].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15);
             historyContainer.innerHTML = `
                 <table class="w-full text-left border-collapse">
-                    <thead><tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200"><th class="pb-2">Date</th><th class="pb-2">Value</th><th class="pb-2">Type</th><th class="pb-2 text-right"></th></tr></thead>
+                    <thead>
+                        <tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200">
+                            <th class="pb-2">Date</th>
+                            <th class="pb-2">Value</th>
+                            <th class="pb-2">Phase</th>
+                            <th class="pb-2 text-right"></th>
+                        </tr>
+                    </thead>
                     <tbody class="text-xs text-slate-700">
                         ${sorted.map(item => `
-                            <tr class="border-b border-slate-50 hover:bg-slate-50">
+                            <tr class="border-b border-slate-50 hover:bg-slate-50" title="${escapeHtml(item.note || '')}">
                                 <td class="py-2 font-mono">${escapeHtml(item.date)}</td>
                                 <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
                                 <td class="py-2 text-slate-400">${escapeHtml(item.grade || '-')}</td>
-                                <td class="py-2 text-right"><button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td>
-                            </tr>`).join('')}
+                                <td class="py-2 text-right">
+                                    <button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
                     </tbody>
                 </table>
             `;
@@ -422,325 +505,169 @@ export function renderDataView() {
     }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
-    if (window.renderChart) window.renderChart();
 }
 
 // ==========================================
-// 5. PUBLISH VIEW (QIAT UPDATE)
+// 5. TEAM VIEW
 // ==========================================
 
-export function renderPublish(mode = 'qiat') {
+export function renderTeam() {
     const d = state.projectData;
     if (!d) return;
     
-    const content = document.getElementById('publish-content');
-    if (!content) return;
+    const teamContainer = document.getElementById('team-list');
+    const logContainer = document.getElementById('leadership-log-list');
     
-    const modes = ['qiat', 'abstract', 'report'];
-    modes.forEach(m => {
-        const btn = document.getElementById(`btn-mode-${m}`);
-        if(btn) btn.className = mode === m 
-            ? "px-3 py-1 text-xs font-bold rounded bg-white shadow text-rcem-purple" 
-            : "px-3 py-1 text-xs font-bold rounded text-slate-500 hover:bg-slate-200";
-    });
-
-    const copyBtn = (id) => `
-        <button onclick="navigator.clipboard.writeText(document.getElementById('${id}').innerText); window.showToast ? window.showToast('Copied!', 'success') : alert('Copied!')" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-600 px-2 py-1 rounded border border-slate-300 flex items-center gap-1 transition-colors">
-            <i data-lucide="copy" class="w-3 h-3"></i> Copy
-        </button>`;
-
-    const cl = d.checklist || {};
-
-    // Helper for QIAT blocks
-    const QiatBlock = (id, label, text) => `
-        <div class="qiat-section mb-6">
-            <div class="flex justify-between items-end mb-2">
-                <label class="text-sm font-bold text-slate-800 uppercase tracking-wide border-l-4 border-rcem-purple pl-2">${label}</label>
-                ${copyBtn(id)}
-            </div>
-            <div id="${id}" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm font-mono whitespace-pre-wrap text-slate-700">${escapeHtml(text || 'Not documented')}</div>
-        </div>
-    `;
-
-    if (mode === 'abstract') {
-        content.innerHTML = `
-            <div class="max-w-4xl mx-auto card-modern overflow-hidden">
-                <div class="bg-sky-900 text-white p-6 flex justify-between items-center">
+    if (teamContainer) {
+        const members = d.teamMembers || [];
+        teamContainer.innerHTML = `
+            <header class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="users-2" class="text-pink-500"></i> QI Team
+                    </h2>
+                    <p class="text-slate-500 text-sm">Define roles and responsibilities</p>
+                </div>
+                <button onclick="window.openMemberModal()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Add Member
+                </button>
+            </header>
+            
+            ${members.length === 0 ? `
+                <div class="bg-slate-50 rounded-xl p-8 text-center">
+                    <i data-lucide="users" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
+                    <p class="text-slate-500">No team members yet. Add your QI team above.</p>
+                </div>
+            ` : `
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    ${members.map((m, i) => `
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow">
+                            <div class="flex items-start justify-between">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center font-bold">
+                                        ${escapeHtml((m.name || '?')[0].toUpperCase())}
+                                    </div>
+                                    <div>
+                                        <div class="font-bold text-slate-800">${escapeHtml(m.name || 'Unknown')}</div>
+                                        <div class="text-xs text-slate-500">${escapeHtml(m.role || 'No role')}</div>
+                                    </div>
+                                </div>
+                                <button onclick="window.deleteMember(${i})" class="text-slate-300 hover:text-red-500 transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
+                            ${m.grade ? `<div class="mt-2 text-xs text-slate-600"><span class="font-medium">Grade:</span> ${escapeHtml(m.grade)}</div>` : ''}
+                            ${m.responsibility ? `<div class="mt-1 text-xs text-slate-600"><span class="font-medium">Responsibility:</span> ${escapeHtml(m.responsibility)}</div>` : ''}
+                            ${m.initials ? `<div class="mt-1 text-xs text-slate-400">Initials: ${escapeHtml(m.initials)}</div>` : ''}
+                        </div>
+                    `).join('')}
+                </div>
+            `}
+        `;
+    }
+    
+    // Leadership engagement log
+    if (logContainer) {
+        const logs = d.leadershipLog || [];
+        logContainer.innerHTML = `
+            <div class="mt-10">
+                <header class="flex justify-between items-center mb-6">
                     <div>
-                        <h2 class="text-xl font-bold">RCEM Abstract Generator</h2>
-                        <p class="text-sky-200 text-sm">Structured abstract for conference submission</p>
+                        <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="message-square" class="text-amber-500"></i> Leadership Engagement Log
+                        </h2>
+                        <p class="text-slate-500 text-sm">Record key communications with senior leadership</p>
                     </div>
-                    ${copyBtn('abstract-output')}
-                </div>
-                <div class="p-8">
-                    <div id="abstract-output" class="prose max-w-none">
-                        <h3 class="text-lg font-bold text-slate-800 mb-2">${escapeHtml(d.meta?.title || 'Untitled Project')}</h3>
-                        <div class="space-y-4 text-sm text-slate-700">
-                            <div><strong class="text-slate-800">Background:</strong> ${escapeHtml(cl.problem_desc || 'Not defined')}</div>
-                            <div><strong class="text-slate-800">Aim:</strong> ${escapeHtml(cl.aim || 'Not defined')}</div>
-                            <div><strong class="text-slate-800">Methods:</strong> ${escapeHtml(cl.methodology || 'Model for Improvement using PDSA cycles')}. ${d.pdsa && d.pdsa.length > 0 ? `${d.pdsa.length} PDSA cycle(s) were completed.` : ''}</div>
-                            <div><strong class="text-slate-800">Results:</strong> ${escapeHtml(cl.results_text || 'Not documented')}</div>
-                            <div><strong class="text-slate-800">Conclusions:</strong> ${escapeHtml(cl.learning || 'Not documented')}</div>
-                        </div>
+                    <button onclick="window.addLeadershipLog()" class="bg-amber-500 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-amber-600 transition-colors">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add Entry
+                    </button>
+                </header>
+                
+                ${logs.length === 0 ? `
+                    <div class="bg-slate-50 rounded-xl p-6 text-center">
+                        <p class="text-slate-500 text-sm">No leadership engagements logged yet.</p>
                     </div>
-                </div>
-            </div>
-        `;
-    } else if (mode === 'report') {
-        content.innerHTML = `
-            <div class="max-w-4xl mx-auto card-modern overflow-hidden">
-                <div class="bg-emerald-900 text-white p-6">
-                    <h2 class="text-xl font-bold">FRCEM QIP Report</h2>
-                    <p class="text-emerald-200 text-sm">Structured report for FRCEM portfolio</p>
-                </div>
-                <div class="p-8 space-y-8">
-                    <div class="report-section">
-                        <div class="flex justify-between items-end mb-2"><h3 class="text-lg font-bold text-slate-800">1. Project Overview</h3>${copyBtn('report-overview')}</div>
-                        <div id="report-overview" class="p-4 bg-slate-50 border border-slate-200 rounded text-sm">
-                            <p><strong>Title:</strong> ${escapeHtml(d.meta?.title || 'Untitled')}</p>
-                            <p><strong>Setting:</strong> ${escapeHtml(cl.context || 'Not specified')}</p>
-                            <p><strong>Team:</strong> ${escapeHtml(cl.team || (d.teamMembers ? d.teamMembers.map(m => m.name).join(', ') : 'Not specified'))}</p>
-                        </div>
+                ` : `
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                        <table class="w-full">
+                            <thead class="bg-slate-50">
+                                <tr class="text-xs text-slate-500 uppercase">
+                                    <th class="px-4 py-3 text-left">Date</th>
+                                    <th class="px-4 py-3 text-left">Leader</th>
+                                    <th class="px-4 py-3 text-left">Summary</th>
+                                    <th class="px-4 py-3 text-left">Action</th>
+                                    <th class="px-4 py-3"></th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                ${logs.map((l, i) => `
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-3 text-sm font-mono text-slate-600">${escapeHtml(l.date || '')}</td>
+                                        <td class="px-4 py-3 text-sm font-medium text-slate-800">${escapeHtml(l.leader || '')}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600 max-w-xs truncate">${escapeHtml(l.summary || '')}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600 max-w-xs truncate">${escapeHtml(l.action || '')}</td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button onclick="window.deleteLeadershipLog(${i})" class="text-slate-300 hover:text-red-500">
+                                                <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
                     </div>
-                    ${QiatBlock('rep-prob', '2. Problem & Aim', `Problem: ${cl.problem_desc}\n\nAim: ${cl.aim}`)}
-                    ${QiatBlock('rep-res', '3. Results', cl.results_text)}
-                    ${QiatBlock('rep-learn', '4. Learning & Sustainability', `Learning: ${cl.learning}\n\nSustainability: ${cl.sustain}`)}
-                </div>
-            </div>
-        `;
-    } else {
-        // FULL QIAT MODE
-        const teamStr = d.teamMembers ? d.teamMembers.map(m => `${m.name} (${m.role})`).join(', ') : '';
-        const driverStr = d.drivers ? `Primary: ${d.drivers.primary.join(', ')}\nSecondary: ${d.drivers.secondary.join(', ')}\nChange Ideas: ${d.drivers.changes.join(', ')}` : '';
-        const measureStr = `Outcome: ${cl.measure_outcome || ''}\nProcess: ${cl.measure_process || ''}\nBalance: ${cl.measure_balance || ''}`;
-        const pdsaStr = d.pdsa ? d.pdsa.map((p,i) => `Cycle ${i+1}: ${p.title} (${p.start})\nPlan: ${p.desc}\nDo: ${p.do}\nStudy: ${p.study}\nAct: ${p.act}`).join('\n\n') : '';
-
-        content.innerHTML = `
-            <div class="max-w-5xl mx-auto card-modern overflow-hidden">
-                <div class="bg-indigo-900 text-white p-6">
-                    <h2 class="text-xl font-bold">Full QIAT / Risr Form Data</h2>
-                    <p class="text-indigo-200 text-sm">Every section required for the official submission.</p>
-                </div>
-                <div class="p-8">
-                    ${QiatBlock('qiat-title', 'Project Title', d.meta?.title)}
-                    ${QiatBlock('qiat-team', 'Project Team / Leadership', teamStr)}
-                    ${QiatBlock('qiat-context', 'Context / Setting', cl.context)}
-                    ${QiatBlock('qiat-prob', 'Problem / Background', cl.problem_desc)}
-                    ${QiatBlock('qiat-evidence', 'Baseline Evidence', cl.problem_evidence)}
-                    ${QiatBlock('qiat-aim', 'SMART Aim', cl.aim)}
-                    ${QiatBlock('qiat-drivers', 'Drivers & Change Ideas', driverStr)}
-                    ${QiatBlock('qiat-measures', 'Measures (Outcome, Process, Balance)', measureStr)}
-                    ${QiatBlock('qiat-pdsa', 'PDSA Cycles Summary', pdsaStr)}
-                    ${QiatBlock('qiat-results', 'Results & Analysis', cl.results_text)}
-                    ${QiatBlock('qiat-learning', 'Key Learning / Conclusions', cl.learning)}
-                    ${QiatBlock('qiat-sustain', 'Sustainability Plan', cl.sustain)}
-                    ${QiatBlock('qiat-ethics', 'Ethics / Governance', cl.ethics)}
-                </div>
+                `}
             </div>
         `;
     }
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// ==========================================
-// 6. FULL PROJECT VIEW
-// ==========================================
-
-export function renderFullProject() {
+export function openMemberModal(index = null) {
+    const modal = document.getElementById('member-modal');
+    if (!modal) return;
+    
     const d = state.projectData;
-    if (!d) return;
+    const member = index !== null ? (d.teamMembers || [])[index] : null;
     
-    const has = (v) => v && v.length > 0 ? escapeHtml(v) : `<span class="text-slate-400 italic">Not yet defined</span>`;
-    const cl = d.checklist || {};
-
-    const container = document.getElementById('full-project-container');
-    if (!container) return;
-
-    // Helper for sections
-    const Section = (title, content) => `
-        <div class="card-modern p-8 mb-8">
-            <h2 class="text-xl font-bold text-slate-800 mb-6 border-b pb-2">${title}</h2>
-            ${content}
-        </div>`;
-
-    // 1. Team & Stakeholders Content
-    let teamHtml = `<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">`;
-    if(d.teamMembers && d.teamMembers.length > 0) {
-        teamHtml += d.teamMembers.map(m => `
-            <div class="p-4 border border-slate-200 rounded-lg flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">${escapeHtml(m.initials || '??')}</div>
-                <div><div class="font-bold text-sm">${escapeHtml(m.name)}</div><div class="text-xs text-slate-500">${escapeHtml(m.role)}</div></div>
-            </div>
-        `).join('');
-    } else { teamHtml += `<div class="col-span-full text-slate-400 italic">No team members.</div>`; }
-    teamHtml += `</div>`;
+    document.getElementById('member-index').value = index ?? '';
+    document.getElementById('member-name').value = member?.name || '';
+    document.getElementById('member-role').value = member?.role || '';
+    document.getElementById('member-grade').value = member?.grade || '';
+    document.getElementById('member-resp').value = member?.responsibility || '';
+    document.getElementById('member-init').value = member?.initials || '';
     
-    let stakeHtml = `<h3 class="font-bold text-slate-700 text-sm uppercase mb-3">Stakeholders</h3><div class="overflow-x-auto"><table class="w-full text-sm text-left">
-        <thead class="bg-slate-50 text-slate-500 font-bold"><tr class="border-b"><th class="p-2">Name</th><th class="p-2">Power</th><th class="p-2">Interest</th></tr></thead><tbody>`;
-    if(d.stakeholders && d.stakeholders.length > 0) {
-        stakeHtml += d.stakeholders.map(s => `<tr class="border-b"><td class="p-2">${escapeHtml(s.name)}</td><td class="p-2">${s.y}</td><td class="p-2">${s.x}</td></tr>`).join('');
-    } else { stakeHtml += `<tr><td colspan="3" class="p-2 text-slate-400 italic">No stakeholders.</td></tr>`; }
-    stakeHtml += `</tbody></table></div>`;
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
 
-    // 2. Charter Content
-    const charterHtml = `
-        <div class="space-y-6">
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Context</h3><p class="text-sm text-slate-600 bg-slate-50 p-3 rounded">${has(cl.context)}</p></div>
-                <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Ethics</h3><p class="text-sm text-slate-600 bg-slate-50 p-3 rounded">${has(cl.ethics)}</p></div>
-            </div>
-            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Problem Statement</h3><p class="text-slate-700 bg-slate-50 p-4 rounded border-l-4 border-rcem-purple">${has(cl.problem_desc)}</p></div>
-            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">SMART Aim</h3><p class="text-indigo-900 font-bold font-serif bg-indigo-50 p-4 rounded border border-indigo-100">${has(cl.aim)}</p></div>
-            
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Outcome Measure</h4><p class="text-sm">${has(cl.measure_outcome)}</p></div>
-                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Process Measure</h4><p class="text-sm">${has(cl.measure_process)}</p></div>
-                <div class="p-3 border rounded"><h4 class="font-bold text-xs uppercase text-slate-500 mb-1">Balancing Measure</h4><p class="text-sm">${has(cl.measure_balance)}</p></div>
-            </div>
-        </div>
-    `;
-
-    // 3. Diagnosis
-    const diagHtml = `
-        <div class="space-y-8">
-            <div>
-                <h3 class="font-bold text-slate-700 mb-2">Process Map</h3>
-                <div id="full-view-process-container" class="border border-slate-200 rounded min-h-[200px] flex justify-center p-4"></div>
-            </div>
-            <div>
-                <h3 class="font-bold text-slate-700 mb-2">Driver Diagram</h3>
-                <div id="full-view-driver-container" class="border border-slate-200 rounded min-h-[300px] flex justify-center p-4"></div>
-            </div>
-        </div>
-    `;
-
-    // 4. Timeline
-    const timelineHtml = `<div id="full-view-gantt-container" class="overflow-x-auto min-h-[200px]"></div>`;
-
-    // 5. Results
-    const resultsHtml = `
-        <div id="full-view-chart-container" class="mb-6 h-80 relative">
-            <canvas id="full-view-chart-canvas"></canvas>
-        </div>
-        <div class="bg-emerald-50 p-4 rounded border border-emerald-100">
-            <h3 class="font-bold text-emerald-900 text-sm uppercase mb-2">Interpretation</h3>
-            <p class="text-emerald-800">${has(cl.results_text)}</p>
-        </div>
-    `;
-
-    // 6. PDSA
-    const pdsaHtml = `
-        <div class="space-y-4">
-            ${d.pdsa && d.pdsa.length > 0 ? d.pdsa.map((p, i) => `
-                <div class="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-                    <h4 class="font-bold text-slate-800 flex justify-between">
-                        <span>Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</span>
-                        <span class="text-xs font-normal text-slate-500 font-mono">${p.start} - ${p.end}</span>
-                    </h4>
-                    <p class="text-sm text-slate-600 mt-1 mb-3 italic">${escapeHtml(p.desc)}</p>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs">
-                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-amber-600 block mb-1">Do</strong>${escapeHtml(p.do)}</div>
-                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-purple-600 block mb-1">Study</strong>${escapeHtml(p.study)}</div>
-                        <div class="bg-white p-2 rounded border border-slate-100"><strong class="text-emerald-600 block mb-1">Act</strong>${escapeHtml(p.act)}</div>
-                    </div>
-                </div>
-            `).join('') : '<p class="text-slate-400 italic">No cycles.</p>'}
-        </div>
-    `;
-
-    // 7. Sustain
-    const sustainHtml = `
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Key Learning</h3><p class="text-sm text-slate-600 bg-amber-50 p-4 rounded border border-amber-100">${has(cl.learning)}</p></div>
-            <div><h3 class="font-bold text-slate-700 text-sm uppercase mb-2">Sustainability Plan</h3><p class="text-sm text-slate-600 bg-emerald-50 p-4 rounded border border-emerald-100">${has(cl.sustain)}</p></div>
-        </div>
-    `;
-
-    // 8. Logs
-    let logHtml = `<div class="space-y-2">`;
-    if(d.leadershipLogs && d.leadershipLogs.length > 0) {
-        logHtml += d.leadershipLogs.map(l => `
-            <div class="text-sm border-l-2 border-slate-300 pl-3 py-1">
-                <span class="font-bold text-slate-700 mr-2">${l.date}:</span>
-                <span class="text-slate-600">${escapeHtml(l.note)}</span>
-            </div>
-        `).join('');
-    } else { logHtml += `<p class="text-slate-400 italic">No logs recorded.</p>`; }
-    logHtml += `</div>`;
-
-    // Assemble
-    container.innerHTML = `
-        <div class="max-w-5xl mx-auto space-y-8 pb-20">
-            <div class="card-modern p-8 text-center">
-                <h1 class="text-3xl font-bold text-rcem-purple mb-2">${escapeHtml(d.meta?.title || 'Untitled Project')}</h1>
-                <p class="text-slate-500">Project Lead: ${escapeHtml(d.teamMembers && d.teamMembers[0] ? d.teamMembers[0].name : 'Not specified')}</p>
-                <div class="mt-4 flex justify-center gap-2">
-                    <button onclick="window.print()" class="text-xs font-bold text-slate-500 bg-slate-100 hover:bg-slate-200 px-3 py-1 rounded flex items-center gap-1"><i data-lucide="printer" class="w-3 h-3"></i> Print Report</button>
-                </div>
-            </div>
-
-            ${Section('1. Team & Stakeholders', teamHtml + '<div class="mt-6">' + stakeHtml + '</div>')}
-            ${Section('2. Project Charter', charterHtml)}
-            ${Section('3. Diagnosis & Process', diagHtml)}
-            ${Section('4. Project Timeline', timelineHtml)}
-            ${Section('5. Results & Analysis', resultsHtml)}
-            ${Section('6. PDSA Cycles', pdsaHtml)}
-            ${Section('7. Learning & Sustainability', sustainHtml)}
-            ${Section('8. Leadership Log', logHtml)}
-        </div>
-    `;
+export function addLeadershipLog() {
+    const date = prompt('Date (YYYY-MM-DD):');
+    if (!date) return;
     
-    setTimeout(() => {
-        renderFullViewChart();
-        renderTools('full-view-driver-container', 'driver');
-        renderTools('full-view-process-container', 'process');
-        renderGantt('full-view-gantt-container');
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    }, 150);
+    const leader = prompt('Leader name/title:');
+    const summary = prompt('Brief summary of discussion:');
+    const action = prompt('Actions agreed:');
+    
+    if (!state.projectData.leadershipLog) state.projectData.leadershipLog = [];
+    state.projectData.leadershipLog.push({ date, leader, summary, action });
+    
+    if (window.saveData) window.saveData();
+    renderTeam();
+    showToast('Leadership log added', 'success');
+}
+
+export function deleteLeadershipLog(index) {
+    if (!confirm('Delete this log entry?')) return;
+    state.projectData.leadershipLog.splice(index, 1);
+    if (window.saveData) window.saveData();
+    renderTeam();
+    showToast('Log entry deleted', 'success');
 }
 
 // ==========================================
-// 7. GREEN VIEW
-// ==========================================
-
-export function renderGreen() {
-    const el = document.getElementById('view-green');
-    if (!el) return;
-    el.innerHTML = `
-        <div class="max-w-4xl mx-auto space-y-8">
-            <div class="card-modern p-8">
-                <div class="flex items-center gap-3 mb-6 border-b pb-4">
-                    <div class="p-2 bg-emerald-100 text-emerald-700 rounded-lg"><i data-lucide="leaf" class="w-6 h-6"></i></div>
-                    <div><h3 class="font-bold text-xl text-slate-800">Sustainable Value</h3><p class="text-slate-500 text-sm">Triple Bottom Line Calculator.</p></div>
-                </div>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div class="p-6 bg-emerald-50 rounded-xl border border-emerald-100">
-                        <h4 class="font-bold text-emerald-800 mb-2">Environmental</h4>
-                        <input type="number" id="calc-paper" class="w-full p-2 border border-emerald-200 rounded text-sm bg-white" placeholder="Sheets saved">
-                        <button onclick="window.calcGreen()" class="mt-4 w-full bg-emerald-600 text-white py-2 rounded font-bold text-xs hover:bg-emerald-700">Calculate CO₂</button>
-                        <div id="res-green" class="mt-2 text-center text-xl font-bold text-emerald-900">-</div>
-                    </div>
-                    <div class="p-6 bg-blue-50 rounded-xl border border-blue-100">
-                        <h4 class="font-bold text-blue-800 mb-2">Financial</h4>
-                        <input type="number" id="calc-hours" class="w-full p-2 border border-blue-200 rounded text-sm bg-white" placeholder="Hours saved">
-                        <button onclick="window.calcTime()" class="mt-4 w-full bg-blue-600 text-white py-2 rounded font-bold text-xs hover:bg-blue-700">Calculate Savings</button>
-                        <div id="res-time" class="mt-2 text-center text-xl font-bold text-blue-900">-</div>
-                    </div>
-                    <div class="p-6 bg-purple-50 rounded-xl border border-purple-100">
-                        <h4 class="font-bold text-purple-800 mb-2">Social</h4>
-                        <input type="number" id="calc-edu-ppl" class="w-full p-2 border border-purple-200 rounded text-sm bg-white" placeholder="Staff trained">
-                        <button onclick="window.calcEdu()" class="mt-4 w-full bg-purple-600 text-white py-2 rounded font-bold text-xs hover:bg-purple-700">Log Impact</button>
-                        <div id="res-edu" class="mt-2 text-center text-lg font-bold text-purple-900">-</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-// ==========================================
-// 8. PDSA VIEW (IMPROVED - STACKED & BIGGER)
+// 6. PDSA VIEW
 // ==========================================
 
 export function renderPDSA() {
@@ -750,612 +677,862 @@ export function renderPDSA() {
     const container = document.getElementById('pdsa-container');
     if (!container) return;
     
-    // AI Button Logic
-    const aiButton = (window.hasAI && window.hasAI()) 
-        ? `<button onclick="window.aiGeneratePDSA()" id="btn-ai-pdsa" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 hover:bg-purple-100 transition-colors"><i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Draft Cycle</button>`
-        : '';
-
+    const pdsa = d.pdsa || [];
+    const members = d.teamMembers || [];
+    
     container.innerHTML = `
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            <div class="lg:col-span-4 space-y-6">
-                <div class="card-modern p-6 sticky top-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="font-bold text-lg text-slate-800">Plan New Cycle</h3>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Add New PDSA Form -->
+            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
+                <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-5 h-5 text-rcem-purple"></i>
+                    New PDSA Cycle
+                </h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cycle Title *</label>
+                        <input id="pdsa-title" class="w-full p-2 border rounded text-sm" placeholder="e.g. Test sepsis checklist with 5 patients">
                     </div>
-                    <div class="space-y-3">
-                        <div><label class="text-[10px] font-bold uppercase text-slate-500">Title</label><input id="pdsa-title" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none" placeholder="e.g. Test new checklist"></div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div><label class="text-[10px] font-bold uppercase text-slate-500">Start</label><input type="date" id="pdsa-start" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none"></div>
-                            <div><label class="text-[10px] font-bold uppercase text-slate-500">End</label><input type="date" id="pdsa-end" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none"></div>
-                        </div>
-                        <div><label class="text-[10px] font-bold uppercase text-slate-500">Initial Plan</label><textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm focus:border-rcem-purple outline-none" rows="4" placeholder="What exactly will you do?"></textarea></div>
-                        <button onclick="window.addPDSA()" class="w-full bg-slate-800 text-white py-2 rounded-lg font-bold text-sm hover:bg-slate-900 shadow-md transition-all">Add Cycle</button>
-                        ${aiButton}
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Start Date</label>
+                        <input id="pdsa-start" type="date" class="w-full p-2 border rounded text-sm">
                     </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Owner</label>
+                        <select id="pdsa-owner" class="w-full p-2 border rounded text-sm">
+                            <option value="">Select team member...</option>
+                            ${members.map(m => `<option value="${escapeHtml(m.name)}">${escapeHtml(m.name)}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                        <select id="pdsa-status" class="w-full p-2 border rounded text-sm">
+                            <option value="planning">Planning</option>
+                            <option value="doing">Doing</option>
+                            <option value="studying">Studying</option>
+                            <option value="acting">Acting</option>
+                            <option value="complete">Complete</option>
+                        </select>
+                    </div>
+                    <button onclick="window.addPDSA()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
+                        Add PDSA Cycle
+                    </button>
                 </div>
             </div>
-
-            <div class="lg:col-span-8 space-y-8">
-                ${!d.pdsa || d.pdsa.length === 0 ? '<div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200 text-slate-400">No PDSA cycles started yet.</div>' : ''}
-                ${d.pdsa ? d.pdsa.map((p, i) => `
-                <div class="card-modern overflow-hidden group">
-                    <div class="bg-white p-4 border-b border-slate-200 flex justify-between items-start sticky top-0 z-10 shadow-sm">
-                        <div class="flex gap-4 items-center">
-                            <div class="bg-rcem-purple text-white w-10 h-10 rounded-full flex items-center justify-center font-bold shadow-sm flex-shrink-0">${i + 1}</div>
+            
+            <!-- PDSA List -->
+            <div class="lg:col-span-2 space-y-4">
+                ${pdsa.length === 0 ? `
+                    <div class="bg-slate-50 rounded-xl p-8 text-center">
+                        <i data-lucide="refresh-cw" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
+                        <p class="text-slate-500">No PDSA cycles yet. Start your first test of change!</p>
+                    </div>
+                ` : pdsa.map((p, i) => `
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                        <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h4 class="font-bold text-slate-800 text-lg leading-tight">${escapeHtml(p.title || 'Untitled')}</h4>
-                                <div class="text-xs text-slate-500 font-mono mt-1 flex items-center gap-2">
-                                    <i data-lucide="calendar" class="w-3 h-3"></i> ${p.start || '...'} → ${p.end || '...'}
+                                <h4 class="font-bold text-slate-800 text-lg">${escapeHtml(p.title || `Cycle ${i + 1}`)}</h4>
+                                <div class="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                                    ${p.startDate ? `<span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${p.startDate}</span>` : ''}
+                                    ${p.owner ? `<span><i data-lucide="user" class="w-3 h-3 inline mr-1"></i>${escapeHtml(p.owner)}</span>` : ''}
                                 </div>
                             </div>
+                            <div class="flex items-center gap-2">
+                                <select onchange="window.updatePDSA(${i}, 'status', this.value)" class="text-xs border rounded px-2 py-1 ${getStatusColor(p.status)}">
+                                    <option value="planning" ${p.status === 'planning' ? 'selected' : ''}>Planning</option>
+                                    <option value="doing" ${p.status === 'doing' ? 'selected' : ''}>Doing</option>
+                                    <option value="studying" ${p.status === 'studying' ? 'selected' : ''}>Studying</option>
+                                    <option value="acting" ${p.status === 'acting' ? 'selected' : ''}>Acting</option>
+                                    <option value="complete" ${p.status === 'complete' ? 'selected' : ''}>Complete</option>
+                                </select>
+                                <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                            </div>
                         </div>
-                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500 p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px] font-bold">P</span> Plan
+                                </label>
+                                <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" 
+                                    class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
+                                    placeholder="What change are you testing? What's your prediction?">${escapeHtml(p.plan || '')}</textarea>
+                                ${p.prediction ? `<p class="text-xs text-blue-600 italic">Prediction: ${escapeHtml(p.prediction)}</p>` : ''}
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold uppercase text-amber-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[8px] font-bold">D</span> Do
+                                </label>
+                                <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" 
+                                    class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
+                                    placeholder="What did you actually do? Any deviations from plan?">${escapeHtml(p.do || '')}</textarea>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[8px] font-bold">S</span> Study
+                                </label>
+                                <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" 
+                                    class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
+                                    placeholder="What did you learn? What does the data show?">${escapeHtml(p.study || '')}</textarea>
+                            </div>
+                            <div class="space-y-1">
+                                <label class="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[8px] font-bold">A</span> Act
+                                </label>
+                                <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" 
+                                    class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
+                                    placeholder="Adopt, Adapt, or Abandon? What's next?">${escapeHtml(p.act || '')}</textarea>
+                            </div>
+                        </div>
                     </div>
-                    
-                    <div class="p-6 space-y-6">
-                        <div class="space-y-2 pdsa-stack-item bg-pastel-blue p-4 rounded-xl border">
-                            <div class="flex items-center gap-2 mb-1 text-blue-800">
-                                <i data-lucide="map" class="w-4 h-4"></i>
-                                <label class="text-sm font-bold uppercase tracking-wide">Plan</label>
-                            </div>
-                            <textarea onchange="window.updatePDSA(${i}, 'desc', this.value)" class="w-full p-3 bg-white/50 border border-blue-100 rounded text-sm focus:ring-2 focus:ring-blue-200 focus:border-blue-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.desc || '')}</textarea>
-                        </div>
-
-                        <div class="space-y-2 pdsa-stack-item bg-pastel-orange p-4 rounded-xl border">
-                            <div class="flex items-center gap-2 mb-1 text-orange-800">
-                                <i data-lucide="play" class="w-4 h-4"></i>
-                                <label class="text-sm font-bold uppercase tracking-wide">Do</label>
-                            </div>
-                            <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" class="w-full p-3 bg-white/50 border border-orange-100 rounded text-sm focus:ring-2 focus:ring-orange-200 focus:border-orange-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.do || '')}</textarea>
-                        </div>
-
-                        <div class="space-y-2 pdsa-stack-item bg-pastel-purple p-4 rounded-xl border">
-                            <div class="flex items-center gap-2 mb-1 text-purple-800">
-                                <i data-lucide="bar-chart-2" class="w-4 h-4"></i>
-                                <label class="text-sm font-bold uppercase tracking-wide">Study</label>
-                            </div>
-                            <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" class="w-full p-3 bg-white/50 border border-purple-100 rounded text-sm focus:ring-2 focus:ring-purple-200 focus:border-purple-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.study || '')}</textarea>
-                        </div>
-
-                        <div class="space-y-2 pdsa-stack-item bg-pastel-green p-4 rounded-xl border">
-                            <div class="flex items-center gap-2 mb-1 text-emerald-800">
-                                <i data-lucide="check-circle-2" class="w-4 h-4"></i>
-                                <label class="text-sm font-bold uppercase tracking-wide">Act</label>
-                            </div>
-                            <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" class="w-full p-3 bg-white/50 border border-emerald-100 rounded text-sm focus:ring-2 focus:ring-emerald-200 focus:border-emerald-300 outline-none transition-all resize-none overflow-hidden" rows="6">${escapeHtml(p.act || '')}</textarea>
-                        </div>
-                    </div>
-                </div>`).join('') : ''}
+                `).join('')}
             </div>
         </div>
     `;
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+function getStatusColor(status) {
+    const colors = {
+        planning: 'bg-blue-50 text-blue-700',
+        doing: 'bg-amber-50 text-amber-700',
+        studying: 'bg-purple-50 text-purple-700',
+        acting: 'bg-emerald-50 text-emerald-700',
+        complete: 'bg-slate-100 text-slate-600'
+    };
+    return colors[status] || 'bg-slate-50 text-slate-600';
+}
+
+export function addPDSA() {
+    const title = document.getElementById('pdsa-title')?.value;
+    if (!title) {
+        showToast('Please enter a cycle title', 'error');
+        return;
+    }
+    
+    const startDate = document.getElementById('pdsa-start')?.value || '';
+    const owner = document.getElementById('pdsa-owner')?.value || '';
+    const status = document.getElementById('pdsa-status')?.value || 'planning';
+    
+    if (!state.projectData.pdsa) state.projectData.pdsa = [];
+    state.projectData.pdsa.push({
+        title,
+        startDate,
+        owner,
+        status,
+        plan: '',
+        prediction: '',
+        do: '',
+        study: '',
+        act: ''
+    });
+    
+    // Clear form
+    document.getElementById('pdsa-title').value = '';
+    document.getElementById('pdsa-start').value = '';
+    document.getElementById('pdsa-owner').value = '';
+    document.getElementById('pdsa-status').value = 'planning';
+    
+    if (window.saveData) window.saveData();
+    renderPDSA();
+    showToast('PDSA cycle added', 'success');
+}
+
+export function updatePDSA(index, field, value) {
+    if (!state.projectData.pdsa || !state.projectData.pdsa[index]) return;
+    state.projectData.pdsa[index][field] = value;
+    if (window.saveData) window.saveData();
+}
+
+export function deletePDSA(index) {
+    if (!confirm('Delete this PDSA cycle?')) return;
+    state.projectData.pdsa.splice(index, 1);
+    if (window.saveData) window.saveData();
+    renderPDSA();
+    showToast('PDSA cycle deleted', 'success');
+}
+
 // ==========================================
-// 9. STAKEHOLDERS VIEW
+// 7. STAKEHOLDER VIEW
 // ==========================================
 
 export function renderStakeholders() {
-    const el = document.getElementById('view-stakeholders');
-    if (!el) return;
+    const d = state.projectData;
+    if (!d) return;
     
-    const isList = el.getAttribute('data-view') === 'list';
     const canvas = document.getElementById('stakeholder-canvas');
     if (!canvas) return;
     
-    let stakeControls = document.getElementById('stake-controls');
-    if (!stakeControls) {
-        const header = document.createElement('div');
-        header.id = 'stake-controls';
-        header.className = 'flex justify-between items-center p-4 bg-white border-b border-slate-200 rounded-t-xl';
-        header.innerHTML = `
-            <h3 class="font-bold text-slate-800">Stakeholder Matrix</h3>
-            <div class="flex gap-2">
-                <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-3 py-1 rounded text-xs font-bold shadow">+ Add Stakeholder</button>
-                <button onclick="window.toggleStakeView()" class="bg-slate-100 text-slate-600 px-3 py-1 rounded text-xs font-bold hover:bg-slate-200">${isList ? 'Matrix View' : 'List View'}</button>
-            </div>
-        `;
-        el.insertBefore(header, el.firstChild);
-    }
-
-    if (isList) {
-        canvas.innerHTML = `
-            <div class="p-8 max-w-4xl mx-auto">
-                <div class="card-modern overflow-hidden">
-                    <table class="w-full text-left">
-                        <thead class="bg-slate-50 border-b border-slate-200"><tr class="text-xs font-bold text-slate-500 uppercase"><th class="p-4">Name</th><th class="p-4">Power (Y)</th><th class="p-4">Interest (X)</th><th class="p-4 text-right">Actions</th></tr></thead>
-                        <tbody class="divide-y divide-slate-100">
-                            ${state.projectData.stakeholders?.map((s, i) => `
-                                <tr class="hover:bg-slate-50">
-                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" value="${escapeHtml(s.name || '')}" onchange="window.updateStake(${i},'name',this.value)"></td>
-                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.y || 50}" onchange="window.updateStake(${i},'y',parseInt(this.value))"></td>
-                                    <td class="p-2"><input class="w-full p-2 border border-slate-200 rounded text-sm" type="number" min="0" max="100" value="${s.x || 50}" onchange="window.updateStake(${i},'x',parseInt(this.value))"></td>
-                                    <td class="p-2 text-right"><button onclick="window.removeStake(${i})" class="text-red-400 hover:text-red-600"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td>
-                                </tr>
-                            `).join('') || `<tr><td colspan="4" class="p-8 text-center text-slate-400 italic">No stakeholders added yet.</td></tr>`}
-                        </tbody>
-                    </table>
+    const stakes = d.stakeholders || [];
+    
+    canvas.innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full">
+            <header class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="target" class="text-indigo-500"></i> Stakeholder Matrix
+                    </h2>
+                    <p class="text-slate-500 text-sm">Map stakeholder power vs interest</p>
                 </div>
-            </div>
-        `;
-    } else {
-        canvas.innerHTML = `
-            <div class="absolute inset-0 bg-white" style="min-height: 500px; border-radius: 0.75rem;">
-                <div class="absolute left-1/2 top-0 bottom-0 w-px bg-slate-300"></div>
-                <div class="absolute top-1/2 left-0 right-0 h-px bg-slate-300"></div>
-                <div class="absolute top-4 left-4 text-xs font-bold text-slate-400 uppercase">Keep Satisfied</div>
-                <div class="absolute top-4 right-4 text-xs font-bold text-slate-400 uppercase">Manage Closely</div>
-                <div class="absolute bottom-4 left-4 text-xs font-bold text-slate-400 uppercase">Monitor</div>
-                <div class="absolute bottom-4 right-4 text-xs font-bold text-slate-400 uppercase">Keep Informed</div>
-            </div>
-        `;
-        
-        state.projectData.stakeholders?.forEach((s, i) => {
-            const bubble = document.createElement('div');
-            bubble.className = 'absolute bg-white border-2 border-rcem-purple text-rcem-purple px-3 py-1 rounded-full shadow-lg cursor-grab z-10 text-sm font-bold flex items-center gap-2 group max-w-[150px]';
-            const xPos = Math.max(5, Math.min(90, s.x || 50));
-            const yPos = Math.max(5, Math.min(90, 100 - (s.y || 50)));
-            bubble.style.left = `${xPos}%`; bubble.style.top = `${yPos}%`;
-            bubble.style.transform = 'translate(-50%, -50%)';
-            bubble.innerHTML = `<span class="truncate pointer-events-none">${escapeHtml(s.name || 'Unnamed')}</span><button onclick="event.stopPropagation(); window.removeStake(${i})" class="hidden group-hover:block text-red-500 hover:bg-red-50 rounded-full p-0.5"><i data-lucide="x" class="w-3 h-3"></i></button>`;
-            if (!state.isReadOnly) {
-                makeDraggable(bubble, canvas, false, null, null, (newX, newY) => {
-                    state.projectData.stakeholders[i].x = Math.round(Math.max(0, Math.min(100, newX)));
-                    state.projectData.stakeholders[i].y = Math.round(Math.max(0, Math.min(100, 100 - newY)));
-                    window.saveData();
-                });
-            }
-            canvas.appendChild(bubble);
-        });
-    }
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-// ==========================================
-// 10. GANTT VIEW (CONDENSED MODE)
-// ==========================================
-
-let ganttMode = 'compact'; // default to compact for better viewing
-
-export function renderGantt(targetId = 'gantt-container') {
-    const d = state.projectData;
-    if (!d) return;
-    const container = document.getElementById(targetId);
-    if (!container) return;
-
-    // View Toggle Control (Only in main view)
-    if (targetId === 'gantt-container' && !document.getElementById('gantt-view-toggle')) {
-        const header = container.previousElementSibling; // The header div
-        if(header && !header.querySelector('#gantt-view-toggle')) {
-            const toggleDiv = document.createElement('div');
-            toggleDiv.id = 'gantt-view-toggle';
-            toggleDiv.className = 'flex bg-slate-100 p-1 rounded-lg ml-4';
-            toggleDiv.innerHTML = `
-                <button onclick="ganttMode='standard'; window.renderGantt()" class="${ganttMode === 'standard' ? 'bg-white shadow text-slate-800' : 'text-slate-500'} px-3 py-1 text-xs font-bold rounded transition-all">Daily</button>
-                <button onclick="ganttMode='compact'; window.renderGantt()" class="${ganttMode === 'compact' ? 'bg-white shadow text-slate-800' : 'text-slate-500'} px-3 py-1 text-xs font-bold rounded transition-all">Weekly (Compact)</button>
-            `;
-            header.querySelector('div').appendChild(toggleDiv);
-        }
-    }
-
-    if (!d.gantt || d.gantt.length === 0) {
-        container.innerHTML = `<div class="text-center p-12 text-slate-400 italic"><i data-lucide="calendar-clock" class="w-12 h-12 mx-auto mb-4 opacity-30"></i><p>No tasks yet. Click "Add Task" to start.</p></div>`;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-        return;
-    }
-
-    const dates = d.gantt.flatMap(t => [new Date(t.start), new Date(t.end)]).filter(d => !isNaN(d.getTime()));
-    if (dates.length === 0) {
-        container.innerHTML = `<div class="text-center p-12 text-slate-400 italic">Invalid dates in tasks.</div>`;
-        return;
-    }
-    
-    // CONDENSED VIEW LOGIC
-    const isCompact = ganttMode === 'compact';
-    const pxPerDay = isCompact ? 5 : 30; // Significantly reduced for compact mode
-    const rowHeight = isCompact ? 35 : 50;
-    
-    // Set container class for styling overrides
-    container.className = isCompact ? 'min-w-[800px] p-6 min-h-[300px] relative gantt-compact' : 'min-w-[800px] p-6 min-h-[300px] relative';
-
-    const minDate = new Date(Math.min(...dates));
-    const maxDate = new Date(Math.max(...dates));
-    minDate.setDate(minDate.getDate() - 7);
-    maxDate.setDate(maxDate.getDate() + 30);
-    
-    const headerHeight = 40;
-    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
-    const totalWidth = Math.max(800, totalDays * pxPerDay);
-    
-    // Draw SVG Dependencies
-    let svgLines = '';
-    const sortedTasks = [...d.gantt].sort((a, b) => new Date(a.start) - new Date(b.start));
-    const taskPositions = {};
-    sortedTasks.forEach((t, idx) => {
-        const start = new Date(t.start);
-        const end = new Date(t.end);
-        if(!isNaN(start) && !isNaN(end)) {
-            const offsetDays = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
-            const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-            taskPositions[t.id] = {
-                x: offsetDays * pxPerDay,
-                width: duration * pxPerDay,
-                y: idx * rowHeight + (rowHeight / 2) + headerHeight,
-                rightX: (offsetDays * pxPerDay) + (duration * pxPerDay)
-            };
-        }
-    });
-
-    sortedTasks.forEach(t => {
-        if(t.dependency && taskPositions[t.dependency] && taskPositions[t.id]) {
-            const from = taskPositions[t.dependency];
-            const to = taskPositions[t.id];
-            const p1 = { x: from.rightX, y: from.y };
-            const p2 = { x: to.x, y: to.y };
-            const midX = p1.x + (isCompact ? 5 : 15);
-            svgLines += `<path d="M ${p1.x} ${p1.y} L ${midX} ${p1.y} L ${midX} ${p2.y} L ${p2.x} ${p2.y}" fill="none" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowhead)" />`;
-        }
-    });
-
-    let headerHTML = `<div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-20 h-[${headerHeight}px]">`;
-    let current = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
-    while (current <= maxDate) {
-        const monthStr = current.toLocaleString('default', { month: 'short', year: '2-digit' });
-        const monthEnd = new Date(current.getFullYear(), current.getMonth() + 1, 0);
-        const visibleStart = new Date(Math.max(current.getTime(), minDate.getTime()));
-        const visibleEnd = new Date(Math.min(monthEnd.getTime(), maxDate.getTime()));
-        const visibleDays = Math.ceil((visibleEnd - visibleStart) / (1000 * 60 * 60 * 24)) + 1;
-        const width = visibleDays * pxPerDay;
-        // In compact mode, we center the label more aggressively
-        headerHTML += `<div class="border-r border-slate-200 text-xs font-bold text-slate-500 uppercase p-2 flex-shrink-0 text-center flex items-center justify-center overflow-hidden" style="width: ${width}px">${monthStr}</div>`;
-        current.setMonth(current.getMonth() + 1);
-    }
-    headerHTML += '</div>';
-
-    let rowsHTML = `<div class="relative" style="min-height: ${d.gantt.length * rowHeight + 50}px;">`;
-    // SVG Layer
-    rowsHTML += `<svg class="absolute inset-0 w-full h-full pointer-events-none z-0"><defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" /></marker></defs>${svgLines}</svg>`;
-    
-    // Today Line
-    const today = new Date();
-    if(today >= minDate && today <= maxDate) {
-        const todayOffset = Math.floor((today - minDate) / (1000 * 60 * 60 * 24)) * pxPerDay;
-        rowsHTML += `<div class="absolute top-0 bottom-0 border-l-2 border-red-400 border-dashed z-10" style="left: ${todayOffset}px;"><div class="bg-red-400 text-white text-[9px] px-1 font-bold absolute -top-4 -left-3 rounded">TODAY</div></div>`;
-    }
-
-    sortedTasks.forEach((t, idx) => {
-        const start = new Date(t.start);
-        const end = new Date(t.end);
-        const offsetDays = Math.floor((start - minDate) / (1000 * 60 * 60 * 24));
-        const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-        const width = duration * pxPerDay;
-        const typeColors = { plan: 'from-blue-500 to-blue-600', do: 'from-amber-500 to-amber-600', study: 'from-purple-500 to-purple-600', act: 'from-emerald-500 to-emerald-600' };
-        const bg = typeColors[t.type] || 'from-slate-500 to-slate-600';
-        
-        // Compact mode: Smaller bars, text might need to float outside if too small
-        const barHeight = isCompact ? 'h-5 text-[10px]' : 'h-8 text-xs';
-        
-        rowsHTML += `
-            <div class="absolute h-[${rowHeight}px] flex items-center w-full hover:bg-slate-50 transition-colors border-b border-slate-100 gantt-task-row" style="top: ${idx * rowHeight}px;">
-                <div class="absolute ${barHeight} rounded-lg shadow-sm text-white font-bold flex items-center px-3 cursor-pointer bg-gradient-to-r ${bg} z-10 hover:shadow-md hover:scale-[1.01] transition-all group gantt-bar" 
-                     style="left: ${offsetDays * pxPerDay}px; width: ${Math.max(isCompact ? 20 : 40, width)}px;"
-                     onclick="if(confirm('Delete task: ${escapeHtml(t.name)}?')) window.deleteGantt('${t.id}')">
-                    <span class="truncate drop-shadow-md">${escapeHtml(t.name)}</span>
-                    <div class="absolute bottom-full left-0 mb-2 hidden group-hover:block bg-slate-800 text-white text-xs p-2 rounded z-30 whitespace-nowrap shadow-xl">
-                        <div class="font-bold">${escapeHtml(t.name)}</div>
-                        <div class="text-slate-300 font-mono text-[10px]">${t.start} - ${t.end}</div>
-                    </div>
+                <div class="flex gap-2">
+                    <button onclick="window.toggleStakeView()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                        <i data-lucide="list" class="w-4 h-4"></i> List View
+                    </button>
+                    <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                        <i data-lucide="plus" class="w-4 h-4"></i> Add
+                    </button>
                 </div>
-            </div>
-        `;
-    });
-    rowsHTML += '</div>';
-
-    container.style.minWidth = `${totalWidth}px`;
-    container.innerHTML = headerHTML + rowsHTML;
-}
-
-// ==========================================
-// 11. TEAM VIEW (EXPANDED GUIDANCE)
-// ==========================================
-
-export function renderTeam() {
-    const d = state.projectData;
-    if (!d) return;
-    const list = document.getElementById('team-list');
-    if (!list) return;
-    
-    list.innerHTML = `
-        <div class="flex justify-between items-center mb-6">
-            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users-2" class="text-rcem-purple"></i> Team Members</h2>
-            <div class="flex gap-2">
-                 <button onclick="document.getElementById('stakeholder-guide').classList.toggle('hidden')" class="bg-indigo-50 text-indigo-700 px-4 py-2 rounded shadow hover:bg-indigo-100 flex items-center gap-2 border border-indigo-200"><i data-lucide="lightbulb" class="w-4 h-4"></i> Who to include?</button>
-                 <button onclick="window.openMemberModal()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow hover:bg-indigo-900 flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Member</button>
-            </div>
-        </div>
-
-        <div id="stakeholder-guide" class="hidden mb-8 card-modern p-6 border-l-4 border-l-rcem-purple">
-            <h3 class="font-bold text-indigo-900 mb-4 flex items-center gap-2 text-lg"><i data-lucide="info" class="w-5 h-5"></i> NHS Team Composition Guide</h3>
-            <p class="text-sm text-slate-600 mb-4">Successful QIPs require a multidisciplinary team. Consider engaging these key roles in your ED:</p>
+            </header>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-xs text-slate-700">
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <strong class="text-rcem-purple block mb-1 text-sm">Nursing Leadership</strong>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Matron / Band 8:</strong> Essential for departmental policy changes.</li>
-                        <li><strong>Senior Sister / Band 7:</strong> Critical for shop-floor enforcement and culture change.</li>
-                    </ul>
+            <div class="relative w-full aspect-square max-w-2xl mx-auto border-2 border-slate-200 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100">
+                <!-- Grid Lines -->
+                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                    <div class="border-r border-b border-slate-200 p-2">
+                        <span class="text-xs text-slate-400 font-medium">Keep Satisfied</span>
+                    </div>
+                    <div class="border-b border-slate-200 p-2 text-right">
+                        <span class="text-xs text-slate-400 font-medium">Manage Closely</span>
+                    </div>
+                    <div class="border-r border-slate-200 p-2">
+                        <span class="text-xs text-slate-400 font-medium">Monitor</span>
+                    </div>
+                    <div class="p-2 text-right">
+                        <span class="text-xs text-slate-400 font-medium">Keep Informed</span>
+                    </div>
                 </div>
                 
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <strong class="text-rcem-purple block mb-1 text-sm">Medical Team</strong>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Consultant Sponsor:</strong> Mandatory for governance and high-level blockage removal.</li>
-                        <li><strong>Junior Docs (Rotational):</strong> Excellent for data collection but high turnover risks continuity.</li>
-                    </ul>
-                </div>
-
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <strong class="text-rcem-purple block mb-1 text-sm">Operational & Support</strong>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Service Manager:</strong> Key if your project needs funding or business cases.</li>
-                        <li><strong>Porters:</strong> Vital for flow, radiology, and transfer projects.</li>
-                        <li><strong>Reception:</strong> First point of contact for patient stream projects.</li>
-                    </ul>
-                </div>
-
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <strong class="text-rcem-purple block mb-1 text-sm">Clinical Support</strong>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Pharmacy:</strong> For antimicrobial stewardship or drug chart safety.</li>
-                        <li><strong>Microbiology:</strong> For sepsis or infection control protocols.</li>
-                    </ul>
-                </div>
-
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <strong class="text-rcem-purple block mb-1 text-sm">Governance</strong>
-                    <ul class="list-disc pl-4 space-y-1">
-                        <li><strong>Audit Lead:</strong> Ensures registration and compliance.</li>
-                        <li><strong>Patient Voice:</strong> PALS or patient representative for service design.</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-            ${!d.teamMembers || d.teamMembers.length === 0 ? `<div class="col-span-full text-center p-6 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 text-sm">No team members added yet.</div>` : d.teamMembers.map((m, i) => `
-                <div class="p-4 card-modern relative group hover:shadow-md">
-                    <button onclick="window.deleteMember(${i})" class="absolute top-3 right-3 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
-                    <div class="flex items-start gap-4">
-                        <div class="w-12 h-12 rounded-full bg-slate-800 text-white flex items-center justify-center text-sm font-bold shadow-md flex-shrink-0">${escapeHtml(m.initials || 'NA')}</div>
-                        <div class="flex-1 min-w-0">
-                            <div class="font-bold text-slate-800 truncate">${escapeHtml(m.name || 'Unnamed')}</div>
-                            <div class="text-xs font-bold text-rcem-purple uppercase tracking-wide mb-1">${escapeHtml(m.role || 'No role')}</div>
-                            ${m.grade ? `<div class="text-xs text-slate-500">${escapeHtml(m.grade)}</div>` : ''}
+                <!-- Axis Labels -->
+                <div class="absolute -left-8 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-500 uppercase tracking-wider">Power</div>
+                <div class="absolute bottom-[-24px] left-1/2 -translate-x-1/2 text-xs font-bold text-slate-500 uppercase tracking-wider">Interest</div>
+                
+                <!-- Stakeholder Points -->
+                ${stakes.map((s, i) => `
+                    <div class="absolute w-8 h-8 -ml-4 -mt-4 cursor-move group" 
+                         style="left: ${s.x || 50}%; top: ${100 - (s.y || 50)}%"
+                         draggable="true"
+                         ondragend="window.updateStake(${i}, 'pos', event)">
+                        <div class="w-full h-full rounded-full bg-rcem-purple text-white flex items-center justify-center text-xs font-bold shadow-md hover:scale-110 transition-transform">
+                            ${(s.name || '?')[0].toUpperCase()}
+                        </div>
+                        <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 bg-slate-800 text-white text-xs px-2 py-1 rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity">
+                            ${escapeHtml(s.name || 'Unknown')}
+                            <button onclick="event.stopPropagation(); window.removeStake(${i})" class="ml-2 text-red-400 hover:text-red-300">×</button>
                         </div>
                     </div>
-                </div>
-            `).join('')}
+                `).join('')}
+            </div>
         </div>
     `;
     
-    // Logs
-    const logList = document.getElementById('leadership-log-list');
-    if (logList) {
-        logList.innerHTML = `
-            <div class="mt-8 card-modern p-6">
-                <div class="flex justify-between items-center mb-4 border-b pb-2">
-                    <h3 class="text-lg font-bold text-slate-800">Leadership Log</h3>
-                    <button onclick="window.addLeadershipLog()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold px-3 py-1 rounded border border-slate-300">+ Add Log Entry</button>
-                </div>
-                ${!d.leadershipLogs?.length ? `<div class="text-slate-400 text-sm italic py-4">Record meetings and leadership activities here.</div>` : `
-                    <div class="space-y-3">
-                        ${d.leadershipLogs.map((log, i) => `
-                            <div class="bg-slate-50 p-3 rounded border border-slate-200 text-sm relative group">
-                                <button onclick="window.deleteLeadershipLog(${i})" class="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100"><i data-lucide="x" class="w-3 h-3"></i></button>
-                                <div class="font-bold text-slate-700 text-xs mb-1">${escapeHtml(log.date || 'No date')}</div>
-                                <div class="text-slate-800">${escapeHtml(log.note || '')}</div>
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+export function addStakeholder() {
+    const name = prompt('Stakeholder name:');
+    if (!name) return;
+    
+    const role = prompt('Role/Position:');
+    
+    if (!state.projectData.stakeholders) state.projectData.stakeholders = [];
+    state.projectData.stakeholders.push({
+        name,
+        role,
+        x: 50,
+        y: 50
+    });
+    
+    if (window.saveData) window.saveData();
+    renderStakeholders();
+    showToast('Stakeholder added - drag to position', 'success');
+}
+
+export function updateStake(index, type, event) {
+    if (type === 'pos' && event) {
+        const canvas = document.getElementById('stakeholder-canvas')?.querySelector('.aspect-square');
+        if (!canvas) return;
+        
+        const rect = canvas.getBoundingClientRect();
+        const x = Math.max(0, Math.min(100, ((event.clientX - rect.left) / rect.width) * 100));
+        const y = Math.max(0, Math.min(100, 100 - ((event.clientY - rect.top) / rect.height) * 100));
+        
+        state.projectData.stakeholders[index].x = x;
+        state.projectData.stakeholders[index].y = y;
+        
+        if (window.saveData) window.saveData();
+        renderStakeholders();
+    }
+}
+
+export function removeStake(index) {
+    if (!confirm('Remove this stakeholder?')) return;
+    state.projectData.stakeholders.splice(index, 1);
+    if (window.saveData) window.saveData();
+    renderStakeholders();
+    showToast('Stakeholder removed', 'success');
+}
+
+export function toggleStakeView() {
+    // Toggle between matrix and list view
+    showToast('List view coming soon', 'info');
+}
+
+// ==========================================
+// 8. GANTT VIEW
+// ==========================================
+
+export function renderGantt() {
+    const d = state.projectData;
+    if (!d) return;
+    
+    const container = document.getElementById('gantt-container');
+    if (!container) return;
+    
+    const tasks = d.gantt || [];
+    
+    if (tasks.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <i data-lucide="calendar-clock" class="w-16 h-16 text-slate-300 mx-auto mb-4"></i>
+                <p class="text-slate-500 mb-4">No tasks yet. Add your project timeline.</p>
+                <button onclick="window.openGanttModal()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg">
+                    Add First Task
+                </button>
+            </div>
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+    
+    // Find date range
+    let minDate = new Date();
+    let maxDate = new Date();
+    tasks.forEach(t => {
+        if (t.start) {
+            const s = new Date(t.start);
+            if (s < minDate) minDate = s;
+        }
+        if (t.end) {
+            const e = new Date(t.end);
+            if (e > maxDate) maxDate = e;
+        }
+    });
+    
+    // Add padding
+    minDate.setDate(minDate.getDate() - 7);
+    maxDate.setDate(maxDate.getDate() + 14);
+    
+    const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
+    const dayWidth = 30;
+    
+    // Generate week headers
+    const weeks = [];
+    let currentDate = new Date(minDate);
+    while (currentDate <= maxDate) {
+        weeks.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 7);
+    }
+    
+    container.innerHTML = `
+        <div class="overflow-x-auto">
+            <div style="min-width: ${totalDays * dayWidth}px">
+                <!-- Timeline Header -->
+                <div class="flex border-b border-slate-200 bg-slate-50 sticky top-0">
+                    <div class="w-48 flex-shrink-0 px-3 py-2 font-bold text-xs text-slate-500 uppercase border-r border-slate-200">Task</div>
+                    <div class="flex-1 flex">
+                        ${weeks.map(w => `
+                            <div class="text-xs text-slate-500 px-2 py-2" style="width: ${7 * dayWidth}px">
+                                ${w.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                             </div>
                         `).join('')}
                     </div>
-                `}
+                </div>
+                
+                <!-- Tasks -->
+                ${tasks.map((t, i) => {
+                    const start = t.start ? new Date(t.start) : minDate;
+                    const end = t.end ? new Date(t.end) : start;
+                    const startOffset = Math.max(0, Math.ceil((start - minDate) / (1000 * 60 * 60 * 24)));
+                    const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+                    
+                    const statusColors = {
+                        'not-started': 'bg-slate-300',
+                        'in-progress': 'bg-blue-500',
+                        'complete': 'bg-emerald-500',
+                        'blocked': 'bg-red-500'
+                    };
+                    
+                    return `
+                        <div class="flex border-b border-slate-100 hover:bg-slate-50 group">
+                            <div class="w-48 flex-shrink-0 px-3 py-3 border-r border-slate-100 flex items-center justify-between">
+                                <div class="truncate text-sm text-slate-700">${escapeHtml(t.name || 'Untitled')}</div>
+                                <button onclick="window.deleteGanttTask(${i})" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all">
+                                    <i data-lucide="trash-2" class="w-3 h-3"></i>
+                                </button>
+                            </div>
+                            <div class="flex-1 relative py-2">
+                                <div class="absolute h-6 rounded ${statusColors[t.status] || 'bg-slate-300'} shadow-sm flex items-center px-2"
+                                     style="left: ${startOffset * dayWidth}px; width: ${duration * dayWidth}px;">
+                                    ${t.milestone ? '<i data-lucide="flag" class="w-3 h-3 text-white"></i>' : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
             </div>
-        `;
+        </div>
+    `;
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+export function openGanttModal(index = null) {
+    const modal = document.getElementById('gantt-modal');
+    if (!modal) return;
+    
+    const d = state.projectData;
+    const task = index !== null ? (d.gantt || [])[index] : null;
+    
+    document.getElementById('task-index').value = index ?? '';
+    document.getElementById('task-name').value = task?.name || '';
+    document.getElementById('task-start').value = task?.start || '';
+    document.getElementById('task-end').value = task?.end || '';
+    document.getElementById('task-status').value = task?.status || 'not-started';
+    document.getElementById('task-milestone').checked = task?.milestone || false;
+    
+    // Populate dependency dropdown
+    const depSelect = document.getElementById('task-dep');
+    if (depSelect) {
+        const tasks = d.gantt || [];
+        depSelect.innerHTML = `<option value="">None</option>` + 
+            tasks.filter((_, i) => i !== index).map((t, i) => 
+                `<option value="${i}" ${task?.dependency === i ? 'selected' : ''}>${escapeHtml(t.name || `Task ${i + 1}`)}</option>`
+            ).join('');
     }
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+// ==========================================
+// 9. GREEN ED VIEW
+// ==========================================
+
+export function renderGreen() {
+    const container = document.querySelector('#view-green > div');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 max-w-2xl mx-auto">
+            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-6">
+                <i data-lucide="leaf" class="text-emerald-500"></i> Green ED Calculator
+            </h2>
+            <p class="text-slate-600 mb-6">Estimate the environmental impact of your QIP</p>
+            
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Paper Saved (sheets/week)</label>
+                        <input type="number" id="green-paper" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Single-use Items Reduced (per week)</label>
+                        <input type="number" id="green-items" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Staff Time Saved (hours/week)</label>
+                        <input type="number" id="green-time" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Patient Journeys Avoided (per week)</label>
+                        <input type="number" id="green-journeys" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
+                    </div>
+                </div>
+                
+                <div id="green-results" class="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
+                    <h3 class="font-bold text-emerald-800 mb-4">Estimated Annual Impact</h3>
+                    <div class="grid grid-cols-2 gap-4 text-center">
+                        <div>
+                            <div class="text-3xl font-bold text-emerald-600" id="green-co2">0</div>
+                            <div class="text-xs text-emerald-700">kg CO₂ saved</div>
+                        </div>
+                        <div>
+                            <div class="text-3xl font-bold text-emerald-600" id="green-money">£0</div>
+                            <div class="text-xs text-emerald-700">Cost savings</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+export function calcGreen() {
+    const paper = parseFloat(document.getElementById('green-paper')?.value) || 0;
+    const items = parseFloat(document.getElementById('green-items')?.value) || 0;
+    const time = parseFloat(document.getElementById('green-time')?.value) || 0;
+    const journeys = parseFloat(document.getElementById('green-journeys')?.value) || 0;
+    
+    // Rough estimates (kg CO2 per unit per year)
+    const paperCO2 = paper * 52 * 0.005; // ~5g per sheet
+    const itemsCO2 = items * 52 * 0.1;   // ~100g per plastic item
+    const journeyCO2 = journeys * 52 * 2.5; // ~2.5kg per car journey
+    
+    const totalCO2 = Math.round(paperCO2 + itemsCO2 + journeyCO2);
+    
+    // Cost savings
+    const paperCost = paper * 52 * 0.02;
+    const itemsCost = items * 52 * 0.5;
+    const timeCost = time * 52 * 30; // £30/hour
+    
+    const totalCost = Math.round(paperCost + itemsCost + timeCost);
+    
+    document.getElementById('green-co2').textContent = totalCO2.toLocaleString();
+    document.getElementById('green-money').textContent = '£' + totalCost.toLocaleString();
+}
+
+export function calcMoney() { calcGreen(); }
+export function calcTime() { calcGreen(); }
+export function calcEdu() { calcGreen(); }
+
+// ==========================================
+// 10. FULL PROJECT VIEW
+// ==========================================
+
+export function renderFullProject() {
+    const d = state.projectData;
+    if (!d) return;
+    
+    const container = document.getElementById('full-project-container');
+    if (!container) return;
+    
+    const c = d.checklist || {};
+    const pdsa = d.pdsa || [];
+    const team = d.teamMembers || [];
+    
+    container.innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 print:shadow-none print:border-0">
+            <header class="border-b border-slate-200 pb-6 mb-8">
+                <h1 class="text-3xl font-bold text-slate-900">${escapeHtml(d.title || 'Untitled QIP')}</h1>
+                <p class="text-slate-500 mt-2">Quality Improvement Project Report</p>
+            </header>
+            
+            ${c.problem_desc ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Problem Statement</h2>
+                    <p class="text-slate-600 leading-relaxed">${escapeHtml(c.problem_desc)}</p>
+                </section>
+            ` : ''}
+            
+            ${c.aim ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Aim</h2>
+                    <p class="text-slate-600 leading-relaxed italic">${escapeHtml(c.aim)}</p>
+                </section>
+            ` : ''}
+            
+            ${(c.outcome_measure || c.process_measure || c.balance_measure) ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Measures</h2>
+                    <div class="space-y-2">
+                        ${c.outcome_measure ? `<p class="text-slate-600"><strong class="text-emerald-600">Outcome:</strong> ${escapeHtml(c.outcome_measure)}</p>` : ''}
+                        ${c.process_measure ? `<p class="text-slate-600"><strong class="text-blue-600">Process:</strong> ${escapeHtml(c.process_measure)}</p>` : ''}
+                        ${c.balance_measure ? `<p class="text-slate-600"><strong class="text-amber-600">Balancing:</strong> ${escapeHtml(c.balance_measure)}</p>` : ''}
+                    </div>
+                </section>
+            ` : ''}
+            
+            ${team.length > 0 ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Team</h2>
+                    <ul class="list-disc list-inside text-slate-600">
+                        ${team.map(m => `<li><strong>${escapeHtml(m.name)}</strong> - ${escapeHtml(m.role || 'Team Member')}</li>`).join('')}
+                    </ul>
+                </section>
+            ` : ''}
+            
+            ${pdsa.length > 0 ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">PDSA Cycles</h2>
+                    ${pdsa.map((p, i) => `
+                        <div class="mb-4 p-4 bg-slate-50 rounded-lg">
+                            <h3 class="font-bold text-slate-700">Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</h3>
+                            ${p.plan ? `<p class="text-sm text-slate-600 mt-2"><strong>Plan:</strong> ${escapeHtml(p.plan)}</p>` : ''}
+                            ${p.do ? `<p class="text-sm text-slate-600 mt-1"><strong>Do:</strong> ${escapeHtml(p.do)}</p>` : ''}
+                            ${p.study ? `<p class="text-sm text-slate-600 mt-1"><strong>Study:</strong> ${escapeHtml(p.study)}</p>` : ''}
+                            ${p.act ? `<p class="text-sm text-slate-600 mt-1"><strong>Act:</strong> ${escapeHtml(p.act)}</p>` : ''}
+                        </div>
+                    `).join('')}
+                </section>
+            ` : ''}
+            
+            <section class="mb-8">
+                <h2 class="text-xl font-bold text-slate-800 mb-3">Results</h2>
+                <div id="full-view-chart-container" class="bg-slate-50 rounded-lg p-4 min-h-[300px]"></div>
+            </section>
+            
+            ${c.learning_points ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Learning Points</h2>
+                    <p class="text-slate-600 leading-relaxed">${escapeHtml(c.learning_points)}</p>
+                </section>
+            ` : ''}
+            
+            ${c.sustainability ? `
+                <section class="mb-8">
+                    <h2 class="text-xl font-bold text-slate-800 mb-3">Sustainability</h2>
+                    <p class="text-slate-600 leading-relaxed">${escapeHtml(c.sustainability)}</p>
+                </section>
+            ` : ''}
+        </div>
+    `;
+    
+    // Render the full view chart
+    setTimeout(() => {
+        if (window.renderFullViewChart) window.renderFullViewChart();
+    }, 100);
+    
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ==========================================
-// 12. HELPER FUNCTIONS
+// 11. PUBLISH VIEW
 // ==========================================
 
-export function openMemberModal() { 
-    document.getElementById('member-modal').classList.remove('hidden'); 
-}
-
-export function openGanttModal() { 
-    // Populate dependency dropdown
-    const depSelect = document.getElementById('task-dep');
-    if (depSelect && state.projectData.gantt) {
-        depSelect.innerHTML = '<option value="">None</option>';
-        state.projectData.gantt.forEach(t => {
-            depSelect.innerHTML += `<option value="${t.id}">${escapeHtml(t.name)}</option>`;
-        });
-    }
-    document.getElementById('task-modal').classList.remove('hidden'); 
-}
-
-export function toggleToolList() { 
-    renderTools(); 
-}
-
-export function updateFishCat(i, v) { 
-    state.projectData.fishbone.categories[i].text = v; 
-    window.saveData(); 
-}
-
-export function updateFishCause(i, j, v) { 
-    state.projectData.fishbone.categories[i].causes[j].text = v; 
-    window.saveData(); 
-}
-
-export function addFishCause(i) { 
-    state.projectData.fishbone.categories[i].causes.push({text: "New Cause", x: 50, y: 50}); 
-    window.saveData(); 
-    renderTools(); 
-}
-
-export function removeFishCause(i, j) { 
-    state.projectData.fishbone.categories[i].causes.splice(j, 1); 
-    window.saveData(); 
-    renderTools(); 
-}
-
-export function addLeadershipLog() { 
-    const n = prompt("Log Entry:"); 
-    if(n) { 
-        if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = []; 
-        state.projectData.leadershipLogs.push({date: new Date().toLocaleDateString(), note: n}); 
-        window.saveData(); 
-        renderTeam(); 
-        showToast("Log added", "success"); 
-    } 
-}
-
-export function deleteLeadershipLog(i) { 
-    if(confirm("Delete this log entry?")) { 
-        state.projectData.leadershipLogs.splice(i, 1); 
-        window.saveData(); 
-        renderTeam(); 
-    } 
-}
-
-export function addStakeholder() { 
-    const n = prompt("Stakeholder Name:"); 
-    if(n) { 
-        if(!state.projectData.stakeholders) state.projectData.stakeholders = [];
-        state.projectData.stakeholders.push({name: n, x: 50, y: 50}); 
-        window.saveData(); 
-        renderStakeholders(); 
-        showToast("Stakeholder added", "success");
-    } 
-}
-
-export function updateStake(i, k, v) { 
-    state.projectData.stakeholders[i][k] = v; 
-    window.saveData(); 
-}
-
-export function removeStake(i) { 
-    if(confirm("Remove this stakeholder?")) { 
-        state.projectData.stakeholders.splice(i, 1); 
-        window.saveData(); 
-        renderStakeholders(); 
-    } 
-}
-
-export function toggleStakeView() { 
-    const e = document.getElementById('view-stakeholders'); 
-    e.setAttribute('data-view', e.getAttribute('data-view') === 'list' ? 'visual' : 'list'); 
-    // Remove and recreate controls to update button text
-    const controls = document.getElementById('stake-controls');
-    if (controls) controls.remove();
-    renderStakeholders(); 
-}
-
-export function addPDSA() { 
-    const t = document.getElementById('pdsa-title').value; 
-    const s = document.getElementById('pdsa-start').value; 
-    const e = document.getElementById('pdsa-end').value; 
-    const p = document.getElementById('pdsa-plan').value; 
+export function renderPublish(mode = 'qiat') {
+    const d = state.projectData;
+    if (!d) return;
     
-    if(t) { 
-        if(!state.projectData.pdsa) state.projectData.pdsa = [];
-        state.projectData.pdsa.push({title: t, start: s, end: e, desc: p, do: '', study: '', act: ''}); 
-        window.saveData(); 
-        renderPDSA(); 
-        showToast("PDSA Cycle added", "success"); 
-    } else { 
-        showToast("Title is required", "error"); 
-    } 
+    const content = document.getElementById('publish-content');
+    if (!content) return;
+    
+    // Update mode buttons
+    ['qiat', 'abstract', 'report'].forEach(m => {
+        const btn = document.getElementById(`btn-mode-${m}`);
+        if (btn) {
+            btn.className = mode === m
+                ? "px-3 py-1 text-sm font-bold rounded bg-white shadow text-rcem-purple"
+                : "px-3 py-1 text-sm font-bold rounded text-slate-500 hover:bg-slate-200";
+        }
+    });
+    
+    const c = d.checklist || {};
+    
+    if (mode === 'qiat') {
+        content.innerHTML = renderQIATForm(d);
+    } else if (mode === 'abstract') {
+        content.innerHTML = renderAbstractForm(d);
+    } else {
+        content.innerHTML = renderReportForm(d);
+    }
+    
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-export function updatePDSA(i, f, v) { 
-    state.projectData.pdsa[i][f] = v; 
-    window.saveData(); 
+function renderQIATForm(d) {
+    const c = d.checklist || {};
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">QIAT / Risr Form Generator</h2>
+                    <p class="text-slate-500 text-sm">Auto-generated content for your Kaizen portfolio</p>
+                </div>
+                <button onclick="window.copyReport('qiat')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                    <i data-lucide="copy" class="w-4 h-4"></i> Copy All
+                </button>
+            </div>
+            
+            <div id="qiat-content" class="prose prose-sm max-w-none">
+                <h3>Project Title</h3>
+                <p>${escapeHtml(d.title || 'Untitled QIP')}</p>
+                
+                <h3>Problem Statement</h3>
+                <p>${escapeHtml(c.problem_desc || 'Not defined')}</p>
+                
+                <h3>Aim Statement</h3>
+                <p>${escapeHtml(c.aim || 'Not defined')}</p>
+                
+                <h3>Measures</h3>
+                <p><strong>Outcome:</strong> ${escapeHtml(c.outcome_measure || 'Not defined')}</p>
+                <p><strong>Process:</strong> ${escapeHtml(c.process_measure || 'Not defined')}</p>
+                <p><strong>Balancing:</strong> ${escapeHtml(c.balance_measure || 'Not defined')}</p>
+                
+                <h3>PDSA Cycles</h3>
+                ${(d.pdsa || []).map((p, i) => `
+                    <p><strong>Cycle ${i + 1}:</strong> ${escapeHtml(p.title || 'Untitled')}</p>
+                `).join('') || '<p>No PDSA cycles documented</p>'}
+                
+                <h3>Results</h3>
+                <p>${escapeHtml(c.results_analysis || 'Not yet analysed')}</p>
+                
+                <h3>Learning Points</h3>
+                <p>${escapeHtml(c.learning_points || 'Not documented')}</p>
+            </div>
+        </div>
+    `;
 }
 
-export function deletePDSA(i) { 
-    if(confirm("Delete this PDSA cycle?")) { 
-        state.projectData.pdsa.splice(i, 1); 
-        window.saveData(); 
-        renderPDSA(); 
-    } 
+function renderAbstractForm(d) {
+    const c = d.checklist || {};
+    const wordLimit = 250;
+    
+    // Generate abstract text
+    let abstract = `Background: ${c.problem_desc || '[Problem statement]'}\n\n`;
+    abstract += `Aim: ${c.aim || '[SMART aim]'}\n\n`;
+    abstract += `Methods: We used the Model for Improvement with PDSA cycles. `;
+    abstract += `${(d.pdsa || []).length} PDSA cycles were completed. `;
+    abstract += `Data was collected using ${c.outcome_measure || '[outcome measure]'}.\n\n`;
+    abstract += `Results: ${c.results_analysis || '[Analysis of results]'}\n\n`;
+    abstract += `Conclusion: ${c.learning_points || '[Key learning points]'}`;
+    
+    const wordCount = abstract.split(/\s+/).length;
+    
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">RCEM Abstract Format</h2>
+                    <p class="text-slate-500 text-sm">For ASC/conference submissions</p>
+                </div>
+                <button onclick="window.copyReport('abstract')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                    <i data-lucide="copy" class="w-4 h-4"></i> Copy
+                </button>
+            </div>
+            
+            <div class="mb-4 flex justify-between items-center">
+                <span class="text-sm text-slate-500">Word count: <span class="${wordCount > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500'}">${wordCount}</span>/${wordLimit}</span>
+            </div>
+            
+            <div id="abstract-content" class="bg-slate-50 p-6 rounded-lg font-serif text-sm leading-relaxed whitespace-pre-wrap">
+${escapeHtml(abstract)}
+            </div>
+        </div>
+    `;
 }
 
-export function saveSmartAim() { 
-    showToast("Aim saved", "info"); 
+function renderReportForm(d) {
+    return `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800">FRCEM Report Format</h2>
+                    <p class="text-slate-500 text-sm">Structured format for FRCEM QIP submission</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="window.exportPPTX()" class="bg-amber-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        <i data-lucide="presentation" class="w-4 h-4"></i> PowerPoint
+                    </button>
+                    <button onclick="window.copyReport('report')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2">
+                        <i data-lucide="copy" class="w-4 h-4"></i> Copy
+                    </button>
+                </div>
+            </div>
+            
+            <div id="report-content" class="prose prose-sm max-w-none">
+                <p class="text-slate-500 italic">Full FRCEM report template - use PowerPoint export for presentation format.</p>
+            </div>
+        </div>
+    `;
 }
 
-export function openPortfolioExport() { 
-    showToast("Portfolio export coming soon", "info"); 
+export function copyReport(type) {
+    let content = '';
+    
+    if (type === 'qiat') {
+        content = document.getElementById('qiat-content')?.innerText || '';
+    } else if (type === 'abstract') {
+        content = document.getElementById('abstract-content')?.innerText || '';
+    } else {
+        content = document.getElementById('report-content')?.innerText || '';
+    }
+    
+    navigator.clipboard.writeText(content).then(() => {
+        showToast('Copied to clipboard!', 'success');
+    }).catch(() => {
+        showToast('Failed to copy', 'error');
+    });
 }
 
-export function copyReport() { 
-    navigator.clipboard.writeText("Report copied"); 
-    showToast("Copied to clipboard", "success"); 
+export function openPortfolioExport() {
+    showToast('Opening export options...', 'info');
+    window.router('publish');
 }
 
-export function showHelp() { 
-    alert("Use the tabs to navigate your QIP journey. Start with Define & Measure, then build your Driver Diagram, add data, and document PDSA cycles."); 
+// ==========================================
+// 12. FISHBONE HELPERS (called from charts.js)
+// ==========================================
+
+export function toggleToolList() {
+    // Toggle the tool help panel
+    if (window.toggleToolHelp) window.toggleToolHelp();
+}
+
+export function updateFishCat(index, value) {
+    if (!state.projectData.fishbone) return;
+    state.projectData.fishbone.categories[index].name = value;
+    if (window.saveData) window.saveData();
+}
+
+export function updateFishCause(catIndex, causeIndex, value) {
+    if (!state.projectData.fishbone) return;
+    const cat = state.projectData.fishbone.categories[catIndex];
+    if (cat && cat.causes && cat.causes[causeIndex]) {
+        cat.causes[causeIndex].text = value;
+        if (window.saveData) window.saveData();
+    }
+}
+
+export function addFishCause(catIndex) {
+    if (!state.projectData.fishbone) return;
+    const cat = state.projectData.fishbone.categories[catIndex];
+    if (!cat.causes) cat.causes = [];
+    cat.causes.push({ text: 'New cause', x: 50, y: 50 });
+    if (window.saveData) window.saveData();
+    renderTools();
+}
+
+export function removeFishCause(catIndex, causeIndex) {
+    if (!state.projectData.fishbone) return;
+    state.projectData.fishbone.categories[catIndex].causes.splice(causeIndex, 1);
+    if (window.saveData) window.saveData();
+    renderTools();
+}
+
+// ==========================================
+// 13. HELP & TOUR
+// ==========================================
+
+export function showHelp() {
+    showToast("QI Coach: Start with Define & Measure, then build your Driver Diagram, add data, and document PDSA cycles.", "info");
 }
 
 export function startTour() {
-    if (typeof window.driver !== 'undefined' && window.driver.js && window.driver.js.driver) {
-        try {
-            const driverObj = window.driver.js.driver({
-                showProgress: true,
-                animate: true,
-                steps: [
-                    { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Overview of your project progress and key metrics.' }},
-                    { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
-                    { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
-                    { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                    { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan-Do-Study-Act cycles to test changes.' }},
-                    { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and export your project.' }}
-                ]
-            });
-            driverObj.drive();
-        } catch (e) {
-            console.error(e);
-            showToast("Tour error", "error");
-        }
-    } else {
+    if (typeof driver === 'undefined' || !driver.js) {
         showToast("Tour feature loading...", "info");
+        return;
     }
-}
-
-export function calcGreen() { 
-    const paper = parseFloat(document.getElementById('calc-paper').value) || 0;
-    const co2 = (paper * 0.005).toFixed(2);
-    document.getElementById('res-green').innerText = `${co2} kg CO₂ saved`;
-    showToast("Environmental impact calculated", "success");
-}
-
-export function calcMoney() {}
-
-export function calcTime() { 
-    const hours = parseFloat(document.getElementById('calc-hours').value) || 0;
-    const savings = (hours * 30).toFixed(2);
-    document.getElementById('res-time').innerText = `£${savings} / month`;
-    showToast("Financial impact calculated", "success");
-}
-
-export function calcEdu() { 
-    const ppl = document.getElementById('calc-edu-ppl').value;
-    if(ppl) { 
-        document.getElementById('res-edu').innerText = `${ppl} staff upskilled!`;
-        showToast("Social impact logged", "success");
+    
+    try {
+        const driverObj = driver.js.driver({
+            showProgress: true,
+            animate: true,
+            steps: [
+                { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Overview of your project progress and key metrics.' }},
+                { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
+                { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
+                { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
+                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan, Do, Study, Act - document your improvement cycles here.' }},
+                { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate reports and abstracts for your portfolio.' }}
+            ]
+        });
+        driverObj.drive();
+    } catch (e) {
+        console.error("Tour error:", e);
+        showToast("Could not start tour", "error");
     }
 }
