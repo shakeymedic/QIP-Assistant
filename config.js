@@ -23,7 +23,7 @@ try {
     console.error('❌ Firebase initialization error:', error);
 }
 
-// Helper function to check Firebase status - THIS WAS MISSING!
+// Helper function to check Firebase status
 export function getFirebaseStatus() {
     return {
         app: !!app,
