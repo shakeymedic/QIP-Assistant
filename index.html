@@ -350,7 +350,7 @@
                                 </button>
                                 <label class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 cursor-pointer hover:bg-emerald-600">
                                     <i data-lucide="upload" class="w-4 h-4"></i> Import CSV
-                                    <input type="file" id="csv-upload" accept=".csv" onchange="window.importCSV(event)" class="hidden">
+                                    <input type="file" id="csv-upload" accept=".csv" onchange="window.importCSV(this)" class="hidden">
                                 </label>
                             </div>
                         </header>
@@ -359,11 +359,11 @@
                             <!-- Chart Area -->
                             <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
-                                    <div class="flex bg-slate-100 p-1 rounded-lg">
-                                        <button onclick="window.setChartMode('run')" id="btn-chart-run" class="px-3 py-1 text-xs font-bold rounded">Run</button>
-                                        <button onclick="window.setChartMode('spc')" id="btn-chart-spc" class="px-3 py-1 text-xs font-bold rounded">SPC</button>
-                                        <button onclick="window.setChartMode('histogram')" id="btn-chart-histogram" class="px-3 py-1 text-xs font-bold rounded">Histogram</button>
-                                        <button onclick="window.setChartMode('pareto')" id="btn-chart-pareto" class="px-3 py-1 text-xs font-bold rounded">Pareto</button>
+                                    <div class="flex bg-slate-100 p-1 rounded-lg" id="chart-mode-controls">
+                                        <button onclick="window.setChartMode('run')" data-mode="run" id="btn-chart-run" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white shadow">Run</button>
+                                        <button onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
+                                        <button onclick="window.setChartMode('histogram')" data-mode="histogram" id="btn-chart-histogram" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
+                                        <button onclick="window.setChartMode('pareto')" data-mode="pareto" id="btn-chart-pareto" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Pareto</button>
                                     </div>
                                     <div class="flex gap-1">
                                         <button onclick="window.zoomOut()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom Out">
@@ -386,7 +386,7 @@
                                 <div class="relative min-h-[300px]" id="chart-wrapper">
                                     <canvas id="mainChart"></canvas>
                                 </div>
-                                <div id="chart-education" class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
+                                <div id="chart-education-panel" class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
                             </div>
                             
                             <!-- Add Data & History -->
@@ -533,7 +533,7 @@
                     <input type="text" id="member-grade" class="w-full p-2 border rounded" placeholder="ST6 / Consultant">
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Responsibility</label>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Responsibilities</label>
                     <input type="text" id="member-resp" class="w-full p-2 border rounded" placeholder="Data collection">
                 </div>
                 <div>
@@ -575,7 +575,10 @@
                             <option value="plan">Planning</option>
                             <option value="data">Data Collection</option>
                             <option value="pdsa">PDSA Cycle</option>
+                            <option value="do">Do Phase</option>
+                            <option value="study">Study Phase</option>
                             <option value="review">Review</option>
+                            <option value="act">Act Phase</option>
                             <option value="sustain">Sustain</option>
                         </select>
                     </div>
@@ -609,15 +612,15 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Chart Title</label>
-                    <input type="text" id="chart-title" class="w-full p-2 border rounded" placeholder="Door-to-Antibiotic Time (minutes)">
+                    <input type="text" id="chart-setting-title" class="w-full p-2 border rounded" placeholder="Door-to-Antibiotic Time (minutes)">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Y-Axis Label</label>
-                    <input type="text" id="chart-yaxis" class="w-full p-2 border rounded" placeholder="Time (minutes)">
+                    <input type="text" id="chart-setting-yaxis" class="w-full p-2 border rounded" placeholder="Time (minutes)">
                 </div>
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="chart-annotations" class="rounded">
-                    <label for="chart-annotations" class="text-sm text-slate-700">Show PDSA Annotations</label>
+                    <input type="checkbox" id="chart-setting-annotations" class="rounded">
+                    <label for="chart-setting-annotations" class="text-sm text-slate-700">Show PDSA Annotations</label>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
@@ -664,7 +667,7 @@
 
     <!-- Hidden File Inputs -->
     <input type="file" id="project-upload-input" accept=".json" onchange="window.importProjectFromFile(this)" class="hidden">
-    <input type="file" id="csv-upload-hidden" accept=".csv" onchange="window.importCSV(event)" class="hidden">
+    <input type="file" id="csv-upload-hidden" accept=".csv" onchange="window.importCSV(this)" class="hidden">
 
     <!-- Service Worker Registration -->
     <script>
