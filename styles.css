@@ -47,6 +47,122 @@ body {
 }
 
 /* ==========================================================================
+   FORM VALIDATION & ERROR STATES
+   ========================================================================== */
+
+/* Error state for inputs */
+input.border-red-500,
+textarea.border-red-500,
+select.border-red-500 {
+    border-color: #ef4444 !important;
+    background-color: #fef2f2 !important;
+}
+
+input.border-red-500:focus,
+textarea.border-red-500:focus,
+select.border-red-500:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Field error message */
+.field-error {
+    color: #ef4444;
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.field-error::before {
+    content: '!';
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    background-color: #ef4444;
+    color: white;
+    border-radius: 50%;
+    font-size: 10px;
+    font-weight: bold;
+}
+
+/* Success state for inputs */
+input.border-green-500,
+textarea.border-green-500,
+select.border-green-500 {
+    border-color: #22c55e !important;
+    background-color: #f0fdf4 !important;
+}
+
+/* Auth form specific styling */
+#auth-form input:focus:not(.border-red-500) {
+    border-color: #2d2e83;
+    box-shadow: 0 0 0 3px rgba(45, 46, 131, 0.1);
+}
+
+#auth-form button:disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+#auth-form button:disabled:hover {
+    background-color: inherit;
+}
+
+/* Shake animation for errors */
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+    20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+.shake {
+    animation: shake 0.5s ease-in-out;
+}
+
+/* Loading spinner animation */
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Auth error alert */
+.auth-error-alert {
+    background-color: #fef2f2;
+    border: 1px solid #fecaca;
+    border-left: 4px solid #ef4444;
+    color: #991b1b;
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.auth-error-alert i {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.auth-error-alert strong {
+    display: block;
+    margin-bottom: 4px;
+}
+
+.auth-error-alert p {
+    margin: 0;
+    font-size: 0.875rem;
+}
+
+/* ==========================================================================
    SCROLLBAR
    ========================================================================== */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
