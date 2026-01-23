@@ -32,6 +32,7 @@ export const state = {
 // ==========================================================================
 // This defines the schema for a new project.
 // All fields must be initialized to avoid null pointer errors in renderers.
+// FIXED: Field names now match renderers.js expectations
 
 export const emptyProject = {
     meta: {
@@ -53,10 +54,10 @@ export const emptyProject = {
         aim_target: "",
         aim_date: "",
         
-        // Measures
-        measure_outcome: "",
-        measure_process: "",
-        measure_balance: "",
+        // Measures - FIXED: Using underscore-first format to match renderers.js
+        outcome_measure: "",
+        process_measure: "",
+        balance_measure: "",
         
         // Governance
         ethics: "",
@@ -64,10 +65,11 @@ export const emptyProject = {
         // Research
         lit_review: "",
         
-        // Closing
-        learning: "",
-        sustain: "",
-        results_text: ""
+        // Closing - FIXED: Using correct field names
+        learning_points: "",
+        sustainability: "",
+        results_text: "",
+        results_analysis: ""
     },
     drivers: {
         primary: [],   // Array of strings
@@ -87,8 +89,8 @@ export const emptyProject = {
     },
     process: ["Start", "End"], // Process Map steps
     
-    // PDSA Cycles
-    pdsa: [], // { title, start, end, desc, do, study, act }
+    // PDSA Cycles - FIXED: Using consistent field names
+    pdsa: [], // { title, startDate, end, plan, do, study, act }
     
     // Chart Data
     chartData: [], // { date, value, grade }
@@ -106,13 +108,13 @@ export const emptyProject = {
     // Stakeholder Analysis
     stakeholders: [], // { name, x, y, role }
     
-    // Team Members
+    // Team Members - FIXED: Using "responsibilities" (plural)
     teamMembers: [], // { id, name, role, grade, initials, responsibilities }
     
     // Leadership Log
     leadershipLogs: [], // { date, note }
     
-    // Gantt Chart Tasks
+    // Gantt Chart Tasks - FIXED: Using "type" for colours
     gantt: [] // { id, name, start, end, type, owner, dependency, milestone }
 };
 
@@ -120,6 +122,7 @@ export const emptyProject = {
 // DEMO DATA GENERATOR - GOLD STANDARD SEPSIS QIP
 // ==========================================================================
 // Returns a fully populated project demonstrating best practice for FRCEM portfolio
+// FIXED: All field names now match the emptyProject template and renderers.js
 
 export function getDemoData() {
     return {
@@ -142,10 +145,10 @@ export function getDemoData() {
             aim_target: "90%",
             aim_date: "2024-06-01",
             
-            // Measures
-            measure_outcome: "% of Red Flag Sepsis patients receiving IV antibiotics within 60 minutes of trigger",
-            measure_process: "Door-to-needle time in minutes; % of patients screened at triage; % of Sepsis 6 bundles completed",
-            measure_balance: "Inappropriate antibiotic prescribing rate; patient complaints about cannulation; staff overtime hours",
+            // Measures - FIXED: Using correct field names
+            outcome_measure: "% of Red Flag Sepsis patients receiving IV antibiotics within 60 minutes of trigger",
+            process_measure: "Door-to-needle time in minutes; % of patients screened at triage; % of Sepsis 6 bundles completed",
+            balance_measure: "Inappropriate antibiotic prescribing rate; patient complaints about cannulation; staff overtime hours",
             
             // Governance
             ethics: "Registered as Service Evaluation with local Audit Department (Ref: AUD-2023-0142). No individual patient consent required as per HRA decision tool. Caldicott approval obtained for data extraction. Project reviewed by ED Clinical Governance lead.",
@@ -168,8 +171,8 @@ NHS England - Commissioning for Quality and Innovation (CQUIN):
 Local Trust Antimicrobial Guidelines (2023):
 • First-line empirical therapy: Piperacillin-Tazobactam 4.5g IV or Co-amoxiclav 1.2g IV + Gentamicin`,
             
-            // Conclusions
-            learning: `Key Learning Points:
+            // Conclusions - FIXED: Using correct field names
+            learning_points: `Key Learning Points:
 
 1. SYSTEM CHANGES trump education: Initial educational interventions (Cycle 1) produced only marginal, unsustained improvement. The most effective changes were physical (Sepsis Trolley) and procedural (Nurse PGD).
 
@@ -183,7 +186,7 @@ Local Trust Antimicrobial Guidelines (2023):
 
 6. DATA must be VISIBLE: Weekly run chart display at the nursing station created healthy competition and peer accountability.`,
             
-            sustain: `Sustainability Plan:
+            sustainability: `Sustainability Plan:
 
 STRUCTURAL:
 • Sepsis Trolley maintenance added to HCA daily checklist
@@ -234,7 +237,9 @@ POST CYCLE 4 - IT Alert (January 2024):
 CURRENT STATE (June 2024):
 • 92% compliance (exceeds 90% target)
 • 47 consecutive weeks with compliance >80%
-• Door-to-needle time reduced from 72 to 38 minutes (median)`
+• Door-to-needle time reduced from 72 to 38 minutes (median)`,
+            
+            results_analysis: "Statistical analysis demonstrates sustained special cause variation with a new process mean of 88% compliance, exceeding the 90% target. The improvement journey shows clear step-changes corresponding to each PDSA cycle intervention."
         },
         
         // Driver Diagram
@@ -363,12 +368,14 @@ CURRENT STATE (June 2024):
             "Disposition Decision"
         ],
         
-        // PDSA Cycles - Detailed
+        // PDSA Cycles - FIXED: Using startDate and plan fields
         pdsa: [
             {
                 title: "Cycle 1: Education Campaign",
-                start: "2023-09-01",
+                startDate: "2023-09-01",
+                start: "2023-09-01",  // Keep both for backward compatibility
                 end: "2023-09-30",
+                plan: "PLAN: Deliver 10-minute sepsis teaching at every handover for 4 weeks. Display high-visibility posters showing Sepsis 6 bundle in all clinical areas. Distribute pocket cards to all clinical staff. Target: Increase compliance to 60%.\n\nPrediction: We predicted education alone would significantly improve compliance as staff would be more aware of the importance of timely antibiotics.",
                 desc: "PLAN: Deliver 10-minute sepsis teaching at every handover for 4 weeks. Display high-visibility posters showing Sepsis 6 bundle in all clinical areas. Distribute pocket cards to all clinical staff. Target: Increase compliance to 60%.\n\nPrediction: We predicted education alone would significantly improve compliance as staff would be more aware of the importance of timely antibiotics.",
                 do: "Teaching delivered at 42/56 handovers (75% coverage). 12 A3 posters displayed across department. 200 pocket cards distributed. Attendance logged.",
                 study: "Compliance improved marginally from 42% to 48% in the first 2 weeks, but dropped back to 45% by week 4. Staff surveys revealed: 'We know it's important, but can't find the equipment' and 'Waiting for doctor to prescribe'. Education necessary but not sufficient.",
@@ -376,8 +383,10 @@ CURRENT STATE (June 2024):
             },
             {
                 title: "Cycle 2: Sepsis Trolley",
+                startDate: "2023-10-01",
                 start: "2023-10-01",
                 end: "2023-10-31",
+                plan: "PLAN: Introduce a dedicated bright yellow 'Sepsis Trolley' in Majors containing everything needed for Sepsis 6 bundle: IV cannulas, blood bottles, culture bottles, giving sets, fluids, and antibiotics (Co-amoxiclav, Pip-Taz). Position in Bay 1 (highest acuity). HCA to check and restock daily using checklist.\n\nPrediction: Eliminating the 'hunting for kit' barrier will reduce time to treatment by 15+ minutes.",
                 desc: "PLAN: Introduce a dedicated bright yellow 'Sepsis Trolley' in Majors containing everything needed for Sepsis 6 bundle: IV cannulas, blood bottles, culture bottles, giving sets, fluids, and antibiotics (Co-amoxiclav, Pip-Taz). Position in Bay 1 (highest acuity). HCA to check and restock daily using checklist.\n\nPrediction: Eliminating the 'hunting for kit' barrier will reduce time to treatment by 15+ minutes.",
                 do: "Trolley procured and stocked (cost: £450). Positioned in Bay 1. Daily checklist implemented. Staff informed via email and huddle. Photo guide created showing trolley contents.",
                 study: "Immediate improvement observed. Compliance rose to 62% within 2 weeks. SHIFT detected on run chart (6 consecutive points above median). Time to cannulation reduced by average 12 minutes. Positive feedback: 'It's all there - no hunting'. Issues: Trolley raided for non-sepsis patients, sometimes found empty.",
@@ -385,8 +394,10 @@ CURRENT STATE (June 2024):
             },
             {
                 title: "Cycle 3: Nurse PGD for Antibiotics",
+                startDate: "2023-11-01",
                 start: "2023-11-01",
                 end: "2023-12-15",
+                plan: "PLAN: Develop and implement Patient Group Directive enabling Band 6+ nurses to initiate IV antibiotics (Co-amoxiclav 1.2g or Piperacillin-Tazobactam 4.5g) for patients meeting Red Flag Sepsis criteria, without waiting for medical prescription. Requires: Trust approval, nurse training, competency assessment.\n\nPrediction: Removing the 'waiting for doctor' bottleneck will reduce door-to-antibiotic time by 20+ minutes.",
                 desc: "PLAN: Develop and implement Patient Group Directive enabling Band 6+ nurses to initiate IV antibiotics (Co-amoxiclav 1.2g or Piperacillin-Tazobactam 4.5g) for patients meeting Red Flag Sepsis criteria, without waiting for medical prescription. Requires: Trust approval, nurse training, competency assessment.\n\nPrediction: Removing the 'waiting for doctor' bottleneck will reduce door-to-antibiotic time by 20+ minutes.",
                 do: "PGD drafted and approved by Drugs & Therapeutics Committee (6-week process). Training delivered to 24 nurses (18 Band 6+, 6 Band 5 for awareness). Competency assessment completed. Go-live 15th November.",
                 study: "Dramatic improvement. Compliance rose from 62% to 78% within 4 weeks. Median door-to-needle time reduced from 58 to 36 minutes. ZERO inappropriate antibiotic administrations in audit of 50 cases. Nurse feedback overwhelmingly positive: 'Feel empowered', 'Can act immediately'. One near-miss identified (penicillin allergy) - process adapted.",
@@ -394,8 +405,10 @@ CURRENT STATE (June 2024):
             },
             {
                 title: "Cycle 4: EPR Best Practice Alert",
+                startDate: "2024-01-02",
                 start: "2024-01-02",
                 end: "2024-02-28",
+                plan: "PLAN: Implement electronic Best Practice Alert (BPA) in the Electronic Patient Record triggered when NEWS2 ≥7 or sepsis screening positive. Alert prompts: 'Has Sepsis 6 been initiated? Antibiotics given? Document time.' Data captured automatically for audit.\n\nPrediction: IT prompt will serve as safety net for busy periods and automate data collection.",
                 desc: "PLAN: Implement electronic Best Practice Alert (BPA) in the Electronic Patient Record triggered when NEWS2 ≥7 or sepsis screening positive. Alert prompts: 'Has Sepsis 6 been initiated? Antibiotics given? Document time.' Data captured automatically for audit.\n\nPrediction: IT prompt will serve as safety net for busy periods and automate data collection.",
                 do: "BPA designed with EPR team (4 iterations based on user feedback). Piloted for 2 weeks in Majors. Refined alert timing to avoid 'alert fatigue'. Full rollout 1st February.",
                 study: "Compliance stabilised at 85-92% range. Run chart shows new median established at 88%. Automated reporting enabled weekly monitoring without manual audit. Alert override rate 8% - within acceptable limits. Staff initially resistant ('another popup') but adapted.",
@@ -403,8 +416,10 @@ CURRENT STATE (June 2024):
             },
             {
                 title: "Cycle 5: Sustainability - Sepsis Champion",
+                startDate: "2024-03-01",
                 start: "2024-03-01",
                 end: "2024-04-30",
+                plan: "PLAN: Establish Band 7 Sepsis Champion role with 2 hours/week protected time. Responsibilities: Weekly trolley audit, monthly data review, new starter training, case review for any sepsis deaths/SIs.\n\nPrediction: Dedicated ownership will maintain improvements and enable rapid response to any deterioration.",
                 desc: "PLAN: Establish Band 7 Sepsis Champion role with 2 hours/week protected time. Responsibilities: Weekly trolley audit, monthly data review, new starter training, case review for any sepsis deaths/SIs.\n\nPrediction: Dedicated ownership will maintain improvements and enable rapid response to any deterioration.",
                 do: "Role agreed with Matron and Clinical Lead. Job description written. Existing Band 7 (Sarah, interested in sepsis) volunteered. Protected time agreed on Wednesday afternoons.",
                 study: "6 weeks into role: All trolleys consistently stocked (100% compliance on spot checks). Monthly reports now routinely presented at governance. One near-miss identified early and mitigated. Staff feedback: 'Nice to have a go-to person'.",
@@ -485,7 +500,7 @@ CURRENT STATE (June 2024):
             showAnnotations: true
         },
         
-        // Team Members - Expanded
+        // Team Members - FIXED: Using "responsibilities" (plural)
         teamMembers: [
             { id: "1", name: "Dr. James Bloggs", role: "Project Lead", grade: "ST6 Emergency Medicine", initials: "JB", responsibilities: "Overall project coordination, data analysis, PDSA design, stakeholder engagement" },
             { id: "2", name: "Sarah Mitchell", role: "Sepsis Champion", grade: "Band 7 Sister", initials: "SM", responsibilities: "Nursing lead, PGD implementation, trolley oversight, staff training" },
@@ -495,20 +510,20 @@ CURRENT STATE (June 2024):
             { id: "6", name: "Dr. Hassan Ali", role: "Microbiologist", grade: "Consultant", initials: "HA", responsibilities: "Antibiotic guideline review, sepsis pathway validation" }
         ],
         
-        // Stakeholder Analysis
+        // Stakeholder Analysis - with roles for enhanced display
         stakeholders: [
-            { name: "ED Nursing Team", x: 85, y: 90 },
-            { name: "ED Consultants", x: 90, y: 95 },
-            { name: "Junior Doctors", x: 75, y: 40 },
-            { name: "ED Matron", x: 95, y: 85 },
-            { name: "Trust Sepsis Lead", x: 60, y: 80 },
-            { name: "Pharmacy", x: 50, y: 70 },
-            { name: "IT Department", x: 40, y: 50 },
-            { name: "Microbiology", x: 45, y: 60 },
-            { name: "Site Manager", x: 30, y: 65 },
-            { name: "Patients/Relatives", x: 85, y: 25 },
-            { name: "Porters", x: 20, y: 30 },
-            { name: "Procurement", x: 25, y: 45 }
+            { name: "ED Nursing Team", x: 85, y: 90, role: "Key Implementers" },
+            { name: "ED Consultants", x: 90, y: 95, role: "Clinical Sponsors" },
+            { name: "Junior Doctors", x: 75, y: 40, role: "End Users" },
+            { name: "ED Matron", x: 95, y: 85, role: "Nursing Lead" },
+            { name: "Trust Sepsis Lead", x: 60, y: 80, role: "Strategic Advisor" },
+            { name: "Pharmacy", x: 50, y: 70, role: "PGD Support" },
+            { name: "IT Department", x: 40, y: 50, role: "Technical Support" },
+            { name: "Microbiology", x: 45, y: 60, role: "Clinical Advisor" },
+            { name: "Site Manager", x: 30, y: 65, role: "Operational Support" },
+            { name: "Patients/Relatives", x: 85, y: 25, role: "Beneficiaries" },
+            { name: "Porters", x: 20, y: 30, role: "Support Staff" },
+            { name: "Procurement", x: 25, y: 45, role: "Equipment Supply" }
         ],
         
         // Leadership Engagement Log
@@ -531,7 +546,7 @@ CURRENT STATE (June 2024):
             { date: "2024-06-01", note: "12-month review - target achieved (92% vs 90% target), sustainability plan activated" }
         ],
         
-        // Gantt Chart Tasks
+        // Gantt Chart Tasks - FIXED: Using "type" for colours
         gantt: [
             { id: "1", name: "Baseline Audit", start: "2023-06-01", end: "2023-08-31", type: "study", owner: "JB", milestone: false },
             { id: "2", name: "Literature Review", start: "2023-06-01", end: "2023-06-30", type: "plan", owner: "JB", milestone: false },
@@ -541,12 +556,12 @@ CURRENT STATE (June 2024):
             { id: "6", name: "Cycle 1: Education", start: "2023-09-01", end: "2023-09-30", type: "do", owner: "SM", dependency: "5" },
             { id: "7", name: "Cycle 2: Sepsis Trolley", start: "2023-10-01", end: "2023-10-31", type: "do", owner: "SM", dependency: "6" },
             { id: "8", name: "PGD Development", start: "2023-10-01", end: "2023-11-15", type: "plan", owner: "JW" },
-            { id: "9", name: "Cycle 3: Nurse PGD", start: "2023-11-15", end: "2023-12-15", type: "do", owner: "SM", dependency: "8" },
+            { id: "9", name: "Cycle 3: Nurse PGD", start: "2023-11-15", end: "2023-12-15", type: "pdsa", owner: "SM", dependency: "8" },
             { id: "10", name: "EPR Alert Design", start: "2023-12-01", end: "2024-01-31", type: "plan", owner: "MT" },
-            { id: "11", name: "Cycle 4: IT Alert", start: "2024-02-01", end: "2024-02-28", type: "do", owner: "MT", dependency: "10" },
+            { id: "11", name: "Cycle 4: IT Alert", start: "2024-02-01", end: "2024-02-28", type: "pdsa", owner: "MT", dependency: "10" },
             { id: "12", name: "Cycle 5: Sustainability", start: "2024-03-01", end: "2024-04-30", type: "act", owner: "SM" },
-            { id: "13", name: "Target Achieved", start: "2024-05-31", end: "2024-06-01", type: "study", owner: "JB", milestone: true },
-            { id: "14", name: "Final Write-up", start: "2024-05-01", end: "2024-06-15", type: "study", owner: "JB" }
+            { id: "13", name: "Target Achieved", start: "2024-05-31", end: "2024-06-01", type: "sustain", owner: "JB", milestone: true },
+            { id: "14", name: "Final Write-up", start: "2024-05-01", end: "2024-06-15", type: "review", owner: "JB" }
         ]
     };
 }
