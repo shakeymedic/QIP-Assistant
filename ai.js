@@ -28,21 +28,13 @@ OUTPUT FORMAT:
 // 2. CORE API HANDLER
 // ==========================================
 
-/**
- * Main function to call the AI API
- * @param {string} userPrompt - The specific task
- * @param {boolean} jsonMode - Whether to force JSON output
- * @returns {Promise<string|object|null>}
- */
 export async function callAI(userPrompt, jsonMode = false) {
-    // 1. Get Key
     const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
     if (!key) {
         showToast("AI API Key missing. Go to Settings.", "error");
         return null;
     }
 
-    // 2. Construct Payload
     const finalPrompt = `${SYSTEM_PROMPT}\n\nUSER REQUEST:\n${userPrompt}\n\n${jsonMode ? "OUTPUT IN PURE JSON ONLY. NO MARKDOWN." : ""}`;
     
     const payload = {
@@ -69,11 +61,24 @@ export async function callAI(userPrompt, jsonMode = false) {
         const data = await response.json();
         let text = data.candidates[0].content.parts[0].text;
 
-        // Clean up markdown code blocks if they exist despite instructions
         if (jsonMode) {
-            // Fix: Regex now handles ```json, ```JSON, or just ```
-            text = text.replace(/```(json)?/gi, '').replace(/```/g, '').trim();
-            return JSON.parse(text);
+            // Robust JSON extraction: find the first '{' and the last '}'
+            const firstBrace = text.indexOf('{');
+            const lastBrace = text.lastIndexOf('}');
+            
+            if (firstBrace !== -1 && lastBrace !== -1) {
+                const jsonString = text.substring(firstBrace, lastBrace + 1);
+                try {
+                    return JSON.parse(jsonString);
+                } catch (e) {
+                    console.error("JSON Parse Error:", e);
+                    // Fallback to strict cleaning if simple extraction fails
+                    text = text.replace(/```(json)?/gi, '').replace(/```/g, '').trim();
+                    return JSON.parse(text);
+                }
+            } else {
+                throw new Error("AI did not return a valid JSON object.");
+            }
         }
 
         return text;
@@ -89,14 +94,10 @@ export async function callAI(userPrompt, jsonMode = false) {
 // 3. SPECIALIZED AI FUNCTIONS
 // ==========================================
 
-/**
- * "The Critical Friend" - Reviews the project for logical gaps
- */
 export async function runGapAnalysis(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
     
-    // Construct a context summary
     const context = `
         Aim: "${cl.aim || 'Undefined'}"
         Problem: "${cl.problem_desc || 'Undefined'}"
@@ -114,19 +115,13 @@ export async function runGapAnalysis(projectData) {
         3. Are the Measures capable of tracking the Aim?
         4. Identify ONE major "Gap" or risk to validity.
         5. Suggest ONE specific improvement.
-        
-        Data:
-        ${context}
-        
+        Data: ${context}
         Keep response under 150 words.
     `;
 
     return await callAI(prompt);
 }
 
-/**
- * Suggests Evidence/Guidelines based on the problem
- */
 export async function suggestEvidence() {
     const d = state.projectData.checklist;
     if (!d.problem_desc && !d.aim) return null;
@@ -143,9 +138,6 @@ export async function suggestEvidence() {
     return await callAI(prompt);
 }
 
-/**
- * Generates practical Change Ideas for a specific driver
- */
 export async function generateChangeIdeas(driverName) {
     const prompt = `
         Context: NHS Emergency Department.
@@ -158,9 +150,6 @@ export async function generateChangeIdeas(driverName) {
     return await callAI(prompt, true);
 }
 
-/**
- * Refines a draft aim into a SMART aim
- */
 export async function refineSmartAim(draftAim, problem) {
     const prompt = `
         Draft Aim: "${draftAim}"
