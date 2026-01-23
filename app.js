@@ -712,6 +712,8 @@ if (auth) {
 
         state.currentUser = user;
         if (user) {
+            // FIX: Show the app container
+            document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
             const ud = document.getElementById('user-display');
@@ -734,6 +736,9 @@ async function checkShareLink() {
         state.isReadOnly = true;
         const ind = document.getElementById('readonly-indicator');
         if(ind) ind.classList.remove('hidden');
+        
+        // FIX: Show the app container for shared links
+        document.getElementById('app-container').classList.remove('hidden');
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-sidebar').classList.add('lg:flex');
         document.body.classList.add('readonly-mode');
@@ -1082,6 +1087,11 @@ function initAuthHandlers() {
             console.log('🎮 Demo mode activated');
             state.isDemoMode = true;
             state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+            
+            // FIX: Show the app container for demo mode
+            const appContainer = document.getElementById('app-container');
+            if(appContainer) appContainer.classList.remove('hidden');
+            
             const sb = document.getElementById('app-sidebar');
             if(sb) sb.classList.add('lg:flex');
             const as = document.getElementById('auth-screen');
