@@ -1,53 +1,84 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RCEM QIP Assistant | Gold Standard</title>
-    <meta name="description" content="Professional Quality Improvement Portfolio tool for Emergency Medicine clinicians.">
+    <meta name="description" content="RCEM QIP Assistant - Professional Quality Improvement Portfolio Tool for Emergency Medicine">
+    <meta name="theme-color" content="#2d2e83">
+    <title>RCEM QIP Assistant</title>
     
-    <link rel="stylesheet" href="styles.css">
+    <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
-    <link rel="icon" href="https://iili.io/KGQOvkl.md.png">
-    <meta name="apple-mobile-web-app-capable" content="yes">
+    <link rel="apple-touch-icon" href="https://iili.io/KGQOvkl.md.png">
     
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
-            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
-                        rcem: { purple: '#2d2e83', orange: '#f36f21', teal: '#008080' },
-                        slate: { 850: '#1e293b', 900: '#0f172a' }
+                        'rcem-purple': '#2d2e83',
+                        'rcem-light': '#4a4bc4'
                     },
-                    fontFamily: { sans: ['Inter', 'sans-serif'], serif: ['Merriweather', 'serif'] },
-                    screens: { 'print': {'raw': 'print'} }
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                        serif: ['Merriweather', 'Georgia', 'serif']
+                    }
                 }
             }
         }
     </script>
     
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css"/>
-    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
-
+    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js"></script>
+    
+    <!-- Driver.js (Tour) -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css">
+    <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
+    
+    <!-- PptxGenJS -->
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+    
+    <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap" rel="stylesheet">
+    
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="styles.css">
 </head>
-<body class="bg-slate-50 text-slate-900 h-full overflow-hidden flex flex-col font-sans">
-
-    <div id="offline-indicator" class="hidden bg-slate-800 text-white px-4 py-2 text-xs font-bold text-center z-50 shadow-md">
-        <div class="flex items-center justify-center gap-2">
-            <i data-lucide="wifi-off" class="w-3 h-3"></i>
-            <span>You are currently offline. Changes are saved locally.</span>
+<body class="bg-slate-100 min-h-screen font-sans antialiased">
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed bottom-4 right-4 z-[100] space-y-2"></div>
+    
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="hidden fixed inset-0 bg-slate-900/50 z-[90] flex items-center justify-center">
+        <div class="bg-white rounded-xl p-6 shadow-2xl flex items-center gap-4">
+            <div class="animate-spin rounded-full h-8 w-8 border-4 border-rcem-purple border-t-transparent"></div>
+            <span class="text-slate-700 font-medium">Loading...</span>
         </div>
     </div>
 
+    <!-- Offline Indicator -->
+    <div id="offline-indicator" class="hidden fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-1 text-xs font-bold z-[80]">
+        <i data-lucide="wifi-off" class="w-3 h-3 inline mr-1"></i> You're offline. Changes are saved locally.
+    </div>
+
+    <!-- Demo Mode Watermark -->
+    <div id="demo-watermark" class="hidden fixed top-16 right-4 bg-amber-500 text-white px-3 py-1 rounded-full text-xs font-bold z-50 shadow-lg">
+        <i data-lucide="flask-conical" class="w-3 h-3 inline mr-1"></i> DEMO MODE
+    </div>
+
+    <!-- Read-Only Indicator -->
     <div id="readonly-indicator" class="hidden bg-amber-500 text-white px-4 py-2 text-xs font-bold text-center z-50 shadow-md">
         <div class="flex items-center justify-center gap-2">
             <i data-lucide="eye" class="w-3 h-3"></i>
@@ -55,398 +86,550 @@
         </div>
     </div>
 
-    <div class="flex flex-1 overflow-hidden relative">
-        <aside id="app-sidebar" class="hidden w-64 bg-slate-900 text-white flex-col h-full fixed lg:static z-20 shadow-2xl no-print transition-all duration-300">
-            <div class="p-6 border-b border-white/10 flex flex-col items-center">
-                <img src="https://iili.io/KGQOvkl.md.png" alt="RCEM Logo" class="h-12 mb-3 bg-white rounded p-1 w-auto">
-                <div class="text-center"><h1 class="font-bold text-lg tracking-tight">QIP Assistant</h1><p class="text-xs text-slate-400">Gold Standard Tool</p></div>
+    <!-- ========== AUTH SCREEN ========== -->
+    <div id="auth-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-rcem-purple to-indigo-900 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+            <div class="text-center mb-8">
+                <img src="https://iili.io/KGQOvkl.md.png" alt="RCEM Logo" class="h-16 mx-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-800">QIP Assistant</h1>
+                <p class="text-slate-500 text-sm mt-1">Gold Standard Quality Improvement Tool</p>
             </div>
-            <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
-                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2">Project</div>
-                <button onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard"><i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard</button>
-                <button onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-full"><i data-lucide="scroll-text" class="w-4 h-4 text-amber-400"></i> Whole Project View</button>
-                <button onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-checklist"><i data-lucide="clipboard-check" class="w-4 h-4"></i> Define & Measure</button>
-                <button onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-team"><i data-lucide="users-2" class="w-4 h-4 text-pink-400"></i> Team & Leadership</button>
+            
+            <div id="auth-error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm"></div>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Email</label>
+                    <input type="email" id="auth-email" required 
+                        class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
+                        placeholder="your.email@nhs.net">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Password</label>
+                    <input type="password" id="auth-password" required minlength="6"
+                        class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
+                        placeholder="••••••••">
+                </div>
+                <button type="submit" id="auth-submit"
+                    class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                    <span>Sign In</span>
+                </button>
+            </form>
+            
+            <div class="mt-4 text-center">
+                <button id="auth-toggle" class="text-sm text-rcem-purple hover:underline">
+                    Don't have an account? Sign Up
+                </button>
+            </div>
+            
+            <div class="mt-6 pt-6 border-t border-slate-200">
+                <button id="demo-btn" 
+                    class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3 rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2">
+                    <i data-lucide="flask-conical" class="w-4 h-4"></i>
+                    <span>Try Demo Mode</span>
+                </button>
+                <p class="text-xs text-slate-400 text-center mt-2">Explore with sample data - no account needed</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MAIN APP ========== -->
+    <div id="app-container" class="hidden flex flex-col h-screen">
+        
+        <!-- Top Bar (Mobile) -->
+        <div class="lg:hidden bg-slate-900 text-white p-3 flex justify-between items-center z-30 no-print">
+            <span class="font-bold">RCEM QIP</span>
+            <button id="mobile-menu-btn"><i data-lucide="menu"></i></button>
+        </div>
+
+        <div class="flex flex-1 overflow-hidden relative">
+            
+            <!-- ========== SIDEBAR ========== -->
+            <aside id="app-sidebar" class="hidden w-64 bg-slate-900 text-white flex-col h-full fixed lg:static z-20 shadow-2xl no-print transition-all duration-300">
+                <div class="p-6 border-b border-white/10 flex flex-col items-center">
+                    <img src="https://iili.io/KGQOvkl.md.png" alt="RCEM Logo" class="h-12 mb-3 bg-white rounded p-1 w-auto">
+                    <div class="text-center">
+                        <h1 class="font-bold text-lg tracking-tight">QIP Assistant</h1>
+                        <p class="text-xs text-slate-400">Gold Standard Tool</p>
+                    </div>
+                </div>
                 
-                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Diagnose & Plan</div>
-                <button onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools"><i data-lucide="git-branch" class="w-4 h-4"></i> Driver & Fishbone</button>
-                <button onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders"><i data-lucide="users" class="w-4 h-4"></i> Stakeholders</button>
-                <button onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt"><i data-lucide="calendar-clock" class="w-4 h-4"></i> Timeline (Gantt)</button>
-
-                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Act & Study</div>
-                <button onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa"><i data-lucide="refresh-cw" class="w-4 h-4"></i> PDSA Cycles</button>
-                <button onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data"><i data-lucide="line-chart" class="w-4 h-4"></i> Data & SPC</button>
-                <button onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-green"><i data-lucide="leaf" class="w-4 h-4 text-emerald-400"></i> Value & Outcomes</button>
-
-                <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Publish</div>
-                <button onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish"><i data-lucide="newspaper" class="w-4 h-4 text-sky-400"></i> Publish & Report</button>
-            </nav>
-
-            <div class="p-4 border-t border-white/10 bg-slate-900">
-                <div class="flex items-center justify-between mb-4 px-2">
-                    <span class="text-xs text-slate-400">Show Example</span>
-                    <div class="relative inline-block w-8 h-4 align-middle select-none transition duration-200 ease-in"><input type="checkbox" name="toggle" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500"/><label for="demo-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-600 cursor-pointer"></label></div>
-                </div>
-                <button onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1"><i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project</button>
-                <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs"><i data-lucide="log-out" class="w-3 h-3"></i> Sign Out</button>
-            </div>
-        </aside>
-
-        <main class="flex-1 overflow-hidden relative bg-slate-50 w-full flex flex-col" id="main-wrapper">
-            <div class="lg:hidden bg-slate-900 text-white p-3 flex justify-between items-center z-30 no-print">
-                <span class="font-bold">RCEM QIP</span>
-                <button id="mobile-menu-btn"><i data-lucide="menu"></i></button>
-            </div>
-
-            <div id="top-bar" class="hidden h-14 bg-white border-b border-slate-200 px-6 flex justify-between items-center z-20 no-print">
-                <div class="flex items-center gap-3">
-                    <div class="flex items-center gap-1 mr-4 border-r border-slate-200 pr-4">
-                        <button onclick="window.undo()" id="btn-undo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all"><i data-lucide="undo-2" class="w-4 h-4"></i></button>
-                        <button onclick="window.redo()" id="btn-redo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all"><i data-lucide="redo-2" class="w-4 h-4"></i></button>
-                    </div>
-                    <h2 id="project-header-title" class="font-bold text-slate-700 truncate max-w-[300px]">Select Project</h2>
-                    <span id="save-status" class="text-xs text-emerald-600 font-bold transition-opacity opacity-0 flex items-center gap-1"><i data-lucide="check" class="w-3 h-3"></i> Saved</span>
-                </div>
-                <div class="flex items-center gap-3">
-                    <button onclick="window.openGlobalSettings()" class="text-slate-400 hover:text-slate-700 p-2 rounded hover:bg-slate-100 transition-colors" title="Settings & AI">
-                        <i data-lucide="settings" class="w-5 h-5"></i>
+                <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2">Project</div>
+                    <button onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                     </button>
-                    <button onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-xs font-bold transition-colors border border-rcem-purple/20 flex items-center gap-2"><i data-lucide="play-circle" class="w-4 h-4"></i> Show Me Around</button>
-                    <div id="user-display" class="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-600"></div>
-                </div>
-            </div>
-
-            <div id="demo-watermark" class="hidden pointer-events-none fixed inset-0 z-[60] flex items-center justify-center opacity-10 select-none">
-                <div class="text-9xl font-black text-slate-900 -rotate-45">EXAMPLE</div>
-            </div>
-
-            <div id="content-area" class="flex-1 overflow-y-auto relative scroll-smooth p-4 md:p-8 pb-20">
-                <!-- ========== AUTH SCREEN - SECURITY FIXED ========== -->
-                <div id="auth-screen" class="fixed inset-0 bg-slate-900 z-[100] flex items-center justify-center p-4">
-                    <div class="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div class="bg-slate-50 p-8 text-center border-b border-slate-100">
-                            <img src="https://iili.io/KGQOvkl.md.png" class="h-16 mx-auto mb-4 object-contain" alt="RCEM Logo">
-                            <h1 class="text-2xl font-bold text-slate-900">RCEM QIP Assistant</h1>
-                            <p class="text-slate-500 text-sm mt-1">Professional Portfolio Tool</p>
+                    <button onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-full">
+                        <i data-lucide="scroll-text" class="w-4 h-4 text-amber-400"></i> Whole Project View
+                    </button>
+                    <button onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-checklist">
+                        <i data-lucide="clipboard-check" class="w-4 h-4"></i> Define & Measure
+                    </button>
+                    <button onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-team">
+                        <i data-lucide="users-2" class="w-4 h-4 text-pink-400"></i> Team & Leadership
+                    </button>
+                    
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Diagnose & Plan</div>
+                    <button onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools">
+                        <i data-lucide="git-branch" class="w-4 h-4 text-cyan-400"></i> Diagnosis Tools
+                    </button>
+                    <button onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders">
+                        <i data-lucide="target" class="w-4 h-4 text-indigo-400"></i> Stakeholders
+                    </button>
+                    <button onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt">
+                        <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-400"></i> Timeline
+                    </button>
+                    
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Test & Learn</div>
+                    <button onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
+                        <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Data & SPC
+                    </button>
+                    <button onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa">
+                        <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i> PDSA Cycles
+                    </button>
+                    
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Share & Publish</div>
+                    <button onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish">
+                        <i data-lucide="newspaper" class="w-4 h-4 text-sky-400"></i> Publication
+                    </button>
+                    <button onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-green">
+                        <i data-lucide="leaf" class="w-4 h-4 text-emerald-400"></i> Green ED
+                    </button>
+                </nav>
+                
+                <div class="p-3 border-t border-white/10">
+                    <div class="flex items-center justify-between text-xs text-slate-400 mb-2 px-2">
+                        <span>Demo Mode</span>
+                        <div class="relative inline-flex items-center">
+                            <input type="checkbox" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500">
+                            <label for="demo-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-600 cursor-pointer"></label>
                         </div>
-                        <div class="p-8 space-y-4">
-                            <!-- Auth Error Alert Container -->
-                            <div id="auth-error-container"></div>
-                            
-                            <!-- 
-                                SECURITY FIX: 
-                                - method="POST" prevents credentials appearing in URL
-                                - action="javascript:void(0);" prevents any form submission
-                                - onsubmit returns false as extra protection
-                            -->
-                            <form id="auth-form" method="POST" action="javascript:void(0);" onsubmit="return false;" class="space-y-4" novalidate autocomplete="off">
-                                <div>
-                                    <label for="email" class="text-xs font-bold text-slate-500 uppercase block mb-1">Email</label>
-                                    <input 
-                                        type="email" 
-                                        id="email" 
-                                        name="email"
-                                        required 
-                                        autocomplete="email"
-                                        class="w-full p-3 rounded border border-slate-300 text-sm transition-colors focus:border-rcem-purple focus:ring-2 focus:ring-rcem-purple/20 outline-none"
-                                        placeholder="you@nhs.net"
-                                    >
-                                </div>
-                                <div>
-                                    <label for="password" class="text-xs font-bold text-slate-500 uppercase block mb-1">Password</label>
-                                    <input 
-                                        type="password" 
-                                        id="password" 
-                                        name="password"
-                                        required
-                                        minlength="6"
-                                        autocomplete="current-password"
-                                        class="w-full p-3 rounded border border-slate-300 text-sm transition-colors focus:border-rcem-purple focus:ring-2 focus:ring-rcem-purple/20 outline-none"
-                                        placeholder="••••••••"
-                                    >
-                                    <p class="text-xs text-slate-400 mt-1">Minimum 6 characters</p>
-                                </div>
-                                <div class="flex gap-3 pt-2">
-                                    <button type="submit" class="flex-1 bg-rcem-purple text-white font-bold py-3 rounded hover:bg-indigo-900 transition-colors shadow-sm">
-                                        Sign In
-                                    </button>
-                                    <button type="button" id="btn-register" class="flex-1 bg-white border-2 border-rcem-purple text-rcem-purple font-bold py-3 rounded hover:bg-indigo-50 transition-colors">
-                                        Register
-                                    </button>
-                                </div>
-                            </form>
-                            
-                            <div class="relative py-3">
-                                <div class="absolute inset-0 flex items-center">
-                                    <div class="w-full border-t border-slate-200"></div>
-                                </div>
-                                <div class="relative flex justify-center text-xs">
-                                    <span class="bg-white px-4 text-slate-400">or</span>
-                                </div>
-                            </div>
-                            
-                            <button type="button" id="demo-auth-btn" class="w-full border border-slate-300 text-slate-600 py-2.5 rounded text-sm font-medium hover:bg-slate-50 hover:border-slate-400 transition-colors flex items-center justify-center gap-2">
-                                <i data-lucide="play-circle" class="w-4 h-4"></i>
-                                Try Demo Mode
+                    </div>
+                    <button onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                        <i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project
+                    </button>
+                    <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs">
+                        <i data-lucide="log-out" class="w-3 h-3"></i> Sign Out
+                    </button>
+                </div>
+            </aside>
+
+            <!-- ========== MAIN CONTENT ========== -->
+            <main class="flex-1 overflow-hidden relative bg-slate-50 w-full flex flex-col" id="main-wrapper">
+                
+                <!-- Top Bar -->
+                <div id="top-bar" class="hidden h-14 bg-white border-b border-slate-200 px-6 flex justify-between items-center z-20 no-print">
+                    <div class="flex items-center gap-3">
+                        <div class="flex items-center gap-1 mr-4 border-r border-slate-200 pr-4">
+                            <button onclick="window.undo()" id="btn-undo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Undo (Ctrl+Z)">
+                                <i data-lucide="undo-2" class="w-4 h-4"></i>
                             </button>
-                            
-                            <p class="text-xs text-center text-slate-400 pt-2">
-                                By signing in, you agree to store your QIP data securely in the cloud.
-                            </p>
+                            <button onclick="window.redo()" id="btn-redo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Redo (Ctrl+Shift+Z)">
+                                <i data-lucide="redo-2" class="w-4 h-4"></i>
+                            </button>
                         </div>
+                        <h2 id="project-header-title" class="font-bold text-slate-700 truncate max-w-[300px]">Select Project</h2>
+                        <span id="save-status" class="text-xs text-emerald-600 font-bold transition-opacity opacity-0 flex items-center gap-1">
+                            <i data-lucide="check" class="w-3 h-3"></i> Saved
+                        </span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-sm font-medium flex items-center gap-1" title="Start Tour">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Help</span>
+                        </button>
+                        <button onclick="window.exportPPTX()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1" title="Export PowerPoint">
+                            <i data-lucide="presentation" class="w-4 h-4"></i>
+                            <span class="hidden sm:inline">Export</span>
+                        </button>
                     </div>
                 </div>
 
-                <div id="view-projects" class="view-section hidden max-w-6xl mx-auto">
-                    <header class="mb-8 flex justify-between items-center">
-                        <div><h1 class="text-3xl font-bold text-slate-900">My Projects</h1></div>
-                        <button onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow"><i data-lucide="plus" class="w-4 h-4"></i> New Project</button>
-                    </header>
-                    <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
-                </div>
-
-                <div id="view-dashboard" class="view-section hidden space-y-6">
-                    <div id="qi-coach-banner"></div>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="lg:col-span-2 space-y-6">
-                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500"><div class="text-slate-400 text-xs uppercase font-bold mb-1">Checklist</div><div id="stat-progress"></div></div>
-                                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500"><div class="text-slate-400 text-xs uppercase font-bold mb-1">Cycles</div><div class="text-2xl font-bold text-slate-800" id="stat-pdsa">0</div></div>
-                                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500"><div class="text-slate-400 text-xs uppercase font-bold mb-1">Data Points</div><div class="text-2xl font-bold text-slate-800" id="stat-data">0</div></div>
-                                <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500"><div class="text-slate-400 text-xs uppercase font-bold mb-1">Drivers</div><div class="text-2xl font-bold text-slate-800" id="stat-drivers">0</div></div>
+                <!-- Content Area -->
+                <div class="flex-1 overflow-y-auto p-6" id="content-area">
+                    
+                    <!-- Projects List View -->
+                    <div id="view-projects" class="view-section max-w-6xl mx-auto">
+                        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+                            <div>
+                                <h1 class="text-3xl font-bold text-slate-900">My Projects</h1>
+                                <p class="text-slate-500 mt-1">Select a project or create a new one</p>
                             </div>
-                            <div class="bg-white rounded-xl shadow-sm p-6 relative">
-                                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-rcem-purple"></i> Project Aim</h3>
-                                <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif"></div>
-                                <div id="aim-quality-badge" class="mt-2 text-xs"></div>
-                            </div>
-                        </div>
-                        <div class="bg-white rounded-xl shadow-sm p-6 h-fit">
-                            <h3 class="font-bold text-slate-800 mb-4">Export & Share</h3>
-                            <div class="space-y-3">
-                                <button onclick="window.exportPPTX()" class="w-full flex items-center gap-3 p-3 rounded border border-slate-200 hover:bg-slate-50 text-left group"><div class="bg-orange-100 p-2 rounded text-orange-600"><i data-lucide="presentation" class="w-4 h-4"></i></div><span class="text-sm font-medium">Export PowerPoint</span></button>
-                                <button onclick="window.printPoster()" class="w-full flex items-center gap-3 p-3 rounded border border-slate-200 hover:bg-slate-50 text-left group"><div class="bg-purple-100 p-2 rounded text-purple-700"><i data-lucide="file-down" class="w-4 h-4"></i></div><span class="text-sm font-medium">Preview Poster</span></button>
-                            </div>
-                        </div>
+                            <button onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                                <i data-lucide="plus" class="w-4 h-4"></i> New Project
+                            </button>
+                        </header>
+                        <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
                     </div>
-                </div>
 
-                <div id="view-data" class="view-section hidden space-y-6">
-                    <header class="flex justify-between items-center"><h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="line-chart" class="text-rcem-purple"></i> Data & SPC</h2></header>
-                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                        <div class="bg-white p-6 rounded-xl shadow-sm h-fit">
-                            <h3 class="font-bold text-slate-800 mb-4">Add Data Point</h3>
-                            <div class="space-y-4" id="data-form-container"></div>
-                            <div class="mt-8"><h4 class="text-xs font-bold text-slate-400 uppercase border-b pb-1 mb-2">Recent History</h4><div id="data-history" class="max-h-48 overflow-y-auto text-sm"></div></div>
-                        </div>
-                        <div class="lg:col-span-2 space-y-6">
-                            <div class="bg-white p-6 rounded-xl shadow-sm relative h-[500px] flex flex-col">
-                                <div class="flex justify-end gap-2 mb-2 flex-shrink-0">
-                                    <button onclick="window.openChartSettings()" class="text-xs flex items-center gap-1 text-slate-500 hover:text-rcem-purple bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded"><i data-lucide="settings" class="w-3 h-3"></i> Settings</button>
-                                    <button onclick="window.copyChartImage()" class="text-xs flex items-center gap-1 text-white bg-rcem-purple hover:bg-indigo-900 px-2 py-1 rounded shadow"><i data-lucide="copy" class="w-3 h-3"></i> Copy Image</button>
+                    <!-- Dashboard View -->
+                    <div id="view-dashboard" class="view-section hidden space-y-6 max-w-6xl mx-auto">
+                        <div id="qi-coach-banner"></div>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div class="lg:col-span-2 space-y-6">
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-emerald-500">
+                                        <div class="text-slate-400 text-xs uppercase font-bold mb-1">Checklist</div>
+                                        <div id="stat-progress"></div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-blue-500">
+                                        <div class="text-slate-400 text-xs uppercase font-bold mb-1">Cycles</div>
+                                        <div class="text-2xl font-bold text-slate-800" id="stat-pdsa">0</div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-amber-500">
+                                        <div class="text-slate-400 text-xs uppercase font-bold mb-1">Data Points</div>
+                                        <div class="text-2xl font-bold text-slate-800" id="stat-data">0</div>
+                                    </div>
+                                    <div class="bg-white p-4 rounded-xl shadow-sm border-l-4 border-purple-500">
+                                        <div class="text-slate-400 text-xs uppercase font-bold mb-1">Drivers</div>
+                                        <div class="text-2xl font-bold text-slate-800" id="stat-drivers">0</div>
+                                    </div>
                                 </div>
-                                <div class="relative w-full flex-1 min-h-0 overflow-hidden">
+                                <div class="bg-white rounded-xl shadow-sm p-6 relative">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="target" class="w-4 h-4 text-rcem-purple"></i> Project Aim
+                                    </h3>
+                                    <div id="dash-aim-display" class="bg-slate-50 p-4 rounded border border-slate-200 text-slate-600 italic font-serif"></div>
+                                    <div id="aim-quality-badge" class="mt-2 text-xs"></div>
+                                </div>
+                            </div>
+                            <div class="space-y-6">
+                                <div class="bg-white rounded-xl shadow-sm p-6">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500"></i> Quick Chart
+                                    </h3>
+                                    <div id="dash-mini-chart" class="min-h-[100px]"></div>
+                                </div>
+                                <div class="bg-white rounded-xl shadow-sm p-6">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="activity" class="w-4 h-4 text-blue-500"></i> Recent Activity
+                                    </h3>
+                                    <div id="dash-activity" class="min-h-[100px]"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Checklist View -->
+                    <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto">
+                        <div id="checklist-container"></div>
+                    </div>
+
+                    <!-- Team View -->
+                    <div id="view-team" class="view-section hidden max-w-5xl mx-auto">
+                        <div id="team-list"></div>
+                        <div id="leadership-log-list"></div>
+                    </div>
+
+                    <!-- Tools View (Driver/Fishbone/Process) -->
+                    <div id="view-tools" class="view-section hidden max-w-6xl mx-auto">
+                        <div id="tools-container"></div>
+                    </div>
+
+                    <!-- Data View -->
+                    <div id="view-data" class="view-section hidden max-w-6xl mx-auto">
+                        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="bar-chart-2" class="text-blue-500"></i> Data & SPC Charts
+                                </h2>
+                                <p class="text-slate-500 text-sm mt-1">Track your measurements over time</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="window.downloadCSVTemplate()" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                                    <i data-lucide="download" class="w-4 h-4"></i> CSV Template
+                                </button>
+                                <label class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 cursor-pointer hover:bg-emerald-600">
+                                    <i data-lucide="upload" class="w-4 h-4"></i> Import CSV
+                                    <input type="file" id="csv-upload" accept=".csv" onchange="window.importCSV(event)" class="hidden">
+                                </label>
+                            </div>
+                        </header>
+                        
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <!-- Chart Area -->
+                            <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <div class="flex bg-slate-100 p-1 rounded-lg">
+                                        <button onclick="window.setChartMode('run')" id="btn-chart-run" class="px-3 py-1 text-xs font-bold rounded">Run</button>
+                                        <button onclick="window.setChartMode('spc')" id="btn-chart-spc" class="px-3 py-1 text-xs font-bold rounded">SPC</button>
+                                        <button onclick="window.setChartMode('histogram')" id="btn-chart-histogram" class="px-3 py-1 text-xs font-bold rounded">Histogram</button>
+                                        <button onclick="window.setChartMode('pareto')" id="btn-chart-pareto" class="px-3 py-1 text-xs font-bold rounded">Pareto</button>
+                                    </div>
+                                    <div class="flex gap-1">
+                                        <button onclick="window.zoomOut()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom Out">
+                                            <i data-lucide="zoom-out" class="w-4 h-4"></i>
+                                        </button>
+                                        <button onclick="window.resetZoom()" class="text-slate-400 hover:text-slate-700 p-1" title="Reset Zoom">
+                                            <i data-lucide="maximize-2" class="w-4 h-4"></i>
+                                        </button>
+                                        <button onclick="window.zoomIn()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom In">
+                                            <i data-lucide="zoom-in" class="w-4 h-4"></i>
+                                        </button>
+                                        <button onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1" title="Chart Settings">
+                                            <i data-lucide="settings" class="w-4 h-4"></i>
+                                        </button>
+                                        <button onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy Chart">
+                                            <i data-lucide="copy" class="w-4 h-4"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="relative min-h-[300px]" id="chart-wrapper">
                                     <canvas id="mainChart"></canvas>
                                 </div>
+                                <div id="chart-education" class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
                             </div>
-                            <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200"><h3 class="font-bold text-slate-800 mb-2">Results & Interpretation</h3><textarea id="results-text" onchange="window.saveResults(this.value)" class="w-full p-3 border rounded text-sm outline-none focus:border-rcem-purple" rows="3" placeholder="Analysis..."></textarea></div>
+                            
+                            <!-- Add Data & History -->
+                            <div class="space-y-6">
+                                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Add Data Point
+                                    </h3>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                                            <input type="date" id="data-date" class="w-full p-2 border rounded text-sm">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
+                                            <input type="number" id="data-value" class="w-full p-2 border rounded text-sm" placeholder="e.g. 45" step="any">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase/Cycle</label>
+                                            <select id="data-phase" class="w-full p-2 border rounded text-sm">
+                                                <option value="">Select phase...</option>
+                                                <option value="Baseline">Baseline</option>
+                                                <option value="PDSA 1">PDSA 1</option>
+                                                <option value="PDSA 2">PDSA 2</option>
+                                                <option value="PDSA 3">PDSA 3</option>
+                                                <option value="PDSA 4">PDSA 4</option>
+                                                <option value="Sustain">Sustain</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Note (optional)</label>
+                                            <input type="text" id="data-note" class="w-full p-2 border rounded text-sm" placeholder="Any context...">
+                                        </div>
+                                        <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700">
+                                            Add Point
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
+                                        <i data-lucide="history" class="w-4 h-4 text-slate-500"></i> Recent Data
+                                    </h3>
+                                    <div id="data-history" class="max-h-64 overflow-y-auto"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div id="view-tools" class="view-section hidden h-full flex flex-col">
-                    <header class="flex flex-wrap justify-between items-center p-4 gap-4 bg-white border-b border-slate-100"></header>
-                    <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative m-4">
-                        <div id="diagram-wrapper" class="flex-1 overflow-hidden relative bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] bg-slate-50">
-                            <div id="diagram-canvas" class="w-full h-full relative"></div>
-                            <div id="diagram-ghost" class="absolute inset-0 flex items-center justify-center bg-slate-50/80 hidden z-10"><div class="text-center p-6"><h3 class="font-bold text-slate-800">Start Building</h3></div></div>
+                    <!-- PDSA View -->
+                    <div id="view-pdsa" class="view-section hidden max-w-6xl mx-auto">
+                        <header class="mb-6">
+                            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                <i data-lucide="refresh-cw" class="text-amber-500"></i> PDSA Cycles
+                            </h2>
+                            <p class="text-slate-500 text-sm mt-1">Plan, Do, Study, Act - Test your changes</p>
+                        </header>
+                        <div id="pdsa-container"></div>
+                    </div>
+
+                    <!-- Stakeholders View -->
+                    <div id="view-stakeholders" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col">
+                        <div class="relative h-full">
+                            <div id="stakeholder-canvas"></div>
                         </div>
-                        <div class="absolute bottom-4 right-4 bg-white/90 p-2 rounded shadow text-xs flex gap-2 border border-slate-200 z-20"><button onclick="window.zoomOut()" class="hover:text-rcem-purple border-r pr-2"><i data-lucide="minus" class="w-4 h-4"></i></button><button onclick="window.resetZoom()" class="hover:text-rcem-purple px-1">Reset</button><button onclick="window.zoomIn()" class="hover:text-rcem-purple border-l pl-2"><i data-lucide="plus" class="w-4 h-4"></i></button></div>
+                    </div>
+
+                    <!-- Gantt View -->
+                    <div id="view-gantt" class="view-section hidden max-w-5xl mx-auto">
+                        <header class="flex justify-between items-center mb-6">
+                            <div>
+                                <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                                    <i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)
+                                </h2>
+                            </div>
+                            <button onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2">
+                                <i data-lucide="plus" class="w-4 h-4"></i> Add Task
+                            </button>
+                        </header>
+                        <div id="gantt-scroll-container" class="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
+                            <div id="gantt-container" class="min-w-[800px] p-6 min-h-[300px] relative"></div>
+                        </div>
+                    </div>
+
+                    <!-- Publish View -->
+                    <div id="view-publish" class="view-section hidden max-w-5xl mx-auto pb-32">
+                        <header class="mb-10 flex justify-between items-center border-b border-slate-200 pb-6">
+                            <div>
+                                <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-2">
+                                    <i data-lucide="newspaper" class="text-sky-500"></i> Publication
+                                </h1>
+                            </div>
+                            <div class="flex bg-slate-100 p-1 rounded-lg">
+                                <button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button>
+                                <button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">FRCEM Report</button>
+                                <button onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">QIAT / Risr Form</button>
+                            </div>
+                        </header>
+                        <div id="publish-content"></div>
+                    </div>
+
+                    <!-- Full Project View -->
+                    <div id="view-full" class="view-section hidden max-w-5xl mx-auto pb-32">
+                        <div id="full-project-container"></div>
+                    </div>
+
+                    <!-- Green ED View -->
+                    <div id="view-green" class="view-section hidden max-w-5xl mx-auto pt-8">
+                        <div class="text-center">Green ED Calculator</div>
                     </div>
                 </div>
-
-                <div id="view-pdsa" class="view-section hidden max-w-4xl mx-auto space-y-6"><header class="flex justify-between items-center"><div><h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="refresh-cw" class="text-rcem-purple"></i> PDSA Cycles</h2></div><button onclick="window.addPDSA()" class="bg-rcem-purple text-white px-4 py-2 rounded shadow"><i data-lucide="plus" class="w-4 h-4"></i> New Cycle</button></header><div id="pdsa-container" class="space-y-6 min-h-[200px]"></div></div>
-                <div id="view-gantt" class="view-section hidden max-w-5xl mx-auto"><header class="flex justify-between items-center mb-6"><div><h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)</h2></div><button onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2"><i data-lucide="plus" class="w-4 h-4"></i> Add Task</button></header><div id="gantt-scroll-container" class="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200"><div id="gantt-container" class="min-w-[800px] p-6 min-h-[300px] relative"></div></div></div>
-                <div id="view-publish" class="view-section hidden max-w-5xl mx-auto pb-32"><header class="mb-10 flex justify-between items-center border-b border-slate-200 pb-6"><div><h1 class="text-3xl font-bold text-slate-900 flex items-center gap-2"><i data-lucide="newspaper" class="text-sky-500"></i> Publication</h1></div><div class="flex bg-slate-100 p-1 rounded-lg"><button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button><button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">FRCEM Report</button><button onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">QIAT / Risr Form</button></div></header><div id="publish-content"></div></div>
-                <div id="view-full" class="view-section hidden max-w-5xl mx-auto pb-32"><div id="full-project-container"></div></div>
-                <div id="view-checklist" class="view-section hidden max-w-4xl mx-auto"><div id="checklist-container"></div></div>
-                <div id="view-team" class="view-section hidden max-w-5xl mx-auto"><div id="team-list"></div><div id="leadership-log-list"></div></div>
-                <div id="view-stakeholders" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col"><div class="relative h-full"><div id="stakeholder-canvas"></div></div></div>
-                <div id="view-green" class="view-section hidden max-w-5xl mx-auto pt-8"><div class="text-center">Green ED Calculator</div></div>
-            </div>
-        </main>
-    </div>
-
-    <input type="file" id="csv-upload" accept=".csv" class="hidden" onchange="window.importCSV(this)">
-    <input type="file" id="project-upload-input" accept=".json" class="hidden" onchange="window.importProjectFromFile(this)">
-
-    <div id="poster-modal" class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl w-full max-w-6xl max-h-[90vh] flex flex-col shadow-2xl modal-animate">
-            <div class="p-4 border-b flex justify-between items-center bg-slate-50">
-                <h3 class="font-bold text-lg text-slate-800">Poster Preview</h3>
-                <div class="flex gap-2">
-                    <button onclick="window.printPosterOnly()" class="bg-rcem-purple text-white px-4 py-1.5 rounded text-sm font-bold flex items-center gap-2"><i data-lucide="printer" class="w-4 h-4"></i> Print</button>
-                    <button onclick="document.getElementById('poster-modal').classList.add('hidden')"><i data-lucide="x"></i></button>
-                </div>
-            </div>
-            <div class="p-6 overflow-y-auto flex-1 bg-slate-100 flex justify-center" id="poster-preview-area"></div>
+            </main>
         </div>
     </div>
 
-    <div id="member-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-800">Add Team Member</h3>
-                <button onclick="document.getElementById('member-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
-            </div>
+    <!-- ========== MODALS ========== -->
+    
+    <!-- Team Member Modal -->
+    <div id="member-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Add/Edit Team Member</h3>
+            <input type="hidden" id="member-index">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Name *</label>
-                    <input type="text" id="member-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="Dr. Jane Smith" required>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Name *</label>
+                    <input type="text" id="member-name" class="w-full p-2 border rounded" placeholder="Dr Jane Smith">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Role</label>
-                    <input type="text" id="member-role" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Project Lead, Data Analyst">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Role</label>
+                    <input type="text" id="member-role" class="w-full p-2 border rounded" placeholder="QI Lead">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Grade</label>
-                    <input type="text" id="member-grade" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. ST4, Band 7, Consultant">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Grade</label>
+                    <input type="text" id="member-grade" class="w-full p-2 border rounded" placeholder="ST6 / Consultant">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Responsibilities</label>
-                    <textarea id="member-resp" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" rows="2" placeholder="Key responsibilities in the project..."></textarea>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Responsibility</label>
+                    <input type="text" id="member-resp" class="w-full p-2 border rounded" placeholder="Data collection">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Initials (optional)</label>
-                    <input type="text" id="member-init" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" maxlength="3" placeholder="Auto-generated if left blank">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Initials</label>
+                    <input type="text" id="member-init" class="w-full p-2 border rounded" placeholder="JS" maxlength="4">
                 </div>
-                <button onclick="window.saveMember()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 transition-colors shadow">Add Member</button>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="document.getElementById('member-modal').classList.add('hidden'); document.getElementById('member-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="window.saveMember()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
 
-    <div id="task-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-800">Add Task</h3>
-                <button onclick="document.getElementById('task-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
-            </div>
+    <!-- Gantt Task Modal -->
+    <div id="gantt-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Add/Edit Task</h3>
+            <input type="hidden" id="task-index">
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Task Name *</label>
-                    <input type="text" id="task-name" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Baseline Audit" required>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Task Name *</label>
+                    <input type="text" id="task-name" class="w-full p-2 border rounded" placeholder="Collect baseline data">
                 </div>
-                <div class="grid grid-cols-2 gap-3">
+                <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Start Date</label>
-                        <input type="date" id="task-start" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">Start Date</label>
+                        <input type="date" id="task-start" class="w-full p-2 border rounded">
                     </div>
                     <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">End Date</label>
-                        <input type="date" id="task-end" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple">
+                        <label class="block text-sm font-medium text-slate-700 mb-1">End Date</label>
+                        <input type="date" id="task-end" class="w-full p-2 border rounded">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase</label>
-                    <select id="task-type" class="w-full p-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-rcem-purple">
-                        <option value="plan">Plan</option>
-                        <option value="do">Do</option>
-                        <option value="study">Study</option>
-                        <option value="act">Act</option>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Status</label>
+                    <select id="task-status" class="w-full p-2 border rounded">
+                        <option value="not-started">Not Started</option>
+                        <option value="in-progress">In Progress</option>
+                        <option value="complete">Complete</option>
+                        <option value="blocked">Blocked</option>
                     </select>
                 </div>
                 <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Owner</label>
-                    <input type="text" id="task-owner" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Dr. Smith">
-                </div>
-                <div>
-                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Dependency (Optional)</label>
-                    <select id="task-dep" class="w-full p-2 border border-slate-300 rounded text-sm bg-white outline-none focus:border-rcem-purple">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Depends On</label>
+                    <select id="task-dep" class="w-full p-2 border rounded">
                         <option value="">None</option>
-                        </select>
+                    </select>
                 </div>
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="task-milestone" class="w-4 h-4 text-rcem-purple rounded">
-                    <label for="task-milestone" class="text-sm text-slate-700">Mark as Milestone</label>
+                    <input type="checkbox" id="task-milestone" class="rounded">
+                    <label for="task-milestone" class="text-sm text-slate-700">Milestone</label>
                 </div>
-                <button onclick="window.saveGanttTask()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 transition-colors shadow">Add Task</button>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="document.getElementById('gantt-modal').classList.add('hidden'); document.getElementById('gantt-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="window.saveGanttTask()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
-    
-    <div id="chart-settings-modal" class="fixed inset-0 bg-slate-900/60 z-[80] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 relative overflow-hidden modal-animate">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-bold text-slate-800">Chart Settings</h3>
-                <button onclick="document.getElementById('chart-settings-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
-            </div>
+
+    <!-- Chart Settings Modal -->
+    <div id="chart-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 class="text-lg font-bold text-slate-800 mb-4">Chart Settings</h3>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Chart Title</label>
-                    <input type="text" id="chart-setting-title" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. Sepsis 6 Compliance">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Chart Title</label>
+                    <input type="text" id="chart-title" class="w-full p-2 border rounded" placeholder="Door-to-Antibiotic Time (minutes)">
                 </div>
                 <div>
-                    <label class="block text-xs font-bold uppercase text-slate-500 mb-1">Y-Axis Label</label>
-                    <input type="text" id="chart-setting-yaxis" class="w-full p-2 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple" placeholder="e.g. % Compliance">
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Y-Axis Label</label>
+                    <input type="text" id="chart-yaxis" class="w-full p-2 border rounded" placeholder="Time (minutes)">
                 </div>
                 <div class="flex items-center gap-2">
-                    <input type="checkbox" id="chart-setting-annotations" class="w-4 h-4 text-rcem-purple rounded">
-                    <label for="chart-setting-annotations" class="text-sm font-medium text-slate-700">Show PDSA Annotations</label>
+                    <input type="checkbox" id="chart-annotations" class="rounded">
+                    <label for="chart-annotations" class="text-sm text-slate-700">Show PDSA Annotations</label>
                 </div>
-                <button onclick="window.saveChartSettings()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all">Apply Changes</button>
+            </div>
+            <div class="flex justify-end gap-2 mt-6">
+                <button onclick="document.getElementById('chart-settings-modal').classList.add('hidden'); document.getElementById('chart-settings-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button onclick="window.saveChartSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
-    
-    <div id="global-settings-modal" class="fixed inset-0 bg-slate-900/60 z-[90] hidden flex items-center justify-center p-4 backdrop-blur-sm">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 relative overflow-hidden modal-animate">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2"><i data-lucide="cpu" class="text-rcem-purple"></i> App Settings</h3>
-                <button onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800"><i data-lucide="x"></i></button>
-            </div>
-            
-            <div class="space-y-6">
-                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">AI Integration (API Key)</label>
-                    <p class="text-xs text-slate-500 mb-3">Enter your API key here to unlock AI features (e.g., OpenAI or Gemini). This is stored locally on your device.</p>
-                    <div class="relative">
-                        <input type="password" id="settings-ai-key" class="w-full p-2 pl-3 pr-10 border border-slate-300 rounded text-sm outline-none focus:border-rcem-purple font-mono" placeholder="sk-...">
-                        <button onclick="window.toggleKeyVis()" class="absolute right-2 top-2 text-slate-400 hover:text-slate-600"><i data-lucide="eye" class="w-4 h-4"></i></button>
-                    </div>
-                </div>
-                
-                <button onclick="window.saveGlobalSettings()" class="w-full bg-rcem-purple text-white py-2 rounded font-bold hover:bg-indigo-900 shadow transition-all">Save Settings</button>
-            </div>
-        </div>
-    </div>
-    
-    <div id="print-container" class="hidden"></div>
 
-    <div id="toast-container"></div>
-
-    <script type="module" src="app.js"></script>
-    
+    <!-- Service Worker Registration -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
-                    })
-                    .catch(function(err) {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('✅ Service Worker registered'))
+                    .catch(err => console.warn('⚠️ Service Worker registration failed:', err));
             });
         }
         
-        // Online/Offline event listeners
-        window.addEventListener('online', function() {
-            document.getElementById('offline-indicator').classList.add('hidden');
+        // Online/Offline detection
+        window.addEventListener('online', () => {
+            document.getElementById('offline-indicator')?.classList.add('hidden');
         });
-        
-        window.addEventListener('offline', function() {
-            document.getElementById('offline-indicator').classList.remove('hidden');
+        window.addEventListener('offline', () => {
+            document.getElementById('offline-indicator')?.classList.remove('hidden');
         });
     </script>
+    
+    <!-- Initialize Lucide Icons -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            if (typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        });
+    </script>
+    
+    <!-- Main Application -->
+    <script type="module" src="app.js"></script>
 </body>
 </html>
