@@ -21,7 +21,6 @@ export function escapeHtml(str) {
 
 /**
  * Auto-resize textarea based on content
- * Attached to global input events in app.js
  */
 export function autoResizeTextarea(element) {
     if (!element || element.tagName !== 'TEXTAREA') return;
