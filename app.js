@@ -18,6 +18,7 @@ import {
 
 import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
+import { startOnboarding } from "./onboarding.js";
 
 console.log('🚀 App starting...');
 
@@ -367,6 +368,7 @@ window.saveChecklist = (key, val) => {
 window.saveChecklistField = window.saveChecklist; // Alias for HTML compatibility
 window.saveSmartAim = R.saveSmartAim; 
 window.renderChecklist = R.renderChecklist; 
+window.startOnboarding = startOnboarding;
 
 // --- TEAM & LEADERSHIP ---
 window.openMemberModal = R.openMemberModal;
@@ -528,8 +530,25 @@ window.saveData = async function(skipHistory = false) {
     
     try {
         await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
+        
+        // Priority 5.2 - Auto-save indicator made more prominent
         const s = document.getElementById('save-status');
-        if(s) { s.classList.remove('opacity-0'); setTimeout(() => s.classList.add('opacity-0'), 2000); }
+        if(s) { 
+            s.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Saved`;
+            s.classList.remove('opacity-0', 'text-emerald-600');
+            s.classList.add('text-white', 'bg-emerald-500', 'px-3', 'py-1', 'rounded-full', 'shadow-sm', 'transition-all');
+            if(typeof lucide !== 'undefined') lucide.createIcons();
+            
+            setTimeout(() => {
+                s.classList.add('opacity-0');
+                setTimeout(() => {
+                    s.classList.remove('text-white', 'bg-emerald-500', 'px-3', 'py-1', 'rounded-full', 'shadow-sm');
+                    s.classList.add('text-emerald-600');
+                    s.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Saved`;
+                    if(typeof lucide !== 'undefined') lucide.createIcons();
+                }, 300);
+            }, 2500); 
+        }
     } catch (e) {
         console.error("Save failed", e);
         showToast("Save failed: " + e.message, "error");
@@ -826,9 +845,18 @@ window.createNewProject = async () => {
     
     try {
         if(!db) throw new Error("No DB connection");
-        await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
-        loadProjectList();
-        showToast("Project created", "success");
+        const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
+        
+        showToast("Project created successfully", "success");
+        
+        // Open the project immediately
+        window.openProject(docRef.id);
+        
+        // Launch onboarding wizard after a short delay to ensure DOM is ready
+        setTimeout(() => {
+            if (window.startOnboarding) window.startOnboarding();
+        }, 600);
+        
     } catch (e) {
         console.error("Error creating project:", e);
         showToast("Failed to create project: " + e.message, "error");
