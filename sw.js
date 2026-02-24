@@ -19,6 +19,7 @@ const STATIC_ASSETS = [
     '/utils.js',
     '/config.js',
     '/ai.js',
+    '/onboarding.js',
     '/styles.css',
     '/manifest.json'
 ];
