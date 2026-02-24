@@ -8,8 +8,8 @@ import { showToast } from "./utils.js";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 const SYSTEM_PROMPT = `
-You are an expert Quality Improvement (QI) Coach specializing in Emergency Medicine for the UK National Health Service (NHS). 
-Your target audience is ED Clinicians (Consultants, Registrars, Nurses) submitting for the RCEM FRCEM Portfolio.
+You are an expert Quality Improvement (QI) Coach specialising in Emergency Medicine for the UK National Health Service (NHS). 
+Your target audience is ED Clinicians (Consultants, Registrars, Nurses) submitting for the RCEM QIP Portfolio.
 
 GUIDING PRINCIPLES:
 1. **Context:** Always assume an NHS Emergency Department setting (crowding, 4-hour target, corridor care, rotas).
@@ -91,7 +91,7 @@ export async function callAI(userPrompt, jsonMode = false) {
 }
 
 // ==========================================
-// 3. SPECIALIZED AI FUNCTIONS
+// 3. SPECIALISED AI FUNCTIONS
 // ==========================================
 
 export async function runGapAnalysis(projectData) {
@@ -143,7 +143,7 @@ export async function generateChangeIdeas(driverName) {
         Context: NHS Emergency Department.
         Driver: "${driverName}"
         Task: List 5 practical, low-cost change ideas (interventions) to influence this driver.
-        Focus on: Process simplification, visual cues, nudges, or standardization. Avoid generic "education" if possible.
+        Focus on: Process simplification, visual cues, nudges, or standardisation. Avoid generic "education" if possible.
         Return as a simple JSON list of strings: ["Idea 1", "Idea 2"...]
     `;
 
