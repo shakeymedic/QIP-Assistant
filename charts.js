@@ -101,7 +101,12 @@ export function toggleToolHelp() {
 export async function renderTools(targetId = 'diagram-canvas', overrideMode = null) {
     if(!state.projectData) return;
     const canvas = document.getElementById(targetId);
-    if (!canvas) return;
+    
+    // Graceful failure if DOM element is missing
+    if (!canvas) {
+        console.warn(`[renderTools] Target canvas #${targetId} not found.`);
+        return;
+    }
 
     // Render Tabs and UI only if we are in the main diagram view
     if (targetId === 'diagram-canvas') {
@@ -111,15 +116,24 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     const mode = overrideMode || toolMode;
     canvas.innerHTML = ''; 
     
-    // Dispatch to specific renderer
-    if (mode === 'fishbone') {
-        renderFishboneVisual(canvas, targetId === 'diagram-canvas');
-    } 
-    else if (mode === 'driver') {
-        renderDriverVisual(canvas, targetId === 'diagram-canvas');
-    }
-    else if (mode === 'process') {
-        renderProcessVisual(canvas, targetId === 'diagram-canvas');
+    try {
+        // Dispatch to specific renderer
+        if (mode === 'fishbone') {
+            renderFishboneVisual(canvas, targetId === 'diagram-canvas');
+        } 
+        else if (mode === 'driver') {
+            renderDriverVisual(canvas, targetId === 'diagram-canvas');
+        }
+        else if (mode === 'process') {
+            renderProcessVisual(canvas, targetId === 'diagram-canvas');
+        }
+    } catch (error) {
+        console.error(`[renderTools] Error rendering ${mode}:`, error);
+        canvas.innerHTML = `<div class="p-8 text-center text-red-500 bg-red-50 rounded-xl border border-red-200">
+            <i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>
+            <p class="font-bold">Failed to render diagram</p>
+            <p class="text-sm mt-1 text-red-400">${error.message}</p>
+        </div>`;
     }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -218,17 +232,13 @@ function renderFishboneVisual(container, enableInteraction = false) {
     
     // Draw the fishbone structure
     svg.innerHTML = `
-        <!-- Main spine -->
         <line x1="8%" y1="50%" x2="92%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
-        <!-- Arrow head (fish head) -->
         <polygon points="92%,47% 98%,50% 92%,53%" fill="#2d2e83"/>
         
-        <!-- Upper bones -->
         <line x1="22%" y1="20%" x2="30%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="50%" y1="20%" x2="50%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="78%" y1="20%" x2="70%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         
-        <!-- Lower bones -->
         <line x1="22%" y1="80%" x2="30%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="50%" y1="80%" x2="50%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
         <line x1="78%" y1="80%" x2="70%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
@@ -292,8 +302,24 @@ function renderFishboneVisual(container, enableInteraction = false) {
         { x: 82, y: 85 }    // Bottom-right (Mother Nature)
     ];
 
-    // Render categories and causes
-    const categories = state.projectData.fishbone?.categories || [];
+    // Priority 3.1: Fallback if categories are missing to prevent crash
+    if (!state.projectData.fishbone) {
+        state.projectData.fishbone = { categories: [] };
+    }
+    
+    // Provide default 6M structure if completely empty
+    let categories = state.projectData.fishbone.categories || [];
+    if (categories.length === 0) {
+        categories = [
+            { text: "Patient", causes: [] },
+            { text: "Staff", causes: [] },
+            { text: "Equipment", causes: [] },
+            { text: "Process", causes: [] },
+            { text: "Environment", causes: [] },
+            { text: "Management", causes: [] }
+        ];
+        state.projectData.fishbone.categories = categories;
+    }
     
     categories.forEach((cat, i) => {
         const defaultPos = categoryPositions[i] || { x: 50, y: 50 };
@@ -460,16 +486,6 @@ function renderDriverVisual(container, enableInteraction = false) {
 
         container.appendChild(colDiv);
     });
-    
-    // Add connecting arrows between columns (visual indicator)
-    const arrows = document.createElement('div');
-    arrows.className = 'hidden md:flex absolute inset-0 pointer-events-none items-center justify-around px-[15%]';
-    arrows.innerHTML = `
-        <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
-        <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
-        <div class="text-slate-300"><i data-lucide="arrow-right" class="w-6 h-6"></i></div>
-    `;
-    // Don't append arrows as they need absolute positioning which conflicts with flex
 }
 
 // --- PROCESS MAP ---
@@ -501,7 +517,6 @@ function renderProcessVisual(container, enableInteraction = false) {
             
             // Decision point styling (contains "?")
             const isDecision = step.includes('?');
-            const shapeClass = isDecision ? 'rotate-45' : '';
             
             wrapper.innerHTML = `
                 <div class="${bgClass} p-4 rounded-lg transition-transform hover:scale-[1.01] ${isDecision ? 'border-amber-500' : ''}">
@@ -540,8 +555,6 @@ function renderProcessVisual(container, enableInteraction = false) {
         hint.innerHTML = '<i data-lucide="info" class="w-3 h-3 inline"></i> Hover over steps to add or delete. Edit text directly.';
         container.appendChild(hint);
     }
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // ==========================================
@@ -579,21 +592,41 @@ export function renderChart(canvasId = 'mainChart') {
     }
     
     const d = state.projectData?.chartData || [];
-    if (d.length === 0 && canvasId === 'mainChart') {
+    
+    // Priority 3.2: Graceful handling of empty chart data
+    if (d.length === 0) {
         const context = ctx.getContext('2d');
         context.clearRect(0, 0, ctx.width, ctx.height);
-        // Show empty state message
-        context.font = '14px Inter, sans-serif';
-        context.fillStyle = '#94a3b8';
-        context.textAlign = 'center';
-        context.fillText('No data yet. Add data points to see your chart.', ctx.width / 2, ctx.height / 2);
+        
+        // Create an empty state chart purely for visual feedback
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: ['No Data'], datasets: [{ data: [] }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'No Data Yet - Add points to see your chart', color: '#94a3b8', font: { weight: 'normal' } }
+                },
+                scales: {
+                    x: { display: true },
+                    y: { display: true, min: 0, max: 100 }
+                }
+            }
+        });
+        ctx.chartInstance = chart;
         return;
     }
     
-    if (chartMode === 'run') renderRunChart(ctx, canvasId);
-    else if (chartMode === 'spc') renderSPCChart(ctx, canvasId);
-    else if (chartMode === 'histogram') renderHistogram(ctx, canvasId);
-    else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
+    try {
+        if (chartMode === 'run') renderRunChart(ctx, canvasId);
+        else if (chartMode === 'spc') renderSPCChart(ctx, canvasId);
+        else if (chartMode === 'histogram') renderHistogram(ctx, canvasId);
+        else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
+    } catch (error) {
+        console.error("[renderChart] Error drawing chart:", error);
+    }
 }
 
 function renderRunChart(ctx, canvasId) {
@@ -756,7 +789,7 @@ function renderSPCChart(ctx, canvasId) {
     const avg = data.reduce((a, b) => a + b, 0) / data.length;
     let mRSum = 0; 
     for(let i = 1; i < data.length; i++) { mRSum += Math.abs(data[i] - data[i - 1]); }
-    const avgMR = mRSum / (data.length - 1);
+    const avgMR = mRSum / (data.length - 1) || 1; // Prevent division by zero
     
     const ucl = avg + (2.66 * avgMR);
     const lcl = Math.max(0, avg - (2.66 * avgMR));
@@ -831,12 +864,22 @@ function renderSPCChart(ctx, canvasId) {
 
 function renderHistogram(ctx, canvasId) {
     const d = state.projectData.chartData.map(x => x.value);
-    if(d.length < 2) { showToast("Need at least 2 data points for histogram", "info"); return; }
+    if(d.length < 2) { 
+        showToast("Need at least 2 data points for histogram", "info"); 
+        // Fallback to empty state
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: ['No Data'], datasets: [{ data: [] }] },
+            options: { plugins: { title: { display: true, text: 'Add more data for histogram' } } }
+        });
+        ctx.chartInstance = chart;
+        return; 
+    }
     
     const settings = state.projectData.chartSettings || {};
     const min = Math.min(...d); 
     const max = Math.max(...d);
-    const range = max - min;
+    const range = max - min || 1; // Prevent division by zero
     const bins = Math.max(3, Math.min(10, Math.ceil(Math.log2(d.length) + 1)));
     const step = range / bins || 1;
     
@@ -990,7 +1033,6 @@ export function downloadCSVTemplate() {
     link.remove();
 }
 
-// FIXED: importCSV now accepts input element directly instead of event
 export function importCSV(input) {
     const file = input.files ? input.files[0] : null;
     if (!file) return;
