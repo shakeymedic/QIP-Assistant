@@ -131,8 +131,59 @@ export function renderDashboard() {
     renderQICoachBanner();
     renderMiniChart();
     renderRecentActivity();
+    updatePortfolioReadiness();
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function updatePortfolioReadiness() {
+    const d = state.projectData;
+    const c = d.checklist || {};
+    const pdsa = d.pdsa || [];
+    const isHigher = d.meta?.trainingStage === 'higher';
+    
+    const criteria = [
+        { label: 'Clear Problem Statement', met: !!c.problem_desc },
+        { label: 'SMART Aim', met: !!c.aim },
+        { label: 'Measures Defined', met: !!(c.outcome_measure || c.process_measure) },
+        { label: 'Driver Diagram', met: (d.drivers?.primary?.length > 0) },
+        { label: isHigher ? '3+ PDSA Cycles' : '1+ PDSA Cycle', met: isHigher ? pdsa.length >= 3 : pdsa.length >= 1 },
+        { label: 'Data Chart with Analysis', met: (d.chartData?.length >= 5 && !!c.results_analysis) },
+        { label: 'Learning Reflections', met: !!c.learning_points },
+        { label: 'Sustainability Plan', met: !!c.sustainability }
+    ];
+    
+    const metCount = criteria.filter(cr => cr.met).length;
+    const percent = Math.round((metCount / criteria.length) * 100);
+    
+    const container = document.getElementById('readiness-content');
+    if (container) {
+        container.innerHTML = `
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl ${percent === 100 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
+                    ${percent}%
+                </div>
+                <div>
+                    <div class="text-sm font-bold text-slate-800">${percent === 100 ? 'Ready for Submission!' : 'Work in Progress'}</div>
+                    <div class="text-xs text-slate-500">Met ${metCount} of ${criteria.length} key requirements for ${isHigher ? 'Higher' : 'ACCS'} level.</div>
+                </div>
+            </div>
+            <div class="space-y-2">
+                ${criteria.map(cr => `
+                    <div class="flex items-center justify-between text-xs p-1 rounded hover:bg-slate-50">
+                        <span class="${cr.met ? 'text-slate-600' : 'text-slate-400'}">${cr.label}</span>
+                        <i data-lucide="${cr.met ? 'check-circle' : 'circle'}" class="w-4 h-4 ${cr.met ? 'text-emerald-500' : 'text-slate-300'}"></i>
+                    </div>
+                `).join('')}
+            </div>
+            ${percent < 100 ? `
+                <button onclick="window.openGoldenThreadValidator()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                    <i data-lucide="shield-check" class="w-4 h-4"></i> Validate Golden Thread
+                </button>
+            ` : ''}
+        `;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
 }
 
 function renderQICoachBanner() {
@@ -150,9 +201,9 @@ function renderQICoachBanner() {
     let color = 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200';
     
     if (!checks.problem_desc) {
-        tip = "Start by defining your problem statement in Define & Measure. A clear problem is half the solution!";
+        tip = "Start by defining your problem statement in Define & Measure. Use the Topic Ideas Bank if you need inspiration!";
     } else if (!checks.aim) {
-        tip = "Now set a SMART aim: Specific, Measurable, Achievable, Relevant, Time-bound. What exactly do you want to achieve?";
+        tip = "Now set a SMART aim: Specific, Measurable, Achievable, Relevant, Time-bound. Use the Interactive Builder.";
     } else if (drivers.primary.length === 0) {
         tip = "Build your Driver Diagram in the Tools section. What are the main factors affecting your aim?";
         icon = 'git-branch';
@@ -160,14 +211,14 @@ function renderQICoachBanner() {
         tip = `You have ${data.length} data points. Collect at least 12 baseline points before making changes for a reliable run chart.`;
         icon = 'bar-chart-2';
     } else if (pdsa.length === 0) {
-        tip = "Ready to test a change? Document your first PDSA cycle. Start small - test with one patient, one shift, one clinician.";
+        tip = "Ready to test a change? Document your first PDSA cycle. Ensure you write down a prediction in the Plan section.";
         icon = 'refresh-cw';
         color = 'bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200';
     } else if (!checks.ethics) {
         tip = "Don't forget governance! Document your ethical considerations and any approvals needed.";
         icon = 'shield-check';
     } else {
-        tip = "Excellent progress! Keep iterating through PDSA cycles. Remember: 'Adopt, Adapt, or Abandon' after each test.";
+        tip = "Excellent progress! Keep iterating through PDSA cycles. Remember to use the Golden Thread Validator to ensure coherence.";
         icon = 'trophy';
         color = 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200';
     }
@@ -291,7 +342,6 @@ export function renderChecklist() {
             <p class="text-slate-500 mt-2">Complete these sections to build a solid QIP foundation</p>
         </header>
         
-        <!-- Problem Definition -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">1</span>
@@ -299,7 +349,10 @@ export function renderChecklist() {
             </h2>
             <div class="space-y-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Problem Statement *</label>
+                    <div class="flex justify-between items-center mb-1">
+                        <label class="block text-sm font-medium text-slate-700">Problem Statement *</label>
+                        <button onclick="window.openTopicBank()" class="text-xs text-rcem-purple hover:underline flex items-center gap-1"><i data-lucide="library" class="w-3 h-3"></i> Topic Ideas Bank</button>
+                    </div>
                     <textarea id="check-problem" onchange="window.saveChecklistField('problem_desc', this.value)" 
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="What is the current problem? Be specific about the gap between current and desired state.">${escapeHtml(c.problem_desc || '')}</textarea>
@@ -307,7 +360,6 @@ export function renderChecklist() {
             </div>
         </section>
         
-        <!-- SMART Aim -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold">2</span>
@@ -320,15 +372,17 @@ export function renderChecklist() {
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="To [increase/decrease] [measure] from [baseline] to [target] by [date]">${escapeHtml(c.aim || '')}</textarea>
                     <div class="mt-2 flex gap-2">
+                        <button onclick="window.openSmartAimBuilder()" class="text-xs bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-slate-50 transition-all">
+                            <i data-lucide="edit-3" class="w-3 h-3"></i> Interactive Builder
+                        </button>
                         <button id="btn-ai-aim" onclick="window.aiRefineAim()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
-                            <i data-lucide="sparkles" class="w-3 h-3"></i> AI Refine
+                            <i data-lucide="sparkles" class="w-3 h-3"></i> AI Critique & Refine
                         </button>
                     </div>
                 </div>
             </div>
         </section>
         
-        <!-- Measures -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
@@ -362,7 +416,6 @@ export function renderChecklist() {
             </div>
         </section>
         
-        <!-- Ethics & Governance -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">4</span>
@@ -376,7 +429,6 @@ export function renderChecklist() {
             </div>
         </section>
         
-        <!-- Literature Review -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold">5</span>
@@ -395,7 +447,6 @@ export function renderChecklist() {
             </div>
         </section>
         
-        <!-- Results Analysis -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold">6</span>
@@ -409,7 +460,6 @@ export function renderChecklist() {
             </div>
         </section>
         
-        <!-- Learning & Sustainability -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">7</span>
@@ -428,6 +478,12 @@ export function renderChecklist() {
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
                         placeholder="How will improvements be maintained? Who owns this? What systems are in place?">${escapeHtml(c.sustainability || '')}</textarea>
                 </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm font-medium text-slate-700 mb-1">Next Year's PDP</label>
+                <textarea id="check-next-pdp" onchange="window.saveChecklistField('next_pdp', this.value)"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                    placeholder="What specific QI skills do you want to develop next year?">${escapeHtml(c.next_pdp || '')}</textarea>
             </div>
         </section>
     `;
@@ -664,7 +720,6 @@ export function renderPDSA() {
     
     container.innerHTML = `
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <!-- Add New PDSA Form -->
             <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 h-fit">
                 <h3 class="font-bold text-lg text-slate-800 mb-4 flex items-center gap-2">
                     <i data-lucide="plus-circle" class="w-5 h-5 text-rcem-purple"></i>
@@ -698,7 +753,7 @@ export function renderPDSA() {
                     </div>
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Initial Plan</label>
-                        <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm" rows="3" placeholder="What will you test? What do you predict will happen?"></textarea>
+                        <textarea id="pdsa-plan" class="w-full p-2 border rounded text-sm" rows="3" placeholder="What change are you testing? What do you PREDICT will happen?"></textarea>
                     </div>
                     <button onclick="window.addPDSA()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
                         Add PDSA Cycle
@@ -710,7 +765,6 @@ export function renderPDSA() {
                 </div>
             </div>
             
-            <!-- PDSA List -->
             <div class="lg:col-span-2 space-y-4">
                 ${pdsa.length === 0 ? `
                     <div class="bg-slate-50 rounded-xl p-8 text-center">
@@ -748,7 +802,7 @@ export function renderPDSA() {
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" 
                                     class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
-                                    placeholder="What change are you testing? What's your prediction?">${escapeHtml(p.plan || p.desc || '')}</textarea>
+                                    placeholder="What change are you testing? What do you PREDICT will happen?">${escapeHtml(p.plan || p.desc || '')}</textarea>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold uppercase text-amber-600 flex items-center gap-1">
@@ -756,7 +810,7 @@ export function renderPDSA() {
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" 
                                     class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
-                                    placeholder="What did you actually do? Any deviations from plan?">${escapeHtml(p.do || '')}</textarea>
+                                    placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
@@ -764,7 +818,7 @@ export function renderPDSA() {
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" 
                                     class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
-                                    placeholder="What did you learn? What does the data show?">${escapeHtml(p.study || '')}</textarea>
+                                    placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
                             </div>
                             <div class="space-y-1">
                                 <label class="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-1">
@@ -772,7 +826,7 @@ export function renderPDSA() {
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" 
                                     class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
-                                    placeholder="Adopt, Adapt, or Abandon? What's next?">${escapeHtml(p.act || '')}</textarea>
+                                    placeholder="Will you adopt, adapt, or abandon this change? Why?">${escapeHtml(p.act || '')}</textarea>
                             </div>
                         </div>
                     </div>
@@ -1682,7 +1736,7 @@ export function renderPublish(mode = 'qiat') {
 
 // ── Helper: empty state placeholder for QIAT text fields ─────────────────────
 function qiatEmptyState(promptText) {
-    return `<p class="text-slate-400 italic text-sm">${escapeHtml(promptText)}</p>`;
+    return `<p class="text-slate-400 italic text-sm select-none">${escapeHtml(promptText)}</p>`;
 }
 
 // ── Save training stage ───────────────────────────────────────────────────────
@@ -1742,14 +1796,12 @@ function renderQIATForm(d) {
             </div>
             
             <div class="p-6 space-y-6">
-                <!-- Action buttons -->
                 <div class="flex justify-end gap-2">
                     <button onclick="window.copyReport('qiat')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
                         <i data-lucide="copy" class="w-4 h-4"></i> Copy All Text
                     </button>
                 </div>
                 
-                <!-- Training Stage Selector (Fix 1.3) -->
                 <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
                     <label class="block text-sm font-bold text-slate-700 mb-2">Training Stage</label>
                     <div class="flex gap-3">
@@ -1774,13 +1826,11 @@ function renderQIATForm(d) {
 
                 ${stageBanner}
                 
-                <!-- Part A Header -->
                 <div class="border-b border-slate-200 pb-4">
                     <h3 class="text-lg font-bold text-slate-800">Part A — Trainee Section</h3>
                     <p class="text-sm text-slate-500">Complete this form prior to ARCP</p>
                 </div>
                 
-                <!-- Basic Info -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stage of Training</label>
@@ -1798,7 +1848,6 @@ function renderQIATForm(d) {
                     </div>
                 </div>
                 
-                <!-- Section 1: QI Personal Development Plan -->
                 <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="bg-blue-50 px-4 py-3 border-b border-slate-200">
                         <h4 class="font-bold text-slate-800">1. QI Personal Development Plan — Current Year</h4>
@@ -1822,7 +1871,6 @@ function renderQIATForm(d) {
                     </div>
                 </div>
                 
-                <!-- Section 2: QI Education -->
                 <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="bg-emerald-50 px-4 py-3 border-b border-slate-200">
                         <h4 class="font-bold text-slate-800">2. QI Education</h4>
@@ -1865,7 +1913,6 @@ function renderQIATForm(d) {
                     </div>
                 </div>
                 
-                <!-- Section 3: Project Involvement -->
                 <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="bg-amber-50 px-4 py-3 border-b border-slate-200">
                         <h4 class="font-bold text-slate-800">3. Project Involvement</h4>
@@ -1888,7 +1935,6 @@ function renderQIATForm(d) {
                     </div>
                 </div>
                 
-                <!-- Section 4: Learning & Development -->
                 <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="bg-purple-50 px-4 py-3 border-b border-slate-200">
                         <h4 class="font-bold text-slate-800">4. Learning & Development</h4>
@@ -1949,7 +1995,6 @@ function renderQIATForm(d) {
                     </div>
                 </div>
                 
-                <!-- Curriculum Mapping Note -->
                 <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                     <h4 class="font-bold text-indigo-800 text-sm mb-2 flex items-center gap-2">
                         <i data-lucide="info" class="w-4 h-4"></i>
@@ -1966,7 +2011,6 @@ function renderQIATForm(d) {
                     </p>
                 </div>
                 
-                <!-- Part B Note -->
                 <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
                         <i data-lucide="alert-triangle" class="w-4 h-4"></i>
@@ -2160,7 +2204,176 @@ export function removeFishCause(catIndex, causeIndex) {
 }
 
 // ==========================================
-// 13. HELP & TOUR
+// 13. MODALS AND EXTENDED TOOLS
+// ==========================================
+
+const TOPIC_BANK = [
+    { title: "Sepsis 6 Pathway Compliance", desc: "Improving time to antibiotics for red flag sepsis in the Emergency Department." },
+    { title: "Fracture Clinic Referrals", desc: "Reducing inappropriate and incomplete referrals to the orthopaedic fracture clinic." },
+    { title: "Paracetamol Overdose", desc: "Improving compliance with the TOXBASE paracetamol overdose treatment pathway." },
+    { title: "NEWS2 Escalation", desc: "Improving time to medical review for patients triggering a NEWS2 score >= 7." },
+    { title: "Discharge Summaries", desc: "Improving the quality and timeliness of ED discharge summaries sent to primary care." },
+    { title: "Analgesia in Triage", desc: "Reducing time to initial analgesia for patients presenting with severe pain." },
+    { title: "VTE Risk Assessment", desc: "Increasing compliance with VTE risk assessments for patients in ED observation wards." },
+    { title: "Frailty Assessment", desc: "Improving early identification and Comprehensive Geriatric Assessment for frail patients." }
+];
+
+export function openTopicBank() {
+    const modal = document.getElementById('topic-bank-modal');
+    const list = document.getElementById('topic-list');
+    const search = document.getElementById('topic-search');
+    if (!modal || !list || !search) return;
+
+    const renderList = (filter = "") => {
+        const filtered = TOPIC_BANK.filter(t => t.title.toLowerCase().includes(filter.toLowerCase()) || t.desc.toLowerCase().includes(filter.toLowerCase()));
+        list.innerHTML = filtered.map(t => `
+            <div class="border border-slate-200 p-3 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="window.selectTopic('${escapeHtml(t.title)}', '${escapeHtml(t.desc)}')">
+                <h4 class="font-bold text-slate-800 text-sm">${t.title}</h4>
+                <p class="text-xs text-slate-500 mt-1">${t.desc}</p>
+            </div>
+        `).join('');
+    };
+
+    search.oninput = (e) => renderList(e.target.value);
+    renderList();
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+export function selectTopic(title, desc) {
+    const problemInput = document.getElementById('check-problem');
+    if(problemInput) problemInput.value = desc;
+    window.saveChecklistField('problem_desc', desc);
+    document.getElementById('topic-bank-modal').classList.add('hidden');
+    showToast("Topic selected", "success");
+}
+
+export function openSmartAimBuilder() {
+    const modal = document.getElementById('smart-aim-modal');
+    if (!modal) return;
+    
+    // Clear the values each time it's opened to ensure clean building process
+    document.getElementById('smart-direction').value = 'increase';
+    document.getElementById('smart-measure').value = '';
+    document.getElementById('smart-baseline').value = '';
+    document.getElementById('smart-target').value = '';
+    document.getElementById('smart-timeframe').value = '';
+    document.getElementById('smart-setting').value = 'the Emergency Department';
+    
+    const updatePreview = () => {
+        const dir = document.getElementById('smart-direction').value;
+        const measure = document.getElementById('smart-measure').value || '[measure]';
+        const baseline = document.getElementById('smart-baseline').value || '[baseline]';
+        const target = document.getElementById('smart-target').value || '[target]';
+        const timeframe = document.getElementById('smart-timeframe').value || '[timeframe]';
+        const setting = document.getElementById('smart-setting').value || '[setting]';
+        
+        document.getElementById('smart-preview').textContent = `To ${dir} ${measure} from ${baseline} to ${target} by ${timeframe} in ${setting}.`;
+    };
+    
+    ['smart-direction', 'smart-measure', 'smart-baseline', 'smart-target', 'smart-timeframe', 'smart-setting'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updatePreview);
+    });
+    
+    updatePreview();
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+export function saveConstructedSmartAim() {
+    const aim = document.getElementById('smart-preview').textContent;
+    const aimInput = document.getElementById('check-aim');
+    if(aimInput) aimInput.value = aim;
+    window.saveChecklistField('aim', aim);
+    document.getElementById('smart-aim-modal').classList.add('hidden');
+    showToast("SMART Aim saved", "success");
+    renderChecklist();
+}
+
+export async function openGoldenThreadValidator() {
+    const modal = document.getElementById('golden-thread-modal');
+    const content = document.getElementById('golden-thread-content');
+    if (!modal || !content) return;
+    
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    
+    content.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12">
+            <i data-lucide="loader-2" class="w-8 h-8 text-rcem-purple animate-spin mb-4"></i>
+            <p class="text-slate-600 font-medium">Validating Golden Thread...</p>
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    if (window.runGoldenThreadValidator && window.hasAI && window.hasAI()) {
+        try {
+            const result = await window.runGoldenThreadValidator(state.projectData);
+            if (result) {
+                const scoreColor = result.overallScore >= 80 ? 'text-emerald-500' : (result.overallScore >= 50 ? 'text-amber-500' : 'text-red-500');
+                
+                const renderRow = (label, data) => {
+                    if (!data) return '';
+                    const icon = data.status === 'pass' ? 'check-circle' : (data.status === 'warning' ? 'alert-triangle' : 'x-circle');
+                    const color = data.status === 'pass' ? 'text-emerald-500' : (data.status === 'warning' ? 'text-amber-500' : 'text-red-500');
+                    return `
+                        <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                            <i data-lucide="${icon}" class="w-5 h-5 ${color} flex-shrink-0 mt-0.5"></i>
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-800">${label}</h4>
+                                <p class="text-xs text-slate-600 mt-1">${data.comment}</p>
+                            </div>
+                        </div>
+                    `;
+                };
+
+                content.innerHTML = `
+                    <div class="text-center mb-6">
+                        <div class="text-4xl font-black ${scoreColor}">${result.overallScore}/100</div>
+                        <div class="text-sm text-slate-500 font-medium uppercase tracking-wide mt-1">Coherence Score</div>
+                    </div>
+                    <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-lg mb-6">
+                        <h4 class="text-xs font-bold text-indigo-800 uppercase mb-1">Top Recommendation</h4>
+                        <p class="text-sm text-indigo-900">${result.topRecommendation}</p>
+                    </div>
+                    <div class="space-y-3">
+                        ${renderRow('Aim addresses problem', result.aimAddressesProblem)}
+                        ${renderRow('Drivers relate to aim', result.driversRelateToAim)}
+                        ${renderRow('Change ideas map to drivers', result.changeIdeasMapToDrivers)}
+                        ${renderRow('Measures capture aim', result.measuresCaptureAim)}
+                        ${renderRow('PDSA tests change ideas', result.pdsaTestsChangeIdeas)}
+                        ${renderRow('Data adequate for rules', result.dataAdequate)}
+                        ${renderRow('Sustainability planned', result.sustainabilityPlan)}
+                    </div>
+                `;
+            } else {
+                content.innerHTML = `<div class="p-6 text-center text-red-500">Validation failed. Please try again.</div>`;
+            }
+        } catch (error) {
+            content.innerHTML = `<div class="p-6 text-center text-red-500">Validation error: ${error.message}</div>`;
+        }
+    } else {
+        content.innerHTML = `
+            <div class="p-6 text-center text-slate-600 flex flex-col items-center">
+                <i data-lucide="key" class="w-8 h-8 text-slate-400 mb-3"></i>
+                <p>The Golden Thread Validator requires AI features to be enabled.</p>
+                <button onclick="document.getElementById('golden-thread-modal').classList.add('hidden'); window.openGlobalSettings()" class="mt-4 bg-rcem-purple text-white px-4 py-2 rounded font-bold">Configure AI Settings</button>
+            </div>
+        `;
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+// Attach these to window so they are accessible from index.html buttons
+window.openTopicBank = openTopicBank;
+window.selectTopic = selectTopic;
+window.openSmartAimBuilder = openSmartAimBuilder;
+window.saveConstructedSmartAim = saveConstructedSmartAim;
+window.openGoldenThreadValidator = openGoldenThreadValidator;
+
+// ==========================================
+// 14. HELP & TOUR
 // ==========================================
 
 export function showHelp() {
@@ -2169,7 +2382,7 @@ export function showHelp() {
 
 export function startTour() {
     if (typeof driver === 'undefined' || !driver.js) {
-        showToast("Tour feature loading...", "info");
+        showToast("Tour feature loading... check internet or try again.", "info");
         return;
     }
     
