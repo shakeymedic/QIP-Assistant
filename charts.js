@@ -1,3 +1,4 @@
+// charts.js
 import { state } from "./state.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 
@@ -8,7 +9,6 @@ import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 export let toolMode = 'driver'; // Options: 'driver', 'fishbone', 'process'
 export let chartMode = 'run';   // Options: 'run', 'spc', 'histogram', 'pareto'
 let zoomLevel = 1.0;
-let myChart = null; // Holds the Chart.js instance
 
 // HELP CONTENT
 const TOOL_HELP = {
@@ -440,7 +440,7 @@ function renderDriverVisual(container, enableInteraction = false) {
                     let aiBtn = '';
                     if (col.type === 'secondary' && window.hasAI && window.hasAI()) {
                         aiBtn = `
-                            <button onclick="window.runChangeGen('${escapeHtml(item.replace(/'/g, "\\'"))}')" 
+                            <button onclick="window.runChangeGen('${col.type}', ${itemIdx})" 
                                     title="Generate Change Ideas from this driver" 
                                     class="absolute -top-2 -right-2 bg-white text-emerald-600 border border-emerald-200 rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-emerald-50 transition-all z-20">
                                 <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
@@ -1000,8 +1000,9 @@ export function addDataPoint() {
     const parsedValue = parseFloat(v);
     if (isNaN(parsedValue)) { showToast("Value must be a number", "error"); return; }
     
+    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     if (!state.projectData.chartData) state.projectData.chartData = [];
-    state.projectData.chartData.push({ date: d, value: parsedValue, grade: g });
+    state.projectData.chartData.push({ id: id, date: d, value: parsedValue, grade: g });
     state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
     
     if (valueInput) valueInput.value = '';
@@ -1010,9 +1011,9 @@ export function addDataPoint() {
     showToast("Data point added", "success");
 }
 
-export function deleteDataPoint(date) {
+export function deleteDataPoint(idOrDate) {
     if(confirm('Delete this data point?')) {
-        const idx = state.projectData.chartData.findIndex(x => x.date === date);
+        const idx = state.projectData.chartData.findIndex(x => x.id === idOrDate || x.date === idOrDate);
         if(idx > -1) { 
             state.projectData.chartData.splice(idx, 1); 
             window.saveData(); 
@@ -1049,7 +1050,8 @@ export function importCSV(input) {
                 const d = parts[0].trim();
                 const v = parseFloat(parts[1].trim());
                 if(d && !isNaN(v)) {
-                    state.projectData.chartData.push({date: d, value: v, grade: parts[2] ? parts[2].trim() : 'Baseline'});
+                    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+                    state.projectData.chartData.push({id: id, date: d, value: v, grade: parts[2] ? parts[2].trim() : 'Baseline'});
                     count++;
                 }
             }
@@ -1071,7 +1073,7 @@ window.addDriver = (type) => {
     if (!state.projectData.drivers[type]) state.projectData.drivers[type] = [];
     state.projectData.drivers[type].push("New Item");
     window.saveData();
-    renderTools();
+    renderTools('diagram-canvas', 'driver');
 };
 
 window.updateDriver = (type, index, value) => {
@@ -1086,7 +1088,7 @@ window.removeDriver = (type, index) => {
     if(confirm("Remove this item?")) {
         state.projectData.drivers[type].splice(index, 1);
         window.saveData();
-        renderTools();
+        renderTools('diagram-canvas', 'driver');
     }
 };
 
@@ -1094,7 +1096,7 @@ window.addStep = (index) => {
     if(!state.projectData.process) state.projectData.process = ["Start", "End"];
     state.projectData.process.splice(index + 1, 0, "New Step");
     window.saveData();
-    renderTools(null, 'process'); 
+    renderTools('diagram-canvas', 'process'); 
 };
 
 window.updateStep = (index, val) => {
@@ -1107,18 +1109,19 @@ window.removeStep = (index) => {
     if(!state.projectData.process) return;
     state.projectData.process.splice(index, 1);
     window.saveData();
-    renderTools(null, 'process'); 
+    renderTools('diagram-canvas', 'process'); 
 };
 
-window.runChangeGen = async (driverName) => {
+window.runChangeGen = async (type, index) => {
     if(window.generateChangeIdeas) {
+        const driverName = state.projectData.drivers[type][index];
         showToast("Generating ideas...", "info");
         const ideas = await window.generateChangeIdeas(driverName);
         if(ideas && Array.isArray(ideas)) {
             if (!state.projectData.drivers.changes) state.projectData.drivers.changes = [];
             state.projectData.drivers.changes.push(...ideas);
             window.saveData();
-            renderTools();
+            renderTools('diagram-canvas', 'driver');
             showToast(`${ideas.length} ideas added!`, "success");
         }
     } else {
@@ -1155,7 +1158,7 @@ window.addCauseWithWhys = (catIdx) => {
     });
     
     window.saveData();
-    renderTools();
+    renderTools('diagram-canvas', 'fishbone');
     showToast("Cause added - double-click to edit", "success");
 };
 
@@ -1164,7 +1167,7 @@ export function resetProcess() {
     if(confirm("Reset process map to default?")) { 
         state.projectData.process = ["Start", "End"]; 
         window.saveData(); 
-        renderTools(); 
+        renderTools('diagram-canvas', 'process'); 
         showToast("Process map reset", "info");
     }
 }
