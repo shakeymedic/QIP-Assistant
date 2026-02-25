@@ -1,3 +1,4 @@
+// app.js
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
@@ -487,7 +488,7 @@ window.switchPublishMode = R.renderPublish;
 window.copyReport = R.copyReport;
 window.saveResults = (val) => { 
     if(!state.projectData.checklist) state.projectData.checklist = {};
-    state.projectData.checklist.results_text = val; 
+    state.projectData.checklist.results_analysis = val; 
     window.saveData(); 
 };
 window.calcGreen = R.calcGreen;
