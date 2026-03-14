@@ -348,6 +348,7 @@ window.updateChartEducation = updateChartEducation;
 window.openChartSettings = openChartSettings;
 window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
+window.renderFullViewChart = renderFullViewChart; // FIX APPLIED HERE
 
 // --- TOOL FUNCTIONS (Fishbone/Driver/Process) ---
 window.setToolMode = setToolMode;
