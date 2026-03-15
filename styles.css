@@ -418,6 +418,46 @@ textarea {
         max-height: 95vh;
         overflow-y: auto;
     }
+    
+    /* Prevent iOS auto-zoom on inputs */
+    input, select, textarea {
+        font-size: 16px !important;
+    }
+    
+    /* Force stacked columns on mobile */
+    .grid {
+        grid-template-columns: 1fr !important;
+        gap: 1rem !important;
+    }
+    
+    /* Enable smooth touch scrolling for wide data tables */
+    .overflow-x-auto {
+        -webkit-overflow-scrolling: touch;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.5rem;
+    }
+    
+    table {
+        min-width: 600px; 
+    }
+    
+    /* Maximise screen space on small devices */
+    .view-section {
+        padding: 0.5rem !important;
+    }
+    
+    .p-6 {
+        padding: 1rem !important;
+    }
+
+    /* Stack buttons vertically on mobile */
+    .flex.gap-2 {
+        flex-direction: column;
+    }
+    
+    .flex.gap-2 button {
+        width: 100%;
+    }
 }
 
 @media (max-width: 640px) {
