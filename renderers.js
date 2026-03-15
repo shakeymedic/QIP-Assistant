@@ -5,6 +5,10 @@ import {
     setToolMode, renderFullViewChart, makeDraggable, chartMode, toolMode
 } from "./charts.js";
 
+// Import external modules to populate missing DOM elements
+import { renderPatientTracker } from "./patient-tracker.js";
+import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
+
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
 // ==========================================
@@ -15,14 +19,19 @@ export function renderAll(view) {
     switch(view) {
         case 'projects': break; 
         case 'dashboard': renderDashboard(); break;
-        case 'checklist': renderChecklist(); break; 
+        case 'checklist': 
+            renderChecklist(); 
+            if (typeof renderPatientTracker === 'function') renderPatientTracker();
+            break; 
         case 'team': renderTeam(); break;
         case 'tools': renderTools(); break;
         case 'data': renderDataView(); break;       
         case 'pdsa': renderPDSA(); break;
         case 'stakeholders': renderStakeholders(); break;
         case 'gantt': renderGantt(); break;
-        case 'green': renderGreen(); break;         
+        case 'green': 
+            if (typeof renderGreenCalculator === 'function') renderGreenCalculator(); 
+            break;         
         case 'full': renderFullProject(); break;    
         case 'publish': renderPublish(); break;     
         default: renderDashboard();
@@ -1343,87 +1352,6 @@ export function openGanttModal(index = null) {
 }
 
 // ==========================================
-// 9. GREEN ED VIEW
-// ==========================================
-
-export function renderGreen() {
-    const container = document.querySelector('#view-green > div');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 max-w-2xl mx-auto">
-            <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2 mb-6">
-                <i data-lucide="leaf" class="text-emerald-500"></i> Green ED Calculator
-            </h2>
-            <p class="text-slate-600 mb-6">Estimate the environmental impact of your QIP</p>
-            
-            <div class="space-y-6">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Paper Saved (sheets/week)</label>
-                        <input type="number" id="green-paper" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Single-use Items Reduced (per week)</label>
-                        <input type="number" id="green-items" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Staff Time Saved (hours/week)</label>
-                        <input type="number" id="green-time" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Patient Journeys Avoided (per week)</label>
-                        <input type="number" id="green-journeys" class="w-full p-2 border rounded" value="0" onchange="window.calcGreen()">
-                    </div>
-                </div>
-                
-                <div id="green-results" class="bg-emerald-50 rounded-lg p-6 border border-emerald-200">
-                    <h3 class="font-bold text-emerald-800 mb-4">Estimated Annual Impact</h3>
-                    <div class="grid grid-cols-2 gap-4 text-center">
-                        <div>
-                            <div class="text-3xl font-bold text-emerald-600" id="green-co2">0</div>
-                            <div class="text-xs text-emerald-700">kg CO₂ saved</div>
-                        </div>
-                        <div>
-                            <div class="text-3xl font-bold text-emerald-600" id="green-money">£0</div>
-                            <div class="text-xs text-emerald-700">Cost savings</div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-    
-    if (typeof lucide !== 'undefined') lucide.createIcons();
-}
-
-export function calcGreen() {
-    const paper = parseFloat(document.getElementById('green-paper')?.value) || 0;
-    const items = parseFloat(document.getElementById('green-items')?.value) || 0;
-    const time = parseFloat(document.getElementById('green-time')?.value) || 0;
-    const journeys = parseFloat(document.getElementById('green-journeys')?.value) || 0;
-    
-    const paperCO2 = paper * 52 * 0.005;
-    const itemsCO2 = items * 52 * 0.1;
-    const journeyCO2 = journeys * 52 * 2.5;
-    
-    const totalCO2 = Math.round(paperCO2 + itemsCO2 + journeyCO2);
-    
-    const paperCost = paper * 52 * 0.02;
-    const itemsCost = items * 52 * 0.5;
-    const timeCost = time * 52 * 30;
-    
-    const totalCost = Math.round(paperCost + itemsCost + timeCost);
-    
-    document.getElementById('green-co2').textContent = totalCO2.toLocaleString();
-    document.getElementById('green-money').textContent = '£' + totalCost.toLocaleString();
-}
-
-export function calcMoney() { calcGreen(); }
-export function calcTime() { calcGreen(); }
-export function calcEdu() { calcGreen(); }
-
-// ==========================================
 // 10. FULL PROJECT VIEW
 // ==========================================
 
@@ -2159,6 +2087,12 @@ export function openPortfolioExport() {
     showToast('Opening export options...', 'info');
     window.router('publish');
 }
+
+// Export specific functions required by global context in app.js
+export const calcGreen = calculateCarbonSavings;
+export const calcMoney = calculateCarbonSavings;
+export const calcTime = calculateCarbonSavings;
+export const calcEdu = calculateCarbonSavings;
 
 // ==========================================
 // 12. FISHBONE HELPERS
