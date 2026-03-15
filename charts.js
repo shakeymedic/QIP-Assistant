@@ -1,86 +1,73 @@
-// charts.js
 import { state } from "./state.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 
-// ==========================================
-// 1. CONFIGURATION & STATE
-// ==========================================
-
-export let toolMode = 'driver'; // Options: 'driver', 'fishbone', 'process'
-export let chartMode = 'run';   // Options: 'run', 'spc', 'histogram', 'pareto'
+export let toolMode = 'driver'; 
+export let chartMode = 'run';   
 let zoomLevel = 1.0;
 
-// HELP CONTENT
 const TOOL_HELP = {
     fishbone: {
         title: "Fishbone (Ishikawa) Diagram",
-        desc: "A root cause analysis tool using the 6M framework: Manpower, Methods, Machines, Materials, Measurements, Mother Nature (Environment).",
-        tips: "Double-click a category to add a cause. Drag labels to reposition. Use the '5 Whys' technique to drill deeper into each cause. Aim for 3-5 causes per category."
+        desc: "A root cause analysis tool using the 6M framework.",
+        tips: "Double-click a category to add a cause. Drag labels to reposition. Aim for 3-5 causes per category."
     },
     driver: {
         title: "Driver Diagram",
-        desc: "Maps your Aim to Primary Drivers (high-level factors), Secondary Drivers (specific interventions), and Change Ideas (tests to run).",
-        tips: "Work left-to-right: Aim → Primary → Secondary → Changes. Each column should logically flow from the previous. Click '+' to add items, edit inline, click 'x' to delete."
+        desc: "Maps your Aim to Primary Drivers, Secondary Drivers, and Change Ideas.",
+        tips: "Work left-to-right: Aim → Primary → Secondary → Changes. Click '+' to add items."
     },
     process: {
         title: "Process Map",
-        desc: "Visualises the patient journey or clinical workflow step-by-step to identify bottlenecks, delays, and waste.",
-        tips: "Map the 'As Is' process first. Look for: waiting times, handoffs, decision points, potential failure modes. Then design your 'To Be' (ideal) process."
+        desc: "Visualises the patient journey or clinical workflow step-by-step.",
+        tips: "Map the 'As Is' process first. Look for waiting times and bottlenecks."
     }
 };
 
 const CHART_EDUCATION = {
     run: {
-        title: "Run Chart",
-        desc: "Displays data over time with a median line. Used to detect non-random patterns indicating special cause variation.",
+        title: "Run Chart Guidance",
+        desc: "A run chart plots your data chronologically. It adds a median line (calculated from your baseline data) to help you visualise improvement. Add at least 10 to 12 data points before implementing your first PDSA cycle. Record each data point regularly (e.g., daily or weekly) to establish an accurate baseline.",
         rules: [
-            "Shift: 6+ consecutive points above or below the median",
-            "Trend: 5+ consecutive points going up or down",
-            "Too few/many runs: Compare actual runs to expected",
-            "Astronomical point: Unusually high or low value"
+            "Shift: Six or more consecutive points fall above or below the median line. This indicates a non-random change.",
+            "Trend: Five or more consecutive points consistently go up or down.",
+            "Astronomical point: An unusually high or low value that warrants immediate investigation.",
+            "Record your baseline data first. Add interventions using the 'Phase/Cycle' dropdown."
         ]
     },
     spc: {
-        title: "Statistical Process Control (SPC) Chart",
-        desc: "Adds Upper and Lower Control Limits (±3σ) to identify special cause variation requiring investigation.",
+        title: "Statistical Process Control (SPC) Chart Guidance",
+        desc: "SPC charts plot data against a calculated mean and establish Upper and Lower Control Limits (three standard deviations from the mean). They help distinguish between common cause variation (normal noise) and special cause variation (a significant change).",
         rules: [
-            "Rule 1: Single point outside control limits",
-            "Rule 2: 8 consecutive points on one side of mean",
-            "Rule 3: 6 consecutive increasing/decreasing points",
-            "Rule 4: 2 of 3 consecutive points near a control limit (>2σ)"
+            "Rule 1: A single point falls outside the control limits.",
+            "Rule 2: Eight consecutive points fall on the same side of the mean line.",
+            "Rule 3: Six consecutive points steadily increase or decrease.",
+            "Use this chart to confirm your intervention caused a statistically significant improvement."
         ]
     },
     histogram: {
-        title: "Histogram",
-        desc: "Shows the distribution of your data values to identify central tendency, spread, and shape.",
+        title: "Histogram Guidance",
+        desc: "Histograms show the frequency distribution of your continuous data. They divide your data into 'bins' to visualise the shape and spread of your measurements. Use this to identify if your process output clusters around a specific value.",
         rules: [
-            "Normal: Bell-shaped, symmetrical distribution",
-            "Skewed: Tail extends to one side (left or right)",
-            "Bimodal: Two peaks - may indicate two separate processes",
-            "Truncated: Cut off at one end - check for data limits"
+            "Normal: Bell-shaped and symmetrical.",
+            "Skewed: The tail extends heavily to the left or right.",
+            "Bimodal: Two distinct peaks indicate two separate underlying processes."
         ]
     },
     pareto: {
-        title: "Pareto Chart",
-        desc: "Combines bars (frequency) with a cumulative line to visualise the 80/20 rule - often 80% of problems come from 20% of causes.",
+        title: "Pareto Chart Guidance",
+        desc: "A Pareto chart combines a bar chart with a cumulative line graph. It highlights the 80/20 rule, showing that 80% of problems often stem from 20% of causes. Use this chart to determine which issues to tackle first for maximum impact.",
         rules: [
-            "Focus improvement on the 'vital few' bars on the left",
-            "The cumulative line shows total contribution",
-            "Address top 2-3 categories for maximum impact",
-            "Re-Pareto after changes to see shifting priorities"
+            "Focus your initial PDSA cycles on the tallest bars on the left.",
+            "The orange line shows the cumulative percentage.",
+            "Re-run this chart after interventions to observe shifting priorities."
         ]
     }
 };
-
-// ==========================================
-// 2. TOOL & TAB MANAGEMENT
-// ==========================================
 
 export function setToolMode(m) {
     toolMode = m;
     zoomLevel = 1.0;
     applyZoom();
-    // Update active tab styling
     document.querySelectorAll('.tool-tab-btn').forEach(btn => {
         if(btn.dataset.mode === m) {
             btn.classList.add('bg-rcem-purple', 'text-white', 'shadow');
@@ -102,13 +89,10 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     if(!state.projectData) return;
     const canvas = document.getElementById(targetId);
     
-    // Graceful failure if DOM element is missing
     if (!canvas) {
-        console.warn(`[renderTools] Target canvas #${targetId} not found.`);
         return;
     }
 
-    // Render Tabs and UI only if we are in the main diagram view
     if (targetId === 'diagram-canvas') {
         renderToolUI();
     }
@@ -117,18 +101,14 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     canvas.innerHTML = ''; 
     
     try {
-        // Dispatch to specific renderer
         if (mode === 'fishbone') {
             renderFishboneVisual(canvas, targetId === 'diagram-canvas');
-        } 
-        else if (mode === 'driver') {
+        } else if (mode === 'driver') {
             renderDriverVisual(canvas, targetId === 'diagram-canvas');
-        }
-        else if (mode === 'process') {
+        } else if (mode === 'process') {
             renderProcessVisual(canvas, targetId === 'diagram-canvas');
         }
     } catch (error) {
-        console.error(`[renderTools] Error rendering ${mode}:`, error);
         canvas.innerHTML = `<div class="p-8 text-center text-red-500 bg-red-50 rounded-xl border border-red-200">
             <i data-lucide="alert-triangle" class="w-8 h-8 mx-auto mb-2"></i>
             <p class="font-bold">Failed to render diagram</p>
@@ -143,7 +123,6 @@ function renderToolUI() {
     const header = document.querySelector('#view-tools header');
     if(!header) return;
 
-    // Build the complete header with tabs and controls
     header.innerHTML = `
         <div class="flex items-center gap-4">
             <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
@@ -151,15 +130,15 @@ function renderToolUI() {
                 Diagnosis Tools
             </h2>
             <div class="flex bg-slate-100 p-1 rounded-lg">
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'driver' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button aria-label="Open Driver Diagram" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'driver' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="driver" onclick="window.setToolMode('driver')">
                     <i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> Driver Diagram
                 </button>
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'fishbone' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button aria-label="Open Fishbone Diagram" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'fishbone' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="fishbone" onclick="window.setToolMode('fishbone')">
                     <i data-lucide="fish" class="w-4 h-4 inline mr-1"></i> Fishbone
                 </button>
-                <button class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'process' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                <button aria-label="Open Process Map" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'process' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="process" onclick="window.setToolMode('process')">
                     <i data-lucide="workflow" class="w-4 h-4 inline mr-1"></i> Process Map
                 </button>
@@ -167,17 +146,16 @@ function renderToolUI() {
         </div>
         <div class="flex items-center gap-2">
             ${toolMode === 'driver' && window.hasAI && window.hasAI() ? `
-                <button onclick="window.aiSuggestDrivers()" id="btn-ai-driver" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:shadow-lg transition-all flex items-center gap-2">
+                <button aria-label="Auto-generate Drivers" onclick="window.aiSuggestDrivers()" id="btn-ai-driver" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:shadow-lg transition-all flex items-center gap-2">
                     <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate
                 </button>
             ` : ''}
-            <button onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
+            <button aria-label="Toggle Help" onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
                 <i data-lucide="help-circle" class="w-5 h-5"></i>
             </button>
         </div>
     `;
 
-    // Inject Help Panel if missing
     let helpPanel = document.getElementById('tool-help-panel');
     const toolsView = document.getElementById('view-tools');
     const relativeContainer = toolsView ? toolsView.querySelector('.relative') : null;
@@ -194,7 +172,7 @@ function renderToolUI() {
         helpPanel.innerHTML = `
             <div class="flex justify-between items-start mb-3">
                 <h4 class="font-bold text-slate-800 text-sm">${info.title}</h4>
-                <button onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-slate-800 p-1 rounded hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
+                <button aria-label="Close Help" onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-slate-800 p-1 rounded hover:bg-slate-100"><i data-lucide="x" class="w-4 h-4"></i></button>
             </div>
             <p class="text-xs text-slate-600 mb-4 leading-relaxed">${info.desc}</p>
             <div class="bg-indigo-50 p-3 rounded-lg text-xs text-indigo-800 border border-indigo-100">
@@ -207,17 +185,10 @@ function renderToolUI() {
     if(typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// ==========================================
-// 3. INTERACTIVE DIAGRAM RENDERERS
-// ==========================================
-
-// --- FISHBONE DIAGRAM (IMPROVED) ---
 function renderFishboneVisual(container, enableInteraction = false) {
-    // Set up the container
     container.style.position = 'relative';
     container.style.minHeight = '500px';
     
-    // Create SVG for the backbone
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); 
     svg.setAttribute("height", "100%"); 
@@ -227,10 +198,8 @@ function renderFishboneVisual(container, enableInteraction = false) {
     svg.style.pointerEvents = 'none';
     svg.style.minHeight = '500px';
     
-    // Problem statement (fish head)
     const problem = state.projectData.checklist?.problem_desc?.substring(0, 50) || 'Problem';
     
-    // Draw the fishbone structure
     svg.innerHTML = `
         <line x1="8%" y1="50%" x2="92%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
         <polygon points="92%,47% 98%,50% 92%,53%" fill="#2d2e83"/>
@@ -245,7 +214,6 @@ function renderFishboneVisual(container, enableInteraction = false) {
     `;
     container.appendChild(svg);
 
-    // Create label function
     const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
         const el = document.createElement('div');
         el.className = isCat 
@@ -277,7 +245,6 @@ function renderFishboneVisual(container, enableInteraction = false) {
                 }
             };
             
-            // Right-click to delete cause
             if (!isCat) {
                 el.oncontextmenu = (e) => {
                     e.preventDefault();
@@ -292,22 +259,19 @@ function renderFishboneVisual(container, enableInteraction = false) {
         container.appendChild(el);
     };
 
-    // Default positions for 6 categories (6M framework)
     const categoryPositions = [
-        { x: 18, y: 15 },   // Top-left (Manpower)
-        { x: 82, y: 15 },   // Top-right (Methods)
-        { x: 18, y: 50 },   // Middle-left (Machines)
-        { x: 82, y: 50 },   // Middle-right (Materials)
-        { x: 18, y: 85 },   // Bottom-left (Measurements)
-        { x: 82, y: 85 }    // Bottom-right (Mother Nature)
+        { x: 18, y: 15 },   
+        { x: 82, y: 15 },   
+        { x: 18, y: 50 },   
+        { x: 82, y: 50 },   
+        { x: 18, y: 85 },   
+        { x: 82, y: 85 }    
     ];
 
-    // Priority 3.1: Fallback if categories are missing to prevent crash
     if (!state.projectData.fishbone) {
         state.projectData.fishbone = { categories: [] };
     }
     
-    // Provide default 6M structure if completely empty
     let categories = state.projectData.fishbone.categories || [];
     if (categories.length === 0) {
         categories = [
@@ -326,16 +290,13 @@ function renderFishboneVisual(container, enableInteraction = false) {
         const catX = cat.x !== undefined ? cat.x : defaultPos.x;
         const catY = cat.y !== undefined ? cat.y : defaultPos.y;
         
-        // Render category label
         createLabel(cat.text, catX, catY, true, i);
         
-        // Render causes with offset positioning
         if (cat.causes && cat.causes.length > 0) {
             cat.causes.forEach((cause, j) => {
                 const isString = typeof cause === 'string';
                 const causeText = isString ? cause : cause.text;
                 
-                // Calculate default position based on category position
                 const isLeft = catX < 50;
                 const offsetX = isLeft ? (j % 2 === 0 ? -8 : 8) : (j % 2 === 0 ? -8 : 8);
                 const offsetY = (j + 1) * 6 * (catY < 50 ? 1 : -1);
@@ -348,13 +309,11 @@ function renderFishboneVisual(container, enableInteraction = false) {
         }
     });
 
-    // Add problem/effect label at fish head
     const effectLabel = document.createElement('div');
     effectLabel.className = 'absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm max-w-[150px] text-center shadow-lg';
     effectLabel.innerHTML = `<div class="text-[10px] uppercase opacity-75">Effect</div>${escapeHtml(problem)}...`;
     container.appendChild(effectLabel);
     
-    // Add instruction text if interactive
     if (enableInteraction && !state.isReadOnly) {
         const hint = document.createElement('div');
         hint.className = 'absolute bottom-2 left-2 text-xs text-slate-400 bg-white/80 px-2 py-1 rounded';
@@ -363,14 +322,11 @@ function renderFishboneVisual(container, enableInteraction = false) {
     }
 }
 
-// --- DRIVER DIAGRAM (HTML COLUMNS) ---
 function renderDriverVisual(container, enableInteraction = false) {
     const d = state.projectData.drivers || { primary: [], secondary: [], changes: [] };
     
-    // Main Flex Container
     container.className = "flex flex-col md:flex-row gap-4 items-stretch overflow-x-auto p-4 min-h-[500px]";
     
-    // Define the 4 Columns
     const cols = [
         { 
             title: 'Aim', 
@@ -410,7 +366,6 @@ function renderDriverVisual(container, enableInteraction = false) {
         const colDiv = document.createElement('div');
         colDiv.className = "flex-1 min-w-[220px] flex flex-col gap-3";
         
-        // Column Header
         colDiv.innerHTML = `
             <div class="font-bold text-center uppercase text-xs text-slate-500 tracking-wider sticky top-0 bg-white z-10 py-2 border-b border-slate-200 flex items-center justify-center gap-2">
                 <i data-lucide="${col.icon}" class="w-4 h-4"></i>
@@ -419,41 +374,35 @@ function renderDriverVisual(container, enableInteraction = false) {
             </div>
         `;
         
-        // Items container
         const itemsContainer = document.createElement('div');
         itemsContainer.className = 'flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-1';
         
-        // Render Items
         col.items.forEach((item, itemIdx) => {
             const card = document.createElement('div');
             card.className = `${col.color} p-4 rounded-lg border shadow-sm text-sm font-medium relative group hover:shadow-md transition-all`;
             
             if (col.readonly) {
-                // Aim is read-only here
                 card.innerHTML = `<div class="italic leading-relaxed text-slate-700">${escapeHtml(item)}</div>`;
             } else {
-                // Editable Textareas
                 if (state.isReadOnly) {
                     card.textContent = item;
                 } else {
-                    // AI Button for Secondary Drivers
                     let aiBtn = '';
                     if (col.type === 'secondary' && window.hasAI && window.hasAI()) {
                         aiBtn = `
-                            <button onclick="window.runChangeGen('${col.type}', ${itemIdx})" 
+                            <button aria-label="Generate Change Idea" onclick="window.runChangeGen('${col.type}', ${itemIdx})" 
                                     title="Generate Change Ideas from this driver" 
                                     class="absolute -top-2 -right-2 bg-white text-emerald-600 border border-emerald-200 rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 hover:scale-110 hover:bg-emerald-50 transition-all z-20">
                                 <i data-lucide="lightbulb" class="w-3.5 h-3.5"></i>
                             </button>`;
                     }
 
-                    // Textarea with auto-resize logic
                     card.innerHTML = `
                         <textarea 
                             class="w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm leading-relaxed overflow-hidden outline-none" 
                             oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
                             onchange="window.updateDriver('${col.type}', ${itemIdx}, this.value)">${escapeHtml(item)}</textarea>
-                        <button onclick="window.removeDriver('${col.type}', ${itemIdx})" 
+                        <button aria-label="Remove Driver" onclick="window.removeDriver('${col.type}', ${itemIdx})" 
                                 class="absolute top-1 right-1 text-slate-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-white/50">
                             <i data-lucide="x" class="w-3 h-3"></i>
                         </button>
@@ -463,7 +412,6 @@ function renderDriverVisual(container, enableInteraction = false) {
             }
             itemsContainer.appendChild(card);
             
-            // Trigger auto-resize on initial render
             const textarea = card.querySelector('textarea');
             if(textarea) {
                 setTimeout(() => {
@@ -475,9 +423,9 @@ function renderDriverVisual(container, enableInteraction = false) {
         
         colDiv.appendChild(itemsContainer);
 
-        // "Add" Button
         if (!col.readonly && !state.isReadOnly) {
             const addBtn = document.createElement('button');
+            addBtn.setAttribute('aria-label', `Add ${col.title}`);
             addBtn.className = "w-full py-3 border-2 border-dashed border-slate-200 rounded-lg text-slate-400 hover:border-rcem-purple hover:text-rcem-purple hover:bg-slate-50 font-bold text-xs transition-colors flex items-center justify-center gap-2 mt-auto";
             addBtn.innerHTML = `<i data-lucide="plus" class="w-3 h-3"></i> Add ${col.title.replace('s', '')}`; 
             addBtn.onclick = () => window.addDriver(col.type);
@@ -488,14 +436,12 @@ function renderDriverVisual(container, enableInteraction = false) {
     });
 }
 
-// --- PROCESS MAP ---
 function renderProcessVisual(container, enableInteraction = false) {
     const p = state.projectData.process || ["Start", "End"];
     
     container.className = "flex flex-col items-center py-8 min-h-[500px] gap-0 overflow-y-auto";
     
     p.forEach((step, i) => {
-        // Draw Connector Arrow
         if (i > 0) {
             const arrow = document.createElement('div');
             arrow.className = "h-8 w-px bg-slate-300 relative";
@@ -510,12 +456,10 @@ function renderProcessVisual(container, enableInteraction = false) {
             wrapper.innerHTML = `<div class="bg-white border-2 border-slate-800 p-4 rounded-lg text-center font-bold shadow-sm">${escapeHtml(step)}</div>`;
         } else {
             const isTerminator = i === 0 || i === p.length - 1;
-            // Terminators are Black (Start/End), Steps are White with Border
             const bgClass = isTerminator 
                 ? 'bg-slate-800 text-white shadow-md' 
                 : 'bg-white border-2 border-slate-800 text-slate-800 shadow-sm';
             
-            // Decision point styling (contains "?")
             const isDecision = step.includes('?');
             
             wrapper.innerHTML = `
@@ -529,11 +473,11 @@ function renderProcessVisual(container, enableInteraction = false) {
                 </div>
                 
                 <div class="absolute left-full top-1/2 -translate-y-1/2 ml-3 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-white p-1 rounded-lg shadow-lg border border-slate-100 z-20">
-                    <button onclick="window.addStep(${i})" class="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded" title="Add Step After">
+                    <button aria-label="Add Process Step" onclick="window.addStep(${i})" class="text-indigo-600 hover:bg-indigo-50 p-1.5 rounded" title="Add Step After">
                         <i data-lucide="plus" class="w-4 h-4"></i>
                     </button>
                     ${!isTerminator ? `
-                    <button onclick="window.removeStep(${i})" class="text-red-600 hover:bg-red-50 p-1.5 rounded" title="Delete Step">
+                    <button aria-label="Remove Process Step" onclick="window.removeStep(${i})" class="text-red-600 hover:bg-red-50 p-1.5 rounded" title="Delete Step">
                         <i data-lucide="trash-2" class="w-4 h-4"></i>
                     </button>` : ''}
                 </div>
@@ -541,14 +485,12 @@ function renderProcessVisual(container, enableInteraction = false) {
         }
         container.appendChild(wrapper);
         
-        // Auto resize initial
         setTimeout(() => {
             const ta = wrapper.querySelector('textarea');
             if(ta) { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
         }, 0);
     });
     
-    // Add instruction hint
     if (enableInteraction && !state.isReadOnly) {
         const hint = document.createElement('div');
         hint.className = 'mt-4 text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg';
@@ -557,14 +499,9 @@ function renderProcessVisual(container, enableInteraction = false) {
     }
 }
 
-// ==========================================
-// 4. CHART RENDERING (CHART.JS)
-// ==========================================
-
 export function setChartMode(m) { 
     chartMode = m; 
     
-    // Update button styles
     const modeControls = document.getElementById('chart-mode-controls');
     if (modeControls) {
         modeControls.querySelectorAll('button').forEach(btn => {
@@ -582,23 +519,24 @@ export function setChartMode(m) {
 }
 
 export function renderChart(canvasId = 'mainChart') {
-    const ctx = document.getElementById(canvasId);
-    if(!ctx) return;
-    
-    // Destroy existing chart instance
-    if(ctx.chartInstance) {
-        ctx.chartInstance.destroy();
-        ctx.chartInstance = null;
+    const oldCtx = document.getElementById(canvasId);
+    if (!oldCtx) return;
+
+    if (oldCtx.chartInstance) {
+        oldCtx.chartInstance.destroy();
+        oldCtx.chartInstance = null;
     }
-    
+
+    const newCtx = oldCtx.cloneNode(true);
+    oldCtx.parentNode.replaceChild(newCtx, oldCtx);
+    const ctx = newCtx;
+
     const d = state.projectData?.chartData || [];
     
-    // Priority 3.2: Graceful handling of empty chart data
     if (d.length === 0) {
         const context = ctx.getContext('2d');
         context.clearRect(0, 0, ctx.width, ctx.height);
         
-        // Create an empty state chart purely for visual feedback
         const chart = new Chart(ctx, {
             type: 'line',
             data: { labels: ['No Data'], datasets: [{ data: [] }] },
@@ -638,12 +576,10 @@ function renderRunChart(ctx, canvasId) {
     const labels = sortedD.map(x => x.date);
     const data = sortedD.map(x => x.value);
     
-    // Calculate median from baseline data (first 12 points or all if less)
     let baselineData = data.slice(0, Math.min(12, data.length));
     let sortedBase = [...baselineData].sort((a, b) => a - b);
     let median = sortedBase.length ? sortedBase[Math.floor(sortedBase.length / 2)] : 0;
 
-    // Build annotations
     const annotations = {
         medianLine: { 
             type: 'line', 
@@ -662,7 +598,6 @@ function renderRunChart(ctx, canvasId) {
         }
     };
     
-    // Add target line if we have a target
     const target = parseFloat(state.projectData.checklist?.aim_target);
     if (!isNaN(target)) {
         annotations.targetLine = {
@@ -682,10 +617,8 @@ function renderRunChart(ctx, canvasId) {
         };
     }
     
-    // Add PDSA annotations if enabled
     if (settings.showAnnotations && state.projectData.pdsa && state.projectData.pdsa.length > 0) {
         state.projectData.pdsa.forEach((p, i) => {
-            // Support both 'start' and 'startDate' field names
             const startDate = p.startDate || p.start;
             if (startDate) {
                 annotations[`pdsa${i}`] = {
@@ -707,7 +640,6 @@ function renderRunChart(ctx, canvasId) {
         });
     }
 
-    // Color points by grade/phase
     const gradeColors = {
         'Baseline': '#64748b',
         'Cycle 1': '#3b82f6',
@@ -789,12 +721,11 @@ function renderSPCChart(ctx, canvasId) {
     const avg = data.reduce((a, b) => a + b, 0) / data.length;
     let mRSum = 0; 
     for(let i = 1; i < data.length; i++) { mRSum += Math.abs(data[i] - data[i - 1]); }
-    const avgMR = mRSum / (data.length - 1) || 1; // Prevent division by zero
+    const avgMR = mRSum / (data.length - 1) || 1;
     
     const ucl = avg + (2.66 * avgMR);
     const lcl = Math.max(0, avg - (2.66 * avgMR));
     
-    // Color points outside limits red
     const pointColors = data.map(v => (v > ucl || v < lcl) ? '#ef4444' : '#64748b');
 
     const annotations = {
@@ -866,7 +797,6 @@ function renderHistogram(ctx, canvasId) {
     const d = state.projectData.chartData.map(x => x.value);
     if(d.length < 2) { 
         showToast("Need at least 2 data points for histogram", "info"); 
-        // Fallback to empty state
         const chart = new Chart(ctx, {
             type: 'bar',
             data: { labels: ['No Data'], datasets: [{ data: [] }] },
@@ -879,7 +809,7 @@ function renderHistogram(ctx, canvasId) {
     const settings = state.projectData.chartSettings || {};
     const min = Math.min(...d); 
     const max = Math.max(...d);
-    const range = max - min || 1; // Prevent division by zero
+    const range = max - min || 1;
     const bins = Math.max(3, Math.min(10, Math.ceil(Math.log2(d.length) + 1)));
     const step = range / bins || 1;
     
@@ -982,10 +912,6 @@ function renderPareto(ctx, canvasId) {
     ctx.chartInstance = chart;
 }
 
-// ==========================================
-// 5. DATA HELPERS
-// ==========================================
-
 export function addDataPoint() {
     const dateInput = document.getElementById('chart-date');
     const valueInput = document.getElementById('chart-value');
@@ -1044,7 +970,7 @@ export function importCSV(input) {
         let count = 0;
         if (!state.projectData.chartData) state.projectData.chartData = [];
         lines.forEach((l, i) => {
-            if(i === 0) return; // Header
+            if(i === 0) return; 
             const parts = l.split(',');
             if(parts.length >= 2) {
                 const d = parts[0].trim();
@@ -1064,10 +990,6 @@ export function importCSV(input) {
     input.value = '';
 }
 
-// ==========================================
-// 6. GLOBAL WINDOW EXPORTS
-// ==========================================
-
 window.addDriver = (type) => {
     if (!state.projectData.drivers) state.projectData.drivers = {primary:[], secondary:[], changes:[]};
     if (!state.projectData.drivers[type]) state.projectData.drivers[type] = [];
@@ -1080,7 +1002,6 @@ window.updateDriver = (type, index, value) => {
     if (state.projectData.drivers && state.projectData.drivers[type]) {
         state.projectData.drivers[type][index] = value;
         window.saveData();
-        // Do not re-render to keep focus
     }
 };
 
@@ -1137,7 +1058,6 @@ window.addCauseWithWhys = (catIdx) => {
     const cat = state.projectData.fishbone.categories[catIdx];
     if (!cat.causes) cat.causes = [];
     
-    // Calculate position based on category position and existing causes
     const categoryPositions = [
         { x: 18, y: 15 }, { x: 82, y: 15 },
         { x: 18, y: 50 }, { x: 82, y: 50 },
@@ -1172,7 +1092,6 @@ export function resetProcess() {
     }
 }
 
-// Drag Helper for Fishbone
 export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd) {
     if(state.isReadOnly) return;
     
@@ -1215,7 +1134,7 @@ export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd)
     };
     
     el.onmousedown = (e) => {
-        if (e.button !== 0) return; // Only left click
+        if (e.button !== 0) return; 
         e.preventDefault(); 
         e.stopPropagation();
         el.style.cursor = 'grabbing';
