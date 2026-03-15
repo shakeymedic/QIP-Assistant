@@ -1,13 +1,7 @@
-// ==========================================================================
-// RCEM QIP ASSISTANT - SERVICE WORKER
-// Version: 3.2.0
-// ==========================================================================
+const CACHE_NAME = 'rcem-qip-v3.2.1';
+const STATIC_CACHE = 'rcem-qip-static-v3.2.1';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.2.1';
 
-const CACHE_NAME = 'rcem-qip-v3.2.0';
-const STATIC_CACHE = 'rcem-qip-static-v3.2.0';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.2.0';
-
-// Files to cache immediately on install
 const STATIC_ASSETS = [
     '/',
     '/index.html',
@@ -24,7 +18,6 @@ const STATIC_ASSETS = [
     '/manifest.json'
 ];
 
-// External CDN resources to cache
 const CDN_ASSETS = [
     'https://cdn.tailwindcss.com',
     'https://unpkg.com/lucide@latest',
@@ -38,23 +31,26 @@ const CDN_ASSETS = [
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap'
 ];
 
-// ==========================================================================
-// INSTALL EVENT
-// ==========================================================================
+async function trimCache(cacheName, maxItems) {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length > maxItems) {
+        await cache.delete(keys[0]);
+        trimCache(cacheName, maxItems);
+    }
+}
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.2.0...');
+    console.log('[SW] Installing service worker v3.2.1...');
     
     event.waitUntil(
         Promise.all([
-            // Cache static assets
             caches.open(STATIC_CACHE).then((cache) => {
                 console.log('[SW] Caching static assets');
                 return cache.addAll(STATIC_ASSETS).catch(err => {
                     console.warn('[SW] Some static assets failed to cache:', err);
                 });
             }),
-            // Cache CDN assets (with error handling for cross-origin)
             caches.open(DYNAMIC_CACHE).then((cache) => {
                 console.log('[SW] Caching CDN assets');
                 return Promise.allSettled(
@@ -78,10 +74,6 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// ==========================================================================
-// ACTIVATE EVENT
-// ==========================================================================
-
 self.addEventListener('activate', (event) => {
     console.log('[SW] Activating service worker...');
     
@@ -90,7 +82,6 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames
                     .filter((cacheName) => {
-                        // Delete old caches
                         return cacheName !== STATIC_CACHE && 
                                cacheName !== DYNAMIC_CACHE &&
                                cacheName.startsWith('rcem-qip-');
@@ -107,20 +98,14 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// ==========================================================================
-// FETCH EVENT
-// ==========================================================================
-
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
     
-    // Skip non-GET requests
     if (request.method !== 'GET') {
         return;
     }
     
-    // Skip Firebase requests (always network)
     if (url.hostname.includes('firebaseio.com') || 
         url.hostname.includes('googleapis.com') ||
         url.hostname.includes('firebase') ||
@@ -129,17 +114,14 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // Skip chrome extension requests
     if (url.protocol === 'chrome-extension:') {
         return;
     }
     
-    // Handle navigation requests (HTML pages)
     if (request.mode === 'navigate') {
         event.respondWith(
             fetch(request)
                 .then((response) => {
-                    // Cache successful responses
                     if (response.ok) {
                         const responseClone = response.clone();
                         caches.open(STATIC_CACHE).then((cache) => {
@@ -149,20 +131,17 @@ self.addEventListener('fetch', (event) => {
                     return response;
                 })
                 .catch(() => {
-                    // Return cached index.html for offline
                     return caches.match('/index.html');
                 })
         );
         return;
     }
     
-    // Handle static assets (JS, CSS, images)
     if (STATIC_ASSETS.some(asset => url.pathname.endsWith(asset.replace('/', '')))) {
         event.respondWith(
             caches.match(request)
                 .then((cachedResponse) => {
                     if (cachedResponse) {
-                        // Return cached version, but fetch update in background
                         fetch(request).then((response) => {
                             if (response.ok) {
                                 caches.open(STATIC_CACHE).then((cache) => {
@@ -173,7 +152,6 @@ self.addEventListener('fetch', (event) => {
                         return cachedResponse;
                     }
                     
-                    // Not in cache, fetch from network
                     return fetch(request).then((response) => {
                         if (response.ok) {
                             const responseClone = response.clone();
@@ -188,7 +166,6 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // Handle CDN/external resources
     event.respondWith(
         caches.match(request)
             .then((cachedResponse) => {
@@ -198,26 +175,21 @@ self.addEventListener('fetch', (event) => {
                 
                 return fetch(request)
                     .then((response) => {
-                        // Only cache successful responses
                         if (response.ok && (url.protocol === 'https:')) {
                             const responseClone = response.clone();
                             caches.open(DYNAMIC_CACHE).then((cache) => {
                                 cache.put(request, responseClone);
+                                trimCache(DYNAMIC_CACHE, 50);
                             });
                         }
                         return response;
                     })
                     .catch(() => {
-                        // Return cached version if network fails
                         return caches.match(request);
                     });
             })
     );
 });
-
-// ==========================================================================
-// MESSAGE EVENT
-// ==========================================================================
 
 self.addEventListener('message', (event) => {
     if (event.data && event.data.type === 'SKIP_WAITING') {
@@ -243,21 +215,11 @@ self.addEventListener('message', (event) => {
     }
 });
 
-// ==========================================================================
-// BACKGROUND SYNC (for offline data saving)
-// ==========================================================================
-
 self.addEventListener('sync', (event) => {
     if (event.tag === 'sync-data') {
         console.log('[SW] Background sync triggered');
-        // This could be used to sync data when coming back online
-        // For now, the app handles this with Firebase's built-in sync
     }
 });
-
-// ==========================================================================
-// PUSH NOTIFICATIONS (future use)
-// ==========================================================================
 
 self.addEventListener('push', (event) => {
     if (event.data) {
@@ -286,4 +248,4 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service worker loaded - v3.2.0');
+console.log('[SW] Service worker loaded - v3.2.1');
