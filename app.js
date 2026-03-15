@@ -24,8 +24,6 @@ import { startOnboarding } from "./onboarding.js";
 // New Feature Imports
 import { exportToKaizen } from "./kaizen-export.js";
 import { renderSupervisorDashboard } from "./supervisor.js";
-import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
-import { renderPatientTracker } from "./patient-tracker.js";
 
 console.log('🚀 App starting...');
 
