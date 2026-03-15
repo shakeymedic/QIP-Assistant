@@ -33,17 +33,12 @@
     </script>
     
     <script src="https://unpkg.com/lucide@latest"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
-    
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css">
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-    
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-slate-100 min-h-screen font-sans antialiased">
@@ -95,20 +90,20 @@
                         class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
                         placeholder="••••••••">
                 </div>
-                <button type="submit" id="btn-signin"
+                <button type="submit" id="btn-signin" aria-label="Sign In"
                     class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
                     <span>Sign In</span>
                 </button>
             </form>
             
             <div class="mt-4 text-center">
-                <button id="btn-register" class="text-sm text-rcem-purple hover:underline">
+                <button id="btn-register" aria-label="Register" class="text-sm text-rcem-purple hover:underline">
                     Do not have an account? Sign Up
                 </button>
             </div>
             
             <div class="mt-6 pt-6 border-t border-slate-200">
-                <button id="demo-auth-btn" 
+                <button id="demo-auth-btn" aria-label="Try Demo Mode"
                     class="w-full bg-gradient-to-r from-amber-400 to-orange-500 text-white py-3 rounded-lg font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2">
                     <i data-lucide="flask-conical" class="w-4 h-4"></i>
                     <span>Try Demo Mode</span>
@@ -122,7 +117,7 @@
         
         <div class="lg:hidden bg-slate-900 text-white p-3 flex justify-between items-center z-30 no-print">
             <span class="font-bold">RCEM QIP</span>
-            <button id="mobile-menu-btn"><i data-lucide="menu"></i></button>
+            <button id="mobile-menu-btn" aria-label="Open Navigation Menu"><i data-lucide="menu"></i></button>
         </div>
 
         <div class="flex flex-1 overflow-hidden relative">
@@ -138,51 +133,51 @@
                 
                 <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2">Project</div>
-                    <button onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard">
+                    <button aria-label="Go to Dashboard" onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard">
                         <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                     </button>
-                    <button onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-intro">
+                    <button aria-label="Go to QIP Guide" onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-intro">
                         <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i> QIP Guide
                     </button>
-                    <button onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-full">
+                    <button aria-label="Go to Whole Project View" onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-full">
                         <i data-lucide="scroll-text" class="w-4 h-4 text-emerald-400"></i> Whole Project View
                     </button>
-                    <button onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-checklist">
+                    <button aria-label="Go to Define & Measure" onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-checklist">
                         <i data-lucide="clipboard-check" class="w-4 h-4"></i> Define & Measure
                     </button>
-                    <button onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-team">
+                    <button aria-label="Go to Team & Leadership" onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-team">
                         <i data-lucide="users-2" class="w-4 h-4 text-pink-400"></i> Team & Leadership
                     </button>
                     
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Diagnose & Plan</div>
-                    <button onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools">
+                    <button aria-label="Go to Diagnosis Tools" onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools">
                         <i data-lucide="git-branch" class="w-4 h-4 text-cyan-400"></i> Diagnosis Tools
                     </button>
-                    <button onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders">
+                    <button aria-label="Go to Stakeholders" onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders">
                         <i data-lucide="target" class="w-4 h-4 text-indigo-400"></i> Stakeholders
                     </button>
-                    <button onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt">
+                    <button aria-label="Go to Timeline" onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt">
                         <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-400"></i> Timeline
                     </button>
                     
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Test & Learn</div>
-                    <button onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
+                    <button aria-label="Go to Data & SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
                         <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Data & SPC
                     </button>
-                    <button onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa">
+                    <button aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa">
                         <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i> PDSA Cycles
                     </button>
                     
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Review & Sign-off</div>
-                    <button onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
+                    <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
                         <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
                     </button>
 
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Share & Publish</div>
-                    <button onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish">
+                    <button aria-label="Go to Publication" onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish">
                         <i data-lucide="newspaper" class="w-4 h-4 text-sky-400"></i> Publication
                     </button>
-                    <button onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-green">
+                    <button aria-label="Go to Green ED" onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-green">
                         <i data-lucide="leaf" class="w-4 h-4 text-emerald-400"></i> Green ED
                     </button>
                 </nav>
@@ -192,17 +187,17 @@
                     <div class="flex items-center justify-between text-xs text-slate-400 mb-2 px-2">
                         <span>Demo Mode</span>
                         <div class="relative inline-flex items-center">
-                            <input type="checkbox" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500">
+                            <input type="checkbox" aria-label="Toggle Demo Mode" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500">
                             <label for="demo-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-600 cursor-pointer"></label>
                         </div>
                     </div>
-                    <button onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                    <button aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project
                     </button>
-                    <button onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                    <button aria-label="Open Settings" onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="settings" class="w-3 h-3"></i> Settings
                     </button>
-                    <button id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs">
+                    <button aria-label="Sign Out" id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs">
                         <i data-lucide="log-out" class="w-3 h-3"></i> Sign Out
                     </button>
                 </div>
@@ -213,10 +208,10 @@
                 <div id="top-bar" class="hidden h-14 bg-white border-b border-slate-200 px-6 flex justify-between items-center z-20 no-print">
                     <div class="flex items-center gap-3">
                         <div class="flex items-center gap-1 mr-4 border-r border-slate-200 pr-4">
-                            <button onclick="window.undo()" id="btn-undo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Undo (Ctrl+Z)">
+                            <button aria-label="Undo Change" onclick="window.undo()" id="btn-undo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Undo (Ctrl+Z)">
                                 <i data-lucide="undo-2" class="w-4 h-4"></i>
                             </button>
-                            <button onclick="window.redo()" id="btn-redo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Redo (Ctrl+Shift+Z)">
+                            <button aria-label="Redo Change" onclick="window.redo()" id="btn-redo" class="text-slate-400 hover:text-slate-800 disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded hover:bg-slate-100 transition-all" title="Redo (Ctrl+Shift+Z)">
                                 <i data-lucide="redo-2" class="w-4 h-4"></i>
                             </button>
                         </div>
@@ -226,11 +221,11 @@
                         </span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-sm font-medium flex items-center gap-1" title="Start Tour">
+                        <button aria-label="Start Help Tour" onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-sm font-medium flex items-center gap-1" title="Start Tour">
                             <i data-lucide="help-circle" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Help</span>
                         </button>
-                        <button onclick="window.exportPPTX()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1" title="Export PowerPoint">
+                        <button aria-label="Export to PowerPoint" onclick="window.exportPPTX()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1" title="Export PowerPoint">
                             <i data-lucide="presentation" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Export</span>
                         </button>
@@ -245,7 +240,7 @@
                                 <h1 class="text-3xl font-bold text-slate-900">My Projects</h1>
                                 <p class="text-slate-500 mt-1">Select a project or create a new one.</p>
                             </div>
-                            <button onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                            <button aria-label="Create New Project" onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition-colors flex items-center gap-2">
                                 <i data-lucide="plus" class="w-4 h-4"></i> New Project
                             </button>
                         </header>
@@ -287,7 +282,7 @@
                                 <li><strong>Higher Trainees:</strong> You must provide clinical leadership, drive effective change, and support a culture of good clinical governance within the department.</li>
                             </ul>
                             
-                            <button onclick="window.router('dashboard')" class="mt-4 bg-rcem-purple text-white px-6 py-2 rounded font-bold hover:bg-purple-800">Start Your Project</button>
+                            <button aria-label="Start Your Project" onclick="window.router('dashboard')" class="mt-4 bg-rcem-purple text-white px-6 py-2 rounded font-bold hover:bg-purple-800">Start Your Project</button>
                         </div>
                     </div>
 
@@ -383,10 +378,10 @@
                                 <p class="text-slate-500 text-sm mt-1">Track your measurements over time.</p>
                             </div>
                             <div class="flex gap-2">
-                                <button onclick="window.downloadCSVTemplate()" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                                <button aria-label="Download CSV Template" onclick="window.downloadCSVTemplate()" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
                                     <i data-lucide="download" class="w-4 h-4"></i> CSV Template
                                 </button>
-                                <label class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 cursor-pointer hover:bg-emerald-600">
+                                <label aria-label="Import CSV File" class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 cursor-pointer hover:bg-emerald-600">
                                     <i data-lucide="upload" class="w-4 h-4"></i> Import CSV
                                     <input type="file" id="csv-upload" accept=".csv" onchange="window.importCSV(this)" class="hidden">
                                 </label>
@@ -397,25 +392,25 @@
                             <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
                                     <div class="flex bg-slate-100 p-1 rounded-lg" id="chart-mode-controls">
-                                        <button onclick="window.setChartMode('run')" data-mode="run" id="btn-chart-run" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white shadow">Run</button>
-                                        <button onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
-                                        <button onclick="window.setChartMode('histogram')" data-mode="histogram" id="btn-chart-histogram" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
-                                        <button onclick="window.setChartMode('pareto')" data-mode="pareto" id="btn-chart-pareto" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Pareto</button>
+                                        <button aria-label="View Run Chart" onclick="window.setChartMode('run')" data-mode="run" id="btn-chart-run" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white shadow">Run</button>
+                                        <button aria-label="View SPC Chart" onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
+                                        <button aria-label="View Histogram" onclick="window.setChartMode('histogram')" data-mode="histogram" id="btn-chart-histogram" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
+                                        <button aria-label="View Pareto Chart" onclick="window.setChartMode('pareto')" data-mode="pareto" id="btn-chart-pareto" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Pareto</button>
                                     </div>
                                     <div class="flex gap-1">
-                                        <button onclick="window.zoomOut()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom Out">
+                                        <button aria-label="Zoom Out Chart" onclick="window.zoomOut()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom Out">
                                             <i data-lucide="zoom-out" class="w-4 h-4"></i>
                                         </button>
-                                        <button onclick="window.resetZoom()" class="text-slate-400 hover:text-slate-700 p-1" title="Reset Zoom">
+                                        <button aria-label="Reset Chart Zoom" onclick="window.resetZoom()" class="text-slate-400 hover:text-slate-700 p-1" title="Reset Zoom">
                                             <i data-lucide="maximize-2" class="w-4 h-4"></i>
                                         </button>
-                                        <button onclick="window.zoomIn()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom In">
+                                        <button aria-label="Zoom In Chart" onclick="window.zoomIn()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom In">
                                             <i data-lucide="zoom-in" class="w-4 h-4"></i>
                                         </button>
-                                        <button onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1" title="Chart Settings">
+                                        <button aria-label="Open Chart Settings" onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1" title="Chart Settings">
                                             <i data-lucide="settings" class="w-4 h-4"></i>
                                         </button>
-                                        <button onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy Chart">
+                                        <button aria-label="Copy Chart Image" onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy Chart">
                                             <i data-lucide="copy" class="w-4 h-4"></i>
                                         </button>
                                     </div>
@@ -456,7 +451,7 @@
                                             <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Note (optional)</label>
                                             <input type="text" id="chart-note" class="w-full p-2 border rounded text-sm" placeholder="Any context...">
                                         </div>
-                                        <button onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700">
+                                        <button aria-label="Add Data Point" onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700">
                                             Add Point
                                         </button>
                                     </div>
@@ -467,7 +462,7 @@
                                         <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Results Interpretation
                                     </h3>
                                     <textarea id="results-text" class="w-full p-2 border rounded text-sm" rows="4" placeholder="Describe what the data shows..." onchange="window.saveResults(this.value)"></textarea>
-                                    <button onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="w-full mt-2 border border-purple-200 text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
+                                    <button aria-label="Analyse Chart with AI" onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="w-full mt-2 border border-purple-200 text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
                                         <i data-lucide="sparkles" class="w-4 h-4"></i> AI Analyse
                                     </button>
                                 </div>
@@ -505,7 +500,7 @@
                                     <i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)
                                 </h2>
                             </div>
-                            <button onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2">
+                            <button aria-label="Add Gantt Task" onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2">
                                 <i data-lucide="plus" class="w-4 h-4"></i> Add Task
                             </button>
                         </header>
@@ -524,9 +519,9 @@
                                 </h1>
                             </div>
                             <div class="flex bg-slate-100 p-1 rounded-lg">
-                                <button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button>
-                                <button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Report</button>
-                                <button onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">QIAT / Risr Form</button>
+                                <button aria-label="View RCEM Abstract Format" onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button>
+                                <button aria-label="View RCEM Report Format" onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Report</button>
+                                <button aria-label="View QIAT Form Format" onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">QIAT / Risr Form</button>
                             </div>
                         </header>
                         <div id="publish-content"></div>
@@ -548,15 +543,15 @@
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
                 <h3 class="text-xl font-bold text-slate-800">Project Onboarding</h3>
-                <button onclick="document.getElementById('onboarding-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
+                <button aria-label="Close Onboarding Modal" onclick="document.getElementById('onboarding-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
             <div id="onboarding-content" class="flex-1 overflow-y-auto p-2">
                 </div>
             <div class="flex justify-between mt-4 border-t pt-4">
-                <button id="btn-onboarding-prev" class="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded font-medium hidden">Previous</button>
-                <button id="btn-onboarding-next" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium ml-auto">Next Step</button>
+                <button aria-label="Previous Step" id="btn-onboarding-prev" class="px-4 py-2 text-slate-600 bg-slate-100 hover:bg-slate-200 rounded font-medium hidden">Previous</button>
+                <button aria-label="Next Step" id="btn-onboarding-next" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium ml-auto">Next Step</button>
             </div>
         </div>
     </div>
@@ -568,7 +563,7 @@
                     <i data-lucide="check-circle" class="text-emerald-500 w-6 h-6"></i>
                     Golden Thread Validator
                 </h3>
-                <button onclick="document.getElementById('golden-thread-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
+                <button aria-label="Close Golden Thread Modal" onclick="document.getElementById('golden-thread-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -581,7 +576,7 @@
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-6 flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
                 <h3 class="text-lg font-bold text-slate-800">Interactive SMART Aim Builder</h3>
-                <button onclick="document.getElementById('smart-aim-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
+                <button aria-label="Close SMART Aim Modal" onclick="document.getElementById('smart-aim-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -622,8 +617,8 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('smart-aim-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveConstructedSmartAim()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save Aim</button>
+                <button aria-label="Cancel SMART Aim Construction" onclick="document.getElementById('smart-aim-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button aria-label="Save Constructed SMART Aim" onclick="window.saveConstructedSmartAim()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save Aim</button>
             </div>
         </div>
     </div>
@@ -632,7 +627,7 @@
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-3xl p-6 flex flex-col max-h-[90vh]">
             <div class="flex justify-between items-center mb-4 border-b pb-2">
                 <h3 class="text-xl font-bold text-slate-800">ED QIP Topic Ideas Bank</h3>
-                <button onclick="document.getElementById('topic-bank-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
+                <button aria-label="Close Topic Bank Modal" onclick="document.getElementById('topic-bank-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-800">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -671,8 +666,8 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('member-modal').classList.add('hidden'); document.getElementById('member-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveMember()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+                <button aria-label="Cancel Team Member Edit" onclick="document.getElementById('member-modal').classList.add('hidden'); document.getElementById('member-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button aria-label="Save Team Member" onclick="window.saveMember()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
@@ -727,8 +722,8 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('task-modal').classList.add('hidden'); document.getElementById('task-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveGanttTask()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+                <button aria-label="Cancel Task Edit" onclick="document.getElementById('task-modal').classList.add('hidden'); document.getElementById('task-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button aria-label="Save Task" onclick="window.saveGanttTask()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
@@ -751,8 +746,8 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('chart-settings-modal').classList.add('hidden'); document.getElementById('chart-settings-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveChartSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+                <button aria-label="Cancel Chart Settings Edit" onclick="document.getElementById('chart-settings-modal').classList.add('hidden'); document.getElementById('chart-settings-modal').classList.remove('flex')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button aria-label="Save Chart Settings" onclick="window.saveChartSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
@@ -768,7 +763,7 @@
                     <label class="block text-sm font-medium text-slate-700 mb-1">Google AI (Gemini) API Key</label>
                     <div class="flex gap-2">
                         <input type="password" id="settings-ai-key" class="flex-1 p-2 border rounded text-sm font-mono" placeholder="AIza...">
-                        <button onclick="window.toggleKeyVis()" class="text-slate-400 hover:text-slate-700 p-2" title="Show/Hide">
+                        <button aria-label="Toggle Password Visibility" onclick="window.toggleKeyVis()" class="text-slate-400 hover:text-slate-700 p-2" title="Show/Hide">
                             <i data-lucide="eye" class="w-4 h-4"></i>
                         </button>
                     </div>
@@ -785,8 +780,8 @@
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
-                <button onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
-                <button onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+                <button aria-label="Cancel Global Settings Edit" onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
+                <button aria-label="Save Global Settings" onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
         </div>
     </div>
@@ -798,12 +793,11 @@
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('✅ Service Worker registered'))
-                    .catch(err => console.warn('⚠️ Service Worker registration failed:', err));
+                    .then(reg => console.log('Service Worker registered'))
+                    .catch(err => console.warn('Service Worker registration failed:', err));
             });
         }
         
-        // Online/Offline detection
         window.addEventListener('online', () => {
             document.getElementById('offline-indicator')?.classList.add('hidden');
         });
