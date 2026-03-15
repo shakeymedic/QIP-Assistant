@@ -1,14 +1,8 @@
 import { state } from "./state.js";
 import { showToast } from "./utils.js";
 
-// ==========================================
-// 1. CONFIGURATION & SYSTEM PROMPT
-// ==========================================
-
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
-// FIX 1.1: All references updated from "FRCEM" to "RCEM QIP Portfolio"
-// FIX 1.3: Training stage awareness added
 const SYSTEM_PROMPT = `
 You are an expert Quality Improvement (QI) Coach specialising in Emergency Medicine for the UK National Health Service (NHS). 
 Your target audience is ED Clinicians (Consultants, Registrars, Nurses) submitting for the RCEM QIP Portfolio.
@@ -22,30 +16,20 @@ GUIDING PRINCIPLES:
 6. **Training Stage Awareness:** ACCS trainees must demonstrate PARTICIPATION in a QIP. Higher trainees must demonstrate LEADERSHIP of a QIP. Tailor advice accordingly when training stage is provided.
 
 OUTPUT FORMAT:
-- Be direct. No fluff.
-- Use bullet points for readability.
-- If returning JSON, ensure it is valid JSON with no markdown formatting around it.
+Be direct. Use bullet points for readability.
 `;
-
-// ==========================================
-// 2. HELPER: GET TRAINING STAGE CONTEXT
-// ==========================================
 
 function getTrainingStageContext() {
     const stage = state.projectData?.meta?.trainingStage;
     if (stage === 'accs') {
-        return "\nTraining Stage: ACCS — this trainee needs to demonstrate PARTICIPATION in the QIP. Focus on learning, contribution, and personal development.";
+        return "\nTraining Stage: ACCS. Focus on learning, contribution, and personal development.";
     } else if (stage === 'higher') {
-        return "\nTraining Stage: Higher EM Training — this trainee needs to demonstrate LEADERSHIP of the QIP. Focus on decision-making, stakeholder engagement, team management, and driving the improvement cycle.";
+        return "\nTraining Stage: Higher EM Training. Focus on decision-making, stakeholder engagement, team management, and driving the improvement cycle.";
     }
     return "";
 }
 
-// ==========================================
-// 3. CORE API HANDLER
-// ==========================================
-
-export async function callAI(userPrompt, jsonMode = false) {
+export async function callAI(userPrompt, jsonMode = false, schema = null) {
     const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
     if (!key) {
         showToast("AI API Key missing. Go to Settings.", "error");
@@ -53,15 +37,23 @@ export async function callAI(userPrompt, jsonMode = false) {
     }
 
     const stageContext = getTrainingStageContext();
-    const finalPrompt = `${SYSTEM_PROMPT}${stageContext}\n\nUSER REQUEST:\n${userPrompt}\n\n${jsonMode ? "OUTPUT IN PURE JSON ONLY. NO MARKDOWN." : ""}`;
+    const finalPrompt = `${SYSTEM_PROMPT}${stageContext}\n\nUSER REQUEST:\n${userPrompt}`;
     
+    const generationConfig = {
+        temperature: 0.7,
+        maxOutputTokens: 2000,
+    };
+
+    if (jsonMode) {
+        generationConfig.responseMimeType = "application/json";
+        if (schema) {
+            generationConfig.responseSchema = schema;
+        }
+    }
+
     const payload = {
         contents: [{ parts: [{ text: finalPrompt }] }],
-        generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 2000,
-            responseMimeType: jsonMode ? "application/json" : "text/plain"
-        }
+        generationConfig: generationConfig
     };
 
     try {
@@ -77,40 +69,10 @@ export async function callAI(userPrompt, jsonMode = false) {
         }
 
         const data = await response.json();
-        let text = data.candidates[0].content.parts[0].text;
+        const text = data.candidates[0].content.parts[0].text;
 
         if (jsonMode) {
-            // Robust JSON extraction: find the first '{' or '[' and the last '}' or ']'
-            const firstBrace = text.indexOf('{');
-            const firstBracket = text.indexOf('[');
-            const lastBrace = text.lastIndexOf('}');
-            const lastBracket = text.lastIndexOf(']');
-            
-            // Determine if the response is an object or array
-            let startIdx, endIdx;
-            if (firstBrace !== -1 && (firstBracket === -1 || firstBrace < firstBracket)) {
-                startIdx = firstBrace;
-                endIdx = lastBrace;
-            } else if (firstBracket !== -1) {
-                startIdx = firstBracket;
-                endIdx = lastBracket;
-            } else {
-                throw new Error("AI did not return a valid JSON object.");
-            }
-            
-            if (startIdx !== -1 && endIdx !== -1) {
-                const jsonString = text.substring(startIdx, endIdx + 1);
-                try {
-                    return JSON.parse(jsonString);
-                } catch (e) {
-                    console.error("JSON Parse Error:", e);
-                    // Fallback to strict cleaning if simple extraction fails
-                    text = text.replace(/```(json)?/gi, '').replace(/```/g, '').trim();
-                    return JSON.parse(text);
-                }
-            } else {
-                throw new Error("AI did not return a valid JSON object.");
-            }
+            return JSON.parse(text);
         }
 
         return text;
@@ -122,11 +84,6 @@ export async function callAI(userPrompt, jsonMode = false) {
     }
 }
 
-// ==========================================
-// 4. SPECIALISED AI FUNCTIONS
-// ==========================================
-
-// --- GAP ANALYSIS (Golden Thread Check) ---
 export async function runGapAnalysis(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
@@ -142,11 +99,11 @@ export async function runGapAnalysis(projectData) {
     `;
 
     const prompt = `
-        Review this QIP for logical consistency (The "Golden Thread").
+        Review this QIP for logical consistency.
         1. Does the Aim directly address the Problem?
         2. Do the Drivers actually influence the Aim?
         3. Are the Measures capable of tracking the Aim?
-        4. Identify ONE major "Gap" or risk to validity.
+        4. Identify ONE major risk to validity.
         5. Suggest ONE specific improvement.
         Data: ${context}
         Keep response under 150 words.
@@ -155,8 +112,6 @@ export async function runGapAnalysis(projectData) {
     return await callAI(prompt);
 }
 
-// --- GOLDEN THREAD VALIDATOR (Priority 2.4) ---
-// Produces a structured pass/fail/warning report
 export async function runGoldenThreadValidator(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
@@ -178,34 +133,30 @@ export async function runGoldenThreadValidator(projectData) {
     `;
 
     const prompt = `
-        Perform a comprehensive "Golden Thread" coherence check on this QIP.
-        
-        Evaluate each of these links and return a JSON object with the following structure:
-        {
-            "aimAddressesProblem": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "driversRelateToAim": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "changeIdeasMapToDrivers": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "measuresCaptureAim": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "pdsaTestsChangeIdeas": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "dataAdequate": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "sustainabilityPlan": { "status": "pass|fail|warning", "comment": "Brief explanation" },
-            "overallScore": "A number from 0-100",
-            "topRecommendation": "Single most important thing to improve"
-        }
-        
+        Perform a comprehensive coherence check on this QIP.
         Rules:
-        - "pass" = clearly present and coherent
-        - "warning" = partially present but needs improvement
-        - "fail" = missing or incoherent
-        - Keep each comment under 25 words
-        
+        Keep each comment under 25 words.
         Data: ${context}
     `;
 
-    return await callAI(prompt, true);
+    const schema = {
+        type: "OBJECT",
+        properties: {
+            aimAddressesProblem: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            driversRelateToAim: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            changeIdeasMapToDrivers: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            measuresCaptureAim: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            pdsaTestsChangeIdeas: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            dataAdequate: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            sustainabilityPlan: { type: "OBJECT", properties: { status: { type: "STRING" }, comment: { type: "STRING" } } },
+            overallScore: { type: "NUMBER" },
+            topRecommendation: { type: "STRING" }
+        }
+    };
+
+    return await callAI(prompt, true, schema);
 }
 
-// --- EVIDENCE SUGGESTIONS ---
 export async function suggestEvidence() {
     const d = state.projectData.checklist;
     if (!d.problem_desc && !d.aim) return null;
@@ -222,65 +173,68 @@ export async function suggestEvidence() {
     return await callAI(prompt);
 }
 
-// --- CHANGE IDEAS FROM DRIVER ---
 export async function generateChangeIdeas(driverName) {
     const prompt = `
         Context: NHS Emergency Department.
         Driver: "${driverName}"
-        Task: List 5 practical, low-cost change ideas (interventions) to influence this driver.
-        Focus on: Process simplification, visual cues, nudges, or standardisation. Avoid generic "education" if possible.
-        Return as a simple JSON list of strings: ["Idea 1", "Idea 2"...]
+        Task: List 5 practical, low-cost change ideas to influence this driver.
+        Focus on: Process simplification, visual cues, nudges, or standardisation. Avoid generic education if possible.
     `;
 
-    return await callAI(prompt, true);
+    const schema = {
+        type: "ARRAY",
+        items: { type: "STRING" }
+    };
+
+    return await callAI(prompt, true, schema);
 }
 
-// --- SMART AIM CRITIQUE (Priority 4.6) ---
-// FIX: Now returns critique + suggestion instead of auto-replacing
 export async function critiqueSmartAim(draftAim, problem) {
     const prompt = `
         Draft Aim: "${draftAim}"
         Problem: "${problem}"
         
         Task: Critique this aim against SMART criteria and suggest an improved version.
-        
-        Return JSON:
-        {
-            "scores": {
-                "specific": { "score": 0-2, "feedback": "Brief feedback" },
-                "measurable": { "score": 0-2, "feedback": "Brief feedback" },
-                "achievable": { "score": 0-2, "feedback": "Brief feedback" },
-                "relevant": { "score": 0-2, "feedback": "Brief feedback" },
-                "timebound": { "score": 0-2, "feedback": "Brief feedback" }
-            },
-            "overallScore": 0-10,
-            "mainIssue": "The single biggest problem with this aim (under 20 words)",
-            "suggestedAim": "Rewritten SMART aim under 40 words, format: To [increase/decrease] [measure] from [baseline] to [target] by [date]."
-        }
-        
         Scoring: 0 = not addressed, 1 = partially addressed, 2 = fully addressed.
     `;
-    return await callAI(prompt, true);
+
+    const schema = {
+        type: "OBJECT",
+        properties: {
+            scores: {
+                type: "OBJECT",
+                properties: {
+                    specific: { type: "OBJECT", properties: { score: { type: "NUMBER" }, feedback: { type: "STRING" } } },
+                    measurable: { type: "OBJECT", properties: { score: { type: "NUMBER" }, feedback: { type: "STRING" } } },
+                    achievable: { type: "OBJECT", properties: { score: { type: "NUMBER" }, feedback: { type: "STRING" } } },
+                    relevant: { type: "OBJECT", properties: { score: { type: "NUMBER" }, feedback: { type: "STRING" } } },
+                    timebound: { type: "OBJECT", properties: { score: { type: "NUMBER" }, feedback: { type: "STRING" } } }
+                }
+            },
+            overallScore: { type: "NUMBER" },
+            mainIssue: { type: "STRING" },
+            suggestedAim: { type: "STRING" }
+        }
+    };
+
+    return await callAI(prompt, true, schema);
 }
 
-// Legacy function kept for backward compatibility — now wraps critiqueSmartAim
 export async function refineSmartAim(draftAim, problem) {
     const result = await critiqueSmartAim(draftAim, problem);
     if (result && result.suggestedAim) {
         return result.suggestedAim;
     }
-    // Fallback to simple prompt if structured response fails
     const prompt = `
         Draft Aim: "${draftAim}"
         Problem: "${problem}"
-        Task: Rewrite this into a perfect SMART Aim (Specific, Measurable, Achievable, Relevant, Time-bound).
+        Task: Rewrite this into a perfect SMART Aim.
         Format: "To [increase/decrease] [measure] from [baseline] to [target] by [date]."
         Keep it under 40 words.
     `;
     return await callAI(prompt);
 }
 
-// --- ABSTRACT GENERATOR (Priority 4.7) ---
 export async function generateAbstract(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
@@ -312,23 +266,21 @@ export async function generateAbstract(projectData) {
         
         Structure the abstract as:
         Background: (2-3 sentences)
-        Aim: (1 sentence — use the SMART aim directly)
-        Methods: (3-4 sentences covering methodology, measures, and PDSA cycles)
-        Results: (3-4 sentences with specific data)
-        Conclusion: (2-3 sentences on learning and implications)
+        Aim: (1 sentence)
+        Methods: (3-4 sentences)
+        Results: (3-4 sentences)
+        Conclusion: (2-3 sentences)
         
         Rules:
-        - Keep to exactly 250 words (±10)
-        - Use British English
-        - Be specific — cite actual numbers from the data where available
-        - Do NOT invent data that is not provided
-        - If data is missing, use placeholder brackets like [baseline] or [result]
+        Keep to exactly 250 words.
+        Use British English.
+        Be specific.
+        Do NOT invent data that is not provided.
     `;
 
     return await callAI(prompt);
 }
 
-// --- PDSA SUGGESTION ---
 export async function suggestNextPDSA(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
@@ -346,20 +298,23 @@ export async function suggestNextPDSA(projectData) {
         Completed PDSA Cycles: ${completedChanges.length > 0 ? completedChanges.join('; ') : 'None yet'}
         Untested Change Ideas: ${unusedChanges.length > 0 ? unusedChanges.join('; ') : 'None identified'}
         
-        Task: Suggest the next PDSA cycle to test. Return JSON:
-        {
-            "title": "Concise cycle title",
-            "rationale": "Why this should be tested next (under 30 words)",
-            "plan": "Detailed plan section (2-3 sentences). Include a clear PREDICTION of what you expect to happen.",
-            "suggestedMeasure": "What to measure during this test",
-            "scale": "How small to start (e.g., '5 patients over 1 shift')"
-        }
+        Task: Suggest the next PDSA cycle to test.
     `;
 
-    return await callAI(prompt, true);
+    const schema = {
+        type: "OBJECT",
+        properties: {
+            title: { type: "STRING" },
+            rationale: { type: "STRING" },
+            plan: { type: "STRING" },
+            suggestedMeasure: { type: "STRING" },
+            scale: { type: "STRING" }
+        }
+    };
+
+    return await callAI(prompt, true, schema);
 }
 
-// Make functions available globally for HTML event handlers
 window.generateChangeIdeas = generateChangeIdeas;
 window.critiqueSmartAim = critiqueSmartAim;
 window.runGoldenThreadValidator = runGoldenThreadValidator;
