@@ -21,6 +21,12 @@ import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 import { startOnboarding } from "./onboarding.js";
 
+// New Feature Imports
+import { exportToKaizen } from "./kaizen-export.js";
+import { renderSupervisorDashboard } from "./supervisor.js";
+import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
+import { renderPatientTracker } from "./patient-tracker.js";
+
 console.log('🚀 App starting...');
 
 // SECURITY: Clean any accidentally leaked credentials from URL immediately
@@ -86,7 +92,11 @@ window.router = (view) => {
         sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
     }
 
-    R.renderAll(view);
+    if (view === 'supervisor') {
+        renderSupervisorDashboard();
+    } else {
+        R.renderAll(view);
+    }
 };
 
 window.returnToProjects = () => {
@@ -330,6 +340,7 @@ window.exportPPTX = exportPPTX;
 window.printPoster = printPoster;
 window.printPosterOnly = printPosterOnly;
 window.openPortfolioExport = R.openPortfolioExport;
+window.exportToKaizen = exportToKaizen;
 
 // --- DATA & CHART FUNCTIONS ---
 window.addDataPoint = addDataPoint;
@@ -348,7 +359,7 @@ window.updateChartEducation = updateChartEducation;
 window.openChartSettings = openChartSettings;
 window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
-window.renderFullViewChart = renderFullViewChart; // FIX APPLIED HERE
+window.renderFullViewChart = renderFullViewChart;
 
 // --- TOOL FUNCTIONS (Fishbone/Driver/Process) ---
 window.setToolMode = setToolMode;
@@ -367,7 +378,7 @@ window.saveChecklist = (key, val) => {
     state.projectData.checklist[key] = val; 
     window.saveData(); 
 };
-window.saveChecklistField = window.saveChecklist; // Alias for HTML compatibility
+window.saveChecklistField = window.saveChecklist; 
 window.saveSmartAim = R.saveSmartAim; 
 window.renderChecklist = R.renderChecklist; 
 window.startOnboarding = startOnboarding;
@@ -503,7 +514,7 @@ window.startTour = R.startTour;
 // 3. CORE LOGIC (Auth, Save, Load)
 // ==========================================================================
 
-// Main Save Function (Debounced & History Push)
+// Main Save Function
 window.saveData = async function(skipHistory = false) {
     if (state.isReadOnly) return;
     
@@ -533,7 +544,6 @@ window.saveData = async function(skipHistory = false) {
     try {
         await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
         
-        // Priority 5.2 - Auto-save indicator made more prominent
         const s = document.getElementById('save-status');
         if(s) { 
             s.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Saved`;
@@ -733,7 +743,6 @@ if (auth) {
 
         state.currentUser = user;
         if (user) {
-            // FIX: Show the app container
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
@@ -758,7 +767,6 @@ async function checkShareLink() {
         const ind = document.getElementById('readonly-indicator');
         if(ind) ind.classList.remove('hidden');
         
-        // FIX: Show the app container for shared links
         document.getElementById('app-container').classList.remove('hidden');
         document.getElementById('auth-screen').classList.add('hidden');
         document.getElementById('app-sidebar').classList.add('lg:flex');
@@ -851,10 +859,8 @@ window.createNewProject = async () => {
         
         showToast("Project created successfully", "success");
         
-        // Open the project immediately
         window.openProject(docRef.id);
         
-        // Launch onboarding wizard after a short delay to ensure DOM is ready
         setTimeout(() => {
             if (window.startOnboarding) window.startOnboarding();
         }, 600);
@@ -895,7 +901,6 @@ window.openProject = (id) => {
             }
             state.projectData = data;
             
-            // Schema Validation (Safe Defaults)
             if(!state.projectData.checklist) state.projectData.checklist = {};
             if(!state.projectData.drivers) state.projectData.drivers = {primary:[], secondary:[], changes:[]};
             if(!state.projectData.fishbone) state.projectData.fishbone = emptyProject.fishbone;
@@ -907,6 +912,7 @@ window.openProject = (id) => {
             if(!state.projectData.chartSettings) state.projectData.chartSettings = {};
             if(!state.projectData.process) state.projectData.process = ["Start", "End"];
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
+            if(!state.projectData.patientFeedback) state.projectData.patientFeedback = [];
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
@@ -914,7 +920,7 @@ window.openProject = (id) => {
             let currentView = document.querySelector('.view-section:not(.hidden)');
             if (currentView) {
                 let viewName = currentView.id.replace('view-', '');
-                if(viewName !== 'projects') R.renderAll(viewName);
+                if(viewName !== 'projects') window.router(viewName);
             }
         }
     }, (error) => {
@@ -1118,7 +1124,6 @@ function initAuthHandlers() {
             state.isDemoMode = true;
             state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
             
-            // FIX: Show the app container for demo mode
             const appContainer = document.getElementById('app-container');
             if(appContainer) appContainer.classList.remove('hidden');
             
