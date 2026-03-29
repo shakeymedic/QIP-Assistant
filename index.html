@@ -167,6 +167,9 @@
                     <button aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa">
                         <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i> PDSA Cycles
                     </button>
+                    <button aria-label="Go to Surveys" onclick="window.router('surveys')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-surveys">
+                        <i data-lucide="clipboard-list" class="w-4 h-4 text-violet-400"></i> Surveys & Feedback
+                    </button>
                     
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Review & Sign-off</div>
                     <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
@@ -486,6 +489,8 @@
                         </header>
                         <div id="pdsa-container"></div>
                     </div>
+
+                    <div id="view-surveys" class="view-section hidden max-w-6xl mx-auto"></div>
 
                     <div id="view-stakeholders" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col">
                         <div class="relative h-full">
