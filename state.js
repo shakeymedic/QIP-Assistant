@@ -1,37 +1,16 @@
-// ==========================================================================
-// STATE MANAGEMENT & DATA STRUCTURES
-// ==========================================================================
-
 export const state = {
-    // User Authentication
     currentUser: null,
-    
-    // Project Selection
     currentProjectId: null,
-    projectData: null, // This holds the active QIP JSON
-    
-    // Application Modes
-    isReadOnly: false,  // For shared links
-    isDemoMode: false,  // For guest users trying the demo
-    
-    // UI State
-    toolMode: 'driver', // 'driver' | 'process'
+    projectData: null,
+    isReadOnly: false,
+    isDemoMode: false,
+    toolMode: 'driver',
     activeView: 'dashboard',
-    
-    // History Stack for Undo/Redo
     historyStack: [],
     redoStack: [],
-    MAX_HISTORY: 50, // Prevent memory bloat
-    
-    // Global Settings
+    MAX_HISTORY: 50,
     aiKey: localStorage.getItem('rcem_qip_ai_key') || null
 };
-
-// ==========================================================================
-// EMPTY PROJECT TEMPLATE
-// ==========================================================================
-// This defines the schema for a new project.
-// All fields must be initialized to avoid null pointer errors in renderers.
 
 export const emptyProject = {
     meta: {
@@ -39,43 +18,32 @@ export const emptyProject = {
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
         owner: null,
-        trainingStage: "" // Priority 1.3: 'accs' or 'higher'
+        trainingStage: ""
     },
     checklist: {
-        // Problem
         problem_desc: "",
         problem_context: "",
         problem_evidence: "",
-        
-        // Aim (SMART)
         aim: "",
         aim_measure: "",
         aim_baseline: "",
         aim_target: "",
         aim_date: "",
-        
-        // Measures
         outcome_measure: "",
         process_measure: "",
         balance_measure: "",
-        
-        // Governance
         ethics: "",
-        
-        // Research
         lit_review: "",
-        
-        // Closing
         learning_points: "",
         sustainability: "",
         results_text: "",
         results_analysis: "",
-        next_pdp: "" // Priority 1.4: Fixed Next Year's PDP missing field
+        next_pdp: ""
     },
     drivers: {
-        primary: [],   // Array of strings
-        secondary: [], // Array of strings
-        changes: []    // Array of strings
+        primary: [],
+        secondary: [],
+        changes: []
     },
     fishbone: {
         categories: [
@@ -87,11 +55,9 @@ export const emptyProject = {
             { text: "Management", causes: [] }
         ]
     },
-    process: ["Start", "End"], // Process Map steps
-    
-    pdsa: [], // { title, startDate, end, plan, do, study, act }
-    
-    chartData: [], // { date, value, grade }
+    process: ["Start", "End"],
+    pdsa: [],
+    chartData: [],
     chartSettings: {
         mode: 'run',
         showMedian: true,
@@ -102,20 +68,12 @@ export const emptyProject = {
         yAxisLabel: '',
         showAnnotations: false
     },
-    
-    stakeholders: [], // { name, x, y, role }
-    
-    teamMembers: [], // { id, name, role, grade, initials, responsibilities }
-    
-    leadershipLogs: [], // { date, note }
-    
-    gantt: [] // { id, name, start, end, type, owner, dependency, milestone }
+    stakeholders: [],
+    teamMembers: [],
+    leadershipLogs: [],
+    gantt: [],
+    surveys: []
 };
-
-// ==========================================================================
-// DEMO DATA GENERATOR - GOLD STANDARD SEPSIS QIP
-// ==========================================================================
-// Priority 3.3: Richly populated with 40+ data points, 5 PDSA cycles, full stakeholders, and reflections.
 
 export function getDemoData() {
     return {
@@ -124,7 +82,7 @@ export function getDemoData() {
             created: "2023-06-01T08:00:00Z",
             updated: new Date().toISOString(),
             owner: "Dr. J. Bloggs",
-            trainingStage: "higher" // Demonstrates leadership
+            trainingStage: "higher"
         },
         checklist: {
             problem_desc: "Retrospective audit of 150 consecutive patients with Red Flag Sepsis over 3 months revealed only 42% received IV antibiotics within 60 minutes of the sepsis trigger. This is significantly below the RCEM Clinical Standard of 90%. Root cause analysis identified multiple barriers: equipment scattered across the department, lack of nursing autonomy to initiate antibiotics, poor sepsis screening compliance at triage, and cultural acceptance of delays during periods of crowding.",
@@ -158,7 +116,7 @@ Surviving Sepsis Campaign: International Guidelines (2021):
 
 1. SYSTEM CHANGES trump education: Initial educational interventions (Cycle 1) produced only marginal, unsustained improvement. The most effective changes were physical (Sepsis Trolley) and procedural (Nurse PGD).
 
-2. LEADERSHIP & ENGAGEMENT: As a Higher Trainee, I learned that influencing consultant colleagues required data-driven conversations. I successfully navigated resistance to the nurse PGD by bringing Microbiology and Pharmacy into a joint stakeholder meeting.
+2. LEADERSHIP AND ENGAGEMENT: As a Higher Trainee, I learned that influencing consultant colleagues required data-driven conversations. I successfully navigated resistance to the nurse PGD by bringing Microbiology and Pharmacy into a joint stakeholder meeting.
 
 3. NURSING EMPOWERMENT is transformative: The Patient Group Directive enabling nurses to initiate antibiotics was the single most impactful intervention. It removed the bottleneck of waiting for a doctor to prescribe.
 
@@ -209,7 +167,7 @@ CURRENT STATE (June 2024):
             primary: [
                 "Early Sepsis Recognition",
                 "Equipment Accessibility", 
-                "Staff Empowerment & Culture",
+                "Staff Empowerment and Culture",
                 "Efficient Clinical Pathways"
             ],
             secondary: [
@@ -332,7 +290,6 @@ CURRENT STATE (June 2024):
         ],
         
         chartData: [
-            // Baseline
             { date: "2023-06-05", value: 38, grade: "Baseline" },
             { date: "2023-06-12", value: 44, grade: "Baseline" },
             { date: "2023-06-19", value: 40, grade: "Baseline" },
@@ -346,18 +303,15 @@ CURRENT STATE (June 2024):
             { date: "2023-08-14", value: 46, grade: "Baseline" },
             { date: "2023-08-21", value: 40, grade: "Baseline" },
             { date: "2023-08-28", value: 43, grade: "Baseline" },
-            // Cycle 1
             { date: "2023-09-04", value: 48, grade: "PDSA 1" },
             { date: "2023-09-11", value: 52, grade: "PDSA 1" },
             { date: "2023-09-18", value: 47, grade: "PDSA 1" },
             { date: "2023-09-25", value: 45, grade: "PDSA 1" },
-            // Cycle 2
             { date: "2023-10-02", value: 55, grade: "PDSA 2" },
             { date: "2023-10-09", value: 58, grade: "PDSA 2" },
             { date: "2023-10-16", value: 62, grade: "PDSA 2" },
             { date: "2023-10-23", value: 60, grade: "PDSA 2" },
             { date: "2023-10-30", value: 65, grade: "PDSA 2" },
-            // Cycle 3
             { date: "2023-11-06", value: 64, grade: "PDSA 3" },
             { date: "2023-11-13", value: 68, grade: "PDSA 3" },
             { date: "2023-11-20", value: 72, grade: "PDSA 3" },
@@ -365,7 +319,6 @@ CURRENT STATE (June 2024):
             { date: "2023-12-04", value: 78, grade: "PDSA 3" },
             { date: "2023-12-11", value: 80, grade: "PDSA 3" },
             { date: "2023-12-18", value: 77, grade: "PDSA 3" },
-            // Cycle 4
             { date: "2024-01-08", value: 82, grade: "PDSA 4" },
             { date: "2024-01-15", value: 85, grade: "PDSA 4" },
             { date: "2024-01-22", value: 84, grade: "PDSA 4" },
@@ -374,7 +327,6 @@ CURRENT STATE (June 2024):
             { date: "2024-02-12", value: 90, grade: "PDSA 4" },
             { date: "2024-02-19", value: 88, grade: "PDSA 4" },
             { date: "2024-02-26", value: 91, grade: "PDSA 4" },
-            // Sustain
             { date: "2024-03-04", value: 89, grade: "Sustain" },
             { date: "2024-03-11", value: 92, grade: "Sustain" },
             { date: "2024-03-18", value: 90, grade: "Sustain" },
@@ -429,6 +381,20 @@ CURRENT STATE (June 2024):
             { id: "7", name: "Cycle 3: Nurse PGD", start: "2023-11-15", end: "2023-12-15", type: "pdsa", owner: "SM", dependency: "6" },
             { id: "8", name: "Cycle 4: IT Alert", start: "2024-02-01", end: "2024-02-28", type: "act", owner: "MT" },
             { id: "9", name: "Target Achieved", start: "2024-05-31", end: "2024-06-01", type: "sustain", owner: "JB", milestone: true }
+        ],
+
+        surveys: [
+            {
+                id: "demo_survey",
+                title: "Post-Implementation Staff Confidence",
+                questions: ["Timestamp", "Role", "Confidence finding Sepsis Equipment (1-5)", "Confidence escalating to senior (1-5)"],
+                responses: [
+                    {"Timestamp": "2023-12-01 08:30:00", "Role": "Band 5 Nurse", "Confidence finding Sepsis Equipment (1-5)": "5", "Confidence escalating to senior (1-5)": "4"},
+                    {"Timestamp": "2023-12-01 09:15:00", "Role": "Junior Doctor", "Confidence finding Sepsis Equipment (1-5)": "4", "Confidence escalating to senior (1-5)": "5"},
+                    {"Timestamp": "2023-12-01 11:20:00", "Role": "HCA", "Confidence finding Sepsis Equipment (1-5)": "5", "Confidence escalating to senior (1-5)": "3"}
+                ],
+                summary: "Initial findings show high confidence in locating the new Sepsis Trolley (average rating 4.6/5). Escalation confidence varies slightly by role, with HCAs indicating they would benefit from a clearer escalation pathway."
+            }
         ]
     };
 }
