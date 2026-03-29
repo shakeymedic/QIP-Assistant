@@ -8,6 +8,7 @@ import {
 // Import external modules to populate missing DOM elements
 import { renderPatientTracker } from "./patient-tracker.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
+import { renderSurveys } from "./surveys.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -27,6 +28,7 @@ export function renderAll(view) {
         case 'tools': renderTools(); break;
         case 'data': renderDataView(); break;       
         case 'pdsa': renderPDSA(); break;
+        case 'surveys': renderSurveys(); break;
         case 'stakeholders': renderStakeholders(); break;
         case 'gantt': renderGantt(); break;
         case 'green': 
@@ -41,7 +43,7 @@ export function renderAll(view) {
 }
 
 function updateNavigationUI(currentView) {
-    const navItems = ['checklist', 'team', 'tools', 'pdsa', 'data', 'publish'];
+    const navItems = ['checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys'];
     navItems.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);
         if(!btn) return;
@@ -56,6 +58,7 @@ function updateNavigationUI(currentView) {
         else if(id === 'team' && d.teamMembers && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist && d.checklist.ethics) status = '✓';
         else if(id === 'tools' && d.drivers && (d.drivers.primary.length > 0 || d.drivers.changes.length > 0)) status = '✓';
+        else if(id === 'surveys' && d.surveys && d.surveys.length > 0) status = '✓';
         
         const existingBadge = btn.querySelector('.status-badge');
         if(existingBadge) existingBadge.remove();
@@ -1662,12 +1665,12 @@ export function renderPublish(mode = 'qiat') {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-// ── Helper: empty state placeholder for QIAT text fields ─────────────────────
+// Helper: empty state placeholder for QIAT text fields 
 function qiatEmptyState(promptText) {
     return `<p class="text-slate-400 italic text-sm select-none">${escapeHtml(promptText)}</p>`;
 }
 
-// ── Save training stage ───────────────────────────────────────────────────────
+// Save training stage 
 window.saveTrainingStage = function(value) {
     if (!state.projectData.meta) state.projectData.meta = {};
     state.projectData.meta.trainingStage = value;
@@ -1718,7 +1721,7 @@ function renderQIATForm(d) {
             <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 text-white p-6">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-                    RCEM QIAT (2025) — EM Quality Improvement Assessment Tool
+                    RCEM QIAT (2025) - EM Quality Improvement Assessment Tool
                 </h2>
                 <p class="text-indigo-200 text-sm mt-1">Auto-generated from your project data for risr/advance portfolio</p>
             </div>
@@ -1755,7 +1758,7 @@ function renderQIATForm(d) {
                 ${stageBanner}
                 
                 <div class="border-b border-slate-200 pb-4">
-                    <h3 class="text-lg font-bold text-slate-800">Part A — Trainee Section</h3>
+                    <h3 class="text-lg font-bold text-slate-800">Part A - Trainee Section</h3>
                     <p class="text-sm text-slate-500">Complete this form prior to ARCP</p>
                 </div>
                 
@@ -1763,7 +1766,7 @@ function renderQIATForm(d) {
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stage of Training</label>
                         <div class="text-sm text-slate-800 font-medium">
-                            ${trainingStage === 'accs' ? 'ACCS' : trainingStage === 'higher' ? 'Higher EM Training' : team.length > 0 ? escapeHtml(team[0].grade || '—') : '—'}
+                            ${trainingStage === 'accs' ? 'ACCS' : trainingStage === 'higher' ? 'Higher EM Training' : team.length > 0 ? escapeHtml(team[0].grade || '-') : '-'}
                         </div>
                     </div>
                     <div>
@@ -1778,17 +1781,17 @@ function renderQIATForm(d) {
                 
                 <div class="border border-slate-200 rounded-lg overflow-hidden">
                     <div class="bg-blue-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">1. QI Personal Development Plan — Current Year</h4>
+                        <h4 class="font-bold text-slate-800">1. QI Personal Development Plan - Current Year</h4>
                     </div>
                     <div class="p-4">
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
                             1.1 PDP Summary
-                            <span class="normal-case font-normal text-slate-400 ml-2">— Enter your own goals in Define &amp; Measure → Aim</span>
+                            <span class="normal-case font-normal text-slate-400 ml-2">- Enter your own goals in Define &amp; Measure → Aim</span>
                         </label>
                         <div id="qiat-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
                             ${c.aim
                                 ? `<p class="text-sm text-slate-700">Primary objective: ${escapeHtml(c.aim)}</p>`
-                                : qiatEmptyState('No aim defined yet. Set your SMART aim in Define & Measure — it will appear here.')
+                                : qiatEmptyState('No aim defined yet. Set your SMART aim in Define & Measure - it will appear here.')
                             }
                         </div>
                         ${!c.aim ? `
@@ -1806,7 +1809,7 @@ function renderQIATForm(d) {
                     <div class="p-4 space-y-4">
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.1 Involvement — Engagement with QI education over the past year
+                                2.1 Involvement - Engagement with QI education over the past year
                             </label>
                             <div id="qiat-education" class="bg-slate-50 p-3 rounded text-sm text-slate-700 min-h-[80px]">
                                 ${(d.meta?.title || pdsa.length > 0 || d.chartData?.length > 0) ? `
@@ -1818,24 +1821,24 @@ function renderQIATForm(d) {
                                         ${(d.stakeholders?.length || 0) > 0 ? `<li>${d.stakeholders.length} stakeholder${d.stakeholders.length > 1 ? 's' : ''} mapped</li>` : ''}
                                         ${logs.length > 0 ? `<li>${logs.length} leadership engagement${logs.length > 1 ? 's' : ''} documented</li>` : ''}
                                     </ul>
-                                ` : qiatEmptyState('Add project data — involvement details will be drawn from your project automatically.')}
+                                ` : qiatEmptyState('Add project data - involvement details will be drawn from your project automatically.')}
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.2 Learning — How has this developed your understanding of QI?
-                                <span class="normal-case font-normal text-slate-400 ml-2">— from your Learning Points</span>
+                                2.2 Learning - How has this developed your understanding of QI?
+                                <span class="normal-case font-normal text-slate-400 ml-2">- from your Learning Points</span>
                             </label>
                             <div id="qiat-learning" class="bg-slate-50 p-3 rounded min-h-[80px]">
                                 ${c.learning_points
                                     ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('Enter your learning points in Define & Measure → Learning & Sustainability — they will appear here automatically. Write in your own words: what worked, what did not, what you would do differently.')
+                                    : qiatEmptyState('Enter your learning points in Define & Measure → Learning & Sustainability - they will appear here automatically. Write in your own words: what worked, what did not, what you would do differently.')
                                 }
                             </div>
                             ${!c.learning_points ? `
                                 <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
                                     <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                    This is a key reflective field — it must be in your own words.
+                                    This is a key reflective field - it must be in your own words.
                                 </p>` : ''}
                         </div>
                     </div>
@@ -1851,8 +1854,8 @@ function renderQIATForm(d) {
                             <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">Yes</span>
                         </div>
                         <div class="bg-slate-50 p-3 rounded text-sm text-slate-700">
-                            <strong>Project Title:</strong> ${escapeHtml(d.meta?.title || '—')}
-                            <br><strong>Role:</strong> ${isHigher ? 'Project Lead / QI Lead' : isACCS ? 'Project Participant' : (team.length > 0 ? escapeHtml(team[0].role || '—') : '—')}
+                            <strong>Project Title:</strong> ${escapeHtml(d.meta?.title || '-')}
+                            <br><strong>Role:</strong> ${isHigher ? 'Project Lead / QI Lead' : isACCS ? 'Project Participant' : (team.length > 0 ? escapeHtml(team[0].role || '-') : '-')}
                             <br><strong>Duration:</strong> ${d.gantt?.length > 0 ? `${d.gantt[0].start} to ${d.gantt[d.gantt.length - 1].end}` : 'Ongoing'}
                         </div>
                         ${isHigher ? `
@@ -1869,7 +1872,7 @@ function renderQIATForm(d) {
                     </div>
                     <div class="p-4 space-y-4">
                         <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">4.1 QI Journey — Aspects gained experience in this year</label>
+                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">4.1 QI Journey - Aspects gained experience in this year</label>
                             <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
                                 ${[
                                     [hasCreatingConditions, 'Creating Conditions'],
@@ -1893,12 +1896,12 @@ function renderQIATForm(d) {
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
                                 4.2 Reflections and Learning
-                                <span class="normal-case font-normal text-slate-400 ml-2">— must be written in your own words</span>
+                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
                             </label>
                             <div id="qiat-reflections" class="bg-slate-50 p-3 rounded min-h-[100px]">
                                 ${c.learning_points
                                     ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('This section requires your personal reflection. Enter your learning points in Define & Measure → Learning & Sustainability. Describe what went well, what did not, barriers you encountered, and what you would do differently. This cannot be auto-generated — it must be in your own words.')
+                                    : qiatEmptyState('This section requires your personal reflection. Enter your learning points in Define & Measure → Learning & Sustainability. Describe what went well, what did not, barriers you encountered, and what you would do differently. This cannot be auto-generated - it must be in your own words.')
                                 }
                             </div>
                         </div>
@@ -1906,7 +1909,7 @@ function renderQIATForm(d) {
                         <div>
                             <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
                                 4.3 Next Year's PDP
-                                <span class="normal-case font-normal text-slate-400 ml-2">— must be written in your own words</span>
+                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
                             </label>
                             <div id="qiat-next-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
                                 ${c.next_pdp
@@ -1942,7 +1945,7 @@ function renderQIATForm(d) {
                 <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                     <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
                         <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                        Part B — Trainer Section
+                        Part B - Trainer Section
                     </h4>
                     <p class="text-sm text-amber-700">
                         Part B must be completed by your Educational Supervisor or an appropriate assessor.
@@ -1959,8 +1962,8 @@ function renderAbstractForm(d) {
     const pdsa = d.pdsa || [];
     const wordLimit = 250;
     
-    let abstract = `Background: ${c.problem_desc || '[Problem statement — describe the gap between current and desired state]'}\n\n`;
-    abstract += `Aim: ${c.aim || '[SMART aim — To increase/decrease X from Y to Z by date]'}\n\n`;
+    let abstract = `Background: ${c.problem_desc || '[Problem statement - describe the gap between current and desired state]'}\n\n`;
+    abstract += `Aim: ${c.aim || '[SMART aim - To increase/decrease X from Y to Z by date]'}\n\n`;
     abstract += `Methods: We used the Model for Improvement with ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}. `;
     abstract += `${d.chartData?.length || 0} data points were collected. `;
     abstract += `Outcome measure: ${c.outcome_measure || '[outcome measure]'}. `;
@@ -1984,7 +1987,7 @@ function renderAbstractForm(d) {
             
             <div class="mb-4 flex justify-between items-center">
                 <span class="text-sm text-slate-500">Word count: <span class="${wordCount > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}">${wordCount}</span>/${wordLimit}</span>
-                ${wordCount > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit — please edit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}
+                ${wordCount > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit - please edit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}
             </div>
             
             <div class="mb-4">
@@ -2031,18 +2034,18 @@ function renderReportForm(d) {
                 <div class="bg-slate-50 rounded-lg p-4">
                     <h4 class="font-bold text-slate-700 mb-2">Suggested Report Structure</h4>
                     <ol class="text-sm text-slate-600 space-y-2 list-decimal list-inside">
-                        <li><strong>Title & Author(s)</strong> — Project name and team</li>
-                        <li><strong>Background</strong> — Context and rationale</li>
-                        <li><strong>Problem Statement</strong> — Gap analysis</li>
-                        <li><strong>Aim</strong> — SMART aim</li>
-                        <li><strong>Measures</strong> — Outcome, process, balancing</li>
-                        <li><strong>Diagnosis</strong> — Root cause analysis (Fishbone/Driver diagram)</li>
-                        <li><strong>Interventions</strong> — Change ideas tested</li>
-                        <li><strong>PDSA Cycles</strong> — Tests of change</li>
-                        <li><strong>Results</strong> — Run/SPC charts with analysis</li>
-                        <li><strong>Learning</strong> — What worked, what didn't</li>
-                        <li><strong>Sustainability</strong> — How gains will be maintained</li>
-                        <li><strong>References</strong> — Evidence base</li>
+                        <li><strong>Title & Author(s)</strong> - Project name and team</li>
+                        <li><strong>Background</strong> - Context and rationale</li>
+                        <li><strong>Problem Statement</strong> - Gap analysis</li>
+                        <li><strong>Aim</strong> - SMART aim</li>
+                        <li><strong>Measures</strong> - Outcome, process, balancing</li>
+                        <li><strong>Diagnosis</strong> - Root cause analysis (Fishbone/Driver diagram)</li>
+                        <li><strong>Interventions</strong> - Change ideas tested</li>
+                        <li><strong>PDSA Cycles</strong> - Tests of change</li>
+                        <li><strong>Results</strong> - Run/SPC charts with analysis</li>
+                        <li><strong>Learning</strong> - What worked, what didn't</li>
+                        <li><strong>Sustainability</strong> - How gains will be maintained</li>
+                        <li><strong>References</strong> - Evidence base</li>
                     </ol>
                 </div>
                 
@@ -2329,7 +2332,7 @@ export function startTour() {
                 { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
                 { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
                 { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan, Do, Study, Act — document your improvement cycles here.' }},
+                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan, Do, Study, Act - document your improvement cycles here.' }},
                 { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate QIAT forms, abstracts and reports for your portfolio.' }}
             ]
         });
