@@ -213,6 +213,25 @@ export async function exportPPTX() {
     });
 
     // =======================================
+    // SLIDE 5B: SURVEYS & FEEDBACK
+    // =======================================
+    if (d.surveys && d.surveys.length > 0) {
+        slide = pres.addSlide();
+        addHeader(slide, "Surveys & Feedback");
+        
+        let yPos = 1.2;
+        d.surveys.slice(0, 3).forEach(s => {
+            slide.addText(s.title || "Untitled Survey", { x: 0.5, y: yPos, fontSize: 14, bold: true, color: RCEM_PURPLE });
+            slide.addText(`${s.responses ? s.responses.length : 0} responses`, { x: 0.5, y: yPos + 0.3, fontSize: 10, color: "64748B" });
+            slide.addText(s.summary || "No summary provided.", {
+                x: 0.5, y: yPos + 0.6, w: 9, h: 1.0,
+                fontSize: 11, color: SLATE_DARK, fill: SLATE_LIGHT, shape: pres.ShapeType.rect, valign: 'top'
+            });
+            yPos += 2.0;
+        });
+    }
+
+    // =======================================
     // SLIDE 6: SUSTAINABILITY & LEARNING
     // =======================================
     slide = pres.addSlide();
@@ -241,10 +260,8 @@ export async function exportPPTX() {
 // ==========================================================================
 // PRINT POSTER (Browser Print Helper)
 // ==========================================================================
-// Priority 4.8: One-page poster logic. Relies on styles in styles.css targeting '.printing-poster-mode'
 
 export function printPoster() {
-    // Fallback for older approach
     printPosterOnly();
 }
 
