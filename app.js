@@ -1,14 +1,11 @@
-// app.js
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-// Import State & Utils
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
 import { callAI } from "./ai.js";
 
-// Import Logic Modules
 import { 
     renderChart, deleteDataPoint, addDataPoint, importCSV, downloadCSVTemplate, 
     zoomIn, zoomOut, resetZoom, resetProcess, 
@@ -20,14 +17,13 @@ import {
 import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 import { startOnboarding } from "./onboarding.js";
-
-// New Feature Imports
 import { exportToKaizen } from "./kaizen-export.js";
 import { renderSupervisorDashboard } from "./supervisor.js";
 
-console.log('🚀 App starting...');
+import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 
-// SECURITY: Clean any accidentally leaked credentials from URL immediately
+console.log('App starting...');
+
 (function cleanURL() {
     const url = new URL(window.location.href);
     const sensitiveParams = ['password', 'pass', 'pwd', 'passwd', 'secret', 'token', 'key', 'apikey'];
@@ -37,53 +33,36 @@ console.log('🚀 App starting...');
         if (url.searchParams.has(param)) {
             url.searchParams.delete(param);
             needsClean = true;
-            console.warn('⚠️ SECURITY: Removed sensitive parameter from URL:', param);
         }
     });
     
     if (url.searchParams.has('email') && !url.searchParams.has('share')) {
         url.searchParams.delete('email');
         needsClean = true;
-        console.warn('⚠️ SECURITY: Removed email parameter from URL');
     }
     
     if (needsClean) {
         window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
-        console.log('✅ URL cleaned of sensitive data');
     }
 })();
 
-console.log('Firebase Status:', getFirebaseStatus());
-console.log('Auth:', auth ? '✅' : '❌');
-console.log('DB:', db ? '✅' : '❌');
-
-// ==========================================================================
-// 1. GLOBAL BINDINGS (Connecting HTML Buttons to JS Logic)
-// ==========================================================================
-
-// Expose Project Data for Debugging/Console
 Object.defineProperty(window, 'projectData', { get: () => state.projectData, set: (v) => state.projectData = v });
 
-// --- NAVIGATION & ROUTER ---
 window.router = (view) => {
     if (view !== 'projects' && !state.projectData) { 
         showToast("Please select a project first.", "error"); 
         return; 
     }
     
-    // Hide all views
     document.querySelectorAll('.view-section').forEach(el => el.classList.add('hidden'));
     
-    // Show selected view
     const target = document.getElementById(`view-${view}`);
     if (target) target.classList.remove('hidden');
     
-    // Update Sidebar Active State
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
     const btn = document.getElementById(`nav-${view}`);
     if(btn) btn.classList.add('bg-rcem-purple', 'text-white');
 
-    // Close Mobile Menu if open
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar && sidebar.classList.contains('z-50')) { 
         sidebar.classList.add('hidden'); 
@@ -109,7 +88,6 @@ window.returnToProjects = () => {
     loadProjectList();
 };
 
-// --- DATA PORTABILITY (Backup/Restore) ---
 window.exportProjectToFile = function() {
     if (!state.projectData) { showToast("No data to export", "error"); return; }
     
@@ -152,7 +130,6 @@ window.importProjectFromFile = function(input) {
     input.value = '';
 }
 
-// --- GLOBAL SETTINGS (AI & Keys) ---
 window.openGlobalSettings = () => {
     const el = document.getElementById('settings-ai-key');
     if(el) el.value = state.aiKey || '';
@@ -172,7 +149,6 @@ window.saveGlobalSettings = () => {
     }
     document.getElementById('global-settings-modal').classList.add('hidden');
     
-    // Refresh view to show/hide AI buttons
     let currentView = document.querySelector('.view-section:not(.hidden)');
     if (currentView) {
         let viewName = currentView.id.replace('view-', '');
@@ -186,10 +162,6 @@ window.toggleKeyVis = () => {
 };
 
 window.hasAI = () => !!state.aiKey;
-
-// ==========================================
-// 2. AI FUNCTIONS
-// ==========================================
 
 window.aiRefineAim = async () => {
     const d = state.projectData.checklist;
@@ -333,14 +305,12 @@ window.aiSuggestEvidence = async () => {
     }
 };
 
-// --- EXPORT FUNCTIONS ---
 window.exportPPTX = exportPPTX;
 window.printPoster = printPoster;
 window.printPosterOnly = printPosterOnly;
 window.openPortfolioExport = R.openPortfolioExport;
 window.exportToKaizen = exportToKaizen;
 
-// --- DATA & CHART FUNCTIONS ---
 window.addDataPoint = addDataPoint;
 window.deleteDataPoint = deleteDataPoint;
 window.downloadCSVTemplate = downloadCSVTemplate;
@@ -351,7 +321,6 @@ window.resetZoom = resetZoom;
 window.renderDataView = R.renderDataView;
 window.renderChart = renderChart;
 
-// Chart Controls
 window.setChartMode = setChartMode;
 window.updateChartEducation = updateChartEducation;
 window.openChartSettings = openChartSettings;
@@ -359,7 +328,6 @@ window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
 window.renderFullViewChart = renderFullViewChart;
 
-// --- TOOL FUNCTIONS (Fishbone/Driver/Process) ---
 window.setToolMode = setToolMode;
 window.toggleToolList = R.toggleToolList;
 window.toggleToolHelp = toggleToolHelp;
@@ -370,7 +338,6 @@ window.addFishCause = R.addFishCause;
 window.removeFishCause = R.removeFishCause;
 window.renderTools = renderTools;
 
-// --- CHECKLIST & AIM ---
 window.saveChecklist = (key, val) => { 
     if (!state.projectData.checklist) state.projectData.checklist = {};
     state.projectData.checklist[key] = val; 
@@ -381,7 +348,6 @@ window.saveSmartAim = R.saveSmartAim;
 window.renderChecklist = R.renderChecklist; 
 window.startOnboarding = startOnboarding;
 
-// --- TEAM & LEADERSHIP ---
 window.openMemberModal = R.openMemberModal;
 window.saveMember = () => {
     const name = document.getElementById('member-name').value;
@@ -402,7 +368,6 @@ window.saveMember = () => {
     window.saveData();
     document.getElementById('member-modal').classList.add('hidden');
     
-    // Clear form fields
     document.getElementById('member-name').value = '';
     document.getElementById('member-role').value = '';
     document.getElementById('member-grade').value = '';
@@ -423,18 +388,15 @@ window.deleteMember = (index) => {
 window.addLeadershipLog = R.addLeadershipLog;
 window.deleteLeadershipLog = R.deleteLeadershipLog;
 
-// --- STAKEHOLDERS ---
 window.addStakeholder = R.addStakeholder;
 window.updateStake = R.updateStake;
 window.removeStake = R.removeStake;
 window.toggleStakeView = R.toggleStakeView;
 
-// --- PDSA CYCLES ---
 window.addPDSA = R.addPDSA;
 window.updatePDSA = R.updatePDSA;
 window.deletePDSA = R.deletePDSA;
 
-// --- GANTT CHART ---
 window.openGanttModal = R.openGanttModal;
 window.saveGanttTask = () => {
     const name = document.getElementById('task-name').value;
@@ -450,7 +412,7 @@ window.saveGanttTask = () => {
     if(dependency) {
         const depTask = state.projectData.gantt.find(t => t.id === dependency);
         if(depTask && new Date(depTask.end) > new Date(start)) {
-            alert(`⚠️ Task must start after dependency '${depTask.name}' finishes.`);
+            alert(`Task must start after dependency '${depTask.name}' finishes.`);
             return;
         }
     }
@@ -464,7 +426,6 @@ window.saveGanttTask = () => {
     window.saveData();
     document.getElementById('task-modal').classList.add('hidden');
     
-    // Clear form fields
     document.getElementById('task-name').value = '';
     document.getElementById('task-start').value = '';
     document.getElementById('task-end').value = '';
@@ -493,7 +454,6 @@ window.deleteGanttTask = (index) => {
     }
 };
 
-// --- PUBLISH & CALCULATORS ---
 window.switchPublishMode = R.renderPublish;
 window.copyReport = R.copyReport;
 window.saveResults = (val) => { 
@@ -508,15 +468,17 @@ window.calcEdu = R.calcEdu;
 window.showHelp = R.showHelp;
 window.startTour = R.startTour;
 
-// ==========================================================================
-// 3. CORE LOGIC (Auth, Save, Load)
-// ==========================================================================
+window.renderSurveys = renderSurveys;
+window.addSurvey = addSurvey;
+window.deleteSurvey = deleteSurvey;
+window.importSurveyCSV = importSurveyCSV;
+window.updateSurveySummary = updateSurveySummary;
+window.updateSurveyTitle = updateSurveyTitle;
+window.aiAnalyseSurvey = aiAnalyseSurvey;
 
-// Main Save Function
 window.saveData = async function(skipHistory = false) {
     if (state.isReadOnly) return;
     
-    // Demo Mode: Local Only
     if (state.isDemoMode) { 
         if(!skipHistory) pushHistory();
         let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -529,7 +491,6 @@ window.saveData = async function(skipHistory = false) {
         return; 
     }
 
-    // Firebase Save
     if (!state.currentProjectId || !state.currentUser) return;
     
     if (!db) {
@@ -560,7 +521,6 @@ window.saveData = async function(skipHistory = false) {
             }, 2500); 
         }
     } catch (e) {
-        console.error("Save failed", e);
         showToast("Save failed: " + e.message, "error");
     }
 };
@@ -609,10 +569,6 @@ function updateUndoRedoButtons() {
     if (undoBtn) undoBtn.disabled = state.historyStack.length === 0;
     if (redoBtn) redoBtn.disabled = state.redoStack.length === 0;
 }
-
-// ==========================================================================
-// AUTHENTICATION ERROR HANDLING
-// ==========================================================================
 
 function getAuthErrorDetails(error) {
     const errorCode = error.code || '';
@@ -670,7 +626,6 @@ function getAuthErrorDetails(error) {
             errorDetails.type = 'warning';
             break;
         default:
-            console.error('Unknown auth error:', errorCode, error.message);
             errorDetails.message = `Authentication error: ${error.message || 'Unknown error'}`;
     }
 
@@ -731,11 +686,8 @@ function setButtonLoading(button, isLoading, loadingText = 'Loading...', origina
     }
 }
 
-// --- AUTH LISTENER ---
 if (auth) {
     onAuthStateChanged(auth, async (user) => {
-        console.log('🔐 Auth state changed:', user ? user.email : 'No user');
-        
         const isShared = await checkShareLink();
         if (isShared) return;
 
@@ -751,8 +703,6 @@ if (auth) {
             document.getElementById('auth-screen').classList.remove('hidden');
         }
     });
-} else {
-    console.error("⚠️ Firebase Auth not initialized.");
 }
 
 async function checkShareLink() {
@@ -783,7 +733,6 @@ async function checkShareLink() {
                 showToast("Shared project not found.", "error");
             }
         } catch (e) {
-            console.error(e);
             showToast("Could not load shared project.", "error");
         }
         return true;
@@ -798,7 +747,6 @@ async function loadProjectList() {
     if(topBar) topBar.classList.add('hidden');
     const listEl = document.getElementById('project-list');
     
-    // --- DEMO MODE RENDER ---
     if (state.isDemoMode) {
         listEl.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple relative cursor-pointer group hover:shadow-md transition-all" onclick="window.openDemoProject()">
              <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-bl">Gold Standard</div>
@@ -814,7 +762,6 @@ async function loadProjectList() {
         return;
     }
 
-    // --- FIREBASE PROJECT LIST ---
     try {
         if (!db) throw new Error("No database connection");
         const snap = await getDocs(collection(db, `users/${state.currentUser.uid}/projects`));
@@ -837,12 +784,10 @@ async function loadProjectList() {
         });
         if(typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
-        console.error("Error loading projects:", e);
         showToast("Failed to load projects: " + e.message, "error");
     }
 }
 
-// --- PROJECT ACTIONS ---
 window.createNewProject = async () => {
     const title = prompt("Project Title:", "New QIP");
     if (!title) return;
@@ -864,7 +809,6 @@ window.createNewProject = async () => {
         }, 600);
         
     } catch (e) {
-        console.error("Error creating project:", e);
         showToast("Failed to create project: " + e.message, "error");
     }
 };
@@ -877,7 +821,6 @@ window.deleteProject = async (id) => {
             loadProjectList(); 
             showToast("Project deleted", "info");
         } catch (e) {
-            console.error("Error deleting project:", e);
             showToast("Failed to delete project: " + e.message, "error");
         }
     }
@@ -911,6 +854,7 @@ window.openProject = (id) => {
             if(!state.projectData.process) state.projectData.process = ["Start", "End"];
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             if(!state.projectData.patientFeedback) state.projectData.patientFeedback = [];
+            if(!state.projectData.surveys) state.projectData.surveys = [];
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
@@ -922,7 +866,6 @@ window.openProject = (id) => {
             }
         }
     }, (error) => {
-        console.error("Error listening to project:", error);
         showToast("Connection error: " + error.message, "error");
     });
     
@@ -931,13 +874,7 @@ window.openProject = (id) => {
     window.router('dashboard');
 };
 
-// ==========================================================================
-// AUTHENTICATION HANDLERS
-// ==========================================================================
-
 function initAuthHandlers() {
-    console.log('📄 Initializing Auth Handlers');
-    
     const authForm = document.getElementById('auth-form');
     
     if(authForm) {
@@ -953,40 +890,21 @@ function initAuthHandlers() {
             const passwordInput = document.getElementById('password');
             const submitBtn = authForm.querySelector('button[type="submit"]');
             
-            if (!emailInput || !passwordInput) {
-                showToast('Form error: Input fields not found', 'error');
-                return;
-            }
-            
             const email = emailInput.value.trim();
             const password = passwordInput.value;
             
-            if (!email) {
-                setFieldError('email', true, 'Email is required');
-                emailInput.focus();
-                return;
-            }
-            
-            if (!isValidEmail(email)) {
+            if (!email || !isValidEmail(email)) {
                 setFieldError('email', true, 'Please enter a valid email address');
-                emailInput.focus();
                 return;
             }
             
-            if (!password) {
-                setFieldError('password', true, 'Password is required');
-                passwordInput.focus();
-                return;
-            }
-            
-            if (password.length < 6) {
+            if (!password || password.length < 6) {
                 setFieldError('password', true, 'Password must be at least 6 characters');
-                passwordInput.focus();
                 return;
             }
             
             if (!auth) {
-                showToast("Authentication service unavailable. Please refresh.", "error");
+                showToast("Authentication service unavailable.", "error");
                 return;
             }
             
@@ -1118,7 +1036,6 @@ function initAuthHandlers() {
     const demoAuthBtn = document.getElementById('demo-auth-btn');
     if(demoAuthBtn) {
         demoAuthBtn.onclick = () => {
-            console.log('🎮 Demo mode activated');
             state.isDemoMode = true;
             state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
             
@@ -1133,7 +1050,7 @@ function initAuthHandlers() {
             if(wm) wm.classList.remove('hidden');
             if(demoToggle) demoToggle.checked = true;
             loadProjectList();
-            showToast("Demo mode activated - explore the Gold Standard example!", "success");
+            showToast("Demo mode activated", "success");
         };
     }
 }
@@ -1157,7 +1074,6 @@ window.openDemoProject = () => {
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.remove('hidden');
     window.router('dashboard');
-    showToast("Gold Standard Example Loaded - explore all features!", "info");
 };
 
 window.shareProject = () => {
@@ -1166,7 +1082,6 @@ window.shareProject = () => {
     navigator.clipboard.writeText(url).then(() => showToast("Share Link copied!", "success"));
 };
 
-// Keyboard Shortcuts
 document.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
@@ -1185,14 +1100,12 @@ document.addEventListener('keydown', (e) => {
     }
 });
 
-// Initial Setup
 if(document.readyState === 'complete') {
     updateOnlineStatus();
 } else {
     window.addEventListener('load', updateOnlineStatus);
 }
 
-// Initialize Mermaid
 if (typeof mermaid !== 'undefined') {
     mermaid.initialize({ 
         startOnLoad: false, 
@@ -1208,15 +1121,10 @@ if (typeof mermaid !== 'undefined') {
     });
 }
 
-// Initialize Lucide Icons
 if (typeof lucide !== 'undefined') {
     lucide.createIcons();
 }
 
 window.checkFirebaseStatus = () => {
-    const status = getFirebaseStatus();
-    console.log('🔥 Firebase Status:', status);
-    return status;
+    return getFirebaseStatus();
 };
-
-console.log('✅ App initialization complete');
