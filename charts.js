@@ -7,36 +7,36 @@ let zoomLevel = 1.0;
 
 const TOOL_HELP = {
     fishbone: {
-        title: "Fishbone (Ishikawa) Diagram",
+        title: "Fishbone Ishikawa Diagram",
         desc: "A root cause analysis tool using the 6M framework.",
         tips: "Double-click a category to add a cause. Drag labels to reposition. Aim for 3-5 causes per category."
     },
     driver: {
         title: "Driver Diagram",
         desc: "Maps your Aim to Primary Drivers, Secondary Drivers, and Change Ideas.",
-        tips: "Work left-to-right: Aim → Primary → Secondary → Changes. Click '+' to add items."
+        tips: "Work left-to-right: Aim, Primary, Secondary, Changes. Click the plus icon to add items."
     },
     process: {
         title: "Process Map",
         desc: "Visualises the patient journey or clinical workflow step-by-step.",
-        tips: "Map the 'As Is' process first. Look for waiting times and bottlenecks."
+        tips: "Map the current process first. Look for waiting times and bottlenecks."
     }
 };
 
 const CHART_EDUCATION = {
     run: {
         title: "Run Chart Guidance",
-        desc: "A run chart plots your data chronologically. It adds a median line (calculated from your baseline data) to help you visualise improvement. Add at least 10 to 12 data points before implementing your first PDSA cycle. Record each data point regularly (e.g., daily or weekly) to establish an accurate baseline.",
+        desc: "A run chart plots your data chronologically. It adds a median line calculated from your baseline data to help you visualise improvement. Add at least 10 to 12 data points before implementing your first PDSA cycle. Record each data point regularly to establish an accurate baseline.",
         rules: [
             "Shift: Six or more consecutive points fall above or below the median line. This indicates a non-random change.",
             "Trend: Five or more consecutive points consistently go up or down.",
             "Astronomical point: An unusually high or low value that warrants immediate investigation.",
-            "Record your baseline data first. Add interventions using the 'Phase/Cycle' dropdown."
+            "Record your baseline data first. Add interventions using the phase dropdown."
         ]
     },
     spc: {
-        title: "Statistical Process Control (SPC) Chart Guidance",
-        desc: "SPC charts plot data against a calculated mean and establish Upper and Lower Control Limits (three standard deviations from the mean). They help distinguish between common cause variation (normal noise) and special cause variation (a significant change).",
+        title: "Statistical Process Control Chart Guidance",
+        desc: "SPC charts plot data against a calculated mean and establish Upper and Lower Control Limits. They help distinguish between common cause variation and special cause variation.",
         rules: [
             "Rule 1: A single point falls outside the control limits.",
             "Rule 2: Eight consecutive points fall on the same side of the mean line.",
@@ -46,7 +46,7 @@ const CHART_EDUCATION = {
     },
     histogram: {
         title: "Histogram Guidance",
-        desc: "Histograms show the frequency distribution of your continuous data. They divide your data into 'bins' to visualise the shape and spread of your measurements. Use this to identify if your process output clusters around a specific value.",
+        desc: "Histograms show the frequency distribution of your continuous data. They divide your data into bins to visualise the shape and spread of your measurements. Use this to identify if your process output clusters around a specific value.",
         rules: [
             "Normal: Bell-shaped and symmetrical.",
             "Skewed: The tail extends heavily to the left or right.",
@@ -55,7 +55,7 @@ const CHART_EDUCATION = {
     },
     pareto: {
         title: "Pareto Chart Guidance",
-        desc: "A Pareto chart combines a bar chart with a cumulative line graph. It highlights the 80/20 rule, showing that 80% of problems often stem from 20% of causes. Use this chart to determine which issues to tackle first for maximum impact.",
+        desc: "A Pareto chart combines a bar chart with a cumulative line graph. It highlights the 80/20 rule, showing that 80 percent of problems often stem from 20 percent of causes. Use this chart to determine which issues to tackle first for maximum impact.",
         rules: [
             "Focus your initial PDSA cycles on the tallest bars on the left.",
             "The orange line shows the cumulative percentage.",
@@ -317,7 +317,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
     if (enableInteraction && !state.isReadOnly) {
         const hint = document.createElement('div');
         hint.className = 'absolute bottom-2 left-2 text-xs text-slate-400 bg-white/80 px-2 py-1 rounded';
-        hint.innerHTML = '<i data-lucide="mouse-pointer-click" class="w-3 h-3 inline"></i> Double-click category to add cause • Drag to reposition • Right-click cause to delete';
+        hint.innerHTML = '<i data-lucide="mouse-pointer-click" class="w-3 h-3 inline"></i> Double-click category to add cause. Drag to reposition. Right-click cause to delete.';
         container.appendChild(hint);
     }
 }
@@ -567,6 +567,33 @@ export function renderChart(canvasId = 'mainChart') {
     }
 }
 
+function getPDSAAnnotations() {
+    const annotations = {};
+    if (state.projectData.pdsa && state.projectData.pdsa.length > 0) {
+        state.projectData.pdsa.forEach((p, i) => {
+            const startDate = p.startDate || p.start;
+            if (startDate) {
+                annotations[`pdsa_${i}`] = {
+                    type: 'line',
+                    xMin: startDate,
+                    xMax: startDate,
+                    borderColor: '#f36f21',
+                    borderWidth: 2,
+                    borderDash: [5, 5],
+                    label: {
+                        display: true,
+                        content: `PDSA ${i + 1}`,
+                        position: 'start',
+                        backgroundColor: 'rgba(243, 111, 33, 0.9)',
+                        font: { size: 9, weight: 'bold' }
+                    }
+                };
+            }
+        });
+    }
+    return annotations;
+}
+
 function renderRunChart(ctx, canvasId) {
     const d = state.projectData.chartData;
     if(d.length === 0) return;
@@ -580,7 +607,7 @@ function renderRunChart(ctx, canvasId) {
     let sortedBase = [...baselineData].sort((a, b) => a - b);
     let median = sortedBase.length ? sortedBase[Math.floor(sortedBase.length / 2)] : 0;
 
-    const annotations = {
+    let annotations = {
         medianLine: { 
             type: 'line', 
             yMin: median, 
@@ -617,27 +644,9 @@ function renderRunChart(ctx, canvasId) {
         };
     }
     
-    if (settings.showAnnotations && state.projectData.pdsa && state.projectData.pdsa.length > 0) {
-        state.projectData.pdsa.forEach((p, i) => {
-            const startDate = p.startDate || p.start;
-            if (startDate) {
-                annotations[`pdsa${i}`] = {
-                    type: 'line',
-                    xMin: startDate,
-                    xMax: startDate,
-                    borderColor: '#f36f21',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    label: {
-                        display: true,
-                        content: `PDSA ${i + 1}`,
-                        position: 'start',
-                        backgroundColor: 'rgba(243, 111, 33, 0.9)',
-                        font: { size: 9, weight: 'bold' }
-                    }
-                };
-            }
-        });
+    if (settings.showAnnotations) {
+        const pdsaAnnotations = getPDSAAnnotations();
+        annotations = { ...annotations, ...pdsaAnnotations };
     }
 
     const gradeColors = {
@@ -728,7 +737,7 @@ function renderSPCChart(ctx, canvasId) {
     
     const pointColors = data.map(v => (v > ucl || v < lcl) ? '#ef4444' : '#64748b');
 
-    const annotations = {
+    let annotations = {
         ucl: { 
             type: 'line', yMin: ucl, yMax: ucl, 
             borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, 
@@ -746,17 +755,9 @@ function renderSPCChart(ctx, canvasId) {
         }
     };
 
-    if (settings.showAnnotations && state.projectData.pdsa) {
-        state.projectData.pdsa.forEach((p, i) => {
-            const startDate = p.startDate || p.start;
-            if (startDate) {
-                annotations[`pdsa${i}`] = { 
-                    type: 'line', xMin: startDate, xMax: startDate, 
-                    borderColor: '#f36f21', borderWidth: 2, borderDash: [5, 5], 
-                    label: { display: true, content: `PDSA ${i + 1}`, position: 'start', backgroundColor: 'rgba(243, 111, 33, 0.9)', font: { size: 9 } } 
-                };
-            }
-        });
+    if (settings.showAnnotations) {
+        const pdsaAnnotations = getPDSAAnnotations();
+        annotations = { ...annotations, ...pdsaAnnotations };
     }
 
     const chart = new Chart(ctx, {
@@ -876,7 +877,7 @@ function renderPareto(ctx, canvasId) {
             datasets: [ 
                 { 
                     type: 'line', 
-                    label: 'Cumulative %', 
+                    label: 'Cumulative Percentage', 
                     data: cumulative, 
                     borderColor: '#f36f21', 
                     backgroundColor: 'rgba(243, 111, 33, 0.1)', 
@@ -905,7 +906,7 @@ function renderPareto(ctx, canvasId) {
             }, 
             scales: { 
                 y: { title: { display: true, text: 'Count', font: { weight: 'bold' } }, beginAtZero: true }, 
-                y1: { position: 'right', max: 100, title: { display: true, text: 'Cumulative %', font: { weight: 'bold' } }, grid: { drawOnChartArea: false } } 
+                y1: { position: 'right', max: 100, title: { display: true, text: 'Cumulative Percentage', font: { weight: 'bold' } }, grid: { drawOnChartArea: false } } 
             } 
         } 
     });
@@ -969,22 +970,38 @@ export function importCSV(input) {
         const lines = text.split('\n').filter(l => l.trim() !== '');
         let count = 0;
         if (!state.projectData.chartData) state.projectData.chartData = [];
+
+        const header = lines[0].toLowerCase();
+        let dateIdx = 0;
+        let valIdx = 1;
+        let gradeIdx = 2;
+
+        const isEHR = header.includes('arrival') || header.includes('epic') || header.includes('cerner');
+        if (isEHR) {
+            const parts = header.split(',');
+            dateIdx = parts.findIndex(p => p.includes('date') || p.includes('time') || p.includes('arrival'));
+            valIdx = parts.findIndex(p => p.includes('value') || p.includes('result') || p.includes('duration'));
+            if (dateIdx === -1) dateIdx = 0;
+            if (valIdx === -1) valIdx = 1;
+        }
+
         lines.forEach((l, i) => {
-            if(i === 0) return; 
+            if(i === 0) return;
             const parts = l.split(',');
             if(parts.length >= 2) {
-                const d = parts[0].trim();
-                const v = parseFloat(parts[1].trim());
+                const d = parts[dateIdx] ? parts[dateIdx].trim() : '';
+                const v = parseFloat(parts[valIdx] ? parts[valIdx].trim() : '');
                 if(d && !isNaN(v)) {
                     const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-                    state.projectData.chartData.push({id: id, date: d, value: v, grade: parts[2] ? parts[2].trim() : 'Baseline'});
+                    const g = parts[gradeIdx] ? parts[gradeIdx].trim() : 'Baseline';
+                    state.projectData.chartData.push({id: id, date: d, value: v, grade: g});
                     count++;
                 }
             }
         });
         window.saveData();
         if(window.renderDataView) window.renderDataView();
-        showToast(`Imported ${count} data points`, "success");
+        showToast("Imported data points successfully", "success");
     };
     reader.readAsText(file);
     input.value = '';
@@ -1043,7 +1060,7 @@ window.runChangeGen = async (type, index) => {
             state.projectData.drivers.changes.push(...ideas);
             window.saveData();
             renderTools('diagram-canvas', 'driver');
-            showToast(`${ideas.length} ideas added!`, "success");
+            showToast(`${ideas.length} ideas added.`, "success");
         }
     } else {
         showToast("AI module not loaded", "error");
@@ -1079,7 +1096,7 @@ window.addCauseWithWhys = (catIdx) => {
     
     window.saveData();
     renderTools('diagram-canvas', 'fishbone');
-    showToast("Cause added - double-click to edit", "success");
+    showToast("Cause added. Double-click to edit.", "success");
 };
 
 export function resetProcess() {
@@ -1206,8 +1223,8 @@ export function copyChartImage() {
         c.toBlob(b => { 
             if (b) {
                 navigator.clipboard.write([new ClipboardItem({'image/png': b})])
-                    .then(() => showToast("Chart copied to clipboard!", "success"))
-                    .catch(() => showToast("Copy failed - try right-click to save", "error")); 
+                    .then(() => showToast("Chart copied to clipboard.", "success"))
+                    .catch(() => showToast("Copy failed. Try right-click to save.", "error")); 
             }
         });
     }
@@ -1228,7 +1245,7 @@ export function updateChartEducation() {
                 <div class="text-xs font-bold text-slate-500 uppercase">Detection Rules:</div>
                 ${i.rules.map(r => `
                     <div class="text-xs text-slate-600 flex items-start gap-2">
-                        <span class="text-rcem-purple mt-0.5">•</span>
+                        <span class="text-rcem-purple mt-0.5">-</span>
                         <span>${r}</span>
                     </div>
                 `).join('')}
