@@ -4,19 +4,19 @@ import { showToast } from "./utils.js";
 const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
 
 const SYSTEM_PROMPT = `
-You are an expert Quality Improvement (QI) Coach specialising in Emergency Medicine for the UK National Health Service (NHS). 
-Your target audience is ED Clinicians (Consultants, Registrars, Nurses) submitting for the RCEM QIP Portfolio.
+You are an expert Quality Improvement Coach specialising in Emergency Medicine for the UK National Health Service. 
+Your target audience is ED Clinicians submitting for the RCEM QIP Portfolio.
 
 GUIDING PRINCIPLES:
-1. **Context:** Always assume an NHS Emergency Department setting (crowding, 4-hour target, corridor care, rotas).
-2. **Standards:** Reference RCEM Clinical Standards, NICE Guidelines, and CQC Key Lines of Enquiry (Safe, Effective, Caring, Responsive, Well-led) where relevant.
-3. **Methodology:** Strictly follow the "Model for Improvement" (PDSA, Driver Diagrams, Process Mapping).
-4. **Tone:** Professional, encouraging, concise, and safety-focused. British English spelling (e.g., "Programme", "Organise").
-5. **Safety:** If a user suggests something dangerous (e.g., skipping safety checks to save time), firmly warn them.
-6. **Training Stage Awareness:** ACCS trainees must demonstrate PARTICIPATION in a QIP. Higher trainees must demonstrate LEADERSHIP of a QIP. Tailor advice accordingly when training stage is provided.
+1. Context: Always assume an NHS Emergency Department setting.
+2. Standards: Reference RCEM Clinical Standards, NICE Guidelines, and CQC Key Lines of Enquiry where relevant.
+3. Methodology: Strictly follow the Model for Improvement.
+4. Tone: Professional, encouraging, concise, and safety-focused. British English spelling.
+5. Safety: If a user suggests something dangerous, firmly warn them.
+6. Training Stage Awareness: ACCS trainees must demonstrate PARTICIPATION in a QIP. Higher trainees must demonstrate LEADERSHIP of a QIP.
 
 OUTPUT FORMAT:
-Be direct. Use bullet points for readability.
+Be direct. Use bullet points for readability. Avoid asterisks in your output formatting.
 `;
 
 function getTrainingStageContext() {
@@ -163,11 +163,11 @@ export async function suggestEvidence() {
 
     const prompt = `
         Topic: "${d.problem_desc} / ${d.aim}"
-        Task: List 3 key UK/NHS guidelines or RCEM standards relevant to this topic.
+        Task: List 3 key UK NHS guidelines or RCEM standards relevant to this topic.
         Format:
-        1. [Authority] Standard Name (Key target/benchmark)
-        2. [Authority] Standard Name (Key target/benchmark)
-        3. [Authority] Standard Name (Key target/benchmark)
+        1. Authority Standard Name 
+        2. Authority Standard Name 
+        3. Authority Standard Name 
     `;
 
     return await callAI(prompt);
@@ -229,7 +229,7 @@ export async function refineSmartAim(draftAim, problem) {
         Draft Aim: "${draftAim}"
         Problem: "${problem}"
         Task: Rewrite this into a perfect SMART Aim.
-        Format: "To [increase/decrease] [measure] from [baseline] to [target] by [date]."
+        Format: "To increase/decrease measure from baseline to target by date."
         Keep it under 40 words.
     `;
     return await callAI(prompt);
@@ -281,6 +281,30 @@ export async function generateAbstract(projectData) {
     return await callAI(prompt);
 }
 
+export async function generateNarrativeReport(projectData) {
+    const d = projectData;
+    const cl = d.checklist || {};
+    const pdsa = d.pdsa || [];
+    
+    const pdsaSummary = pdsa.map((p, i) => 
+        `Cycle ${i + 1}: ${p.title}. Plan: ${p.plan}. Study: ${p.study}. Act: ${p.act}.`
+    ).join(' ');
+
+    const prompt = `
+        Generate a comprehensive formal narrative report for this Emergency Medicine QIP.
+        Problem: "${cl.problem_desc}"
+        Aim: "${cl.aim}"
+        PDSA Cycles: ${pdsaSummary}
+        Results: "${cl.results_analysis}"
+        Learning: "${cl.learning_points}"
+        
+        Structure the output exactly into these headings: Background, Methodology, Results, and Conclusion.
+        Use clear, direct language. Keep sentences short and sharp.
+    `;
+
+    return await callAI(prompt);
+}
+
 export async function suggestNextPDSA(projectData) {
     const d = projectData;
     const cl = d.checklist || {};
@@ -320,3 +344,4 @@ window.critiqueSmartAim = critiqueSmartAim;
 window.runGoldenThreadValidator = runGoldenThreadValidator;
 window.generateAbstract = generateAbstract;
 window.suggestNextPDSA = suggestNextPDSA;
+window.generateNarrativeReport = generateNarrativeReport;
