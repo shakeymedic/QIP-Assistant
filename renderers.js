@@ -369,6 +369,18 @@ export function renderChecklist() {
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="What is the current problem? Be specific about the gap between current and desired state.">${escapeHtml(c.problem_desc || '')}</textarea>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Department Context &amp; Setting</label>
+                    <textarea id="check-context" onchange="window.saveChecklistField('problem_context', this.value)" 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
+                        placeholder="Department setting, patient volume, governance framework (NatSSIPs/LOCSSIPs), PPI considerations.">${escapeHtml(c.problem_context || '')}</textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Baseline Evidence &amp; Data</label>
+                    <textarea id="check-evidence" onchange="window.saveChecklistField('problem_evidence', this.value)" 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
+                        placeholder="Baseline audit results, national standards gap, pilot data — what demonstrates the problem quantitatively?">${escapeHtml(c.problem_evidence || '')}</textarea>
+                </div>
             </div>
         </section>
         
@@ -1401,6 +1413,8 @@ export function renderFullProject() {
                             Problem Statement
                         </h2>
                         <p class="text-slate-600 leading-relaxed whitespace-pre-line">${escapeHtml(c.problem_desc)}</p>
+                        ${c.problem_context ? `<div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4"><h4 class="font-bold text-blue-800 text-sm uppercase mb-2">Department Context &amp; Setting</h4><p class="text-slate-600 text-sm whitespace-pre-line">${escapeHtml(c.problem_context)}</p></div>` : ''}
+                        ${c.problem_evidence ? `<div class="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4"><h4 class="font-bold text-amber-800 text-sm uppercase mb-2">Baseline Evidence &amp; Data</h4><p class="text-slate-600 text-sm whitespace-pre-line">${escapeHtml(c.problem_evidence)}</p></div>` : ''}
                     </section>
                 ` : ''}
                 
