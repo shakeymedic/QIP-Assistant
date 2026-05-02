@@ -4,6 +4,7 @@ import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc
 
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
+window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
 import { callAI } from "./ai.js";
 
 import { 
@@ -338,10 +339,17 @@ window.addFishCause = R.addFishCause;
 window.removeFishCause = R.removeFishCause;
 window.renderTools = renderTools;
 
+// Debounced save — fires 1.5s after last keystroke to reduce Firestore writes
+let _saveDebounceTimer = null;
+window.saveDataDebounced = function() {
+    clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = setTimeout(() => window.saveData(), 1500);
+};
+
 window.saveChecklist = (key, val) => { 
     if (!state.projectData.checklist) state.projectData.checklist = {};
     state.projectData.checklist[key] = val; 
-    window.saveData(); 
+    window.saveDataDebounced();
 };
 window.saveChecklistField = window.saveChecklist; 
 window.saveSmartAim = R.saveSmartAim; 
@@ -378,12 +386,12 @@ window.saveMember = () => {
     showToast("Member added", "success");
 };
 window.deleteMember = (index) => {
-    if(confirm("Remove this team member?")) {
+    window.showConfirmDialog('Remove this team member?', () => {
         state.projectData.teamMembers.splice(index, 1);
         window.saveData();
         R.renderTeam();
-        showToast("Member removed", "info");
-    }
+        showToast('Member removed', 'info');
+    }, 'Remove', 'Remove Team Member');
 };
 window.addLeadershipLog = R.addLeadershipLog;
 window.deleteLeadershipLog = R.deleteLeadershipLog;
@@ -412,7 +420,7 @@ window.saveGanttTask = () => {
     if(dependency) {
         const depTask = state.projectData.gantt.find(t => t.id === dependency);
         if(depTask && new Date(depTask.end) > new Date(start)) {
-            alert(`Task must start after dependency '${depTask.name}' finishes.`);
+            showToast(`Task must start after dependency '${depTask.name}' finishes.`, 'error');
             return;
         }
     }
@@ -438,20 +446,20 @@ window.saveGanttTask = () => {
     showToast("Task added", "success");
 };
 window.deleteGantt = (id) => {
-    if(confirm("Delete this task?")) {
+    window.showConfirmDialog('Delete this Gantt task?', () => {
         state.projectData.gantt = state.projectData.gantt.filter(t => t.id !== id);
         window.saveData();
         R.renderGantt();
-        showToast("Task deleted", "info");
-    }
+        showToast('Task deleted', 'info');
+    }, 'Delete', 'Delete Task');
 };
 window.deleteGanttTask = (index) => {
-    if(confirm("Delete this task?")) {
+    window.showConfirmDialog('Delete this Gantt task?', () => {
         state.projectData.gantt.splice(index, 1);
         window.saveData();
         R.renderGantt();
-        showToast("Task deleted", "info");
-    }
+        showToast('Task deleted', 'info');
+    }, 'Delete', 'Delete Task');
 };
 
 window.switchPublishMode = R.renderPublish;
@@ -789,41 +797,68 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
-    const title = prompt("Project Title:", "New QIP");
-    if (!title) return;
-    let template = JSON.parse(JSON.stringify(emptyProject));
-    template.meta.title = title;
-    template.meta.created = new Date().toISOString();
-    template.meta.updated = new Date().toISOString();
-    
-    try {
-        if(!db) throw new Error("No DB connection");
-        const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
-        
-        showToast("Project created successfully", "success");
-        
-        window.openProject(docRef.id);
-        
-        setTimeout(() => {
-            if (window.startOnboarding) window.startOnboarding();
-        }, 600);
-        
-    } catch (e) {
-        showToast("Failed to create project: " + e.message, "error");
-    }
+    const modal      = document.getElementById('new-project-modal');
+    const titleInput = document.getElementById('new-project-title');
+    const oldSubmit  = document.getElementById('new-project-submit');
+    if (!modal || !titleInput) return;
+
+    titleInput.value = '';
+    titleInput.classList.remove('border-red-400', 'ring-1', 'ring-red-400');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    setTimeout(() => titleInput.focus(), 60);
+
+    const submitBtn = oldSubmit.cloneNode(true);
+    oldSubmit.parentNode.replaceChild(submitBtn, oldSubmit);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const doCreate = async () => {
+        const title = titleInput.value.trim();
+        if (!title) {
+            titleInput.classList.add('border-red-400', 'ring-1', 'ring-red-400');
+            titleInput.focus();
+            return;
+        }
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+
+        let template = JSON.parse(JSON.stringify(emptyProject));
+        template.meta.title = title;
+        template.meta.created = new Date().toISOString();
+        template.meta.updated = new Date().toISOString();
+
+        try {
+            if (!db) throw new Error('No DB connection');
+            const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), template);
+            showToast('Project created successfully', 'success');
+            window.openProject(docRef.id);
+            setTimeout(() => { if (window.startOnboarding) window.startOnboarding(); }, 600);
+        } catch (e) {
+            showToast('Failed to create project: ' + e.message, 'error');
+        }
+    };
+
+    submitBtn.onclick = doCreate;
+    titleInput.onkeydown = (e) => { if (e.key === 'Enter') doCreate(); };
 };
 
 window.deleteProject = async (id) => {
-    if (confirm("Are you sure? This cannot be undone.")) { 
-        try {
-            if(!db) throw new Error("No DB connection");
-            await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id)); 
-            loadProjectList(); 
-            showToast("Project deleted", "info");
-        } catch (e) {
-            showToast("Failed to delete project: " + e.message, "error");
-        }
-    }
+    window.showConfirmDialog(
+        'Permanently delete this project? This cannot be undone.',
+        async () => {
+            try {
+                if (!db) throw new Error('No DB connection');
+                await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id));
+                loadProjectList();
+                showToast('Project deleted', 'info');
+            } catch (e) {
+                showToast('Failed to delete project: ' + e.message, 'error');
+            }
+        },
+        'Delete Project',
+        'Delete Project'
+    );
 };
 
 window.openProject = (id) => {

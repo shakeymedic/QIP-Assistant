@@ -84,7 +84,7 @@ export function renderDashboard() {
     if(headerTitle) headerTitle.textContent = d.meta?.title || 'Untitled Project';
 
     const checks = d.checklist || {};
-    const fields = ['problem_desc', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
+    const fields = ['problem_desc', 'problem_context', 'problem_evidence', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
     const filled = fields.filter(f => checks[f] && checks[f].trim()).length;
     const progress = Math.round((filled / fields.length) * 100);
     
@@ -707,25 +707,30 @@ export function openMemberModal(index = null) {
 }
 
 export function addLeadershipLog() {
-    const date = prompt('Date (YYYY-MM-DD):');
-    if (!date) return;
-    
-    const note = prompt('Brief note about the engagement/activity:');
-    
-    if (!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
-    state.projectData.leadershipLogs.push({ date, note });
-    
-    if (window.saveData) window.saveData();
-    renderTeam();
-    showToast('Leadership log added', 'success');
+    window.showInputModal(
+        'Add Leadership Log Entry',
+        [
+            { id: 'date',  label: 'Date', type: 'date', required: true },
+            { id: 'note',  label: 'Activity / Engagement Note', type: 'textarea', placeholder: 'e.g. Dr Smith approved trolley design at governance meeting', required: true }
+        ],
+        (data) => {
+            if (!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
+            state.projectData.leadershipLogs.push({ date: data.date, note: data.note });
+            if (window.saveData) window.saveData();
+            renderTeam();
+            showToast('Leadership log added', 'success');
+        },
+        'Add Entry'
+    );
 }
 
 export function deleteLeadershipLog(index) {
-    if (!confirm('Delete this log entry?')) return;
-    state.projectData.leadershipLogs.splice(index, 1);
-    if (window.saveData) window.saveData();
-    renderTeam();
-    showToast('Log entry deleted', 'success');
+    window.showConfirmDialog('Delete this leadership log entry?', () => {
+        state.projectData.leadershipLogs.splice(index, 1);
+        if (window.saveData) window.saveData();
+        renderTeam();
+        showToast('Log entry deleted', 'info');
+    }, 'Delete', 'Delete Log Entry');
 }
 
 // ==========================================
@@ -920,11 +925,12 @@ export function updatePDSA(index, field, value) {
 }
 
 export function deletePDSA(index) {
-    if (!confirm('Delete this PDSA cycle?')) return;
-    state.projectData.pdsa.splice(index, 1);
-    if (window.saveData) window.saveData();
-    renderPDSA();
-    showToast('PDSA cycle deleted', 'success');
+    window.showConfirmDialog('Delete this PDSA cycle? All plan/do/study/act notes will be lost.', () => {
+        state.projectData.pdsa.splice(index, 1);
+        if (window.saveData) window.saveData();
+        renderPDSA();
+        showToast('PDSA cycle deleted', 'info');
+    }, 'Delete Cycle', 'Delete PDSA Cycle');
 }
 
 // ==========================================
@@ -1070,22 +1076,26 @@ function initStakeholderDrag() {
 }
 
 export function addStakeholder() {
-    const name = prompt('Stakeholder name:');
-    if (!name) return;
-    
-    const role = prompt('Role/Position (optional):');
-    
-    if (!state.projectData.stakeholders) state.projectData.stakeholders = [];
-    state.projectData.stakeholders.push({
-        name,
-        role: role || '',
-        x: 50,
-        y: 50
-    });
-    
-    if (window.saveData) window.saveData();
-    renderStakeholders();
-    showToast('Stakeholder added - drag to position', 'success');
+    window.showInputModal(
+        'Add Stakeholder',
+        [
+            { id: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Dr Sarah Hart', required: true },
+            { id: 'role', label: 'Role / Position', type: 'text', placeholder: 'e.g. Senior Nurse Manager (optional)' }
+        ],
+        (data) => {
+            if (!state.projectData.stakeholders) state.projectData.stakeholders = [];
+            state.projectData.stakeholders.push({
+                name: data.name,
+                role: data.role || '',
+                x: 50,
+                y: 50
+            });
+            if (window.saveData) window.saveData();
+            renderStakeholders();
+            showToast('Stakeholder added — drag to position', 'success');
+        },
+        'Add Stakeholder'
+    );
 }
 
 export function updateStake(index, type, event) {
@@ -1093,11 +1103,12 @@ export function updateStake(index, type, event) {
 }
 
 export function removeStake(index) {
-    if (!confirm('Remove this stakeholder?')) return;
-    state.projectData.stakeholders.splice(index, 1);
-    if (window.saveData) window.saveData();
-    renderStakeholders();
-    showToast('Stakeholder removed', 'success');
+    window.showConfirmDialog('Remove this stakeholder from the matrix?', () => {
+        state.projectData.stakeholders.splice(index, 1);
+        if (window.saveData) window.saveData();
+        renderStakeholders();
+        showToast('Stakeholder removed', 'info');
+    }, 'Remove', 'Remove Stakeholder');
 }
 
 export function toggleStakeView() {

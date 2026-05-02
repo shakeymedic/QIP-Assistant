@@ -794,6 +794,76 @@
     <input type="file" id="project-upload-input" accept=".json" onchange="window.importProjectFromFile(this)" class="hidden">
     <input type="file" id="csv-upload-hidden" accept=".csv" onchange="window.importCSV(this)" class="hidden">
 
+    <!-- ============================================================
+         CONFIRM DIALOG — replaces all browser confirm() calls
+         ============================================================ -->
+    <div id="confirm-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-auto p-6 animate-fade-in">
+            <div class="flex items-start gap-3 mb-5">
+                <div class="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-red-600"></i>
+                </div>
+                <div>
+                    <h3 id="confirm-modal-title" class="font-semibold text-slate-900 text-base">Confirm</h3>
+                    <p id="confirm-modal-message" class="text-sm text-slate-600 mt-1 leading-relaxed"></p>
+                </div>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button onclick="window.hideConfirmDialog()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                <button id="confirm-modal-btn" class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         INPUT MODAL — replaces all browser prompt() calls
+         ============================================================ -->
+    <div id="input-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 animate-fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 id="input-modal-title" class="font-semibold text-slate-900 text-base">Add Entry</h3>
+                <button onclick="window.hideInputModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div id="input-modal-fields" class="space-y-4 mb-5"></div>
+            <div class="flex gap-2 justify-end">
+                <button onclick="window.hideInputModal()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                <button id="input-modal-submit" class="px-4 py-2 text-sm font-medium text-white bg-rcem-purple hover:bg-indigo-700 rounded-lg transition-colors">Add</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         NEW PROJECT MODAL — replaces prompt() for project creation
+         ============================================================ -->
+    <div id="new-project-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 animate-fade-in">
+            <div class="flex items-center gap-3 mb-5">
+                <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="folder-plus" class="w-5 h-5 text-rcem-purple"></i>
+                </div>
+                <div>
+                    <h3 class="font-bold text-slate-900 text-lg">New QIP Project</h3>
+                    <p class="text-xs text-slate-500">Give your project a working title to get started.</p>
+                </div>
+            </div>
+            <div class="mb-5">
+                <label class="block text-sm font-medium text-slate-700 mb-2">Project Title <span class="text-red-500">*</span></label>
+                <input id="new-project-title" type="text" maxlength="120"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rcem-purple focus:border-transparent outline-none"
+                    placeholder="e.g. Improving Sepsis Recognition in the Emergency Department">
+                <p class="text-xs text-slate-400 mt-1.5">You can always rename it later.</p>
+            </div>
+            <div class="flex gap-2 justify-end">
+                <button onclick="document.getElementById('new-project-modal').classList.add('hidden'); document.getElementById('new-project-modal').classList.remove('flex');" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
+                <button id="new-project-submit" class="px-4 py-2 text-sm font-medium text-white bg-rcem-purple hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2">
+                    <i data-lucide="plus" class="w-4 h-4"></i> Create Project
+                </button>
+            </div>
+        </div>
+    </div>
+
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

@@ -125,12 +125,12 @@ export function updateSurveySummary(id, summary) {
 }
 
 export function deleteSurvey(id) {
-    if(confirm('Delete this survey and all its data?')) {
+    window.showConfirmDialog('Delete this survey and all its response data? This cannot be undone.', () => {
         state.projectData.surveys = state.projectData.surveys.filter(x => x.id !== id);
         window.saveData();
         renderSurveys();
         showToast('Survey deleted', 'info');
-    }
+    }, 'Delete Survey', 'Delete Survey');
 }
 
 export function importSurveyCSV(input, id) {

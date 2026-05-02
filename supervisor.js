@@ -1,4 +1,5 @@
 // supervisor.js
+import { showToast } from "./utils.js";
 
 export function renderSupervisorDashboard() {
     const container = document.getElementById('view-supervisor');
@@ -108,29 +109,42 @@ window.saveSupervisorComments = () => {
     const comments = document.getElementById('sup-comments').value;
     window.projectData.assessment.supervisorComments = comments;
     window.saveData();
-    alert("Supervisor comments saved successfully.");
+    showToast('Supervisor comments saved successfully.', 'success');
 };
 
 window.signOffProject = () => {
     const name = document.getElementById('sup-name').value.trim();
     if (!name) { 
-        alert("Please enter your name and GMC number to sign off."); 
+        showToast('Please enter your name and GMC number before signing off.', 'error'); 
         return; 
     }
-    
-    window.projectData.assessment.signedOff = true;
-    window.projectData.assessment.signedOffBy = name;
-    window.projectData.assessment.signedOffDate = new Date().toLocaleDateString();
-    window.saveData();
-    renderSupervisorDashboard();
+    window.showConfirmDialog(
+        `Confirm sign-off as "${name}"? This formally certifies this QIP meets the RCEM Key Capabilities. It can be revoked but creates a permanent audit trail.`,
+        () => {
+            window.projectData.assessment.signedOff = true;
+            window.projectData.assessment.signedOffBy = name;
+            window.projectData.assessment.signedOffDate = new Date().toLocaleDateString();
+            window.saveData();
+            renderSupervisorDashboard();
+            showToast('Project signed off for ARCP.', 'success');
+        },
+        'Confirm Sign-off',
+        'Sign Off for ARCP'
+    );
 };
 
 window.revokeSignOff = () => {
-    if(confirm("Are you sure you want to revoke this sign-off?")) {
-        window.projectData.assessment.signedOff = false;
-        window.projectData.assessment.signedOffBy = '';
-        window.projectData.assessment.signedOffDate = '';
-        window.saveData();
-        renderSupervisorDashboard();
-    }
+    window.showConfirmDialog(
+        'Revoke this supervisor sign-off? The project will return to unsigned status.',
+        () => {
+            window.projectData.assessment.signedOff = false;
+            window.projectData.assessment.signedOffBy = '';
+            window.projectData.assessment.signedOffDate = '';
+            window.saveData();
+            renderSupervisorDashboard();
+            showToast('Sign-off revoked.', 'info');
+        },
+        'Revoke',
+        'Revoke Sign-off'
+    );
 };

@@ -232,27 +232,31 @@ function renderFishboneVisual(container, enableInteraction = false) {
                 } else {
                     const cause = state.projectData.fishbone.categories[catIdx].causes[causeIdx];
                     const currentText = typeof cause === 'string' ? cause : cause.text;
-                    const newText = prompt("Edit Cause:", currentText);
-                    if(newText !== null && newText !== '') {
-                        if (typeof cause === 'string') {
-                            state.projectData.fishbone.categories[catIdx].causes[causeIdx] = { text: newText, x, y };
-                        } else {
-                            state.projectData.fishbone.categories[catIdx].causes[causeIdx].text = newText;
-                        }
-                        window.saveData();
-                        renderTools();
-                    }
+                    window.showInputModal(
+                        'Edit Cause',
+                        [{ id: 'text', label: 'Cause', type: 'text', placeholder: 'Describe the cause…', value: currentText, required: true }],
+                        (data) => {
+                            if (typeof cause === 'string') {
+                                state.projectData.fishbone.categories[catIdx].causes[causeIdx] = { text: data.text, x, y };
+                            } else {
+                                state.projectData.fishbone.categories[catIdx].causes[causeIdx].text = data.text;
+                            }
+                            window.saveData();
+                            renderTools();
+                        },
+                        'Save'
+                    );
                 }
             };
             
             if (!isCat) {
                 el.oncontextmenu = (e) => {
                     e.preventDefault();
-                    if (confirm(`Delete cause: "${text}"?`)) {
+                    window.showConfirmDialog(`Delete cause: "${text}"?`, () => {
                         state.projectData.fishbone.categories[catIdx].causes.splice(causeIdx, 1);
                         window.saveData();
                         renderTools();
-                    }
+                    }, 'Delete', 'Delete Cause');
                 };
             }
         }
@@ -939,15 +943,15 @@ export function addDataPoint() {
 }
 
 export function deleteDataPoint(idOrDate) {
-    if(confirm('Delete this data point?')) {
+    window.showConfirmDialog('Delete this data point?', () => {
         const idx = state.projectData.chartData.findIndex(x => x.id === idOrDate || x.date === idOrDate);
-        if(idx > -1) { 
+        if (idx > -1) { 
             state.projectData.chartData.splice(idx, 1); 
             window.saveData(); 
-            if(window.renderDataView) window.renderDataView();
-            showToast("Data point deleted", "info");
+            if (window.renderDataView) window.renderDataView();
+            showToast('Data point deleted', 'info');
         }
-    }
+    }, 'Delete', 'Delete Data Point');
 }
 
 export function downloadCSVTemplate() {
@@ -1023,11 +1027,11 @@ window.updateDriver = (type, index, value) => {
 };
 
 window.removeDriver = (type, index) => {
-    if(confirm("Remove this item?")) {
+    window.showConfirmDialog('Remove this driver diagram item?', () => {
         state.projectData.drivers[type].splice(index, 1);
         window.saveData();
         renderTools('diagram-canvas', 'driver');
-    }
+    }, 'Remove', 'Remove Item');
 };
 
 window.addStep = (index) => {
@@ -1068,45 +1072,46 @@ window.runChangeGen = async (type, index) => {
 };
 
 window.addCauseWithWhys = (catIdx) => {
-    if(state.isReadOnly) return;
-    let cause = prompt("What is the cause?");
-    if (!cause) return;
-    
-    const cat = state.projectData.fishbone.categories[catIdx];
-    if (!cat.causes) cat.causes = [];
-    
-    const categoryPositions = [
-        { x: 18, y: 15 }, { x: 82, y: 15 },
-        { x: 18, y: 50 }, { x: 82, y: 50 },
-        { x: 18, y: 85 }, { x: 82, y: 85 }
-    ];
-    const defaultPos = categoryPositions[catIdx] || { x: 50, y: 50 };
-    const catX = cat.x !== undefined ? cat.x : defaultPos.x;
-    const catY = cat.y !== undefined ? cat.y : defaultPos.y;
-    const isLeft = catX < 50;
-    const j = cat.causes.length;
-    const offsetX = isLeft ? (j % 2 === 0 ? -10 : 10) : (j % 2 === 0 ? -10 : 10);
-    const offsetY = (j + 1) * 6 * (catY < 50 ? 1 : -1);
-    
-    cat.causes.push({ 
-        text: cause, 
-        x: Math.max(5, Math.min(95, catX + offsetX)),
-        y: Math.max(5, Math.min(95, catY + offsetY))
-    });
-    
-    window.saveData();
-    renderTools('diagram-canvas', 'fishbone');
-    showToast("Cause added. Double-click to edit.", "success");
+    if (state.isReadOnly) return;
+    const catName = state.projectData.fishbone?.categories?.[catIdx]?.text || 'this category';
+    window.showInputModal(
+        `Add Cause — ${catName}`,
+        [{ id: 'cause', label: 'Cause', type: 'text', placeholder: 'e.g. Lack of training / Equipment not available', required: true }],
+        (data) => {
+            const cat = state.projectData.fishbone.categories[catIdx];
+            if (!cat.causes) cat.causes = [];
+            const categoryPositions = [
+                { x: 18, y: 15 }, { x: 82, y: 15 },
+                { x: 18, y: 50 }, { x: 82, y: 50 },
+                { x: 18, y: 85 }, { x: 82, y: 85 }
+            ];
+            const defaultPos = categoryPositions[catIdx] || { x: 50, y: 50 };
+            const catX = cat.x !== undefined ? cat.x : defaultPos.x;
+            const catY = cat.y !== undefined ? cat.y : defaultPos.y;
+            const j = cat.causes.length;
+            const offsetX = j % 2 === 0 ? -10 : 10;
+            const offsetY = (j + 1) * 6 * (catY < 50 ? 1 : -1);
+            cat.causes.push({ 
+                text: data.cause, 
+                x: Math.max(5, Math.min(95, catX + offsetX)),
+                y: Math.max(5, Math.min(95, catY + offsetY))
+            });
+            window.saveData();
+            renderTools('diagram-canvas', 'fishbone');
+            showToast('Cause added. Double-click to edit.', 'success');
+        },
+        'Add Cause'
+    );
 };
 
 export function resetProcess() {
-    if(state.isReadOnly) return;
-    if(confirm("Reset process map to default?")) { 
-        state.projectData.process = ["Start", "End"]; 
-        window.saveData(); 
-        renderTools('diagram-canvas', 'process'); 
-        showToast("Process map reset", "info");
-    }
+    if (state.isReadOnly) return;
+    window.showConfirmDialog('Reset the process map to default? All current steps will be lost.', () => {
+        state.projectData.process = ['Start', 'End'];
+        window.saveData();
+        renderTools('diagram-canvas', 'process');
+        showToast('Process map reset', 'info');
+    }, 'Reset', 'Reset Process Map');
 }
 
 export function makeDraggable(el, container, isCat, catIdx, causeIdx, onDragEnd) {

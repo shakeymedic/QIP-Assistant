@@ -49,7 +49,7 @@ export function renderPatientTracker(projectData, saveDataFunc) {
         const pdsaLink = document.getElementById('pf-pdsa').value;
 
         if (!date || !feedback) {
-            alert("Date and feedback are required.");
+            if (window.showToast) window.showToast('Date and feedback are required.', 'error');
             return;
         }
 
@@ -59,10 +59,10 @@ export function renderPatientTracker(projectData, saveDataFunc) {
     };
 
     window.deletePatientFeedback = (index) => {
-        if (confirm("Remove this feedback log?")) {
+        window.showConfirmDialog('Remove this patient feedback log entry?', () => {
             projectData.patientFeedback.splice(index, 1);
             saveDataFunc();
             renderPatientTracker(projectData, saveDataFunc);
-        }
+        }, 'Remove', 'Remove Feedback');
     };
 }
