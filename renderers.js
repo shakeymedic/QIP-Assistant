@@ -159,6 +159,7 @@ export function renderDashboard() {
     renderMiniChart();
     renderRecentActivity();
     updatePortfolioReadiness();
+    renderARCPCountdown();
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -177,7 +178,11 @@ function updatePortfolioReadiness() {
         { label: isHigher ? '3+ PDSA Cycles' : '1+ PDSA Cycle', met: isHigher ? pdsa.length >= 3 : pdsa.length >= 1 },
         { label: 'Data Chart with Analysis', met: (d.chartData?.length >= 5 && !!c.results_analysis) },
         { label: 'Learning Reflections', met: !!c.learning_points },
-        { label: 'Sustainability Plan', met: !!c.sustainability }
+        { label: 'Sustainability Plan', met: !!c.sustainability },
+        { label: 'QI Team Defined', met: (d.teamMembers?.length >= 1) },
+        { label: 'Stakeholder Map Completed', met: (d.stakeholders?.length >= 1) },
+        { label: 'Project Timeline Populated', met: (d.gantt?.length >= 1 || d.timeline?.length >= 1) },
+        { label: 'Supervisor Signed Off', met: !!(d.assessment?.signedOffBy) }
     ];
     
     const metCount = criteria.filter(cr => cr.met).length;
@@ -211,6 +216,44 @@ function updatePortfolioReadiness() {
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
+}
+
+function renderARCPCountdown() {
+    const display = document.getElementById('arcp-countdown-display');
+    const input = document.getElementById('arcp-date-input');
+    if (!display) return;
+
+    const arcpDate = state.projectData?.meta?.arcpDate;
+    if (input && arcpDate) input.value = arcpDate;
+
+    if (!arcpDate) {
+        display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`;
+        return;
+    }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(arcpDate); target.setHours(0,0,0,0);
+    const days = Math.round((target - today) / 86400000);
+
+    let color, label, icon;
+    if (days < 0) {
+        color = 'text-slate-500'; label = `${Math.abs(days)} days ago`; icon = 'calendar-x';
+    } else if (days <= 30) {
+        color = 'text-red-600'; label = `${days} days`; icon = 'alarm-clock';
+    } else if (days <= 90) {
+        color = 'text-amber-600'; label = `${days} days`; icon = 'clock';
+    } else {
+        color = 'text-emerald-600'; label = `${days} days`; icon = 'calendar-check';
+    }
+
+    display.innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="text-3xl font-black ${color}">${days < 0 ? 'Past' : label}</div>
+            <div class="text-xs text-slate-500">${days < 0 ? `ARCP was ${label}` : `until ARCP<br><span class="text-slate-400">${target.toLocaleDateString('en-GB')}</span>`}</div>
+        </div>
+        ${days >= 0 && days <= 30 ? '<p class="text-xs text-red-600 font-bold mt-1">Imminent — ensure portfolio is submission-ready!</p>' : ''}
+        ${days > 30 && days <= 90 ? '<p class="text-xs text-amber-600 mt-1">Getting close — review your portfolio readiness score.</p>' : ''}
+    `;
 }
 
 function renderQICoachBanner() {
@@ -595,11 +638,62 @@ export function saveSmartAim() {
 // 4. DATA VIEW
 // ==========================================
 
+function renderSignalPanel() {
+    const panel = document.getElementById('signal-panel');
+    if (!panel) return;
+
+    const mode = state.projectData?.chartSettings?.mode || 'run';
+    if (mode !== 'run') { panel.innerHTML = ''; return; }
+
+    const sig = window.lastRunChartSignals;
+    if (!sig || sig.data.length < 8) { panel.innerHTML = ''; return; }
+
+    const { rule2, rule3, data, median } = sig;
+
+    if (!rule2 && !rule3) {
+        panel.innerHTML = `
+            <div class="mt-3 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
+                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 flex-shrink-0"></i>
+                <span class="text-emerald-800"><strong>No signals detected</strong> — the process appears stable with only common cause variation (n=${data.length} points, median=${median.toFixed(1)}).</span>
+            </div>`;
+    } else {
+        const items = [];
+        if (rule2) items.push(`
+            <div class="flex gap-3">
+                <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R2</span>
+                <div><p class="text-sm font-bold text-amber-800">Rule 2: Shift detected</p>
+                <p class="text-xs text-amber-700 mt-0.5">8+ consecutive points on same side of the median — suggests a <strong>sustained process change</strong>. Amber points on chart.</p></div>
+            </div>`);
+        if (rule3) items.push(`
+            <div class="flex gap-3">
+                <span class="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R3</span>
+                <div><p class="text-sm font-bold text-orange-800">Rule 3: Trend detected</p>
+                <p class="text-xs text-orange-700 mt-0.5">6+ consecutive points all going in the same direction — suggests a <strong>directional process shift</strong>. Orange points on chart.</p></div>
+            </div>`);
+        panel.innerHTML = `
+            <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-bold text-amber-900 flex items-center gap-2">
+                        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Run Chart Signals (NHS Improvement Rules)
+                    </h4>
+                    ${window.hasAI && window.hasAI() ? `
+                    <button onclick="window.aiAnalyseChart()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
+                        <i data-lucide="sparkles" class="w-3 h-3"></i> AI Interpret
+                    </button>` : ''}
+                </div>
+                <div class="space-y-3">${items.join('')}</div>
+                <p class="text-xs text-amber-600 mt-3 pt-3 border-t border-amber-200">These signals suggest the process is <strong>not in statistical control</strong> — document your explanation in Results Interpretation above.</p>
+            </div>`;
+    }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 export function renderDataView() {
     const d = state.projectData;
     if (!d) return;
     
     if (window.renderChart) window.renderChart();
+    renderSignalPanel();
     
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
@@ -824,6 +918,17 @@ export function renderPDSA() {
                 </h3>
                 <div class="space-y-4">
                     <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Use Template</label>
+                        <select id="pdsa-template" class="w-full p-2 border rounded text-sm" onchange="window.applyPDSATemplate(this.value)">
+                            <option value="">— Start from template (optional) —</option>
+                            <option value="education">Staff education session</option>
+                            <option value="audit">Audit &amp; feedback cycle</option>
+                            <option value="checklist">Process checklist</option>
+                            <option value="reminder">Visual reminder / prompt</option>
+                            <option value="protocol">Protocol / SOP update</option>
+                        </select>
+                    </div>
+                    <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Cycle Title *</label>
                         <input id="pdsa-title" class="w-full p-2 border rounded text-sm" placeholder="e.g. Test sepsis checklist with 5 patients">
                     </div>
@@ -862,73 +967,149 @@ export function renderPDSA() {
                 </div>
             </div>
             
-            <div class="lg:col-span-2 space-y-4">
+            <div class="lg:col-span-2">
+                <!-- View toggle -->
+                <div class="flex items-center justify-between mb-4">
+                    <span class="text-sm font-bold text-slate-600">${pdsa.length} cycle${pdsa.length !== 1 ? 's' : ''}</span>
+                    <div class="flex bg-slate-100 p-1 rounded-lg gap-1">
+                        <button onclick="window.setPDSAView('cards')" class="px-3 py-1 rounded text-xs font-bold transition-colors ${(window.pdsaViewMode||'cards') === 'cards' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}">
+                            Cards
+                        </button>
+                        <button onclick="window.setPDSAView('ratchet')" class="px-3 py-1 rounded text-xs font-bold transition-colors ${(window.pdsaViewMode||'cards') === 'ratchet' ? 'bg-white shadow text-slate-800' : 'text-slate-500 hover:text-slate-700'}">
+                            Flow View
+                        </button>
+                    </div>
+                </div>
+
                 ${pdsa.length === 0 ? `
                     <div class="bg-slate-50 rounded-xl p-8 text-center">
                         <i data-lucide="refresh-cw" class="w-12 h-12 text-slate-300 mx-auto mb-3"></i>
                         <p class="text-slate-500">No PDSA cycles yet. Start your first test of change!</p>
                     </div>
-                ` : pdsa.map((p, i) => `
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                        <div class="flex justify-between items-start mb-4">
-                            <div>
-                                <h4 class="font-bold text-slate-800 text-lg" title="${escapeHtml(p.title || `Cycle ${i + 1}`)}">${escapeHtml(p.title || `Cycle ${i + 1}`)}</h4>
-                                <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
-                                    ${(p.startDate || p.start) ? `<span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${formatDate(p.startDate || p.start)}</span>` : ''}
-                                    ${p.owner ? `<span><i data-lucide="user" class="w-3 h-3 inline mr-1"></i>${escapeHtml(p.owner)}</span>` : ''}
-                                    ${getPDSAStatusBadge(p.status)}
+                ` : (window.pdsaViewMode === 'ratchet') ? `
+                    <!-- FLOW / RATCHET VIEW -->
+                    <div class="space-y-1">
+                        ${pdsa.map((p, i) => `
+                            <div class="bg-white rounded-xl border border-slate-200 p-5 ${p.status === 'complete' ? 'border-l-4 border-l-emerald-400' : ''}">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <span class="w-7 h-7 rounded-full bg-rcem-purple text-white flex items-center justify-center text-xs font-black flex-shrink-0">${i + 1}</span>
+                                    <div class="flex-1">
+                                        <h4 class="font-bold text-slate-800 text-sm">${escapeHtml(p.title || 'Cycle ' + (i+1))}</h4>
+                                        <div class="flex items-center gap-2 mt-0.5">
+                                            ${getPDSAStatusBadge(p.status)}
+                                            ${(p.startDate || p.start) ? '<span class="text-xs text-slate-400">' + formatDate(p.startDate || p.start) + '</span>' : ''}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div class="bg-blue-50 rounded-lg p-3">
+                                        <div class="text-xs font-bold text-blue-700 mb-1">▶ Plan</div>
+                                        <p class="text-xs text-blue-800 whitespace-pre-line leading-relaxed">${escapeHtml(p.plan || p.desc || '\u2014')}</p>
+                                    </div>
+                                    <div class="bg-amber-50 rounded-lg p-3">
+                                        <div class="text-xs font-bold text-amber-700 mb-1">Do</div>
+                                        <p class="text-xs text-amber-800 whitespace-pre-line leading-relaxed">${escapeHtml(p.do || '\u2014')}</p>
+                                    </div>
+                                    <div class="bg-purple-50 rounded-lg p-3">
+                                        <div class="text-xs font-bold text-purple-700 mb-1">Study</div>
+                                        <p class="text-xs text-purple-800 whitespace-pre-line leading-relaxed">${escapeHtml(p.study || '\u2014')}</p>
+                                    </div>
+                                    <div class="bg-emerald-50 rounded-lg p-3 ${p.status === 'complete' ? 'ring-1 ring-emerald-300' : ''}">
+                                        <div class="text-xs font-bold text-emerald-700 mb-1">Act →</div>
+                                        <p class="text-xs text-emerald-800 whitespace-pre-line leading-relaxed">${escapeHtml(p.act || '\u2014')}</p>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-2">
-                                <select onchange="window.updatePDSA(${i}, 'status', this.value)" class="text-sm border rounded px-2 py-1 ${getStatusColor(p.status)}" title="Change status">
-                                    <option value="planning" ${p.status === 'planning' ? 'selected' : ''}>Planning</option>
-                                    <option value="doing" ${p.status === 'doing' ? 'selected' : ''}>Doing</option>
-                                    <option value="studying" ${p.status === 'studying' ? 'selected' : ''}>Studying</option>
-                                    <option value="acting" ${p.status === 'acting' ? 'selected' : ''}>Acting</option>
-                                    <option value="complete" ${p.status === 'complete' ? 'selected' : ''}>Complete</option>
-                                </select>
-                                <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500" title="Delete cycle">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold uppercase text-blue-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">P</span> Plan
-                                </label>
-                                <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" 
-                                    class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
-                                    placeholder="What change are you testing? What do you PREDICT will happen?">${escapeHtml(p.plan || p.desc || '')}</textarea>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold uppercase text-amber-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">D</span> Do
-                                </label>
-                                <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" 
-                                    class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
-                                    placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold uppercase text-purple-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">S</span> Study
-                                </label>
-                                <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" 
-                                    class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
-                                    placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
-                            </div>
-                            <div class="space-y-1">
-                                <label class="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">A</span> Act
-                                </label>
-                                <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" 
-                                    class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
-                                    placeholder="Will you adopt, adapt, or abandon this change? Why?">${escapeHtml(p.act || '')}</textarea>
-                            </div>
-                        </div>
+                            ${i < pdsa.length - 1 ? '<div class="flex justify-center py-1"><div class="flex flex-col items-center"><div class="w-px h-4 bg-slate-300"></div><div class="text-slate-300 text-xs">▼</div></div></div>' : ''}
+                        `).join('')}
                     </div>
-                `).join('')}
+                ` : `
+                    <!-- CARD VIEW -->
+                    <div class="space-y-4">
+                        ${pdsa.map((p, i) => {
+                            const isCollapsed = p.status === 'complete';
+                            const wc = txt => (txt || '').split(/\s+/).filter(w => w.length > 0).length;
+                            const wcCls = n => n === 0 ? 'text-slate-300' : n < 50 ? 'text-slate-400' : n > 300 ? 'text-amber-600 font-medium' : 'text-emerald-500';
+                            return `
+                            <div class="bg-white rounded-xl shadow-sm border border-slate-200" id="pdsa-card-${i}">
+                                <div class="flex justify-between items-start p-5 cursor-pointer select-none" onclick="window.togglePDSACard(${i})">
+                                    <div class="flex items-start gap-3">
+                                        <span class="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-black mt-0.5 flex-shrink-0">${i + 1}</span>
+                                        <div>
+                                            <h4 class="font-bold text-slate-800" title="${escapeHtml(p.title || 'Cycle ' + (i+1))}">${escapeHtml(p.title || 'Cycle ' + (i+1))}</h4>
+                                            <div class="flex flex-wrap items-center gap-2 mt-1">
+                                                ${(p.startDate || p.start) ? '<span class="text-xs text-slate-400">' + formatDate(p.startDate || p.start) + '</span>' : ''}
+                                                ${p.owner ? '<span class="text-xs text-slate-400">' + escapeHtml(p.owner) + '</span>' : ''}
+                                                ${getPDSAStatusBadge(p.status)}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="flex items-center gap-2" onclick="event.stopPropagation()">
+                                        <select onchange="window.updatePDSA(${i}, 'status', this.value)" class="text-sm border rounded px-2 py-1 ${getStatusColor(p.status)}" title="Change status">
+                                            <option value="planning" ${p.status === 'planning' ? 'selected' : ''}>Planning</option>
+                                            <option value="doing" ${p.status === 'doing' ? 'selected' : ''}>Doing</option>
+                                            <option value="studying" ${p.status === 'studying' ? 'selected' : ''}>Studying</option>
+                                            <option value="acting" ${p.status === 'acting' ? 'selected' : ''}>Acting</option>
+                                            <option value="complete" ${p.status === 'complete' ? 'selected' : ''}>Complete</option>
+                                        </select>
+                                        <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500" title="Delete cycle">
+                                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                        </button>
+                                        <i data-lucide="${isCollapsed ? 'chevron-down' : 'chevron-up'}" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
+                                    </div>
+                                </div>
+                                <div class="px-5 pb-5 border-t border-slate-100" id="pdsa-body-${i}" style="display:${isCollapsed ? 'none' : 'block'}">
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-xs font-bold uppercase text-blue-600 flex items-center gap-1">
+                                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">P</span> Plan
+                                                </label>
+                                                <span class="text-xs ${wcCls(wc(p.plan || p.desc))}" id="pdsa-wc-plan-${i}">${wc(p.plan || p.desc)}w</span>
+                                            </div>
+                                            <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-plan-${i}')"
+                                                class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
+                                                placeholder="What change are you testing? What do you PREDICT will happen?">${escapeHtml(p.plan || p.desc || '')}</textarea>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-xs font-bold uppercase text-amber-600 flex items-center gap-1">
+                                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">D</span> Do
+                                                </label>
+                                                <span class="text-xs ${wcCls(wc(p.do))}" id="pdsa-wc-do-${i}">${wc(p.do)}w</span>
+                                            </div>
+                                            <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-do-${i}')"
+                                                class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
+                                                placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-xs font-bold uppercase text-purple-600 flex items-center gap-1">
+                                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">S</span> Study
+                                                </label>
+                                                <span class="text-xs ${wcCls(wc(p.study))}" id="pdsa-wc-study-${i}">${wc(p.study)}w</span>
+                                            </div>
+                                            <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-study-${i}')"
+                                                class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
+                                                placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
+                                        </div>
+                                        <div class="space-y-1">
+                                            <div class="flex justify-between items-center">
+                                                <label class="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1">
+                                                    <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">A</span> Act
+                                                </label>
+                                                <span class="text-xs ${wcCls(wc(p.act))}" id="pdsa-wc-act-${i}">${wc(p.act)}w</span>
+                                            </div>
+                                            <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-act-${i}')"
+                                                class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
+                                                placeholder="Will you adopt, adapt, or abandon this change? Why?">${escapeHtml(p.act || '')}</textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                `}
             </div>
         </div>
     `;
@@ -2129,8 +2310,8 @@ function renderAbstractForm(d) {
             </div>
             
             <div class="mb-4 flex justify-between items-center">
-                <span class="text-sm text-slate-500">Word count: <span class="${wordCount > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}">${wordCount}</span>/${wordLimit}</span>
-                ${wordCount > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit - please edit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}
+                <span class="text-sm text-slate-500">Word count: <span id="abstract-word-count" class="${wordCount > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}">${wordCount}</span>/${wordLimit}</span>
+                <span id="abstract-limit-badge">${wordCount > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit — please edit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}</span>
             </div>
             
             <div class="mb-4">
@@ -2138,8 +2319,11 @@ function renderAbstractForm(d) {
                 <div class="bg-slate-50 p-3 rounded border border-slate-200 font-bold">${escapeHtml(d.meta?.title || 'Untitled QIP')}</div>
             </div>
             
-            <div id="abstract-content" class="bg-slate-50 p-6 rounded-lg border border-slate-200 font-serif text-sm leading-relaxed whitespace-pre-wrap">
-${escapeHtml(abstract)}</div>
+            <textarea id="abstract-content"
+                class="w-full bg-slate-50 p-6 rounded-lg border border-slate-200 font-serif text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-rcem-purple"
+                rows="12"
+                oninput="window.onAbstractInput(this)"
+                spellcheck="true">${escapeHtml(abstract)}</textarea>
             
             <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 class="font-bold text-blue-800 text-sm mb-2">Abstract Structure Guidelines</h4>
@@ -2217,7 +2401,8 @@ export function copyReport(type) {
             return el ? el.innerText : '';
         }).filter(t => t.trim()).join('\n\n---\n\n');
     } else if (type === 'abstract') {
-        content = document.getElementById('abstract-content')?.innerText || '';
+        const absEl = document.getElementById('abstract-content');
+        content = (absEl?.tagName === 'TEXTAREA' ? absEl.value : absEl?.innerText) || '';
     } else {
         content = document.getElementById('report-content')?.innerText || '';
     }
@@ -2485,3 +2670,111 @@ export function startTour() {
         showToast("Could not start tour", "error");
     }
 }
+
+// ==========================================
+// BATCH 5-7 HELPER FUNCTIONS
+// ==========================================
+
+// PDSA view toggle
+window.setPDSAView = function(mode) {
+    window.pdsaViewMode = mode;
+    if (window.renderPDSA) window.renderPDSA();
+    // Re-init lucide after re-render
+    if (typeof lucide !== 'undefined') setTimeout(() => lucide.createIcons(), 50);
+};
+
+// PDSA card collapse toggle
+window.togglePDSACard = function(i) {
+    const body = document.getElementById('pdsa-body-' + i);
+    const chevronEl = document.querySelector('#pdsa-card-' + i + ' [data-lucide="chevron-up"], #pdsa-card-' + i + ' [data-lucide="chevron-down"]');
+    if (!body) return;
+    const isHidden = body.style.display === 'none';
+    body.style.display = isHidden ? 'block' : 'none';
+    if (chevronEl) {
+        chevronEl.setAttribute('data-lucide', isHidden ? 'chevron-up' : 'chevron-down');
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [chevronEl] });
+    }
+};
+
+// PDSA word count live update
+window.updatePDSAWC = function(textarea, spanId) {
+    const span = document.getElementById(spanId);
+    if (!span) return;
+    const n = (textarea.value || '').split(/\s+/).filter(w => w.length > 0).length;
+    span.textContent = n + 'w';
+    span.className = 'text-xs ' + (n === 0 ? 'text-slate-300' : n < 50 ? 'text-slate-400' : n > 300 ? 'text-amber-600 font-medium' : 'text-emerald-500');
+};
+
+// Apply PDSA template
+window.applyPDSATemplate = function(id) {
+    const templates = {
+        education: {
+            title: 'Staff education session',
+            plan: 'We will deliver a 15-minute education session to all shift staff during handover. We predict that knowledge scores will improve by ≥20% in a post-session quiz.'
+        },
+        audit: {
+            title: 'Audit and feedback cycle',
+            plan: 'We will conduct a retrospective audit of the last 20 cases against the target standard and present results at the next team meeting. We predict that making performance visible will motivate behaviour change.'
+        },
+        checklist: {
+            title: 'Introduce process checklist',
+            plan: 'We will introduce a point-of-care checklist at [step in process] for a 2-week trial. We predict this will reduce omission errors and improve compliance with the target process step.'
+        },
+        reminder: {
+            title: 'Visual reminder at point of care',
+            plan: 'We will place a visual prompt (poster/sticker/laminated card) at [location]. We predict this will serve as a point-of-care cue and improve adherence without requiring additional training.'
+        },
+        protocol: {
+            title: 'Update local protocol or SOP',
+            plan: 'We will draft a revised local SOP and circulate for approval. We predict that formalising the process will sustain improvement beyond individual behaviour change.'
+        }
+    };
+    const t = templates[id];
+    if (!t) return;
+    const titleEl = document.getElementById('pdsa-title');
+    const planEl = document.getElementById('pdsa-plan');
+    if (titleEl && !titleEl.value) titleEl.value = t.title;
+    if (planEl && !planEl.value) planEl.value = t.plan;
+};
+
+// ARCP date save
+window.saveARCPDate = function(val) {
+    if (!window.state?.projectData?.meta) return;
+    window.state.projectData.meta.arcpDate = val;
+    if (window.saveData) window.saveData();
+    // Re-render countdown
+    const { renderARCPCountdown } = window.__rendererHelpers || {};
+    // Inline re-render
+    const display = document.getElementById('arcp-countdown-display');
+    if (!display) return;
+    if (!val) { display.innerHTML = '<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>'; return; }
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(val); target.setHours(0,0,0,0);
+    const days = Math.round((target - today) / 86400000);
+    const color = days < 0 ? 'text-slate-500' : days <= 30 ? 'text-red-600' : days <= 90 ? 'text-amber-600' : 'text-emerald-600';
+    display.innerHTML = `
+        <div class="flex items-center gap-3">
+            <div class="text-3xl font-black ${color}">${days < 0 ? 'Past' : days + ' days'}</div>
+            <div class="text-xs text-slate-500">${days < 0 ? `ARCP was ${Math.abs(days)} days ago` : `until ARCP<br><span class="text-slate-400">${target.toLocaleDateString('en-GB')}</span>`}</div>
+        </div>
+        ${days >= 0 && days <= 30 ? '<p class="text-xs text-red-600 font-bold mt-1">Imminent — ensure portfolio is submission-ready!</p>' : ''}
+        ${days > 30 && days <= 90 ? '<p class="text-xs text-amber-600 mt-1">Getting close — review your portfolio readiness score.</p>' : ''}
+    `;
+};
+
+// Abstract word count live update
+window.onAbstractInput = function(textarea) {
+    const n = (textarea.value || '').split(/\s+/).filter(w => w.length > 0).length;
+    const limit = 250;
+    const wcEl = document.getElementById('abstract-word-count');
+    const badgeEl = document.getElementById('abstract-limit-badge');
+    if (wcEl) {
+        wcEl.textContent = n;
+        wcEl.className = n > limit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold';
+    }
+    if (badgeEl) {
+        badgeEl.innerHTML = n > limit
+            ? '<span class="text-xs text-red-500">⚠️ Over limit — please edit</span>'
+            : '<span class="text-xs text-emerald-500">✓ Within limit</span>';
+    }
+};

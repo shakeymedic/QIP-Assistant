@@ -327,6 +327,16 @@
                                     </h3>
                                     <div id="dash-mini-chart" class="min-h-[100px]"></div>
                                 </div>
+                                <div id="arcp-countdown-widget" class="bg-white rounded-xl shadow-sm p-6">
+                                    <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                        <i data-lucide="calendar-clock" class="w-4 h-4 text-amber-500"></i> ARCP Countdown
+                                    </h3>
+                                    <div id="arcp-countdown-display"></div>
+                                    <div class="mt-3 flex gap-2 items-center">
+                                        <input type="date" id="arcp-date-input" class="flex-1 p-1.5 border border-slate-300 rounded text-xs" onchange="window.saveARCPDate(this.value)">
+                                        <span class="text-xs text-slate-400">ARCP date</span>
+                                    </div>
+                                </div>
                                 <div class="bg-white rounded-xl shadow-sm p-6">
                                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <i data-lucide="activity" class="w-4 h-4 text-blue-500"></i> Recent Activity
@@ -415,6 +425,7 @@
                                     <canvas id="mainChart"></canvas>
                                 </div>
                                 <div id="chart-education-panel" class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
+                                <div id="signal-panel"></div>
                             </div>
                             
                             <div class="space-y-6">

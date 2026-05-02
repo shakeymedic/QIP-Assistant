@@ -330,33 +330,127 @@ textarea {
    ========================================================================== */
 
 @media print {
-    /* Standard Print Cleanup */
-    .no-print {
-        display: none !important;
-    }
-    
-    body {
-        background: white !important;
-    }
-    
-    #app-sidebar, #top-bar {
-        display: none !important;
-    }
-    
-    #main-wrapper {
-        margin-left: 0 !important;
-    }
-    
-    .view-section {
-        page-break-inside: avoid;
-    }
-    
-    .bg-white {
-        box-shadow: none !important;
-        border: 1px solid #e2e8f0 !important;
+    /* ── Page setup ─────────────────────────────────────── */
+    @page {
+        margin: 1.5cm;
+        size: A4 portrait;
     }
 
-    /* Poster Mode Enhancements (Priority 4.8) */
+    /* ── Typography ─────────────────────────────────────── */
+    body {
+        font-size: 11pt !important;
+        color: #1e293b !important;
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+
+    /* ── Hide all chrome & interactive elements ──────────── */
+    #app-sidebar,
+    #top-bar,
+    #mobile-menu-btn,
+    .no-print,
+    button,
+    select,
+    input[type="date"],
+    input[type="text"],
+    input[type="number"],
+    #chart-mode-controls,
+    #signal-panel,
+    #arcp-countdown-widget,
+    #pdsa-template-row,
+    #pdsa-view-toggle,
+    .pdsa-template-select,
+    [data-lucide="trash-2"],
+    [data-lucide="plus"],
+    [data-lucide="chevron-down"],
+    [data-lucide="chevron-up"],
+    [data-lucide="printer"],
+    .chart-controls,
+    .export-controls {
+        display: none !important;
+    }
+
+    /* ── Layout: remove sidebar offset, allow full page flow ─ */
+    #app-container,
+    #main-wrapper {
+        margin-left: 0 !important;
+        overflow: visible !important;
+        height: auto !important;
+        display: block !important;
+    }
+
+    main,
+    #content-area {
+        overflow: visible !important;
+        height: auto !important;
+        padding: 0 !important;
+    }
+
+    /* Show the full project view; hide tab/section nav */
+    .view-section {
+        display: none !important;
+    }
+
+    #view-full {
+        display: block !important;
+        max-width: none !important;
+        width: 100% !important;
+        padding: 0 !important;
+    }
+
+    /* ── Cards & sections ───────────────────────────────── */
+    .bg-white.rounded-xl,
+    .bg-white.rounded-lg {
+        box-shadow: none !important;
+        border: 1px solid #cbd5e1 !important;
+        page-break-inside: avoid;
+    }
+
+    section,
+    .pdsa-card {
+        page-break-inside: avoid;
+    }
+
+    h2, h3 {
+        page-break-after: avoid;
+    }
+
+    /* ── PDSA cards: force all bodies expanded ───────────── */
+    [id^="pdsa-body-"] {
+        display: block !important;
+        max-height: none !important;
+        overflow: visible !important;
+    }
+
+    /* Hide the toggle chevron buttons inside PDSA cards */
+    [id^="pdsa-toggle-"] {
+        display: none !important;
+    }
+
+    /* ── Textareas: render as plain readable text ────────── */
+    textarea {
+        border: none !important;
+        resize: none !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        font-family: inherit !important;
+        font-size: inherit !important;
+        color: inherit !important;
+    }
+
+    /* ── Colours: preserve brand accents for readability ─── */
+    .bg-emerald-50 { background-color: #f0fdf4 !important; }
+    .bg-blue-50    { background-color: #eff6ff !important; }
+    .bg-amber-50   { background-color: #fffbeb !important; }
+    .bg-slate-50   { background-color: #f8fafc !important; }
+    .text-emerald-700 { color: #047857 !important; }
+    .text-blue-700    { color: #1d4ed8 !important; }
+
+    /* ── Poster Mode (existing) ─────────────────────────── */
     body.printing-poster-mode {
         background: white !important;
     }
@@ -392,12 +486,6 @@ textarea {
     body.printing-poster-mode #full-project-container > div {
         border: none !important;
         box-shadow: none !important;
-    }
-
-    /* Recommend A4/A3/A1 constraints to the print driver */
-    @page {
-        margin: 1cm;
-        size: auto;
     }
 }
 

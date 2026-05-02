@@ -15,7 +15,7 @@ export function renderPatientTracker(projectData, saveDataFunc) {
         listHtml = projectData.patientFeedback.map((item, index) => `
             <div class="bg-white p-4 rounded border border-slate-200 mb-2">
                 <div class="flex justify-between items-start mb-2">
-                    <span class="text-xs font-bold text-rcem-purple bg-purple-50 px-2 py-1 rounded">${item.date}</span>
+                    <span class="text-xs font-bold text-rcem-purple bg-purple-50 px-2 py-1 rounded">${item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('en-GB') : ''}</span>
                     <button onclick="window.deletePatientFeedback(${index})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
                 </div>
                 <p class="text-sm text-slate-800 font-bold mb-1">Feedback: <span class="font-normal">${item.feedback}</span></p>

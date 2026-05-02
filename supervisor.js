@@ -123,7 +123,7 @@ window.signOffProject = () => {
         () => {
             window.projectData.assessment.signedOff = true;
             window.projectData.assessment.signedOffBy = name;
-            window.projectData.assessment.signedOffDate = new Date().toLocaleDateString();
+            window.projectData.assessment.signedOffDate = new Date().toLocaleDateString('en-GB');
             window.saveData();
             renderSupervisorDashboard();
             showToast('Project signed off for ARCP.', 'success');

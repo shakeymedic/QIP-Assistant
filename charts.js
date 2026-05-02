@@ -609,6 +609,55 @@ function getPDSAAnnotations() {
     return annotations;
 }
 
+// Helper: detect NHS Improvement run chart signals
+function detectRunChartSignals(data, median) {
+    const n = data.length;
+    const signals = new Array(n).fill(null); // null=none, 2=shift, 3=trend
+
+    // Rule 2: 8+ consecutive points on same side of median (ignore points ON the median)
+    let runSide = null, runStart = 0, runLen = 0;
+    for (let i = 0; i < n; i++) {
+        const side = data[i] > median ? 'above' : data[i] < median ? 'below' : null;
+        if (side && side === runSide) {
+            runLen++;
+            if (runLen >= 8) {
+                for (let j = runStart; j <= i; j++) {
+                    if (!signals[j]) signals[j] = 2;
+                }
+            }
+        } else {
+            runSide = side || runSide; // ignore on-median points for continuity
+            if (side) { runStart = i; runLen = 1; }
+        }
+    }
+
+    // Rule 3: 6+ consecutive points all going up OR all going down
+    let trendLen = 1, trendDir = 0, trendStart = 0;
+    for (let i = 1; i < n; i++) {
+        const diff = data[i] - data[i - 1];
+        const dir = diff > 0 ? 1 : diff < 0 ? -1 : 0;
+        if (dir !== 0 && dir === trendDir) {
+            trendLen++;
+        } else {
+            if (trendLen >= 6 && trendDir !== 0) {
+                for (let j = trendStart; j < trendStart + trendLen; j++) {
+                    if (!signals[j]) signals[j] = 3;
+                }
+            }
+            trendDir = dir;
+            trendStart = i - 1;
+            trendLen = 2;
+        }
+    }
+    if (trendLen >= 6 && trendDir !== 0) {
+        for (let j = trendStart; j < trendStart + trendLen; j++) {
+            if (!signals[j]) signals[j] = 3;
+        }
+    }
+
+    return signals;
+}
+
 function renderRunChart(ctx, canvasId) {
     const d = state.projectData.chartData;
     if(d.length === 0) return;
@@ -621,6 +670,12 @@ function renderRunChart(ctx, canvasId) {
     let baselineData = data.slice(0, Math.min(12, data.length));
     let sortedBase = [...baselineData].sort((a, b) => a - b);
     let median = sortedBase.length ? sortedBase[Math.floor(sortedBase.length / 2)] : 0;
+
+    // Detect run chart signals and expose globally for signal panel
+    const signals = detectRunChartSignals(data, median);
+    window.lastRunChartSignals = { signals, median, data, labels,
+        rule2: signals.some(s => s === 2),
+        rule3: signals.some(s => s === 3) };
 
     let annotations = {
         medianLine: { 
@@ -658,25 +713,50 @@ function renderRunChart(ctx, canvasId) {
             }
         };
     }
+
+    // Baseline / intervention zone shading — split at first PDSA with a start date
+    const pdsaWithDates = (state.projectData.pdsa || [])
+        .filter(p => p.startDate || p.start)
+        .sort((a, b) => new Date(a.startDate || a.start) - new Date(b.startDate || b.start));
     
-    // Show PDSA annotations by default if any cycles have start dates, or if explicitly enabled
-    const hasPDSADates = (state.projectData.pdsa || []).some(p => p.startDate || p.start);
+    if (pdsaWithDates.length > 0) {
+        const firstPDSA = pdsaWithDates[0].startDate || pdsaWithDates[0].start;
+        const splitIdx = labels.findIndex(l => l >= firstPDSA);
+        if (splitIdx > 0 && splitIdx < labels.length) {
+            annotations.baselineZone = {
+                type: 'box', xMin: labels[0], xMax: labels[splitIdx - 1],
+                backgroundColor: 'rgba(148,163,184,0.10)', borderWidth: 0,
+                label: { display: true, content: 'Baseline', position: { x: 'start', y: 'end' },
+                    font: { size: 10 }, color: '#94a3b8', backgroundColor: 'transparent', padding: 2 }
+            };
+            annotations.interventionZone = {
+                type: 'box', xMin: labels[splitIdx], xMax: labels[labels.length - 1],
+                backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 0,
+                label: { display: true, content: 'Post-Intervention', position: { x: 'start', y: 'end' },
+                    font: { size: 10 }, color: '#16a34a', backgroundColor: 'transparent', padding: 2 }
+            };
+        }
+    }
+    
+    // PDSA vertical lines
+    const hasPDSADates = pdsaWithDates.length > 0;
     if (settings.showAnnotations !== false && hasPDSADates) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }
 
     const gradeColors = {
-        'Baseline': '#64748b',
-        'Cycle 1': '#3b82f6',
-        'Cycle 2': '#8b5cf6',
-        'Cycle 3': '#ec4899',
-        'Cycle 4': '#f59e0b',
-        'Sustain': '#22c55e',
-        'Intervention': '#f36f21'
+        'Baseline': '#64748b', 'Cycle 1': '#3b82f6', 'Cycle 2': '#8b5cf6',
+        'Cycle 3': '#ec4899', 'Cycle 4': '#f59e0b', 'Sustain': '#22c55e', 'Intervention': '#f36f21'
     };
     
-    const pointColors = sortedD.map(x => gradeColors[x.grade] || '#2d2e83');
+    // Signal points get distinctive colors + larger radius
+    const pointColors = sortedD.map((x, i) => {
+        if (signals[i] === 2) return '#f59e0b'; // amber — shift (Rule 2)
+        if (signals[i] === 3) return '#f97316'; // orange — trend (Rule 3)
+        return gradeColors[x.grade] || '#2d2e83';
+    });
+    const pointRadii = signals.map(s => s ? 8 : 6);
 
     const chart = new Chart(ctx, {
         type: 'line',
@@ -690,8 +770,8 @@ function renderRunChart(ctx, canvasId) {
                 pointBackgroundColor: pointColors,
                 pointBorderColor: '#fff',
                 pointBorderWidth: 2,
-                pointRadius: 6,
-                pointHoverRadius: 8,
+                pointRadius: pointRadii,
+                pointHoverRadius: 9,
                 tension: 0.1,
                 fill: false
             }] 
@@ -713,7 +793,12 @@ function renderRunChart(ctx, canvasId) {
                     callbacks: {
                         afterLabel: function(context) {
                             const point = sortedD[context.dataIndex];
-                            return point.grade ? `Phase: ${point.grade}` : '';
+                            const sig = signals[context.dataIndex];
+                            const lines = [];
+                            if (point.grade) lines.push(`Phase: ${point.grade}`);
+                            if (sig === 2) lines.push('⚠ Rule 2: Shift signal');
+                            if (sig === 3) lines.push('⚠ Rule 3: Trend signal');
+                            return lines;
                         }
                     }
                 }
