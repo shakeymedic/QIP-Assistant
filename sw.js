@@ -41,7 +41,7 @@ async function trimCache(cacheName, maxItems) {
 }
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.4.0...');
+    console.log('[SW] Installing service worker v3.5.0...');
     
     event.waitUntil(
         Promise.all([
