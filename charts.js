@@ -20,6 +20,11 @@ const TOOL_HELP = {
         title: "Process Map",
         desc: "Visualises the patient journey or clinical workflow step-by-step.",
         tips: "Map the current process first. Look for waiting times and bottlenecks."
+    },
+    fivewhys: {
+        title: "5 Whys Analysis",
+        desc: "Iteratively ask 'Why?' to drill down to the root cause of a problem. Usually 5 levels is enough to reach the systemic root cause.",
+        tips: "Start with a specific problem statement. Each 'Why' should be answerable from the previous level. Stop when you reach something you can act on."
     }
 };
 
@@ -107,6 +112,8 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
             renderDriverVisual(canvas, targetId === 'diagram-canvas');
         } else if (mode === 'process') {
             renderProcessVisual(canvas, targetId === 'diagram-canvas');
+        } else if (mode === 'fivewhys') {
+            renderFiveWhysVisual(canvas);
         }
     } catch (error) {
         canvas.innerHTML = `<div class="p-8 text-center text-red-500 bg-red-50 rounded-xl border border-red-200">
@@ -141,6 +148,10 @@ function renderToolUI() {
                 <button aria-label="Open Process Map" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'process' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="process" onclick="window.setToolMode('process')">
                     <i data-lucide="workflow" class="w-4 h-4 inline mr-1"></i> Process Map
+                </button>
+                <button aria-label="Open 5 Whys" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'fivewhys' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
+                        data-mode="fivewhys" onclick="window.setToolMode('fivewhys')">
+                    <i data-lucide="layers" class="w-4 h-4 inline mr-1"></i> 5 Whys
                 </button>
             </div>
         </div>
@@ -511,6 +522,42 @@ function renderProcessVisual(container, enableInteraction = false) {
     }
 }
 
+function renderFiveWhysVisual(container) {
+    const fw = state.projectData?.fivewhys || {};
+    const readOnly = state.isReadOnly || state.isDemoMode;
+    const inputClass = 'w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-rcem-purple bg-white';
+    const disabledAttr = readOnly ? 'disabled' : '';
+
+    const saveFW = (field, val) => {
+        if (readOnly) return;
+        if (!state.projectData.fivewhys) state.projectData.fivewhys = {};
+        state.projectData.fivewhys[field] = val;
+        if (window.saveData) window.saveData();
+    };
+
+    container.innerHTML = `
+        <div class="p-6 max-w-2xl mx-auto space-y-3">
+            <div class="mb-2">
+                <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1">Problem Statement</label>
+                <textarea ${disabledAttr} class="${inputClass} min-h-[60px] bg-red-50 border-red-200 font-medium" placeholder="What is the specific problem?" oninput="if(!this.disabled){if(!state.projectData.fivewhys)state.projectData.fivewhys={};state.projectData.fivewhys.problem=this.value;if(window.saveData)window.saveData();}">${escapeHtml(fw.problem || '')}</textarea>
+            </div>
+            ${['why1','why2','why3','why4','why5'].map((k, idx) => `
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm font-bold mt-1">${idx+1}</div>
+                <div class="flex-1">
+                    <label class="block text-xs font-bold text-indigo-600 uppercase tracking-wider mb-1">Why ${idx+1}?</label>
+                    <textarea ${disabledAttr} class="${inputClass} min-h-[50px]" placeholder="Why does that happen?" oninput="if(!this.disabled){if(!state.projectData.fivewhys)state.projectData.fivewhys={};state.projectData.fivewhys['${k}']=this.value;if(window.saveData)window.saveData();}">${escapeHtml(fw[k] || '')}</textarea>
+                </div>
+            </div>`).join('')}
+            <div class="mt-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+                <label class="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">&#x2713; Root Cause</label>
+                <textarea ${disabledAttr} class="${inputClass} min-h-[60px] bg-emerald-50 border-emerald-300 font-medium" placeholder="What is the underlying systemic cause?" oninput="if(!this.disabled){if(!state.projectData.fivewhys)state.projectData.fivewhys={};state.projectData.fivewhys.rootCause=this.value;if(window.saveData)window.saveData();}">${escapeHtml(fw.rootCause || '')}</textarea>
+            </div>
+            <p class="text-xs text-slate-400 text-center pt-2">Changes save automatically. Use this analysis to inform your Driver Diagram change ideas.</p>
+        </div>
+    `;
+}
+
 export function setChartMode(m) { 
     chartMode = m; 
     
@@ -612,7 +659,18 @@ function getPDSAAnnotations() {
 // Helper: detect NHS Improvement run chart signals
 function detectRunChartSignals(data, median) {
     const n = data.length;
-    const signals = new Array(n).fill(null); // null=none, 2=shift, 3=trend
+    const signals = new Array(n).fill(null); // null=none, 1=astronomical, 2=shift, 3=trend
+
+    // Rule 1: Astronomical point — IQR-based outlier detection
+    const sorted = [...data].sort((a, b) => a - b);
+    const q1 = sorted[Math.floor(sorted.length * 0.25)];
+    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+    const iqr = q3 - q1;
+    const lowerFence = q1 - 3 * iqr;
+    const upperFence = q3 + 3 * iqr;
+    for (let i = 0; i < n; i++) {
+        if (data[i] < lowerFence || data[i] > upperFence) signals[i] = 1;
+    }
 
     // Rule 2: 8+ consecutive points on same side of median (ignore points ON the median)
     let runSide = null, runStart = 0, runLen = 0;
@@ -674,6 +732,7 @@ function renderRunChart(ctx, canvasId) {
     // Detect run chart signals and expose globally for signal panel
     const signals = detectRunChartSignals(data, median);
     window.lastRunChartSignals = { signals, median, data, labels,
+        rule1: signals.some(s => s === 1),
         rule2: signals.some(s => s === 2),
         rule3: signals.some(s => s === 3) };
 
@@ -738,9 +797,9 @@ function renderRunChart(ctx, canvasId) {
         }
     }
     
-    // PDSA vertical lines
+    // PDSA vertical lines — always shown when cycles have start dates
     const hasPDSADates = pdsaWithDates.length > 0;
-    if (settings.showAnnotations !== false && hasPDSADates) {
+    if (hasPDSADates) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }
@@ -752,6 +811,7 @@ function renderRunChart(ctx, canvasId) {
     
     // Signal points get distinctive colors + larger radius
     const pointColors = sortedD.map((x, i) => {
+        if (signals[i] === 1) return '#ef4444'; // red — astronomical (Rule 1)
         if (signals[i] === 2) return '#f59e0b'; // amber — shift (Rule 2)
         if (signals[i] === 3) return '#f97316'; // orange — trend (Rule 3)
         return gradeColors[x.grade] || '#2d2e83';

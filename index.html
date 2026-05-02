@@ -132,7 +132,10 @@
                 </div>
                 
                 <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2">Project</div>
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-slate-600 text-slate-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9312;</span>
+                        Define & Measure
+                    </div>
                     <button aria-label="Go to Dashboard" onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard">
                         <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
                     </button>
@@ -149,7 +152,10 @@
                         <i data-lucide="users-2" class="w-4 h-4 text-pink-400"></i> Team & Leadership
                     </button>
                     
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Diagnose & Plan</div>
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-cyan-700 text-cyan-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9313;</span>
+                        Diagnose & Plan
+                    </div>
                     <button aria-label="Go to Diagnosis Tools" onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools">
                         <i data-lucide="git-branch" class="w-4 h-4 text-cyan-400"></i> Diagnosis Tools
                     </button>
@@ -160,7 +166,10 @@
                         <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-400"></i> Timeline
                     </button>
                     
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Test & Learn</div>
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-amber-700 text-amber-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9314;</span>
+                        Test & Learn
+                    </div>
                     <button aria-label="Go to Data & SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
                         <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Data & SPC
                     </button>
@@ -171,12 +180,18 @@
                         <i data-lucide="clipboard-list" class="w-4 h-4 text-violet-400"></i> Surveys & Feedback
                     </button>
                     
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Review & Sign-off</div>
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-emerald-700 text-emerald-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9315;</span>
+                        Review & Sign-off
+                    </div>
                     <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
                         <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
                     </button>
 
-                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4">Share & Publish</div>
+                    <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4 flex items-center gap-2">
+                        <span class="w-5 h-5 rounded-full bg-sky-700 text-sky-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9316;</span>
+                        Share & Publish
+                    </div>
                     <button aria-label="Go to Publication" onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish">
                         <i data-lucide="newspaper" class="w-4 h-4 text-sky-400"></i> Publication
                     </button>
@@ -327,6 +342,38 @@
                                     </h3>
                                     <div id="dash-mini-chart" class="min-h-[100px]"></div>
                                 </div>
+                                <!-- Quick-add data point widget -->
+                                <div class="bg-white rounded-xl shadow-sm p-5 border border-dashed border-emerald-300">
+                                    <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
+                                        <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Quick Add Data Point
+                                    </h3>
+                                    <div class="space-y-2">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">Date</label>
+                                                <input type="date" id="quick-add-date" class="w-full p-1.5 border border-slate-300 rounded text-xs" value="">
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs text-slate-500 mb-1">Value</label>
+                                                <input type="number" id="quick-add-value" class="w-full p-1.5 border border-slate-300 rounded text-xs" placeholder="e.g. 78">
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs text-slate-500 mb-1">Phase</label>
+                                            <select id="quick-add-phase" class="w-full p-1.5 border border-slate-300 rounded text-xs">
+                                                <option value="Baseline">Baseline</option>
+                                                <option value="PDSA 1">PDSA 1</option>
+                                                <option value="PDSA 2">PDSA 2</option>
+                                                <option value="PDSA 3">PDSA 3</option>
+                                                <option value="PDSA 4">PDSA 4</option>
+                                                <option value="Sustain" selected>Sustain / Intervention</option>
+                                            </select>
+                                        </div>
+                                        <button onclick="window.quickAddDataPoint()" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-1.5 rounded text-xs font-bold flex items-center justify-center gap-1">
+                                            <i data-lucide="plus" class="w-3 h-3"></i> Add to Chart
+                                        </button>
+                                    </div>
+                                </div>
                                 <div id="arcp-countdown-widget" class="bg-white rounded-xl shadow-sm p-6">
                                     <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
                                         <i data-lucide="calendar-clock" class="w-4 h-4 text-amber-500"></i> ARCP Countdown
@@ -464,6 +511,15 @@
                                     </div>
                                 </div>
                                 
+                                <!-- Operational definition card (8A-5) -->
+                                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+                                    <h3 class="font-bold text-slate-800 mb-2 flex items-center gap-2">
+                                        <i data-lucide="book-marked" class="w-4 h-4 text-indigo-500"></i> Operational Definition
+                                    </h3>
+                                    <p class="text-xs text-slate-500 mb-2">Precisely define what you are measuring and how — so any team member could collect the same data identically.</p>
+                                    <textarea id="operational-definition" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="e.g. 'Sepsis antibiotic compliance: % of patients with confirmed Red Flag Sepsis (NEWS2 ≥5 + clinical suspicion) who receive IV antibiotics within 60 minutes of the first documented sepsis trigger time, measured from electronic prescription record.'" onchange="window.saveChecklistField('operational_definition', this.value)"></textarea>
+                                </div>
+
                                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Results Interpretation

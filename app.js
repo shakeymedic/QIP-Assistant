@@ -513,24 +513,52 @@ window.saveData = async function(skipHistory = false) {
         
         const s = document.getElementById('save-status');
         if(s) { 
+            // Record save time and show persistent indicator
+            window._lastSavedAt = Date.now();
             s.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Saved`;
-            s.classList.remove('opacity-0', 'text-emerald-600');
-            s.classList.add('text-white', 'bg-emerald-500', 'px-3', 'py-1', 'rounded-full', 'shadow-sm', 'transition-all');
+            s.classList.remove('opacity-0', 'text-slate-400');
+            s.classList.add('text-emerald-600', 'flex', 'items-center', 'gap-1', 'text-xs', 'font-medium');
             if(typeof lucide !== 'undefined') lucide.createIcons();
-            
-            setTimeout(() => {
-                s.classList.add('opacity-0');
-                setTimeout(() => {
-                    s.classList.remove('text-white', 'bg-emerald-500', 'px-3', 'py-1', 'rounded-full', 'shadow-sm');
-                    s.classList.add('text-emerald-600');
-                    s.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Saved`;
+
+            // Start / restart the "X min ago" updater
+            if (!window._saveIntervalId) {
+                window._saveIntervalId = setInterval(() => {
+                    const el = document.getElementById('save-status');
+                    if (!el || !window._lastSavedAt) return;
+                    const mins = Math.floor((Date.now() - window._lastSavedAt) / 60000);
+                    el.innerHTML = mins < 1
+                        ? `<i data-lucide="check" class="w-3 h-3"></i> Saved just now`
+                        : `<i data-lucide="clock" class="w-3 h-3"></i> Saved ${mins}m ago`;
                     if(typeof lucide !== 'undefined') lucide.createIcons();
-                }, 300);
-            }, 2500); 
+                }, 60000);
+            }
         }
     } catch (e) {
         showToast("Save failed: " + e.message, "error");
     }
+};
+
+// Quick-add data point from dashboard widget
+window.quickAddDataPoint = async function() {
+    if (!state.projectData || state.isReadOnly) return;
+    const dateEl = document.getElementById('quick-add-date');
+    const valEl = document.getElementById('quick-add-value');
+    const phaseEl = document.getElementById('quick-add-phase');
+    const date = dateEl?.value;
+    const value = parseFloat(valEl?.value);
+    if (!date || isNaN(value)) {
+        showToast('Please enter a date and value', 'error');
+        return;
+    }
+    const grade = phaseEl?.value || 'Intervention';
+    if (!state.projectData.chartData) state.projectData.chartData = [];
+    state.projectData.chartData.push({ date, value, grade });
+    if (window.saveData) await window.saveData();
+    showToast('Data point added', 'success');
+    // Reset value input, keep date
+    if (valEl) valEl.value = '';
+    // Refresh dashboard mini-chart if visible
+    if (typeof R !== 'undefined' && R.renderAll) R.renderAll('dashboard');
 };
 
 function pushHistory() {

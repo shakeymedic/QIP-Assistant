@@ -33,7 +33,14 @@ export const emptyProject = {
         process_measure: "",
         balance_measure: "",
         ethics: "",
+        hraChecklist: { q1: '', q2: '', q3: '', q4: '', notes: '' },
         lit_review: "",
+        referencesList: [],
+        abstract_background: "",
+        abstract_methods: "",
+        abstract_results: "",
+        abstract_conclusions: "",
+        operational_definition: "",
         learning_points: "",
         sustainability: "",
         results_text: "",
@@ -66,13 +73,14 @@ export const emptyProject = {
         lcl: null,
         title: '',
         yAxisLabel: '',
-        showAnnotations: false
+        showAnnotations: true
     },
     stakeholders: [],
     teamMembers: [],
     leadershipLogs: [],
     gantt: [],
-    surveys: []
+    surveys: [],
+    fivewhys: { problem: '', why1: '', why2: '', why3: '', why4: '', why5: '', rootCause: '' }
 };
 
 export function getDemoData() {

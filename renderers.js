@@ -160,6 +160,12 @@ export function renderDashboard() {
     renderRecentActivity();
     updatePortfolioReadiness();
     renderARCPCountdown();
+
+    // Pre-fill Quick-add date with today
+    const qaDate = document.getElementById('quick-add-date');
+    if (qaDate && !qaDate.value) {
+        qaDate.value = new Date().toISOString().split('T')[0];
+    }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -463,6 +469,9 @@ export function renderChecklist() {
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">1</span>
                 Problem Definition
+                <button onclick="window.showExample('problem')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3 h-3"></i> See Example
+                </button>
             </h2>
             <div class="space-y-4">
                 <div>
@@ -493,6 +502,9 @@ export function renderChecklist() {
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold">2</span>
                 SMART Aim
+                <button onclick="window.showExample('aim')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3 h-3"></i> See Example
+                </button>
             </h2>
             <div class="space-y-4">
                 <div>
@@ -522,6 +534,9 @@ export function renderChecklist() {
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
                 Family of Measures
+                <button onclick="window.showExample('measures')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                    <i data-lucide="eye" class="w-3 h-3"></i> See Example
+                </button>
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -555,12 +570,64 @@ export function renderChecklist() {
             <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
                 <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">4</span>
                 Ethics & Governance
+                <button onclick="window.open('https://www.hra-decisiontools.org.uk/research/',\'_blank\')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                    <i data-lucide="external-link" class="w-3 h-3"></i> HRA Decision Tool
+                </button>
             </h2>
+            <div class="space-y-3 mb-4">
+                <p class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">Complete the HRA Decision Tool online, then answer these questions. Your answers determine whether this is service evaluation (no ethics needed) or research (ethics required).</p>
+                ${[{
+                    key: 'q1', label: 'Is the primary purpose to generate new generalizable knowledge (research), or to evaluate/improve a local service?',
+                    hint: 'If evaluating/improving local service → likely Service Evaluation'
+                }, {
+                    key: 'q2', label: 'Are participants randomised or given an intervention outside normal care?',
+                    hint: 'If yes → more likely to require ethics approval'
+                }, {
+                    key: 'q3', label: 'Is this registered with your Trust\'s Audit/QI department or Clinical Governance?',
+                    hint: 'All QI projects should be registered locally regardless of HRA outcome'
+                }, {
+                    key: 'q4', label: 'Has Caldicott/IG approval been obtained for any identifiable data extraction?',
+                    hint: 'Required whenever you access patient-identifiable records'
+                }].map(q => {
+                    const val = (c.hraChecklist || {})[q.key] || '';
+                    return `<div class="border border-slate-200 rounded-lg p-3">
+                        <p class="text-sm font-medium text-slate-700 mb-2">${q.label}</p>
+                        <p class="text-xs text-slate-400 italic mb-2">${q.hint}</p>
+                        <div class="flex gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="hra-${q.key}" value="yes" ${val === 'yes' ? 'checked' : ''} onchange="window.saveHRAField('${q.key}', 'yes')" class="text-emerald-500">
+                                <span class="text-sm text-emerald-700 font-medium">Yes</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="hra-${q.key}" value="no" ${val === 'no' ? 'checked' : ''} onchange="window.saveHRAField('${q.key}', 'no')" class="text-red-500">
+                                <span class="text-sm text-red-700 font-medium">No</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="hra-${q.key}" value="pending" ${val === 'pending' ? 'checked' : ''} onchange="window.saveHRAField('${q.key}', 'pending')" class="text-amber-500">
+                                <span class="text-sm text-amber-700 font-medium">Pending</span>
+                            </label>
+                        </div>
+                    </div>`;
+                }).join('')}
+            </div>
+            ${(() => {
+                const hra = c.hraChecklist || {};
+                const answered = [hra.q1, hra.q2, hra.q3, hra.q4].filter(v => v && v !== '');
+                if (answered.length === 4) {
+                    const needsEthics = hra.q2 === 'yes';
+                    return `<div class="mb-4 p-3 rounded-lg border ${needsEthics ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}">
+                        <p class="text-sm font-bold ${needsEthics ? 'text-red-800' : 'text-emerald-800'}">
+                            ${needsEthics ? '⚠️ Likely requires formal ethics approval — consult your Trust R&D department.' : '✓ Likely qualifies as Service Evaluation / QI — no formal ethics approval required.'}
+                        </p>
+                    </div>`;
+                }
+                return '';
+            })()}
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Ethical Considerations & Approvals</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Notes / Registration Reference</label>
                 <textarea id="check-ethics" onchange="window.saveChecklistField('ethics', this.value)"
-                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
-                    placeholder="QI vs Research distinction, confidentiality, consent, any approvals needed...">${escapeHtml(c.ethics || '')}</textarea>
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                    placeholder="e.g. Registered as Service Evaluation: Ref AUD-2024-0142. No consent required. Caldicott approval obtained.">${escapeHtml(c.ethics || '')}</textarea>
             </div>
         </section>
         
@@ -569,11 +636,39 @@ export function renderChecklist() {
                 <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold">5</span>
                 Literature Review
             </h2>
+            <!-- Structured reference list -->
+            <div class="mb-5">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-sm font-medium text-slate-700">Reference List</label>
+                    <button onclick="window.addReference()" class="text-xs bg-slate-800 text-white px-2.5 py-1 rounded flex items-center gap-1 hover:bg-slate-700">
+                        <i data-lucide="plus" class="w-3 h-3"></i> Add Reference
+                    </button>
+                </div>
+                <div id="reference-list" class="space-y-2">
+                    ${(c.referencesList || []).length === 0
+                        ? `<p class="text-xs text-slate-400 italic py-2">No references added yet. Click 'Add Reference' to build your bibliography.</p>`
+                        : (c.referencesList || []).map((ref, ri) => `
+                        <div class="border border-slate-200 rounded-lg p-3 bg-slate-50" id="ref-${ri}">
+                            <div class="grid grid-cols-2 gap-2 mb-2">
+                                <input type="text" value="${escapeHtml(ref.authors || '')}" placeholder="Authors" onchange="window.updateReference(${ri}, 'authors', this.value)" class="p-1.5 border border-slate-300 rounded text-xs">
+                                <input type="text" value="${escapeHtml(ref.year || '')}" placeholder="Year" onchange="window.updateReference(${ri}, 'year', this.value)" class="p-1.5 border border-slate-300 rounded text-xs">
+                            </div>
+                            <input type="text" value="${escapeHtml(ref.title || '')}" placeholder="Title / Guideline name" onchange="window.updateReference(${ri}, 'title', this.value)" class="w-full p-1.5 border border-slate-300 rounded text-xs mb-2">
+                            <div class="flex gap-2 items-start">
+                                <textarea placeholder="Key finding / relevance to your project" onchange="window.updateReference(${ri}, 'keyFinding', this.value)" class="flex-1 p-1.5 border border-slate-300 rounded text-xs min-h-[40px]">${escapeHtml(ref.keyFinding || '')}</textarea>
+                                <button onclick="window.deleteReference(${ri})" class="text-red-400 hover:text-red-600 p-1 flex-shrink-0" title="Remove reference">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>`).join('')
+                    }
+                </div>
+            </div>
             <div>
-                <label class="block text-sm font-medium text-slate-700 mb-1">Evidence Base & Guidelines</label>
+                <label class="block text-sm font-medium text-slate-700 mb-1">Additional Notes / Narrative</label>
                 <textarea id="check-litreview" onchange="window.saveChecklistField('lit_review', this.value)"
-                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px]"
-                    placeholder="What does the evidence say? NICE guidelines, RCEM standards, relevant studies...">${escapeHtml(c.lit_review || '')}</textarea>
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
+                    placeholder="Additional commentary on the evidence base, gaps in literature, or how evidence supports your project...">${escapeHtml(c.lit_review || '')}</textarea>
                 <div class="mt-2">
                     <button onclick="window.aiSuggestEvidence()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
                         <i data-lucide="sparkles" class="w-3 h-3"></i> AI Suggest Evidence
@@ -648,9 +743,9 @@ function renderSignalPanel() {
     const sig = window.lastRunChartSignals;
     if (!sig || sig.data.length < 8) { panel.innerHTML = ''; return; }
 
-    const { rule2, rule3, data, median } = sig;
+    const { rule1, rule2, rule3, data, median } = sig;
 
-    if (!rule2 && !rule3) {
+    if (!rule1 && !rule2 && !rule3) {
         panel.innerHTML = `
             <div class="mt-3 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
                 <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 flex-shrink-0"></i>
@@ -658,6 +753,12 @@ function renderSignalPanel() {
             </div>`;
     } else {
         const items = [];
+        if (rule1) items.push(`
+            <div class="flex gap-3">
+                <span class="w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R1</span>
+                <div><p class="text-sm font-bold text-red-800">Rule 1: Astronomical point</p>
+                <p class="text-xs text-red-700 mt-0.5">One or more data points lie far outside the expected range (>3×IQR from quartiles) — warrants <strong>immediate investigation</strong>. Red points on chart.</p></div>
+            </div>`);
         if (rule2) items.push(`
             <div class="flex gap-3">
                 <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R2</span>
@@ -698,6 +799,12 @@ export function renderDataView() {
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
         resultsText.value = d.checklist.results_text || '';
+    }
+
+    // Operational definition (8A-5)
+    const opDefEl = document.getElementById('operational-definition');
+    if (opDefEl && d.checklist) {
+        opDefEl.value = d.checklist.operational_definition || '';
     }
     
     const historyContainer = document.getElementById('data-history');
@@ -1059,56 +1166,114 @@ export function renderPDSA() {
                                     </div>
                                 </div>
                                 <div class="px-5 pb-5 border-t border-slate-100" id="pdsa-body-${i}" style="display:${isCollapsed ? 'none' : 'block'}">
-                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between items-center">
-                                                <label class="text-xs font-bold uppercase text-blue-600 flex items-center gap-1">
-                                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">P</span> Plan
-                                                </label>
-                                                <span class="text-xs ${wcCls(wc(p.plan || p.desc))}" id="pdsa-wc-plan-${i}">${wc(p.plan || p.desc)}w</span>
+                                    <div class="space-y-3 pt-4">
+                                        <!-- Row 1: Plan | Prediction -->
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between items-center">
+                                                    <label class="text-xs font-bold uppercase text-blue-600 flex items-center gap-1">
+                                                        <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">P</span> Plan
+                                                    </label>
+                                                    <span class="text-xs ${wcCls(wc(p.plan || p.desc))}" id="pdsa-wc-plan-${i}">${wc(p.plan || p.desc)}w</span>
+                                                </div>
+                                                <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-plan-${i}')"
+                                                    class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
+                                                    placeholder="What specific change are you testing? Who, what, when, where?">${escapeHtml(p.plan || p.desc || '')}</textarea>
                                             </div>
-                                            <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-plan-${i}')"
-                                                class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
-                                                placeholder="What change are you testing? What do you PREDICT will happen?">${escapeHtml(p.plan || p.desc || '')}</textarea>
-                                        </div>
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between items-center">
-                                                <label class="text-xs font-bold uppercase text-amber-600 flex items-center gap-1">
-                                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">D</span> Do
-                                                </label>
-                                                <span class="text-xs ${wcCls(wc(p.do))}" id="pdsa-wc-do-${i}">${wc(p.do)}w</span>
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between items-center">
+                                                    <label class="text-xs font-bold uppercase text-sky-600 flex items-center gap-1">
+                                                        <span class="w-4 h-4 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-[10px] font-bold">P</span> Prediction
+                                                        <span class="text-[9px] font-normal text-sky-400 normal-case ml-1">(ARCP required)</span>
+                                                    </label>
+                                                    <span class="text-xs ${wcCls(wc(p.prediction))}" id="pdsa-wc-pred-${i}">${wc(p.prediction)}w</span>
+                                                </div>
+                                                <textarea onchange="window.updatePDSA(${i}, 'prediction', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-pred-${i}')"
+                                                    class="w-full p-2 bg-sky-50/50 border border-sky-200 rounded text-sm min-h-[80px]"
+                                                    placeholder="What do you predict will happen and why? Be specific and measurable.">${escapeHtml(p.prediction || '')}</textarea>
                                             </div>
-                                            <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-do-${i}')"
-                                                class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
-                                                placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
                                         </div>
-                                        <div class="space-y-1">
-                                            <div class="flex justify-between items-center">
-                                                <label class="text-xs font-bold uppercase text-purple-600 flex items-center gap-1">
-                                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">S</span> Study
-                                                </label>
-                                                <span class="text-xs ${wcCls(wc(p.study))}" id="pdsa-wc-study-${i}">${wc(p.study)}w</span>
+                                        <!-- Row 2: Do | Study -->
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between items-center">
+                                                    <label class="text-xs font-bold uppercase text-amber-600 flex items-center gap-1">
+                                                        <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">D</span> Do
+                                                    </label>
+                                                    <span class="text-xs ${wcCls(wc(p.do))}" id="pdsa-wc-do-${i}">${wc(p.do)}w</span>
+                                                </div>
+                                                <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-do-${i}')"
+                                                    class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
+                                                    placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
                                             </div>
-                                            <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-study-${i}')"
-                                                class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
-                                                placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
+                                            <div class="space-y-1">
+                                                <div class="flex justify-between items-center">
+                                                    <label class="text-xs font-bold uppercase text-purple-600 flex items-center gap-1">
+                                                        <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">S</span> Study
+                                                    </label>
+                                                    <span class="text-xs ${wcCls(wc(p.study))}" id="pdsa-wc-study-${i}">${wc(p.study)}w</span>
+                                                </div>
+                                                <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-study-${i}')"
+                                                    class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
+                                                    placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
+                                            </div>
                                         </div>
+                                        <!-- Row 3: Act (full width) -->
                                         <div class="space-y-1">
                                             <div class="flex justify-between items-center">
                                                 <label class="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1">
                                                     <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">A</span> Act
+                                                    <span class="text-[9px] font-normal text-emerald-400 normal-case ml-1">Adopt / Adapt / Abandon</span>
                                                 </label>
                                                 <span class="text-xs ${wcCls(wc(p.act))}" id="pdsa-wc-act-${i}">${wc(p.act)}w</span>
                                             </div>
                                             <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" oninput="window.updatePDSAWC(this,'pdsa-wc-act-${i}')"
-                                                class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
-                                                placeholder="Will you adopt, adapt, or abandon this change? Why?">${escapeHtml(p.act || '')}</textarea>
+                                                class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[60px]"
+                                                placeholder="Will you ADOPT, ADAPT, or ABANDON this change? Why? What is your next cycle?">${escapeHtml(p.act || '')}</textarea>
                                         </div>
                                     </div>
                                 </div>
                             </div>`;
                         }).join('')}
                     </div>
+                    <!-- Change Package -->
+                    ${(() => {
+                        const complete = (pdsa || []).filter(p => p.status === 'complete' || p.status === 'acting');
+                        if (complete.length === 0) return '';
+                        return `
+                        <div class="mt-6 bg-emerald-50 border border-emerald-200 rounded-xl p-5">
+                            <h3 class="text-sm font-bold text-emerald-800 flex items-center gap-2 mb-3">
+                                <i data-lucide="package-check" class="w-4 h-4"></i>
+                                Change Package
+                                <span class="text-xs font-normal text-emerald-600 ml-1">— summary of adopted/adapted changes</span>
+                            </h3>
+                            <div class="space-y-2">
+                                ${complete.map((p, idx) => {
+                                    const realIdx = (pdsa || []).indexOf(p);
+                                    const actLower = (p.act || '').toLowerCase();
+                                    const autoDecision = actLower.includes('adopt') ? 'adopted' : actLower.includes('adapt') ? 'adapted' : actLower.includes('abandon') ? 'abandoned' : p.actDecision || '';
+                                    const decisionColors = { adopted: 'bg-emerald-100 text-emerald-800', adapted: 'bg-blue-100 text-blue-800', abandoned: 'bg-red-100 text-red-700', ongoing: 'bg-amber-100 text-amber-800', '': 'bg-slate-100 text-slate-600' };
+                                    const decCls = decisionColors[autoDecision] || decisionColors[''];
+                                    return `<div class="flex items-start gap-3 bg-white rounded-lg p-3 border border-emerald-100">
+                                        <span class="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-200 text-emerald-800 flex items-center justify-center text-xs font-bold">${realIdx + 1}</span>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-2 mb-1">
+                                                <span class="font-medium text-sm text-slate-800 truncate">${escapeHtml(p.title || ('Cycle ' + (realIdx + 1)))}</span>
+                                                <select onchange="window.updatePDSA(${realIdx}, 'actDecision', this.value)" class="text-xs border rounded px-1.5 py-0.5 ${decCls}">
+                                                    <option value="" ${!autoDecision ? 'selected' : ''}>-- Decision --</option>
+                                                    <option value="adopted" ${autoDecision === 'adopted' ? 'selected' : ''}>Adopted</option>
+                                                    <option value="adapted" ${autoDecision === 'adapted' ? 'selected' : ''}>Adapted</option>
+                                                    <option value="abandoned" ${autoDecision === 'abandoned' ? 'selected' : ''}>Abandoned</option>
+                                                    <option value="ongoing" ${autoDecision === 'ongoing' ? 'selected' : ''}>Ongoing</option>
+                                                </select>
+                                            </div>
+                                            ${p.act ? `<p class="text-xs text-slate-500 line-clamp-2">${escapeHtml(p.act.substring(0, 200))}</p>` : ''}
+                                        </div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>`;
+                    })()}
                 `}
             </div>
         </div>
@@ -1980,6 +2145,26 @@ export function renderPublish(mode = 'qiat') {
     
     if (mode === 'qiat') {
         content.innerHTML = renderQIATForm(d);
+        // Make QIAT narrative divs editable (inline editing before copying to portfolio)
+        setTimeout(() => {
+            const qiatIds = ['qiat-pdp', 'qiat-education', 'qiat-learning', 'qiat-reflections', 'qiat-next-pdp'];
+            qiatIds.forEach(id => {
+                const el = document.getElementById(id);
+                if (el && !state.isReadOnly) {
+                    el.contentEditable = 'plaintext-only';
+                    el.title = 'Click to edit before copying to your portfolio';
+                    el.classList.add('focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-300', 'cursor-text', 'hover:bg-indigo-50/50', 'transition-colors');
+                    // Add subtle edit hint on first editable div
+                    if (id === 'qiat-pdp' && !el.dataset.hintAdded) {
+                        el.dataset.hintAdded = '1';
+                        const hint = document.createElement('div');
+                        hint.className = 'text-[10px] text-indigo-400 mt-1 flex items-center gap-1';
+                        hint.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> All text boxes are editable — personalise before copying to risr/Advance';
+                        el.parentNode?.insertBefore(hint, el.nextSibling);
+                    }
+                }
+            });
+        }, 100);
     } else if (mode === 'abstract') {
         content.innerHTML = renderAbstractForm(d);
     } else {
@@ -2281,58 +2466,77 @@ function renderQIATForm(d) {
     `;
 }
 
+function wc(t) { return t ? t.split(/\s+/).filter(w => w.length > 0).length : 0; }
 function renderAbstractForm(d) {
     const c = d.checklist || {};
     const pdsa = d.pdsa || [];
     const wordLimit = 250;
-    
-    let abstract = `Background: ${c.problem_desc || '[Problem statement - describe the gap between current and desired state]'}\n\n`;
-    abstract += `Aim: ${c.aim || '[SMART aim - To increase/decrease X from Y to Z by date]'}\n\n`;
-    abstract += `Methods: We used the Model for Improvement with ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}. `;
-    abstract += `${d.chartData?.length || 0} data points were collected. `;
-    abstract += `Outcome measure: ${c.outcome_measure || '[outcome measure]'}. `;
-    abstract += `Process measure: ${c.process_measure || '[process measure]'}.\n\n`;
-    abstract += `Results: ${c.results_analysis || '[Analysis showing pre/post intervention data, any special cause variation detected, percentage improvement achieved]'}\n\n`;
-    abstract += `Conclusion: ${c.learning_points || '[Key learning points and implications for practice]'}`;
-    
-    const wordCount = abstract.split(/\s+/).filter(w => w.length > 0).length;
-    
+
+    // Default values for each section from existing project data if not yet saved separately
+    const bgDefault = c.abstract_background || `${c.problem_desc || '[Problem statement — describe the gap between current and desired state]'}`;
+    const methodsDefault = c.abstract_methods || `We used the Model for Improvement with ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}. ${d.chartData?.length || 0} data points were collected. Outcome measure: ${c.outcome_measure || '[outcome measure]'}. Process measure: ${c.process_measure || '[process measure]'}.`;
+    const resultsDefault = c.abstract_results || c.results_analysis || '[Analysis showing pre/post intervention data, any special cause variation detected, percentage improvement achieved]';
+    const conclusionsDefault = c.abstract_conclusions || c.learning_points || '[Key learning points and implications for practice]';
+
+    const totalWC = wc(bgDefault) + wc(methodsDefault) + wc(resultsDefault) + wc(conclusionsDefault);
+
+    const sections = [
+        { id: 'abs-bg',      field: 'abstract_background',   label: 'Background',   color: 'blue',   val: bgDefault,          hint: 'Why is this important? What is the problem and gap from standard?' },
+        { id: 'abs-methods', field: 'abstract_methods',      label: 'Methods',      color: 'purple', val: methodsDefault,     hint: 'QI methodology, measures used, number of PDSA cycles, data collected.' },
+        { id: 'abs-results', field: 'abstract_results',      label: 'Results',      color: 'amber',  val: resultsDefault,     hint: 'Pre/post data, run chart signals, percentage improvement achieved.' },
+        { id: 'abs-conc',    field: 'abstract_conclusions',  label: 'Conclusions',  color: 'emerald',val: conclusionsDefault,  hint: 'Key learning, sustainability plan, spread potential.' }
+    ];
+
     return `
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
             <div class="flex justify-between items-start mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-800">RCEM Abstract Format</h2>
-                    <p class="text-slate-500 text-sm">For ASC/conference submissions</p>
+                    <h2 class="text-xl font-bold text-slate-800">RCEM Abstract (QIAT / ASC Format)</h2>
+                    <p class="text-slate-500 text-sm">Structured for RCEM Annual Scientific Conference submission — 250 words total</p>
                 </div>
                 <button onclick="window.copyReport('abstract')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2">
-                    <i data-lucide="copy" class="w-4 h-4"></i> Copy
+                    <i data-lucide="copy" class="w-4 h-4"></i> Copy All
                 </button>
             </div>
-            
-            <div class="mb-4 flex justify-between items-center">
-                <span class="text-sm text-slate-500">Word count: <span id="abstract-word-count" class="${wordCount > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}">${wordCount}</span>/${wordLimit}</span>
-                <span id="abstract-limit-badge">${wordCount > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit — please edit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}</span>
-            </div>
-            
+
             <div class="mb-4">
                 <label class="block text-sm font-medium text-slate-700 mb-1">Title</label>
                 <div class="bg-slate-50 p-3 rounded border border-slate-200 font-bold">${escapeHtml(d.meta?.title || 'Untitled QIP')}</div>
             </div>
-            
-            <textarea id="abstract-content"
-                class="w-full bg-slate-50 p-6 rounded-lg border border-slate-200 font-serif text-sm leading-relaxed resize-none focus:outline-none focus:ring-2 focus:ring-rcem-purple"
-                rows="12"
-                oninput="window.onAbstractInput(this)"
-                spellcheck="true">${escapeHtml(abstract)}</textarea>
-            
+
+            <div class="mb-4 flex justify-between items-center">
+                <span class="text-sm text-slate-500">Total word count: <span id="abstract-word-count" class="${totalWC > wordLimit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}">${totalWC}</span> / ${wordLimit}</span>
+                <span id="abstract-limit-badge">${totalWC > wordLimit ? '<span class="text-xs text-red-500">⚠️ Over limit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>'}</span>
+            </div>
+
+            <div class="space-y-4">
+                ${sections.map(s => {
+                    const wCount = wc(s.val);
+                    return `
+                    <div class="border border-${s.color}-200 rounded-xl overflow-hidden">
+                        <div class="bg-${s.color}-50 px-4 py-2 flex justify-between items-center">
+                            <label class="text-xs font-bold text-${s.color}-700 uppercase tracking-wider">${s.label}</label>
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs text-slate-400">${s.hint}</span>
+                                <span class="text-xs font-mono ${wCount > 80 ? 'text-amber-600' : 'text-slate-400'}" id="wc-${s.id}">${wCount}w</span>
+                            </div>
+                        </div>
+                        <textarea id="${s.id}"
+                            class="w-full p-4 text-sm leading-relaxed bg-white border-none focus:outline-none focus:ring-2 focus:ring-${s.color}-300 resize-none"
+                            rows="4"
+                            spellcheck="true"
+                            oninput="window.onAbstractSectionInput('${s.field}', '${s.id}', this.value)">${escapeHtml(s.val)}</textarea>
+                    </div>`;
+                }).join('')}
+            </div>
+
             <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <h4 class="font-bold text-blue-800 text-sm mb-2">Abstract Structure Guidelines</h4>
+                <h4 class="font-bold text-blue-800 text-sm mb-2">Submission Tips</h4>
                 <ul class="text-sm text-blue-700 space-y-1">
-                    <li>• <strong>Background:</strong> Why is this important? What's the problem?</li>
-                    <li>• <strong>Aim:</strong> SMART aim statement</li>
-                    <li>• <strong>Methods:</strong> QI methodology used, measures, PDSA cycles</li>
-                    <li>• <strong>Results:</strong> Data showing change, statistical findings</li>
-                    <li>• <strong>Conclusion:</strong> Key learning, sustainability, spread potential</li>
+                    <li>• <strong>250 words total</strong> across all four sections for RCEM ASC format</li>
+                    <li>• <strong>Background</strong> should reference the RCEM clinical standard being addressed</li>
+                    <li>• <strong>Results</strong> should include your run chart signals and % improvement</li>
+                    <li>• Edit each section directly — changes are saved automatically</li>
                 </ul>
             </div>
         </div>
@@ -2401,8 +2605,20 @@ export function copyReport(type) {
             return el ? el.innerText : '';
         }).filter(t => t.trim()).join('\n\n---\n\n');
     } else if (type === 'abstract') {
-        const absEl = document.getElementById('abstract-content');
-        content = (absEl?.tagName === 'TEXTAREA' ? absEl.value : absEl?.innerText) || '';
+        // Try new structured abstract (4 sections) first, fall back to old single textarea
+        const secIds = ['abs-bg', 'abs-methods', 'abs-results', 'abs-conc'];
+        const secLabels = ['Background', 'Methods', 'Results', 'Conclusions'];
+        const hasStructured = document.getElementById('abs-bg');
+        if (hasStructured) {
+            content = secIds.map((id, i) => {
+                const el = document.getElementById(id);
+                const text = el?.tagName === 'TEXTAREA' ? el.value : (el?.innerText || '');
+                return text.trim() ? `${secLabels[i]}:\n${text.trim()}` : '';
+            }).filter(Boolean).join('\n\n');
+        } else {
+            const absEl = document.getElementById('abstract-content');
+            content = (absEl?.tagName === 'TEXTAREA' ? absEl.value : absEl?.innerText) || '';
+        }
     } else {
         content = document.getElementById('report-content')?.innerText || '';
     }
@@ -2777,4 +2993,150 @@ window.onAbstractInput = function(textarea) {
             ? '<span class="text-xs text-red-500">⚠️ Over limit — please edit</span>'
             : '<span class="text-xs text-emerald-500">✓ Within limit</span>';
     }
+};
+
+// ==========================================
+// NEW: Abstract section input handler (structured 4-part abstract)
+// ==========================================
+window.onAbstractSectionInput = function(field, sectionId, value) {
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.checklist) state.projectData.checklist = {};
+    state.projectData.checklist[field] = value;
+    // Update per-section word count
+    const wcSpan = document.getElementById('wc-' + sectionId);
+    if (wcSpan) {
+        const n = value.split(/\s+/).filter(w => w.length > 0).length;
+        wcSpan.textContent = n + 'w';
+        wcSpan.className = 'text-xs font-mono ' + (n > 80 ? 'text-amber-600' : 'text-slate-400');
+    }
+    // Recalculate total
+    const c = state.projectData.checklist;
+    const sections = ['abstract_background', 'abstract_methods', 'abstract_results', 'abstract_conclusions'];
+    const total = sections.reduce((sum, f) => sum + ((c[f] || '').split(/\s+/).filter(w => w.length > 0).length), 0);
+    const limit = 250;
+    const wcEl = document.getElementById('abstract-word-count');
+    const badgeEl = document.getElementById('abstract-limit-badge');
+    if (wcEl) { wcEl.textContent = total; wcEl.className = total > limit ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'; }
+    if (badgeEl) badgeEl.innerHTML = total > limit ? '<span class="text-xs text-red-500">⚠️ Over limit</span>' : '<span class="text-xs text-emerald-500">✓ Within limit</span>';
+    if (window.saveData) window.saveData();
+};
+
+// ==========================================
+// NEW: HRA field save
+// ==========================================
+window.saveHRAField = function(questionKey, value) {
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.checklist) state.projectData.checklist = {};
+    if (!state.projectData.checklist.hraChecklist) state.projectData.checklist.hraChecklist = {};
+    state.projectData.checklist.hraChecklist[questionKey] = value;
+    if (window.saveData) window.saveData();
+    // Re-render checklist to show verdict
+    renderChecklist();
+};
+
+// ==========================================
+// NEW: Reference list management
+// ==========================================
+window.addReference = function() {
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.checklist) state.projectData.checklist = {};
+    if (!Array.isArray(state.projectData.checklist.referencesList)) state.projectData.checklist.referencesList = [];
+    state.projectData.checklist.referencesList.push({ authors: '', year: '', title: '', keyFinding: '' });
+    if (window.saveData) window.saveData();
+    renderChecklist();
+    showToast('Reference added', 'success');
+};
+
+window.updateReference = function(idx, field, value) {
+    if (!state.projectData || state.isReadOnly) return;
+    const list = state.projectData.checklist?.referencesList;
+    if (!list || !list[idx]) return;
+    list[idx][field] = value;
+    if (window.saveData) window.saveData();
+};
+
+window.deleteReference = function(idx) {
+    if (!state.projectData || state.isReadOnly) return;
+    const list = state.projectData.checklist?.referencesList;
+    if (!list) return;
+    list.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    renderChecklist();
+    showToast('Reference removed', 'info');
+};
+
+// ==========================================
+// NEW: See Example modal
+// ==========================================
+window.showExample = function(section) {
+    const { getDemoData } = window._demoDataGetter || {};
+    // We'll use inline demo content
+    const examples = {
+        problem: {
+            title: 'Problem Definition — Example (Sepsis Project)',
+            content: `<div class="space-y-4">
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Problem Statement</strong>
+                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">Retrospective audit of 150 consecutive patients with Red Flag Sepsis over 3 months revealed only 42% received IV antibiotics within 60 minutes of the sepsis trigger. This is significantly below the RCEM Clinical Standard of 90%.</p></div>
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Department Context</strong>
+                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">District General Hospital ED, approximately 85,000 attendances per year. 24-hour consultant presence. Regular corridor care with occupancy often exceeding 150%.</p></div>
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Baseline Evidence</strong>
+                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">Baseline audit: 42% compliance (n=150). RCEM Sepsis Audit 2022: national median 67%. NCEPOD 2015 highlighted antibiotic delays as key driver of preventable mortality.</p></div>
+            </div>`
+        },
+        aim: {
+            title: 'SMART Aim — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
+                    <strong class="block text-xs text-amber-600 uppercase mb-1">SMART Aim Statement</strong>
+                    <p class="text-sm font-medium text-slate-800">"To increase the percentage of patients with Red Flag Sepsis who receive IV antibiotics within 60 minutes of the sepsis trigger from 42% to 90% by June 2024 in the Emergency Department."</p>
+                </div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-50 p-2 rounded"><strong>Specific:</strong> IV antibiotics within 60 min, Red Flag Sepsis</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Measurable:</strong> % compliance (42% → 90%)</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Achievable:</strong> National median 67% — ambitious but evidenced</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Relevant:</strong> RCEM Clinical Standard</div>
+                    <div class="bg-slate-50 p-2 rounded col-span-2"><strong>Time-bound:</strong> June 2024 (12 months)</div>
+                </div>
+            </div>`
+        },
+        measures: {
+            title: 'Family of Measures — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500 mt-0.5"></span><div><strong class="text-xs">Outcome Measure:</strong><p class="text-sm text-slate-600">% of Red Flag Sepsis patients receiving IV antibiotics within 60 minutes of trigger</p></div></div>
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-500 mt-0.5"></span><div><strong class="text-xs">Process Measure:</strong><p class="text-sm text-slate-600">Door-to-needle time in minutes; % of patients screened at triage; % of Sepsis 6 bundles completed</p></div></div>
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-amber-500 mt-0.5"></span><div><strong class="text-xs">Balancing Measure:</strong><p class="text-sm text-slate-600">Inappropriate antibiotic prescribing rate; patient complaints about cannulation; staff overtime hours</p></div></div>
+            </div>`
+        }
+    };
+
+    const ex = examples[section];
+    if (!ex) return;
+
+    // Create modal
+    const existing = document.getElementById('example-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'example-modal';
+    modal.className = 'fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div class="bg-indigo-50 border-b border-indigo-200 p-5 flex justify-between items-start">
+                <div>
+                    <h3 class="font-bold text-slate-800">${escapeHtml(ex.title)}</h3>
+                    <p class="text-xs text-slate-500 mt-0.5">From the demo Sepsis 6 project — for illustration only</p>
+                </div>
+                <button onclick="document.getElementById('example-modal').remove()" class="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="overflow-y-auto p-6 flex-1">${ex.content}</div>
+            <div class="border-t border-slate-200 p-4 flex justify-end">
+                <button onclick="document.getElementById('example-modal').remove()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Close</button>
+            </div>
+        </div>
+    `;
+    modal.addEventListener('click', e => { if (e.target === modal) modal.remove(); });
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 };
