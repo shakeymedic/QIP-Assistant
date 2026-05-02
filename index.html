@@ -187,13 +187,6 @@
                 
                 <div class="p-3 border-t border-white/10">
                     <div id="user-display" class="text-xs text-slate-400 mb-2 px-2 truncate"></div>
-                    <div class="flex items-center justify-between text-xs text-slate-400 mb-2 px-2">
-                        <span>Demo Mode</span>
-                        <div class="relative inline-flex items-center">
-                            <input type="checkbox" aria-label="Toggle Demo Mode" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500">
-                            <label for="demo-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-600 cursor-pointer"></label>
-                        </div>
-                    </div>
                     <button aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project
                     </button>
@@ -782,6 +775,16 @@
                         <li>• Analyse chart data</li>
                         <li>• Draft PDSA cycles</li>
                     </ul>
+                </div>
+                <div class="flex items-center justify-between py-2 border-t border-slate-200">
+                    <div>
+                        <p class="text-sm font-medium text-slate-700">Demo Mode</p>
+                        <p class="text-xs text-slate-400">Load sample project data to explore the app</p>
+                    </div>
+                    <div class="relative inline-flex items-center ml-4">
+                        <input type="checkbox" aria-label="Toggle Demo Mode" id="demo-toggle" class="toggle-checkbox absolute block w-4 h-4 rounded-full bg-white border-4 appearance-none cursor-pointer border-slate-500">
+                        <label for="demo-toggle" class="toggle-label block overflow-hidden h-4 rounded-full bg-slate-600 cursor-pointer"></label>
+                    </div>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">

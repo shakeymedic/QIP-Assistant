@@ -145,6 +145,14 @@ function renderToolUI() {
             </div>
         </div>
         <div class="flex items-center gap-2">
+            ${toolMode === 'fishbone' ? `
+                <div class="flex items-center gap-1 bg-slate-100 rounded-lg px-2 py-1">
+                    <span class="text-xs text-slate-500 mr-1">Zoom</span>
+                    <button aria-label="Zoom Out" onclick="window.zoomOut()" class="text-slate-600 hover:text-rcem-purple p-1 rounded hover:bg-white transition-all" title="Zoom out"><i data-lucide="minus" class="w-4 h-4"></i></button>
+                    <button aria-label="Reset Zoom" onclick="window.resetZoom()" class="text-xs text-slate-600 hover:text-rcem-purple px-2 py-1 rounded hover:bg-white transition-all font-mono" title="Reset zoom">100%</button>
+                    <button aria-label="Zoom In" onclick="window.zoomIn()" class="text-slate-600 hover:text-rcem-purple p-1 rounded hover:bg-white transition-all" title="Zoom in"><i data-lucide="plus" class="w-4 h-4"></i></button>
+                </div>
+            ` : ''}
             ${toolMode === 'driver' && window.hasAI && window.hasAI() ? `
                 <button aria-label="Auto-generate Drivers" onclick="window.aiSuggestDrivers()" id="btn-ai-driver" class="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold shadow hover:shadow-lg transition-all flex items-center gap-2">
                     <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate
@@ -577,6 +585,8 @@ function getPDSAAnnotations() {
         state.projectData.pdsa.forEach((p, i) => {
             const startDate = p.startDate || p.start;
             if (startDate) {
+                // Short label: cycle number + first 20 chars of title
+                const title = p.title ? p.title.substring(0, 20) + (p.title.length > 20 ? '…' : '') : `Cycle ${i + 1}`;
                 annotations[`pdsa_${i}`] = {
                     type: 'line',
                     xMin: startDate,
@@ -586,10 +596,11 @@ function getPDSAAnnotations() {
                     borderDash: [5, 5],
                     label: {
                         display: true,
-                        content: `PDSA ${i + 1}`,
+                        content: `C${i + 1}: ${title}`,
                         position: 'start',
                         backgroundColor: 'rgba(243, 111, 33, 0.9)',
-                        font: { size: 9, weight: 'bold' }
+                        color: 'white',
+                        font: { size: 10, weight: 'bold' }
                     }
                 };
             }
@@ -648,7 +659,9 @@ function renderRunChart(ctx, canvasId) {
         };
     }
     
-    if (settings.showAnnotations) {
+    // Show PDSA annotations by default if any cycles have start dates, or if explicitly enabled
+    const hasPDSADates = (state.projectData.pdsa || []).some(p => p.startDate || p.start);
+    if (settings.showAnnotations !== false && hasPDSADates) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }
@@ -759,7 +772,9 @@ function renderSPCChart(ctx, canvasId) {
         }
     };
 
-    if (settings.showAnnotations) {
+    // Show PDSA annotations by default if any cycles have start dates
+    const hasPDSADatesSPC = (state.projectData.pdsa || []).some(p => p.startDate || p.start);
+    if (settings.showAnnotations !== false && hasPDSADatesSPC) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }

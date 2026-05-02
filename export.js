@@ -78,24 +78,51 @@ export async function exportPPTX() {
     slide = pres.addSlide();
     addHeader(slide, "1. Background, Aim & Measures");
     
-    // Background / Problem
-    slide.addText("Background & Rationale", { x: 0.5, y: 1.0, fontSize: 14, bold: true, color: RCEM_PURPLE });
+    // Background / Problem Statement
+    slide.addText("Problem Statement", { x: 0.5, y: 1.0, fontSize: 13, bold: true, color: RCEM_PURPLE });
     slide.addText(c.problem_desc || "No problem statement defined.", { 
-        x: 0.5, y: 1.4, w: 4.2, h: 2.0, 
+        x: 0.5, y: 1.3, w: 4.2, h: 1.2, 
         fontSize: 11, color: SLATE_DARK, valign: 'top', fill: SLATE_LIGHT, shape: pres.ShapeType.rect
     });
+
+    // Department Context
+    if (c.problem_context) {
+        slide.addText("Department Context & Setting", { x: 0.5, y: 2.65, fontSize: 12, bold: true, color: RCEM_PURPLE });
+        slide.addText(c.problem_context, { 
+            x: 0.5, y: 2.95, w: 4.2, h: 1.0, 
+            fontSize: 10, color: SLATE_DARK, valign: 'top', fill: "F0FDF4", shape: pres.ShapeType.rect, border: { pt: 1, color: "BBF7D0" }
+        });
+    }
+
+    // Baseline Evidence
+    if (c.problem_evidence) {
+        slide.addText("Baseline Evidence", { x: 0.5, y: 4.1, fontSize: 12, bold: true, color: RCEM_PURPLE });
+        slide.addText(c.problem_evidence, { 
+            x: 0.5, y: 4.4, w: 4.2, h: 0.9, 
+            fontSize: 10, color: SLATE_DARK, valign: 'top', fill: "FFFBEB", shape: pres.ShapeType.rect, border: { pt: 1, color: "FDE68A" }
+        });
+    }
     
     // SMART Aim
-    slide.addText("SMART Aim", { x: 5.1, y: 1.0, fontSize: 14, bold: true, color: RCEM_PURPLE });
+    slide.addText("SMART Aim", { x: 5.1, y: 1.0, fontSize: 13, bold: true, color: RCEM_PURPLE });
     slide.addText(c.aim || "No aim defined.", { 
-        x: 5.1, y: 1.4, w: 4.4, h: 1.0, 
+        x: 5.1, y: 1.3, w: 4.4, h: 1.0, 
         fontSize: 12, bold: true, color: RCEM_PURPLE, valign: 'middle', fill: "EEF2FF", shape: pres.ShapeType.rect, border: { pt: 1, color: "C7D2FE" }
     });
 
+    // Secondary Aim (if present)
+    if (c.aim2) {
+        slide.addText("Secondary SMART Aim", { x: 5.1, y: 2.45, fontSize: 11, bold: true, color: "6366F1" });
+        slide.addText(c.aim2, { 
+            x: 5.1, y: 2.75, w: 4.4, h: 0.7, 
+            fontSize: 10, color: RCEM_PURPLE, valign: 'middle', fill: "EEF2FF", shape: pres.ShapeType.rect, border: { pt: 1, color: "C7D2FE" }
+        });
+    }
+
     // Measures
-    slide.addText("Family of Measures", { x: 5.1, y: 2.6, fontSize: 14, bold: true, color: RCEM_PURPLE });
+    slide.addText("Family of Measures", { x: 5.1, y: 3.6, fontSize: 13, bold: true, color: RCEM_PURPLE });
     slide.addText(`Outcome: ${c.outcome_measure || 'TBC'}\nProcess: ${c.process_measure || 'TBC'}\nBalancing: ${c.balance_measure || 'TBC'}`, { 
-        x: 5.1, y: 3.0, w: 4.4, h: 1.5, 
+        x: 5.1, y: 3.95, w: 4.4, h: 1.3, 
         fontSize: 11, color: SLATE_DARK, valign: 'top', fill: SLATE_LIGHT, shape: pres.ShapeType.rect, bullet: true
     });
 

@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
+import { escapeHtml, showToast, autoResizeTextarea, formatDate } from "./utils.js";
 import { 
     renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, 
     setToolMode, renderFullViewChart, makeDraggable, chartMode, toolMode
@@ -43,6 +43,21 @@ export function renderAll(view) {
 }
 
 function updateNavigationUI(currentView) {
+    // Grey out project nav items when no project is loaded
+    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
+    const hasProject = !!state.projectData;
+    allProjectNavIds.forEach(id => {
+        const btn = document.getElementById(`nav-${id}`);
+        if (!btn) return;
+        if (hasProject) {
+            btn.classList.remove('nav-btn-disabled');
+            btn.removeAttribute('title');
+        } else {
+            btn.classList.add('nav-btn-disabled');
+            btn.title = 'Select a project first';
+        }
+    });
+
     const navItems = ['checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys'];
     navItems.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);
@@ -65,7 +80,7 @@ function updateNavigationUI(currentView) {
 
         if(status) {
             const badge = document.createElement('span');
-            badge.className = 'status-badge ml-auto text-emerald-400 font-bold text-[10px]';
+            badge.className = 'status-badge ml-auto text-emerald-400 font-bold text-xs';
             badge.textContent = status;
             btn.appendChild(badge);
         }
@@ -256,7 +271,7 @@ function renderMiniChart() {
     const data = d.chartData || [];
     
     if (data.length === 0) {
-        container.innerHTML = '<div class="text-center text-slate-400 py-8 text-sm">No data yet. Add data points in the Data view.</div>';
+        container.innerHTML = '<div class="text-center text-slate-400 py-12 text-sm">No data yet. Add data points in the Data view.</div>';
         return;
     }
     
@@ -266,25 +281,72 @@ function renderMiniChart() {
     const min = Math.min(...values);
     const range = max - min || 1;
     
+    // Chart dimensions with margins for axis labels
+    const W = 320, H = 200, MT = 10, MB = 40, ML = 50, MR = 16;
+    const chartW = W - ML - MR;
+    const chartH = H - MT - MB;
+    
+    // Calculate median from first 12 baseline points
+    const baseVals = [...values.slice(0, 12)].sort((a, b) => a - b);
+    const median = baseVals[Math.floor(baseVals.length / 2)] || 0;
+    const medianY = MT + chartH - ((median - min) / range) * chartH;
+    
     const points = values.map((v, i) => {
-        const x = (i / (values.length - 1 || 1)) * 280 + 10;
-        const y = 60 - ((v - min) / range) * 50;
-        return `${x},${y}`;
+        const x = ML + (i / (values.length - 1 || 1)) * chartW;
+        const y = MT + chartH - ((v - min) / range) * chartH;
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(' ');
     
+    // Y-axis ticks (4 ticks)
+    const yTicks = [min, min + range * 0.33, min + range * 0.67, max];
+    const yTickSvg = yTicks.map(v => {
+        const y = (MT + chartH - ((v - min) / range) * chartH).toFixed(1);
+        return `<line x1="${ML - 4}" y1="${y}" x2="${ML}" y2="${y}" stroke="#cbd5e1" stroke-width="1"/>
+                <text x="${ML - 6}" y="${y}" dominant-baseline="middle" text-anchor="end" font-size="10" fill="#94a3b8">${Math.round(v)}</text>
+                <line x1="${ML}" y1="${y}" x2="${W - MR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
+    }).join('');
+    
+    // X-axis: show first, middle, last date labels
+    const xLabels = [];
+    if (sorted.length >= 1) xLabels.push({ i: 0, label: formatDate(sorted[0].date) });
+    if (sorted.length >= 3) xLabels.push({ i: Math.floor((sorted.length - 1) / 2), label: formatDate(sorted[Math.floor((sorted.length - 1) / 2)].date) });
+    if (sorted.length >= 2) xLabels.push({ i: sorted.length - 1, label: formatDate(sorted[sorted.length - 1].date) });
+    
+    const xLabelSvg = xLabels.map(({ i, label }) => {
+        const x = (ML + (i / (values.length - 1 || 1)) * chartW).toFixed(1);
+        return `<text x="${x}" y="${H - MB + 14}" text-anchor="middle" font-size="10" fill="#94a3b8">${label}</text>`;
+    }).join('');
+    
+    const settings = d.chartSettings || {};
+    const yLabel = settings.yAxisLabel || 'Measure';
+    
     container.innerHTML = `
-        <svg width="300" height="70" class="w-full">
-            <polyline fill="none" stroke="#2d2e83" stroke-width="2" points="${points}"/>
-            ${values.map((v, i) => {
-                const x = (i / (values.length - 1 || 1)) * 280 + 10;
-                const y = 60 - ((v - min) / range) * 50;
-                return `<circle cx="${x}" cy="${y}" r="3" fill="#2d2e83"/>`;
-            }).join('')}
-        </svg>
-        <div class="flex justify-between text-xs text-slate-400 mt-1">
-            <span>${sorted[0]?.date || ''}</span>
-            <span>${sorted[sorted.length - 1]?.date || ''}</span>
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-slate-500 font-medium">${sorted.length} data point${sorted.length !== 1 ? 's' : ''}</span>
+            <span class="text-xs text-slate-400">Median: <strong class="text-slate-600">${median.toFixed(1)}</strong></span>
         </div>
+        <svg width="100%" viewBox="0 0 ${W} ${H}" class="overflow-visible">
+            <!-- Y-axis -->
+            <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${MT + chartH}" stroke="#cbd5e1" stroke-width="1"/>
+            <!-- X-axis -->
+            <line x1="${ML}" y1="${MT + chartH}" x2="${W - MR}" y2="${MT + chartH}" stroke="#cbd5e1" stroke-width="1"/>
+            <!-- Y ticks & gridlines -->
+            ${yTickSvg}
+            <!-- Median line -->
+            <line x1="${ML}" y1="${medianY.toFixed(1)}" x2="${W - MR}" y2="${medianY.toFixed(1)}" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.7"/>
+            <!-- Data line -->
+            <polyline fill="none" stroke="#2d2e83" stroke-width="2.5" points="${points}" stroke-linejoin="round"/>
+            <!-- Data points -->
+            ${values.map((v, i) => {
+                const x = (ML + (i / (values.length - 1 || 1)) * chartW).toFixed(1);
+                const y = (MT + chartH - ((v - min) / range) * chartH).toFixed(1);
+                return `<circle cx="${x}" cy="${y}" r="4" fill="#2d2e83" stroke="white" stroke-width="1.5"/>`;
+            }).join('')}
+            <!-- X-axis date labels -->
+            ${xLabelSvg}
+            <!-- Y-axis label -->
+            <text x="12" y="${MT + chartH / 2}" transform="rotate(-90, 12, ${MT + chartH / 2})" text-anchor="middle" font-size="10" fill="#94a3b8" font-weight="500">${escapeHtml(yLabel)}</text>
+        </svg>
     `;
 }
 
@@ -403,6 +465,12 @@ export function renderChecklist() {
                             <i data-lucide="sparkles" class="w-3 h-3"></i> AI Critique & Refine
                         </button>
                     </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Secondary SMART Aim <span class="text-xs text-slate-400 font-normal">(optional — for dual-aim projects)</span></label>
+                    <textarea id="check-aim2" onchange="window.saveChecklistField('aim2', this.value)" 
+                        class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[60px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
+                        placeholder="Optional secondary aim — e.g. a patient experience or staff wellbeing outcome measure">${escapeHtml(c.aim2 || '')}</textarea>
                 </div>
             </div>
         </section>
@@ -547,7 +615,7 @@ export function renderDataView() {
             historyContainer.innerHTML = `
                 <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="text-[10px] uppercase text-slate-500 border-b border-slate-200">
+                        <tr class="text-xs uppercase text-slate-500 border-b border-slate-200">
                             <th class="pb-2">Date</th>
                             <th class="pb-2">Value</th>
                             <th class="pb-2">Phase</th>
@@ -557,7 +625,7 @@ export function renderDataView() {
                     <tbody class="text-xs text-slate-700">
                         ${sorted.map(item => `
                             <tr class="border-b border-slate-50 hover:bg-slate-50" title="${escapeHtml(item.note || '')}">
-                                <td class="py-2 font-mono">${escapeHtml(item.date)}</td>
+                                <td class="py-2 font-mono">${formatDate(item.date)}</td>
                                 <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
                                 <td class="py-2 text-slate-400">${escapeHtml(item.grade || '-')}</td>
                                 <td class="py-2 text-right">
@@ -617,7 +685,7 @@ export function renderTeam() {
                                         ${escapeHtml((m.name || '?')[0].toUpperCase())}
                                     </div>
                                     <div>
-                                        <div class="font-bold text-slate-800">${escapeHtml(m.name || 'Unknown')}</div>
+                                        <div class="font-bold text-slate-800" title="${escapeHtml(m.name || 'Unknown')}">${escapeHtml(m.name || 'Unknown')}</div>
                                         <div class="text-xs text-slate-500">${escapeHtml(m.role || 'No role')}</div>
                                     </div>
                                 </div>
@@ -668,7 +736,7 @@ export function renderTeam() {
                             <tbody class="divide-y divide-slate-100">
                                 ${logs.map((l, i) => `
                                     <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-3 text-sm font-mono text-slate-600">${escapeHtml(l.date || '')}</td>
+                                        <td class="px-4 py-3 text-sm font-mono text-slate-600">${formatDate(l.date)}</td>
                                         <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(l.note || '')}</td>
                                         <td class="px-4 py-3 text-right">
                                             <button onclick="window.deleteLeadershipLog(${i})" class="text-slate-300 hover:text-red-500">
@@ -804,21 +872,22 @@ export function renderPDSA() {
                     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                         <div class="flex justify-between items-start mb-4">
                             <div>
-                                <h4 class="font-bold text-slate-800 text-lg">${escapeHtml(p.title || `Cycle ${i + 1}`)}</h4>
-                                <div class="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                                    ${(p.startDate || p.start) ? `<span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${p.startDate || p.start}</span>` : ''}
+                                <h4 class="font-bold text-slate-800 text-lg" title="${escapeHtml(p.title || `Cycle ${i + 1}`)}">${escapeHtml(p.title || `Cycle ${i + 1}`)}</h4>
+                                <div class="flex items-center gap-3 mt-1 text-sm text-slate-500">
+                                    ${(p.startDate || p.start) ? `<span><i data-lucide="calendar" class="w-3 h-3 inline mr-1"></i>${formatDate(p.startDate || p.start)}</span>` : ''}
                                     ${p.owner ? `<span><i data-lucide="user" class="w-3 h-3 inline mr-1"></i>${escapeHtml(p.owner)}</span>` : ''}
+                                    ${getPDSAStatusBadge(p.status)}
                                 </div>
                             </div>
                             <div class="flex items-center gap-2">
-                                <select onchange="window.updatePDSA(${i}, 'status', this.value)" class="text-xs border rounded px-2 py-1 ${getStatusColor(p.status)}">
+                                <select onchange="window.updatePDSA(${i}, 'status', this.value)" class="text-sm border rounded px-2 py-1 ${getStatusColor(p.status)}" title="Change status">
                                     <option value="planning" ${p.status === 'planning' ? 'selected' : ''}>Planning</option>
                                     <option value="doing" ${p.status === 'doing' ? 'selected' : ''}>Doing</option>
                                     <option value="studying" ${p.status === 'studying' ? 'selected' : ''}>Studying</option>
                                     <option value="acting" ${p.status === 'acting' ? 'selected' : ''}>Acting</option>
                                     <option value="complete" ${p.status === 'complete' ? 'selected' : ''}>Complete</option>
                                 </select>
-                                <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500">
+                                <button onclick="window.deletePDSA(${i})" class="text-slate-300 hover:text-red-500" title="Delete cycle">
                                     <i data-lucide="trash-2" class="w-4 h-4"></i>
                                 </button>
                             </div>
@@ -826,32 +895,32 @@ export function renderPDSA() {
                         
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-blue-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[8px] font-bold">P</span> Plan
+                                <label class="text-xs font-bold uppercase text-blue-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-[10px] font-bold">P</span> Plan
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'plan', this.value)" 
                                     class="w-full p-2 bg-blue-50/50 border border-blue-100 rounded text-sm min-h-[80px]"
                                     placeholder="What change are you testing? What do you PREDICT will happen?">${escapeHtml(p.plan || p.desc || '')}</textarea>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-amber-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[8px] font-bold">D</span> Do
+                                <label class="text-xs font-bold uppercase text-amber-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-[10px] font-bold">D</span> Do
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'do', this.value)" 
                                     class="w-full p-2 bg-amber-50/50 border border-amber-100 rounded text-sm min-h-[80px]"
                                     placeholder="What actually happened? Any deviations from the plan?">${escapeHtml(p.do || '')}</textarea>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-purple-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[8px] font-bold">S</span> Study
+                                <label class="text-xs font-bold uppercase text-purple-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-[10px] font-bold">S</span> Study
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'study', this.value)" 
                                     class="w-full p-2 bg-purple-50/50 border border-purple-100 rounded text-sm min-h-[80px]"
                                     placeholder="Did the results match your prediction? What did you learn?">${escapeHtml(p.study || '')}</textarea>
                             </div>
                             <div class="space-y-1">
-                                <label class="text-[10px] font-bold uppercase text-emerald-600 flex items-center gap-1">
-                                    <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[8px] font-bold">A</span> Act
+                                <label class="text-xs font-bold uppercase text-emerald-600 flex items-center gap-1">
+                                    <span class="w-4 h-4 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-[10px] font-bold">A</span> Act
                                 </label>
                                 <textarea onchange="window.updatePDSA(${i}, 'act', this.value)" 
                                     class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[80px]"
@@ -876,6 +945,18 @@ function getStatusColor(status) {
         complete: 'bg-slate-100 text-slate-600'
     };
     return colors[status] || 'bg-slate-50 text-slate-600';
+}
+
+function getPDSAStatusBadge(status) {
+    const badges = {
+        planning: { label: 'Planning', cls: 'bg-slate-200 text-slate-600' },
+        doing:    { label: 'Doing',    cls: 'bg-blue-100 text-blue-700' },
+        studying: { label: 'Studying', cls: 'bg-amber-100 text-amber-700' },
+        acting:   { label: 'Acting',   cls: 'bg-orange-100 text-orange-700' },
+        complete: { label: 'Complete', cls: 'bg-emerald-100 text-emerald-700' }
+    };
+    const b = badges[status] || { label: status || 'Unknown', cls: 'bg-slate-100 text-slate-500' };
+    return `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${b.cls}">${b.label}</span>`;
 }
 
 export function addPDSA() {
@@ -937,6 +1018,35 @@ export function deletePDSA(index) {
 // 7. STAKEHOLDER VIEW
 // ==========================================
 
+function resolveStakeholderOverlap(stakes) {
+    // Apply light jitter to separate bubbles that are too close (<35px on a 100×100 grid)
+    const minDist = 12; // percent units
+    const MAX_ITER = 60;
+    const positions = stakes.map(s => ({ x: s.x || 50, y: s.y || 50 }));
+    
+    for (let iter = 0; iter < MAX_ITER; iter++) {
+        let moved = false;
+        for (let i = 0; i < positions.length; i++) {
+            for (let j = i + 1; j < positions.length; j++) {
+                const dx = positions[i].x - positions[j].x;
+                const dy = positions[i].y - positions[j].y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < minDist && dist > 0) {
+                    const overlap = (minDist - dist) / 2;
+                    const nx = dx / dist, ny = dy / dist;
+                    positions[i].x = Math.max(5, Math.min(95, positions[i].x + nx * overlap));
+                    positions[i].y = Math.max(5, Math.min(95, positions[i].y + ny * overlap));
+                    positions[j].x = Math.max(5, Math.min(95, positions[j].x - nx * overlap));
+                    positions[j].y = Math.max(5, Math.min(95, positions[j].y - ny * overlap));
+                    moved = true;
+                }
+            }
+        }
+        if (!moved) break;
+    }
+    return positions;
+}
+
 export function renderStakeholders() {
     const d = state.projectData;
     if (!d) return;
@@ -945,6 +1055,7 @@ export function renderStakeholders() {
     if (!canvas) return;
     
     const stakes = d.stakeholders || [];
+    const resolvedPositions = resolveStakeholderOverlap(stakes);
     
     canvas.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full">
@@ -989,8 +1100,9 @@ export function renderStakeholders() {
                 <div class="absolute bottom-[-28px] left-1/2 -translate-x-1/2 text-xs font-bold text-slate-500 uppercase tracking-wider">Interest →</div>
                 
                 ${stakes.map((s, i) => {
-                    const isHighPower = (s.y || 50) >= 50;
-                    const isHighInterest = (s.x || 50) >= 50;
+                    const rp = resolvedPositions[i];
+                    const isHighPower = rp.y >= 50;
+                    const isHighInterest = rp.x >= 50;
                     let bgColor = 'bg-slate-600';
                     if (isHighPower && isHighInterest) bgColor = 'bg-red-600';
                     else if (isHighPower && !isHighInterest) bgColor = 'bg-amber-600';
@@ -999,7 +1111,7 @@ export function renderStakeholders() {
                     
                     return `
                     <div class="stakeholder-label absolute cursor-move group z-10" 
-                         style="left: ${s.x || 50}%; top: ${100 - (s.y || 50)}%; transform: translate(-50%, -50%);"
+                         style="left: ${rp.x.toFixed(1)}%; top: ${(100 - rp.y).toFixed(1)}%; transform: translate(-50%, -50%);"
                          data-index="${i}"
                          id="stake-${i}">
                         <div class="${bgColor} text-white px-3 py-2 rounded-lg shadow-md hover:shadow-lg transition-all text-xs font-medium max-w-[140px] text-center leading-tight">
@@ -1310,7 +1422,7 @@ export function renderGantt() {
                     return `
                         <div class="flex border-b border-slate-100 hover:bg-slate-50 group">
                             <div class="w-48 flex-shrink-0 px-3 py-3 border-r border-slate-100 flex items-center justify-between">
-                                <div class="truncate text-sm text-slate-700 flex items-center gap-2">
+                                <div class="truncate text-sm text-slate-700 flex items-center gap-2" title="${escapeHtml(t.name || 'Untitled')}">
                                     ${t.milestone ? '<i data-lucide="flag" class="w-3 h-3 text-amber-500 flex-shrink-0"></i>' : ''}
                                     ${escapeHtml(t.name || 'Untitled')}
                                 </div>
@@ -1438,6 +1550,12 @@ export function renderFullProject() {
                         <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                             <p class="text-indigo-900 font-medium italic text-lg">"${escapeHtml(c.aim)}"</p>
                         </div>
+                        ${c.aim2 ? `
+                        <div class="mt-3 bg-violet-50 border border-violet-200 rounded-lg p-4">
+                            <p class="text-xs font-bold text-violet-600 uppercase tracking-wide mb-1">Secondary Aim</p>
+                            <p class="text-violet-900 font-medium italic">"${escapeHtml(c.aim2)}"</p>
+                        </div>
+                        ` : ''}
                     </section>
                 ` : ''}
                 

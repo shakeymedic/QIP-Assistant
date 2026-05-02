@@ -70,6 +70,13 @@ body {
     overflow: hidden;
 }
 
+/* Disabled nav state — no project loaded */
+.nav-btn-disabled {
+    opacity: 0.4;
+    cursor: not-allowed !important;
+    pointer-events: none;
+}
+
 .nav-btn::before {
     content: '';
     position: absolute;
@@ -140,7 +147,7 @@ body {
     background: white;
     border: 2px solid #cbd5e1;
     border-radius: 6px;
-    font-size: 12px;
+    font-size: 13px;
     cursor: move;
     user-select: none;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
@@ -285,7 +292,7 @@ body {
     padding: 4px 8px;
     background: rgba(249, 115, 22, 0.9);
     color: white;
-    font-size: 10px;
+    font-size: 13px;
     font-weight: 600;
     border-radius: 4px;
     white-space: nowrap;
@@ -400,12 +407,12 @@ textarea {
 
 @media (max-width: 768px) {
     .fishbone-label {
-        font-size: 10px;
-        padding: 3px 8px;
+        font-size: 13px;
+        padding: 4px 8px;
     }
     
     .fishbone-label.category {
-        font-size: 11px;
+        font-size: 13px;
         padding: 4px 12px;
     }
     

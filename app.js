@@ -782,10 +782,11 @@ async function loadProjectList() {
         }
         snap.forEach(doc => {
             const d = doc.data();
-            const date = new Date(d.meta?.created).toLocaleDateString();
+            const date = new Date(d.meta?.created).toLocaleDateString('en-GB');
+            const titleText = escapeHtml(d.meta?.title) || 'Untitled';
             listEl.innerHTML += `
                 <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer relative group hover:shadow-md transition-all" onclick="window.openProject('${doc.id}')">
-                    <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate">${escapeHtml(d.meta?.title) || 'Untitled'}</h3>
+                    <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate" title="${titleText}">${titleText}</h3>
                     <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
                     <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
