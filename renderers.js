@@ -486,9 +486,12 @@ export function renderChecklist() {
                         <label class="block text-sm font-medium text-slate-700">Problem Statement *</label>
                         <button onclick="window.openTopicBank()" class="text-xs text-rcem-purple hover:underline flex items-center gap-1"><i data-lucide="library" class="w-3 h-3"></i> Topic Ideas Bank</button>
                     </div>
-                    <textarea id="check-problem" onchange="window.saveChecklistField('problem_desc', this.value)" 
+                    <textarea id="check-problem" onchange="window.saveChecklistField('problem_desc', this.value)" oninput="window.updateFieldWC(this,'wc-problem')"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="What is the current problem? Be specific about the gap between current and desired state.">${escapeHtml(c.problem_desc || '')}</textarea>
+                    <div class="flex justify-end mt-1">
+                        <span id="wc-problem" class="text-xs ${(() => { const w = wc(c.problem_desc||''); return w===0?'text-slate-300':w<20?'text-amber-500':w<250?'text-emerald-600 font-medium':'text-amber-600 font-medium'; })()}">${wc(c.problem_desc||'')}w</span>
+                    </div>
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Department Context &amp; Setting</label>
@@ -518,16 +521,33 @@ export function renderChecklist() {
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Aim Statement *</label>
-                    <textarea id="check-aim" onchange="window.saveChecklistField('aim', this.value)" 
+                    <textarea id="check-aim" onchange="window.saveChecklistField('aim', this.value)" oninput="window.updateFieldWC(this,'wc-aim')"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="To [increase/decrease] [measure] from [baseline] to [target] by [date]">${escapeHtml(c.aim || '')}</textarea>
-                    <div class="mt-2 flex gap-2">
+                    <div class="flex justify-end mt-1 mb-2">
+                        <span id="wc-aim" class="text-xs ${(() => { const w = wc(c.aim||''); return w===0?'text-slate-300':w<10?'text-amber-500':w<80?'text-emerald-600 font-medium':'text-amber-600 font-medium'; })()}">${wc(c.aim||'')}w</span>
+                    </div>
+                    <div class="mt-1 flex gap-2">
                         <button onclick="window.openSmartAimBuilder()" class="text-xs bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-full flex items-center gap-1 hover:bg-slate-50 transition-all">
                             <i data-lucide="edit-3" class="w-3 h-3"></i> Interactive Builder
                         </button>
                         <button id="btn-ai-aim" onclick="window.aiRefineAim()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1.5 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
                             <i data-lucide="sparkles" class="w-3 h-3"></i> AI Critique & Refine
                         </button>
+                    </div>
+                </div>
+                <div class="flex items-start gap-3 p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                    <i data-lucide="target" class="w-4 h-4 text-indigo-500 flex-shrink-0 mt-1"></i>
+                    <div class="flex-1">
+                        <label class="block text-xs font-semibold text-indigo-800 mb-1">Numeric Target — draws a dashed line on your run chart</label>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="check-aim-target" step="any" min="0" max="100"
+                                onchange="window.saveChecklistField('aim_target', this.value); if(window.renderChart) setTimeout(window.renderChart, 50);"
+                                value="${escapeHtml(String(c.aim_target || ''))}"
+                                class="w-28 p-1.5 border border-indigo-300 rounded text-sm bg-white focus:ring-2 focus:ring-indigo-400"
+                                placeholder="e.g. 90">
+                            <span class="text-xs text-indigo-500">Enter the target value (number only — e.g. 90 for 90%)</span>
+                        </div>
                     </div>
                 </div>
                 <div>
@@ -2926,6 +2946,22 @@ window.setPDSAView = function(mode) {
     if (window.renderPDSA) window.renderPDSA();
     // Re-init lucide after re-render
     if (typeof lucide !== 'undefined') setTimeout(() => lucide.createIcons(), 50);
+};
+
+// Live word count for plain text fields
+window.updateFieldWC = function(el, spanId) {
+    const span = document.getElementById(spanId);
+    if (!span) return;
+    const words = el.value.trim().split(/\s+/).filter(Boolean).length;
+    span.textContent = words + 'w';
+    // Colour thresholds vary by field
+    const isAim = spanId === 'wc-aim';
+    const tooShort = isAim ? words < 10 : words < 20;
+    const tooLong  = isAim ? words > 80 : words > 250;
+    span.className = words === 0 ? 'text-xs text-slate-300'
+        : tooShort ? 'text-xs text-amber-500'
+        : tooLong  ? 'text-xs text-amber-600 font-medium'
+        : 'text-xs text-emerald-600 font-medium';
 };
 
 // Define & Measure section accordion toggle

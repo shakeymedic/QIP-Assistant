@@ -109,6 +109,14 @@ export async function exportPPTX() {
         x: 5.1, y: 1.3, w: 4.4, h: 1.0, 
         fontSize: 12, bold: true, color: RCEM_PURPLE, valign: 'middle', fill: "EEF2FF", shape: pres.ShapeType.rect, border: { pt: 1, color: "C7D2FE" }
     });
+    // Aim Target badge
+    if (c.aim_target) {
+        slide.addText(`Target: ${c.aim_target}`, {
+            x: 5.1, y: 2.4, w: 1.8, h: 0.3,
+            fontSize: 11, bold: true, color: "FFFFFF",
+            fill: "16A34A", shape: pres.ShapeType.rect, align: 'center'
+        });
+    }
 
     // Secondary Aim (if present)
     if (c.aim2) {
@@ -175,14 +183,18 @@ export async function exportPPTX() {
         slide = pres.addSlide();
         addHeader(slide, `3. Testing Changes: PDSA Cycles (${d.pdsa.length})`);
         
-        const rows = d.pdsa.map((p, i) => [
-            `Cycle ${i + 1}:\n${p.title || 'Untitled'}`,
-            p.plan ? p.plan.substring(0, 150) + (p.plan.length > 150 ? '...' : '') : 'No plan',
-            p.study ? p.study.substring(0, 150) + (p.study.length > 150 ? '...' : '') : 'No study',
-            p.act ? p.act.substring(0, 100) + (p.act.length > 100 ? '...' : '') : 'No act'
-        ]);
+        const rows = d.pdsa.map((p, i) => {
+            const planText = p.plan ? p.plan.substring(0, 120) + (p.plan.length > 120 ? '...' : '') : 'No plan';
+            const predText = p.prediction ? `\nPrediction: ${p.prediction.substring(0, 80)}${p.prediction.length > 80 ? '...' : ''}` : '';
+            return [
+                `Cycle ${i + 1}:\n${p.title || 'Untitled'}${p.startDate ? '\n' + p.startDate : ''}`,
+                planText + predText,
+                p.study ? p.study.substring(0, 150) + (p.study.length > 150 ? '...' : '') : 'No study',
+                p.act ? p.act.substring(0, 100) + (p.act.length > 100 ? '...' : '') : 'No act'
+            ];
+        });
         
-        rows.unshift(["Cycle / Intervention", "Plan / Prediction", "Study / Results", "Act / Next Steps"]); 
+        rows.unshift(["Cycle / Date", "Plan + Prediction", "Study / Results", "Act / Next Steps"]); 
         
         slide.addTable(rows, {
             x: 0.5, y: 1.2, w: 9,
@@ -193,6 +205,29 @@ export async function exportPPTX() {
             headerStyles: { fill: { color: RCEM_PURPLE }, color: "FFFFFF", bold: true },
             rowH: 0.8,
             valign: 'top'
+        });
+    }
+
+    // =======================================
+    // SLIDE 4B: CHANGE PACKAGE (conditional)
+    // =======================================
+    const adoptedCycles = (d.pdsa || []).filter(p => p.status === 'complete' || p.status === 'acting');
+    if (adoptedCycles.length > 0) {
+        slide = pres.addSlide();
+        addHeader(slide, "Adopted Changes — Change Package");
+        slide.addText("The following interventions have been tested, adopted and embedded into practice:", {
+            x: 0.5, y: 1.0, w: 9, fontSize: 11, color: "64748B", italic: true
+        });
+        let cpY = 1.4;
+        adoptedCycles.slice(0, 4).forEach((p, i) => {
+            slide.addShape(pres.ShapeType.rect, { x: 0.5, y: cpY, w: 9, h: 1.0, fill: "F0FDF4", line: { color: "BBF7D0", pt: 1 } });
+            slide.addText(`Cycle ${(d.pdsa || []).indexOf(p) + 1}: ${p.title || 'Untitled'}`, {
+                x: 0.7, y: cpY + 0.05, w: 8.6, fontSize: 11, bold: true, color: "15803D"
+            });
+            slide.addText(p.act ? p.act.substring(0, 180) : 'No act recorded', {
+                x: 0.7, y: cpY + 0.35, w: 8.6, fontSize: 10, color: SLATE_DARK
+            });
+            cpY += 1.1;
         });
     }
 
@@ -277,6 +312,87 @@ export async function exportPPTX() {
         x: 5.1, y: 1.4, w: 4.4, h: 3.8, 
         fontSize: 11, color: SLATE_DARK, valign: 'top', fill: "EEF2FF", shape: pres.ShapeType.rect
     });
+
+    // =======================================
+    // SLIDE 7: RCEM ABSTRACT
+    // =======================================
+    const hasAbstract = d.abstract_background || d.abstract_methods || d.abstract_results || d.abstract_conclusions;
+    if (hasAbstract) {
+        slide = pres.addSlide();
+        addHeader(slide, "RCEM Abstract (250 words)");
+        const sections = [
+            { label: "Background",   text: d.abstract_background   || '', fill: "EFF6FF", border: "BFDBFE", x: 0.5,  y: 1.0 },
+            { label: "Methods",      text: d.abstract_methods      || '', fill: "F0FDF4", border: "BBF7D0", x: 5.1,  y: 1.0 },
+            { label: "Results",      text: d.abstract_results      || '', fill: "FFFBEB", border: "FDE68A", x: 0.5,  y: 3.0 },
+            { label: "Conclusions",  text: d.abstract_conclusions  || '', fill: "EEF2FF", border: "C7D2FE", x: 5.1,  y: 3.0 },
+        ];
+        sections.forEach(s => {
+            slide.addText(s.label, { x: s.x, y: s.y, w: 4.3, fontSize: 12, bold: true, color: RCEM_PURPLE });
+            slide.addText(s.text || '(not yet completed)', {
+                x: s.x, y: s.y + 0.3, w: 4.3, h: 1.7,
+                fontSize: 10, color: SLATE_DARK, valign: 'top',
+                fill: s.fill, shape: pres.ShapeType.rect, border: { pt: 1, color: s.border }
+            });
+        });
+    }
+
+    // =======================================
+    // SLIDE 8: EVIDENCE BASE & ETHICS
+    // =======================================
+    const hasEvidenceContent = c.lit_review || (d.referencesList && d.referencesList.length > 0) || c.ethics;
+    if (hasEvidenceContent) {
+        slide = pres.addSlide();
+        addHeader(slide, "Evidence Base & Ethics");
+
+        // References
+        const refs = d.referencesList || [];
+        if (refs.length > 0) {
+            slide.addText("Key References", { x: 0.5, y: 1.0, fontSize: 13, bold: true, color: RCEM_PURPLE });
+            refs.slice(0, 5).forEach((r, i) => {
+                const refStr = `${i + 1}. ${r.authors || ''} (${r.year || ''}) ${r.title || ''}${r.keyFinding ? ' — ' + r.keyFinding.substring(0, 60) : ''}`;
+                slide.addText(refStr, { x: 0.5, y: 1.3 + (i * 0.45), w: 5.8, fontSize: 9, color: SLATE_DARK });
+            });
+        } else if (c.lit_review) {
+            slide.addText("Literature Review", { x: 0.5, y: 1.0, fontSize: 13, bold: true, color: RCEM_PURPLE });
+            slide.addText(c.lit_review.substring(0, 400), {
+                x: 0.5, y: 1.3, w: 5.8, h: 3.5, fontSize: 10, color: SLATE_DARK, valign: 'top',
+                fill: SLATE_LIGHT, shape: pres.ShapeType.rect
+            });
+        }
+
+        // Ethics / HRA
+        slide.addText("Ethics & Governance", { x: 6.6, y: 1.0, fontSize: 13, bold: true, color: RCEM_PURPLE });
+        const hra = c.hraChecklist || {};
+        const hraAnswered = [hra.q1, hra.q2, hra.q3, hra.q4].filter(v => v && v !== '').length === 4;
+        const needsEthics = hra.q2 === 'yes';
+        const hraVerdict = hraAnswered
+            ? (needsEthics ? 'Likely requires formal ethics approval' : 'Qualifies as Service Evaluation — no formal ethics approval required')
+            : 'HRA checklist not yet completed';
+        slide.addText(hraVerdict, {
+            x: 6.6, y: 1.3, w: 2.9, h: 0.7,
+            fontSize: 10, bold: true,
+            color: hraAnswered && needsEthics ? 'C41E3A' : '15803D',
+            fill: hraAnswered && needsEthics ? 'FEF2F2' : 'F0FDF4',
+            shape: pres.ShapeType.rect, border: { pt: 1, color: hraAnswered && needsEthics ? 'FECACA' : 'BBF7D0' },
+            valign: 'middle'
+        });
+        if (c.ethics) {
+            slide.addText(c.ethics.substring(0, 200), {
+                x: 6.6, y: 2.1, w: 2.9, h: 2.5,
+                fontSize: 9, color: SLATE_DARK, valign: 'top',
+                fill: SLATE_LIGHT, shape: pres.ShapeType.rect
+            });
+        }
+
+        // Operational definition
+        if (d.checklist?.operational_definition) {
+            slide.addText("Operational Definition", { x: 0.5, y: 4.55, fontSize: 11, bold: true, color: RCEM_PURPLE });
+            slide.addText(d.checklist.operational_definition.substring(0, 200), {
+                x: 0.5, y: 4.85, w: 5.8, h: 0.7, fontSize: 9, color: SLATE_DARK, valign: 'top',
+                fill: "F5F3FF", shape: pres.ShapeType.rect, border: { pt: 1, color: "DDD6FE" }
+            });
+        }
+    }
 
     // 4. Save File
     const safeTitle = d.meta.title ? d.meta.title.replace(/[^a-z0-9]/gi, '_').substring(0, 30) : 'QIP';
