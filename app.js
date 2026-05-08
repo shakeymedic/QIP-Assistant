@@ -1192,3 +1192,71 @@ if (typeof lucide !== 'undefined') {
 window.checkFirebaseStatus = () => {
     return getFirebaseStatus();
 };
+
+// ==========================================
+// RAPID BATCH DATA ENTRY
+// ==========================================
+
+window.addBatchEntryRow = function() {
+    const tbody = document.getElementById('batch-entry-tbody');
+    if (!tbody) return;
+    const today = new Date().toISOString().split('T')[0];
+    const tr = document.createElement('tr');
+    tr.className = 'border-b border-slate-50';
+    tr.innerHTML = `
+        <td class="py-0.5 pr-1"><input type="date" class="batch-date w-full p-0.5 border border-slate-200 rounded text-xs" value="${today}"></td>
+        <td class="py-0.5 pr-1"><input type="number" class="batch-value w-24 p-0.5 border border-slate-200 rounded text-xs" placeholder="0" step="any"></td>
+        <td class="py-0.5 pr-1"><select class="batch-phase w-full p-0.5 border border-slate-200 rounded text-xs">
+            <option value="">—</option>
+            <option value="Baseline">Baseline</option>
+            <option value="PDSA 1">PDSA 1</option>
+            <option value="PDSA 2">PDSA 2</option>
+            <option value="PDSA 3">PDSA 3</option>
+            <option value="PDSA 4">PDSA 4</option>
+            <option value="Sustain">Sustain</option>
+        </select></td>
+        <td class="py-0.5 pl-1"><button onclick="this.closest('tr').remove()" class="text-slate-300 hover:text-red-400 text-base leading-none px-1" title="Remove row">&times;</button></td>
+    `;
+    tbody.appendChild(tr);
+};
+
+window.initBatchEntry = function() {
+    const tbody = document.getElementById('batch-entry-tbody');
+    if (tbody && tbody.children.length === 0) {
+        for (let i = 0; i < 3; i++) window.addBatchEntryRow();
+    }
+};
+
+window.submitBatchEntry = function() {
+    if (!state.projectData) { showToast('No project open', 'error'); return; }
+    const rows = document.querySelectorAll('#batch-entry-tbody tr');
+    let added = 0;
+    const errors = [];
+    rows.forEach((row, idx) => {
+        const d = row.querySelector('.batch-date')?.value;
+        const v = row.querySelector('.batch-value')?.value;
+        const g = row.querySelector('.batch-phase')?.value || '';
+        if (!d && !v) return; // skip blank rows silently
+        if (!d) { errors.push(`Row ${idx + 1}: missing date`); return; }
+        if (v === '' || v === null || v === undefined) { errors.push(`Row ${idx + 1}: missing value`); return; }
+        const parsedValue = parseFloat(v);
+        if (isNaN(parsedValue)) { errors.push(`Row ${idx + 1}: invalid value`); return; }
+        if (!state.projectData.chartData) state.projectData.chartData = [];
+        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
+        state.projectData.chartData.push({ id, date: d, value: parsedValue, grade: g });
+        added++;
+    });
+    if (errors.length > 0) {
+        showToast(errors[0], 'error');
+    }
+    if (added > 0) {
+        state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
+        if (window.saveData) window.saveData();
+        if (window.renderDataView) window.renderDataView();
+        const tbody = document.getElementById('batch-entry-tbody');
+        if (tbody) { tbody.innerHTML = ''; for (let i = 0; i < 3; i++) window.addBatchEntryRow(); }
+        showToast(`${added} point${added !== 1 ? 's' : ''} added`, 'success');
+    } else if (errors.length === 0) {
+        showToast('No data in rows — please enter dates and values', 'error');
+    }
+};

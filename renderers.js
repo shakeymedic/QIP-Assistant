@@ -456,6 +456,11 @@ export function renderChecklist() {
     
     const c = d.checklist || {};
     
+    // Completion dot helper
+    const csDot = (ok) => ok
+        ? '<span class="w-5 h-5 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-xs font-bold flex-shrink-0" title="Complete">✓</span>'
+        : '<span class="w-5 h-5 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center text-xs flex-shrink-0" title="Not yet complete">○</span>';
+    
     container.innerHTML = `
         <header class="mb-8">
             <h1 class="text-3xl font-bold text-slate-900 flex items-center gap-3">
@@ -466,12 +471,14 @@ export function renderChecklist() {
         </header>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-1" onclick="window.toggleChecklistSection(1)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center text-sm font-bold">1</span>
                 Problem Definition
-                <button onclick="window.showExample('problem')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                ${csDot(!!c.problem_desc)}
+                <button onclick="window.showExample('problem');event.stopPropagation();" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
                     <i data-lucide="eye" class="w-3 h-3"></i> See Example
                 </button>
+                <i data-lucide="chevron-down" id="cs-chevron-1" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
             </h2>
             <div class="space-y-4">
                 <div>
@@ -499,12 +506,14 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-2" onclick="window.toggleChecklistSection(2)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center text-sm font-bold">2</span>
                 SMART Aim
-                <button onclick="window.showExample('aim')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                ${csDot(!!c.aim)}
+                <button onclick="window.showExample('aim');event.stopPropagation();" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
                     <i data-lucide="eye" class="w-3 h-3"></i> See Example
                 </button>
+                <i data-lucide="chevron-down" id="cs-chevron-2" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
             </h2>
             <div class="space-y-4">
                 <div>
@@ -531,12 +540,14 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-3" onclick="window.toggleChecklistSection(3)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
                 Family of Measures
-                <button onclick="window.showExample('measures')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                ${csDot(!!(c.outcome_measure && c.process_measure))}
+                <button onclick="window.showExample('measures');event.stopPropagation();" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
                     <i data-lucide="eye" class="w-3 h-3"></i> See Example
                 </button>
+                <i data-lucide="chevron-down" id="cs-chevron-3" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
@@ -567,12 +578,14 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-4" onclick="window.toggleChecklistSection(4)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">4</span>
                 Ethics & Governance
-                <button onclick="window.open('https://www.hra-decisiontools.org.uk/research/',\'_blank\')" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
+                ${csDot(!!(c.ethics || Object.values(c.hraChecklist||{}).some(v=>v)))}
+                <button onclick="window.open('https://www.hra-decisiontools.org.uk/research/',\'_blank\');event.stopPropagation();" class="ml-auto text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
                     <i data-lucide="external-link" class="w-3 h-3"></i> HRA Decision Tool
                 </button>
+                <i data-lucide="chevron-down" id="cs-chevron-4" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
             </h2>
             <div class="space-y-3 mb-4">
                 <p class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">Complete the HRA Decision Tool online, then answer these questions. Your answers determine whether this is service evaluation (no ethics needed) or research (ethics required).</p>
@@ -632,9 +645,11 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-5" onclick="window.toggleChecklistSection(5)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center text-sm font-bold">5</span>
                 Literature Review
+                ${csDot(!!(c.lit_review || (d.referencesList && d.referencesList.length > 0)))}
+                <i data-lucide="chevron-down" id="cs-chevron-5" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
             </h2>
             <!-- Structured reference list -->
             <div class="mb-5">
@@ -678,9 +693,11 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-6" onclick="window.toggleChecklistSection(6)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-sky-100 text-sky-600 flex items-center justify-center text-sm font-bold">6</span>
                 Results & Analysis
+                ${csDot(!!c.results_analysis)}
+                <i data-lucide="chevron-down" id="cs-chevron-6" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
             </h2>
             <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">Analysis of Results</label>
@@ -691,9 +708,11 @@ export function renderChecklist() {
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4">
+            <h2 id="cs-header-7" onclick="window.toggleChecklistSection(7)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">7</span>
                 Learning & Sustainability
+                ${csDot(!!(c.learning_points && c.sustainability))}
+                <i data-lucide="chevron-down" id="cs-chevron-7" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -795,10 +814,11 @@ export function renderDataView() {
     
     if (window.renderChart) window.renderChart();
     renderSignalPanel();
+    if (window.initBatchEntry) window.initBatchEntry();
     
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
-        resultsText.value = d.checklist.results_text || '';
+        resultsText.value = d.checklist.results_analysis || '';
     }
 
     // Operational definition (8A-5)
@@ -830,7 +850,7 @@ export function renderDataView() {
                                 <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
                                 <td class="py-2 text-slate-400">${escapeHtml(item.grade || '-')}</td>
                                 <td class="py-2 text-right">
-                                    <button onclick="window.deleteDataPoint('${item.date}')" class="text-slate-300 hover:text-red-500 transition-colors">
+                                    <button onclick="window.deleteDataPoint('${item.id}')" class="text-slate-300 hover:text-red-500 transition-colors">
                                         <i data-lucide="trash-2" class="w-3 h-3"></i>
                                     </button>
                                 </td>
@@ -1012,6 +1032,15 @@ export function renderPDSA() {
     
     const container = document.getElementById('pdsa-container');
     if (!container) return;
+    
+    // Sort cycles chronologically by start date (cycles without dates go last)
+    if (d.pdsa && d.pdsa.length > 1) {
+        d.pdsa.sort((a, b) => {
+            const da = (a.startDate || a.start) ? new Date(a.startDate || a.start) : new Date('9999-12-31');
+            const db = (b.startDate || b.start) ? new Date(b.startDate || b.start) : new Date('9999-12-31');
+            return da - db;
+        });
+    }
     
     const pdsa = d.pdsa || [];
     const members = d.teamMembers || [];
@@ -2897,6 +2926,30 @@ window.setPDSAView = function(mode) {
     if (window.renderPDSA) window.renderPDSA();
     // Re-init lucide after re-render
     if (typeof lucide !== 'undefined') setTimeout(() => lucide.createIcons(), 50);
+};
+
+// Define & Measure section accordion toggle
+window.toggleChecklistSection = function(n) {
+    const header = document.getElementById('cs-header-' + n);
+    const icon = document.getElementById('cs-chevron-' + n);
+    if (!header) return;
+    const section = header.closest('section');
+    if (!section) return;
+    // Toggle all direct children except the header itself
+    let anyHidden = false;
+    Array.from(section.children).forEach(child => {
+        if (child !== header) {
+            const hidden = child.style.display === 'none';
+            child.style.display = hidden ? '' : 'none';
+            if (hidden) anyHidden = true;
+        }
+    });
+    // Update chevron direction
+    if (icon) {
+        const collapsed = Array.from(section.children).some(c => c !== header && c.style.display === 'none');
+        icon.setAttribute('data-lucide', collapsed ? 'chevron-right' : 'chevron-down');
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [icon] });
+    }
 };
 
 // PDSA card collapse toggle
