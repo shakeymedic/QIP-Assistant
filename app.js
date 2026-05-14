@@ -1,5 +1,5 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { state, emptyProject, getDemoData } from "./state.js";
@@ -1071,6 +1071,49 @@ function initAuthHandlers() {
             } else {
                 sidebar.classList.add('hidden'); 
                 sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+            }
+        });
+    }
+
+    const btnForgotPassword = document.getElementById('btn-forgot-password');
+    if (btnForgotPassword) {
+        btnForgotPassword.addEventListener('click', async () => {
+            const emailInput = document.getElementById('email');
+            const email = emailInput ? emailInput.value.trim() : '';
+            if (!email || !isValidEmail(email)) {
+                setFieldError('email', true, 'Enter your email address above first, then click Forgot Password.');
+                return;
+            }
+            if (!auth) { showToast('Authentication service unavailable.', 'error'); return; }
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast(`Password reset email sent to ${email}. Check your inbox (and spam folder).`, 'success');
+            } catch (error) {
+                const details = getAuthErrorDetails(error);
+                showToast(details.message, details.type);
+            }
+        });
+    }
+
+    const btnGoogleSignin = document.getElementById('btn-google-signin');
+    if (btnGoogleSignin) {
+        btnGoogleSignin.addEventListener('click', async () => {
+            if (!auth) { showToast('Authentication service unavailable.', 'error'); return; }
+            setButtonLoading(btnGoogleSignin, true, 'Signing in with Google...');
+            try {
+                const provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await signInWithPopup(auth, provider);
+                showToast('Signed in with Google!', 'success');
+            } catch (error) {
+                // User closed the popup — don't show an error toast
+                if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+                    setButtonLoading(btnGoogleSignin, false);
+                    return;
+                }
+                const details = getAuthErrorDetails(error);
+                showToast(details.message, details.type);
+                setButtonLoading(btnGoogleSignin, false);
             }
         });
     }
