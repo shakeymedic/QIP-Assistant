@@ -896,6 +896,8 @@ window.openProject = (id) => {
     
     if (!db) { showToast("No DB connection", "error"); return; }
     
+    let firstLoad = true; // navigate to dashboard only once data is ready
+
     window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
             const data = doc.data();
@@ -922,20 +924,25 @@ window.openProject = (id) => {
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
-            
-            let currentView = document.querySelector('.view-section:not(.hidden)');
-            if (currentView) {
-                let viewName = currentView.id.replace('view-', '');
-                if(viewName !== 'projects') window.router(viewName);
+
+            if (firstLoad) {
+                // First snapshot: data is ready — now it's safe to navigate
+                firstLoad = false;
+                const topBar = document.getElementById('top-bar');
+                if(topBar) topBar.classList.remove('hidden');
+                window.router('dashboard');
+            } else {
+                // Subsequent snapshots (live updates): re-render current view
+                let currentView = document.querySelector('.view-section:not(.hidden)');
+                if (currentView) {
+                    let viewName = currentView.id.replace('view-', '');
+                    if(viewName !== 'projects') window.router(viewName);
+                }
             }
         }
     }, (error) => {
         showToast("Connection error: " + error.message, "error");
     });
-    
-    const topBar = document.getElementById('top-bar');
-    if(topBar) topBar.classList.remove('hidden');
-    window.router('dashboard');
 };
 
 function initAuthHandlers() {
