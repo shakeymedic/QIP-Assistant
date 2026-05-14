@@ -77,6 +77,24 @@ window.router = (view) => {
     }
 };
 
+// ==========================================
+// HOW-TO GUIDE MODAL
+// ==========================================
+window.showHowTo = function() {
+    const m = document.getElementById('howto-modal');
+    if (!m) return;
+    m.classList.remove('hidden');
+    m.classList.add('flex');
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.closeHowTo = function() {
+    const m = document.getElementById('howto-modal');
+    if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
+    const cb = document.getElementById('howto-dont-show');
+    if (cb && cb.checked) localStorage.setItem('qip_howto_seen', '1');
+};
+
 window.returnToProjects = () => {
     state.currentProjectId = null; 
     state.projectData = null; 
@@ -781,6 +799,12 @@ async function loadProjectList() {
     window.router('projects');
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.add('hidden');
+
+    // Auto-show How-To guide for first-time visitors
+    if (!localStorage.getItem('qip_howto_seen')) {
+        setTimeout(() => window.showHowTo(), 800);
+    }
+
     const listEl = document.getElementById('project-list');
     
     if (state.isDemoMode) {

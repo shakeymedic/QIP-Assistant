@@ -2911,28 +2911,34 @@ export function showHelp() {
 }
 
 export function startTour() {
-    if (typeof driver === 'undefined' || !driver.js) {
-        showToast("Tour feature loading... check internet or try again.", "info");
+    if (typeof driver === 'undefined') {
+        showToast("Guided tour unavailable — check your internet connection and try again.", "info");
         return;
     }
-    
     try {
-        const driverObj = driver.js.driver({
+        const driverObj = driver.driver({
             showProgress: true,
             animate: true,
+            overlayColor: '#1e1b4b',
+            popoverClass: 'qip-tour-popover',
             steps: [
-                { element: '#nav-dashboard', popover: { title: 'Dashboard', description: 'Overview of your project progress and key metrics.' }},
-                { element: '#nav-checklist', popover: { title: 'Define & Measure', description: 'Start here! Define your problem and SMART aim.' }},
-                { element: '#nav-tools', popover: { title: 'Diagnosis Tools', description: 'Build Fishbone and Driver diagrams to understand root causes.' }},
-                { element: '#nav-data', popover: { title: 'Data & SPC', description: 'Track your measurements over time with run and SPC charts.' }},
-                { element: '#nav-pdsa', popover: { title: 'PDSA Cycles', description: 'Plan, Do, Study, Act - document your improvement cycles here.' }},
-                { element: '#nav-publish', popover: { title: 'Publish', description: 'Generate QIAT forms, abstracts and reports for your portfolio.' }}
+                { element: '#nav-dashboard',     popover: { title: '📊 Dashboard',           description: 'Your project at a glance — progress score, chart preview, team summary and portfolio readiness.' }},
+                { element: '#nav-checklist',     popover: { title: '📋 Define & Measure',     description: 'Start here. Write your problem statement, set a SMART aim, define measures, and complete your evidence & ethics review.' }},
+                { element: '#nav-tools',         popover: { title: '🔧 Diagnosis Tools',      description: 'Fishbone diagram, Driver diagram, and 5-Whys analysis to identify and understand root causes.' }},
+                { element: '#nav-data',          popover: { title: '📈 Run Chart & SPC',      description: 'Add data points and track your measure over time. SPC rules are applied automatically to detect improvement signals.' }},
+                { element: '#nav-pdsa',          popover: { title: '🔄 PDSA Cycles',          description: 'Log each Plan-Do-Study-Act cycle with predictions, outcomes and learning. Cycles annotate directly on your run chart.' }},
+                { element: '#nav-team',          popover: { title: '👥 Team',                 description: 'Record team members, their roles and your specific contributions. Required for ARCP portfolio evidence.' }},
+                { element: '#nav-stakeholders',  popover: { title: '🗣️ Stakeholders',         description: 'Map stakeholders by power and interest. Track engagement strategies.' }},
+                { element: '#nav-gantt',         popover: { title: '📅 Gantt Chart',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
+                { element: '#nav-surveys',       popover: { title: '📝 Surveys',              description: 'Log and analyse patient or staff feedback to support your change package.' }},
+                { element: '#nav-supervisor',    popover: { title: '🏆 Portfolio Readiness',  description: 'Check SLO11 sign-off criteria. See exactly what evidence is complete and what still needs work.' }},
+                { element: '#nav-publish',       popover: { title: '🚀 Publish & Export',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or Kaizen report in one click.' }}
             ]
         });
         driverObj.drive();
     } catch (e) {
         console.error("Tour error:", e);
-        showToast("Could not start tour", "error");
+        showToast("Could not start guided tour.", "error");
     }
 }
 

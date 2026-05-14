@@ -226,6 +226,9 @@
                     <button aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> Switch Project
                     </button>
+                    <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                        <i data-lucide="help-circle" class="w-3 h-3"></i> Help &amp; Guide
+                    </button>
                     <button aria-label="Open Settings" onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="settings" class="w-3 h-3"></i> Settings
                     </button>
@@ -253,7 +256,7 @@
                         </span>
                     </div>
                     <div class="flex items-center gap-3">
-                        <button aria-label="Start Help Tour" onclick="window.startTour()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-sm font-medium flex items-center gap-1" title="Start Tour">
+                        <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="text-rcem-purple hover:bg-indigo-50 px-3 py-1 rounded text-sm font-medium flex items-center gap-1" title="Help &amp; How-To Guide">
                             <i data-lucide="help-circle" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Help</span>
                         </button>
@@ -978,6 +981,167 @@
                 <button id="new-project-submit" class="px-4 py-2 text-sm font-medium text-white bg-rcem-purple hover:bg-indigo-700 rounded-lg transition-colors flex items-center gap-2">
                     <i data-lucide="plus" class="w-4 h-4"></i> Create Project
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== HOW-TO / WELCOME MODAL ========== -->
+    <div id="howto-modal" class="hidden fixed inset-0 bg-black/70 z-[10000] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-xl flex flex-col overflow-hidden" style="max-height:90vh">
+
+            <!-- Header -->
+            <div class="bg-gradient-to-r from-rcem-purple to-indigo-600 text-white px-6 py-5 flex-shrink-0">
+                <div class="flex items-start justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <img src="./logo.png" alt="Logo" class="h-10 rounded-lg bg-white/10 p-1 flex-shrink-0">
+                        <div>
+                            <h2 class="text-lg font-bold leading-tight">QIP Assistant — Quick Guide</h2>
+                            <p class="text-indigo-200 text-xs mt-0.5">Everything you need to complete your QIP</p>
+                        </div>
+                    </div>
+                    <button onclick="window.closeHowTo()" aria-label="Close guide" class="text-white/60 hover:text-white p-1 rounded-lg hover:bg-white/10 flex-shrink-0 transition-colors mt-0.5">
+                        <i data-lucide="x" class="w-5 h-5"></i>
+                    </button>
+                </div>
+
+                <!-- Workflow strip -->
+                <div class="mt-4 flex items-center gap-1 flex-wrap">
+                    <span class="text-[10px] font-bold bg-white/20 text-white px-2 py-1 rounded-full">1 · Define</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-indigo-300"></i>
+                    <span class="text-[10px] font-bold bg-white/20 text-white px-2 py-1 rounded-full">2 · Measure</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-indigo-300"></i>
+                    <span class="text-[10px] font-bold bg-white/20 text-white px-2 py-1 rounded-full">3 · Analyse</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-indigo-300"></i>
+                    <span class="text-[10px] font-bold bg-white/20 text-white px-2 py-1 rounded-full">4 · Improve</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-indigo-300"></i>
+                    <span class="text-[10px] font-bold bg-white/20 text-white px-2 py-1 rounded-full">5 · Sustain</span>
+                    <i data-lucide="chevron-right" class="w-3 h-3 text-indigo-300"></i>
+                    <span class="text-[10px] font-bold bg-amber-400 text-slate-900 px-2 py-1 rounded-full">6 · Publish</span>
+                </div>
+            </div>
+
+            <!-- Scrollable body -->
+            <div class="flex-1 overflow-y-auto p-5 space-y-4">
+
+                <!-- Section cards grid -->
+                <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">What each section does — click to go there</h3>
+                <div class="grid grid-cols-2 gap-3">
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('checklist');"
+                         class="relative bg-indigo-50 border-2 border-indigo-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <span class="absolute top-2 right-2 text-[9px] font-bold bg-rcem-purple text-white px-1.5 py-0.5 rounded">START HERE</span>
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 text-rcem-purple flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Define &amp; Measure</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Problem statement, SMART aim, measures, evidence &amp; ethics review</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('tools');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="git-branch" class="w-4 h-4 text-amber-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Diagnosis Tools</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Fishbone, Driver diagram &amp; 5-Whys to identify root causes</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('data');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Run Chart &amp; SPC</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Add data points. SPC rules applied automatically to detect improvement signals</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('pdsa');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">PDSA Cycles</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Plan–Do–Study–Act cycles with predictions, outcomes &amp; learning</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('team');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="users" class="w-4 h-4 text-violet-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Team &amp; Stakeholders</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Log team members, roles, contributions &amp; stakeholder map</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('gantt');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="calendar-range" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Gantt Chart</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Project timeline with milestones and key dates</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('surveys');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="message-square" class="w-4 h-4 text-pink-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Surveys</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Record &amp; analyse patient or staff feedback for your change package</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('supervisor');"
+                         class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="award" class="w-4 h-4 text-yellow-500 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Portfolio Readiness</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">SLO11 sign-off tracker. See exactly what evidence is still missing</p>
+                    </div>
+
+                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('publish');"
+                         class="col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 hover:border-amber-400 rounded-xl p-3 cursor-pointer transition-all group">
+                        <div class="flex items-center gap-2 mb-1.5">
+                            <i data-lucide="rocket" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
+                            <span class="font-bold text-sm text-slate-800">Publish &amp; Export</span>
+                            <span class="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded ml-auto">PPTX · POSTER · ABSTRACT</span>
+                        </div>
+                        <p class="text-xs text-slate-500 leading-snug">Generate a complete portfolio-ready PowerPoint, RCEM abstract, QIP poster or Kaizen report in one click</p>
+                    </div>
+                </div>
+
+                <!-- Tips -->
+                <div class="bg-slate-50 rounded-xl border border-slate-200 p-4">
+                    <h3 class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-500"></i> Tips
+                    </h3>
+                    <ul class="space-y-2 text-xs text-slate-600">
+                        <li class="flex items-start gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0"></i><span><strong>Auto-saves</strong> every few seconds — look for the "Saved ✓" indicator in the top bar</span></li>
+                        <li class="flex items-start gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0"></i><span><strong>Undo / Redo</strong> with the arrow buttons in the top bar (or Ctrl+Z / Ctrl+Y)</span></li>
+                        <li class="flex items-start gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0"></i><span><strong>Share</strong> your project with supervisors using the share link — they get a read-only view</span></li>
+                        <li class="flex items-start gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0"></i><span><strong>Demo Mode</strong> lets anyone explore a fully worked example with no account needed</span></li>
+                        <li class="flex items-start gap-2"><i data-lucide="check-circle" class="w-3.5 h-3.5 text-emerald-500 mt-0.5 flex-shrink-0"></i><span>Use the <strong>Help</strong> button in the top bar any time to reopen this guide</span></li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-100 flex items-center justify-between gap-3 flex-shrink-0 bg-white">
+                <label class="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+                    <input type="checkbox" id="howto-dont-show" class="rounded text-rcem-purple accent-rcem-purple">
+                    Don't show on startup
+                </label>
+                <div class="flex gap-2 flex-shrink-0">
+                    <button onclick="window.closeHowTo(); setTimeout(window.startTour, 300);"
+                            class="text-rcem-purple border border-rcem-purple px-3 py-2 rounded-lg text-xs font-medium hover:bg-indigo-50 transition-colors flex items-center gap-1">
+                        <i data-lucide="map-pin" class="w-3 h-3"></i> Guided Tour
+                    </button>
+                    <button onclick="window.closeHowTo()"
+                            class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-700 transition-colors">
+                        Let's go!
+                    </button>
+                </div>
             </div>
         </div>
     </div>
