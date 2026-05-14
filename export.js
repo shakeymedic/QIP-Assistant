@@ -34,10 +34,13 @@ export async function exportPPTX() {
     const SLATE_LIGHT = "F8FAFC";
     const BORDER_COLOR = "E2E8F0";
 
+    const LOGO_URL = 'https://wmebemqipassist.netlify.app/logo.png';
+
     // Helper function for slide headers
     const addHeader = (slideObj, titleText) => {
         slideObj.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.8, fill: RCEM_PURPLE });
-        slideObj.addText(titleText, { x: 0.5, y: 0.1, w: 9, h: 0.6, fontSize: 24, bold: true, color: "FFFFFF", valign: 'middle' });
+        slideObj.addText(titleText, { x: 0.5, y: 0.1, w: 8, h: 0.6, fontSize: 22, bold: true, color: "FFFFFF", valign: 'middle' });
+        try { slideObj.addImage({ path: LOGO_URL, x: 8.8, y: 0.05, w: 0.7, h: 0.7 }); } catch(e) {}
     };
 
     const c = d.checklist || {};
@@ -50,6 +53,7 @@ export async function exportPPTX() {
     
     // Decorative top bar
     slide.addShape(pres.ShapeType.rect, { x: 0, y: 0, w: '100%', h: 0.4, fill: RCEM_PURPLE });
+    try { slide.addImage({ path: LOGO_URL, x: 4.15, y: 0.9, w: 1.7, h: 1.7 }); } catch(e) {}
     
     // Title
     slide.addText(d.meta?.title || "Quality Improvement Project", { 

@@ -39,7 +39,7 @@ export function exportToKaizen() {
         </head>
         <body>
             <div class="header">
-                <img src="https://iili.io/KGQOvkl.md.png" alt="WMEBEM Logo" class="logo">
+                <img src="./logo.png" alt="WMEBEM Logo" class="logo">
                 <h1>Quality Improvement Assessment Tool (QIAT)</h1>
                 <p><strong>Project Title:</strong> ${meta.title || 'Not specified'}</p>
                 <p><strong>Date Exported:</strong> ${new Date().toLocaleDateString()}</p>

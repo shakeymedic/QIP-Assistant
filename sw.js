@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.7.0';
-const STATIC_CACHE = 'rcem-qip-static-v3.7.0';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.7.0';
+const CACHE_NAME = 'rcem-qip-v3.8.0';
+const STATIC_CACHE = 'rcem-qip-static-v3.8.0';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.8.0';
 
 const STATIC_ASSETS = [
     '/',
@@ -15,7 +15,8 @@ const STATIC_ASSETS = [
     '/ai.js',
     '/onboarding.js',
     '/styles.css',
-    '/manifest.json'
+    '/manifest.json',
+    '/logo.png'
 ];
 
 const CDN_ASSETS = [
@@ -41,7 +42,7 @@ async function trimCache(cacheName, maxItems) {
 }
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.7.0...');
+    console.log('[SW] Installing service worker v3.8.0...');
     
     event.waitUntil(
         Promise.all([
@@ -226,8 +227,8 @@ self.addEventListener('push', (event) => {
         const data = event.data.json();
         const options = {
             body: data.body || 'QIP Assistant notification',
-            icon: 'https://iili.io/KGQOvkl.md.png',
-            badge: 'https://iili.io/KGQOvkl.md.png',
+            icon: 'https://wmebemqipassist.netlify.app/logo.png',
+            badge: 'https://wmebemqipassist.netlify.app/logo.png',
             vibrate: [100, 50, 100],
             data: {
                 dateOfArrival: Date.now(),
