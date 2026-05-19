@@ -1,11 +1,13 @@
 // supervisor.js
+import { state } from "./state.js";
 import { showToast } from "./utils.js";
 
 export function renderSupervisorDashboard() {
     const container = document.getElementById('view-supervisor');
     if (!container) return;
     
-    const projectData = window.projectData || {};
+    const projectData = state.projectData;
+    if (!projectData) return;
     if (!projectData.assessment) {
         projectData.assessment = {
             traineeLevel: 'core',
@@ -91,12 +93,12 @@ export function renderSupervisorDashboard() {
 }
 
 window.updateAssesmentLevel = (level) => {
-    window.projectData.assessment.traineeLevel = level;
+    state.projectData.assessment.traineeLevel = level;
     window.saveData();
 };
 
 window.toggleCapability = (cap, isChecked) => {
-    const assessment = window.projectData.assessment;
+    const assessment = state.projectData.assessment;
     if (isChecked && !assessment.capabilitiesMet.includes(cap)) {
         assessment.capabilitiesMet.push(cap);
     } else if (!isChecked) {
@@ -107,7 +109,7 @@ window.toggleCapability = (cap, isChecked) => {
 
 window.saveSupervisorComments = () => {
     const comments = document.getElementById('sup-comments').value;
-    window.projectData.assessment.supervisorComments = comments;
+    state.projectData.assessment.supervisorComments = comments;
     window.saveData();
     showToast('Supervisor comments saved successfully.', 'success');
 };
@@ -121,9 +123,9 @@ window.signOffProject = () => {
     window.showConfirmDialog(
         `Confirm sign-off as "${name}"? This formally certifies this QIP meets the RCEM Key Capabilities. It can be revoked but creates a permanent audit trail.`,
         () => {
-            window.projectData.assessment.signedOff = true;
-            window.projectData.assessment.signedOffBy = name;
-            window.projectData.assessment.signedOffDate = new Date().toLocaleDateString('en-GB');
+            state.projectData.assessment.signedOff = true;
+            state.projectData.assessment.signedOffBy = name;
+            state.projectData.assessment.signedOffDate = new Date().toLocaleDateString('en-GB');
             window.saveData();
             renderSupervisorDashboard();
             showToast('Project signed off for ARCP.', 'success');
@@ -137,9 +139,9 @@ window.revokeSignOff = () => {
     window.showConfirmDialog(
         'Revoke this supervisor sign-off? The project will return to unsigned status.',
         () => {
-            window.projectData.assessment.signedOff = false;
-            window.projectData.assessment.signedOffBy = '';
-            window.projectData.assessment.signedOffDate = '';
+            state.projectData.assessment.signedOff = false;
+            state.projectData.assessment.signedOffBy = '';
+            state.projectData.assessment.signedOffDate = '';
             window.saveData();
             renderSupervisorDashboard();
             showToast('Sign-off revoked.', 'info');

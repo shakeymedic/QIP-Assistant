@@ -88,6 +88,15 @@ window.showHowTo = function() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
 
+window.howtoNav = function(view) {
+    window.closeHowTo();
+    if (state.projectData) {
+        window.router(view);
+    } else {
+        showToast('Open a project first to navigate there.', 'info');
+    }
+};
+
 window.closeHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
@@ -944,6 +953,10 @@ window.openProject = (id) => {
             if(!state.projectData.process) state.projectData.process = ["Start", "End"];
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             if(!state.projectData.patientFeedback) state.projectData.patientFeedback = [];
+            if(!state.projectData.assessment) state.projectData.assessment = {
+                traineeLevel: 'core', capabilitiesMet: [], supervisorComments: '',
+                signedOff: false, signedOffBy: '', signedOffDate: ''
+            };
             if(!state.projectData.surveys) state.projectData.surveys = [];
             
             const headerTitle = document.getElementById('project-header-title');

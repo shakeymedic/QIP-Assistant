@@ -1027,7 +1027,7 @@
                 <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">What each section does — click to go there</h3>
                 <div class="grid grid-cols-2 gap-3">
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('checklist');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('checklist');"
                          class="relative bg-indigo-50 border-2 border-indigo-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <span class="absolute top-2 right-2 text-[9px] font-bold bg-rcem-purple text-white px-1.5 py-0.5 rounded">START HERE</span>
                         <div class="flex items-center gap-2 mb-1.5">
@@ -1037,7 +1037,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Problem statement, SMART aim, measures, evidence &amp; ethics review</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('tools');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('tools');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="git-branch" class="w-4 h-4 text-amber-500 flex-shrink-0"></i>
@@ -1046,7 +1046,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Fishbone, Driver diagram &amp; 5-Whys to identify root causes</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('data');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('data');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
@@ -1055,7 +1055,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Add data points. SPC rules applied automatically to detect improvement signals</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('pdsa');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('pdsa');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="refresh-cw" class="w-4 h-4 text-blue-500 flex-shrink-0"></i>
@@ -1064,7 +1064,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Plan–Do–Study–Act cycles with predictions, outcomes &amp; learning</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('team');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('team');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="users" class="w-4 h-4 text-violet-500 flex-shrink-0"></i>
@@ -1073,7 +1073,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Log team members, roles, contributions &amp; stakeholder map</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('gantt');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('gantt');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="calendar-range" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
@@ -1082,7 +1082,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Project timeline with milestones and key dates</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('surveys');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('surveys');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="message-square" class="w-4 h-4 text-pink-500 flex-shrink-0"></i>
@@ -1091,7 +1091,7 @@
                         <p class="text-xs text-slate-500 leading-snug">Record &amp; analyse patient or staff feedback for your change package</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('supervisor');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('supervisor');"
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="award" class="w-4 h-4 text-yellow-500 flex-shrink-0"></i>
@@ -1100,7 +1100,7 @@
                         <p class="text-xs text-slate-500 leading-snug">SLO11 sign-off tracker. See exactly what evidence is still missing</p>
                     </div>
 
-                    <div onclick="window.closeHowTo(); if(window.router && state.projectData) window.router('publish');"
+                    <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('publish');"
                          class="col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 hover:border-amber-400 rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="rocket" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>

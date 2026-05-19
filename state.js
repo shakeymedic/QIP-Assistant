@@ -80,7 +80,16 @@ export const emptyProject = {
     leadershipLogs: [],
     gantt: [],
     surveys: [],
-    fivewhys: { problem: '', why1: '', why2: '', why3: '', why4: '', why5: '', rootCause: '' }
+    fivewhys: { problem: '', why1: '', why2: '', why3: '', why4: '', why5: '', rootCause: '' },
+    patientFeedback: [],
+    assessment: {
+        traineeLevel: 'core',
+        capabilitiesMet: [],
+        supervisorComments: '',
+        signedOff: false,
+        signedOffBy: '',
+        signedOffDate: ''
+    }
 };
 
 export function getDemoData() {
