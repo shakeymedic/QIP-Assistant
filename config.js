@@ -1,6 +1,6 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getAuth } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { getFirestore, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI",
@@ -17,7 +17,10 @@ let app, auth, db;
 try {
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
-    db = getFirestore(app);
+    // Use new persistent cache API — works across multiple tabs, no deprecation warning
+    db = initializeFirestore(app, {
+        localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+    });
     console.log('✅ Firebase initialized successfully');
 } catch (error) {
     console.error('❌ Firebase initialization error:', error);
@@ -38,15 +41,4 @@ export function getFirebaseStatus() {
 
 export { auth, db };
 
-// Enable Offline Persistence
-if (db) {
-    enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-            console.warn('⚠️ Persistence failed: Multiple tabs open');
-        } else if (err.code === 'unimplemented') {
-            console.warn('⚠️ Persistence not supported by this browser');
-        } else {
-            console.error('❌ Persistence error:', err);
-        }
-    });
-}
+// Offline persistence is now configured inline via initializeFirestore above.
