@@ -1,6 +1,6 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
@@ -24,6 +24,16 @@ import { renderSupervisorDashboard } from "./supervisor.js";
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 
 console.log('App starting...');
+window._qipModules = { state }; // expose for export functions
+// Expose QIP Lead panel renderer for supervisor.js
+window.renderQIPLeadPanelFn = function() {
+    const panel = document.getElementById('qip-lead-panel');
+    if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+};
+
+// QIP Lead runtime state
+state.isQIPLead = false;
+state.qipLeadProjects = [];
 
 (function cleanURL() {
     const url = new URL(window.location.href);
@@ -762,6 +772,8 @@ if (auth) {
             const ud = document.getElementById('user-display');
             if(ud) ud.textContent = user.email;
             loadProjectList();
+            // Check if user is also a QIP Lead for others' projects
+            checkQIPLeadStatus(user);
         } else {
             document.getElementById('auth-screen').classList.remove('hidden');
         }
@@ -802,6 +814,132 @@ async function checkShareLink() {
     }
     return false;
 }
+
+// ─── QIP Lead status check ───────────────────────────────────────────────────
+async function checkQIPLeadStatus(user) {
+    if (!user?.email || !db) return;
+    try {
+        const projects = await getQIPLeadProjects(db, user.email);
+        if (!projects.length) return;
+
+        // Load data for each supervised project
+        const enriched = [];
+        for (const proj of projects) {
+            try {
+                const snap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
+                if (snap.exists()) {
+                    const d = snap.data();
+                    // Compute a rough progress score
+                    const c = d.checklist || {};
+                    const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k=>c[k]).length;
+                    const hasPdsa = (d.pdsa||[]).length > 0;
+                    const hasData = (d.chartData||[]).length > 0;
+                    const progress = Math.round(((filled/6)*50) + (hasPdsa?25:0) + (hasData?25:0));
+                    enriched.push({ ...proj, _data: d, _progress: progress });
+                }
+            } catch(e) { enriched.push({ ...proj, _data: {}, _progress: 0 }); }
+        }
+        state.qipLeadProjects = enriched;
+        state.isQIPLead = enriched.length > 0;
+
+        if (enriched.length > 0) {
+            // Show badge on projects page
+            const badge = document.getElementById('qip-lead-badge');
+            const badgeText = document.getElementById('qip-lead-badge-text');
+            if (badge) badge.classList.remove('hidden');
+            if (badgeText) badgeText.textContent = `Supervising ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
+            // Show Lead Dashboard nav button
+            const navBtn = document.getElementById('nav-lead-dashboard');
+            if (navBtn) navBtn.classList.remove('hidden');
+            // Render QIP Lead panel in supervisor section
+            const panel = document.getElementById('qip-lead-panel');
+            if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+        }
+    } catch(e) {
+        console.warn('[QIPLead] checkQIPLeadStatus error:', e);
+    }
+}
+
+// Called from sidebar or projects page to show QIP Lead dashboard
+window.showQIPLeadDashboard = function() {
+    const container = document.getElementById('qip-lead-dashboard-container');
+    const projectsView = document.getElementById('view-projects');
+    if (!container) return;
+
+    // Hide projects view, show lead dashboard within same view-projects area
+    const inner = document.getElementById('project-list-inner');
+    if (inner) inner.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    renderQIPLeadDashboard(container, state.qipLeadProjects, (i) => {
+        window.viewLeadProject(i);
+    });
+};
+
+window.switchToOwnProjects = function() {
+    const container = document.getElementById('qip-lead-dashboard-container');
+    const inner = document.getElementById('project-list-inner');
+    if (container) container.classList.add('hidden');
+    if (inner) inner.classList.remove('hidden');
+};
+
+window.viewLeadProject = async function(idx) {
+    const proj = state.qipLeadProjects[idx];
+    if (!proj || !proj._data) return;
+    // Set up read-only project view
+    state.projectData = proj._data;
+    state.currentProjectId = proj.projectId;
+    state.isReadOnly = true;
+    state.isLeadViewing = true;
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.classList.remove('hidden');
+    window.router('dashboard');
+    showToast('Viewing in read-only mode', 'info');
+};
+
+window.returnFromLeadView = function() {
+    state.isReadOnly = false;
+    state.isLeadViewing = false;
+    state.projectData = null;
+    window.showQIPLeadDashboard();
+};
+
+// ─── Add/Remove QIP Lead button handlers (called from supervisor view) ───────
+window.addQIPLeadBtn = async function() {
+    const input = document.getElementById('qip-lead-email-input');
+    if (!input) return;
+    const email = input.value.trim().toLowerCase();
+    if (!email) { showToast('Enter a lead email address.', 'error'); return; }
+    const d = state.projectData;
+    if (!d || !state.currentUser) return;
+    const success = await addQIPLeadToProject(
+        db, state.currentUser.uid, state.currentProjectId,
+        email,
+        d.teamMembers?.[0]?.name || state.currentUser.email,
+        d.meta?.title || 'Untitled QIP'
+    );
+    if (success) {
+        if (!d.qipLeads) d.qipLeads = [];
+        d.qipLeads.push({ email, addedAt: new Date().toISOString() });
+        if (window.saveData) window.saveData();
+        input.value = '';
+        // Re-render the lead panel
+        const panel = document.getElementById('qip-lead-panel');
+        if (panel) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+    }
+};
+
+window.removeQIPLeadBtn = async function(idx) {
+    const d = state.projectData;
+    if (!d?.qipLeads) return;
+    const lead = d.qipLeads[idx];
+    if (!lead) return;
+    await removeQIPLeadFromProject(db, state.currentUser.uid, state.currentProjectId, lead.email);
+    d.qipLeads.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    const panel = document.getElementById('qip-lead-panel');
+    if (panel) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+};
 
 async function loadProjectList() {
     if(state.isReadOnly) return;

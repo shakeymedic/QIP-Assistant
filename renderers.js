@@ -2156,6 +2156,183 @@ export function renderFullProject() {
                 ` : ''}
             </div>
             
+
+                <!-- ===== FISHBONE DIAGRAM ===== -->
+                ${(d.fishbone?.categories?.filter(c=>c.text).length > 0) ? (() => {
+                    const cats = d.fishbone.categories.filter(c => c.text);
+                    const W = 900, H = 420, spineY = H/2, headX = W-90, tailX = 70;
+                    const spacing = (headX - tailX) / (cats.length + 1);
+                    let paths = '', lbls = '';
+                    cats.forEach((cat, i) => {
+                        const bx = tailX + (i+1)*spacing;
+                        const above = i%2===0;
+                        const ex = bx - spacing*0.45, ey = above ? spineY-110 : spineY+110;
+                        paths += \`<line x1="\${bx}" y1="\${spineY}" x2="\${ex}" y2="\${ey}" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>\`;
+                        const catText = (cat.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                        lbls += \`<text x="\${ex}" y="\${above?ey-12:ey+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">\${catText}</text>\`;
+                        (cat.causes||[]).slice(0,5).forEach((cause,j)=>{
+                            const t=(j+1)/((cat.causes.length||1)+1);
+                            const cx=bx+t*(ex-bx), cy=spineY+t*(ey-spineY);
+                            const cex=cx+(above?-45:-45), cey=cy+(above?-38:38);
+                            paths += \`<line x1="\${cx}" y1="\${cy}" x2="\${cex}" y2="\${cey}" stroke="#818cf8" stroke-width="1.5"/>\`;
+                            const ct = (cause.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                            lbls += \`<text x="\${cex}" y="\${above?cey-4:cey+11}" text-anchor="\${above?'end':'end'}" font-size="9" fill="#4b5563">\${ct}</text>\`;
+                        });
+                    });
+                    return \`<section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">F</span>
+                            Fishbone (Cause &amp; Effect) Diagram
+                        </h2>
+                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-2 overflow-x-auto">
+                            <svg viewBox="0 0 \${W} \${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:200px">
+                                <rect x="0" y="0" width="\${W}" height="\${H}" fill="#f8fafc" rx="8"/>
+                                <line x1="\${tailX}" y1="\${spineY}" x2="\${headX}" y2="\${spineY}" stroke="#1e1b4b" stroke-width="3.5"/>
+                                <polygon points="\${headX+4},\${spineY} \${headX-14},\${spineY-8} \${headX-14},\${spineY+8}" fill="#1e1b4b"/>
+                                \${paths}\${lbls}
+                                <rect x="\${headX+6}" y="\${spineY-22}" width="80" height="44" rx="6" fill="#ef4444"/>
+                                <text x="\${headX+46}" y="\${spineY+5}" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Problem</text>
+                            </svg>
+                        </div>
+                    </section>\`;
+                })() : ''}
+
+                <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->
+                ${(d.stakeholders?.length > 0) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">S</span>
+                            Stakeholder Power / Interest Matrix
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="relative bg-white rounded-xl border-2 border-slate-200" style="aspect-ratio:1; overflow:hidden;">
+                                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
+                                    <div class="border-r border-b border-slate-200 bg-amber-50/60 p-2 flex flex-col justify-start"><span class="text-[9px] font-bold text-amber-700">KEEP SATISFIED</span><span class="text-[8px] text-amber-500">High Power / Low Interest</span></div>
+                                    <div class="border-b border-slate-200 bg-red-50/60 p-2 flex flex-col items-end"><span class="text-[9px] font-bold text-red-700">MANAGE CLOSELY</span><span class="text-[8px] text-red-500">High Power / High Interest</span></div>
+                                    <div class="border-r border-slate-200 bg-slate-50 p-2 flex flex-col justify-end"><span class="text-[9px] font-bold text-slate-500">MONITOR</span><span class="text-[8px] text-slate-400">Low Power / Low Interest</span></div>
+                                    <div class="bg-blue-50/60 p-2 flex flex-col items-end justify-end"><span class="text-[9px] font-bold text-blue-700">KEEP INFORMED</span><span class="text-[8px] text-blue-500">Low Power / High Interest</span></div>
+                                </div>
+                                <div class="absolute inset-y-0 left-1/2 border-l border-slate-300 pointer-events-none"></div>
+                                <div class="absolute inset-x-0 top-1/2 border-t border-slate-300 pointer-events-none"></div>
+                                ${d.stakeholders.map(s => {
+                                    const sx = Math.max(3,Math.min(97,s.interest||50));
+                                    const sy = Math.max(3,Math.min(97,100-(s.power||50)));
+                                    const hp = (s.power||50)>=50, hi = (s.interest||50)>=50;
+                                    const bg = hp&&hi?'#dc2626':hp?'#d97706':hi?'#2563eb':'#64748b';
+                                    const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+                                    return `<div style="position:absolute;left:${sx}%;top:${sy}%;transform:translate(-50%,-50%)" title="${escapeHtml(s.name||'')}">
+                                        <div style="width:26px;height:26px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:700;box-shadow:0 2px 4px rgba(0,0,0,0.25)">${escapeHtml(initials)}</div>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                            <div class="space-y-2">
+                                ${d.stakeholders.map(s => {
+                                    const hp=(s.power||50)>=50, hi=(s.interest||50)>=50;
+                                    const q=hp&&hi?'Manage Closely':hp?'Keep Satisfied':hi?'Keep Informed':'Monitor';
+                                    const qc=hp&&hi?'bg-red-100 text-red-700':hp?'bg-amber-100 text-amber-700':hi?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-600';
+                                    return `<div class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(s.name||'')}</div>
+                                            <div class="text-xs text-slate-400">${escapeHtml(s.role||s.organisation||'')} · Power ${s.power||50}% · Interest ${s.interest||50}%</div>
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${qc}">${q}</span>
+                                    </div>`;
+                                }).join('')}
+                            </div>
+                        </div>
+                    </section>
+                ` : ''}
+
+                <!-- ===== 5-WHYS ===== -->
+                ${(d.fivewhys?.problem) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">5</span>
+                            5-Whys Root Cause Analysis
+                        </h2>
+                        <div class="space-y-2">
+                            <div class="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                                <div class="text-xs font-bold text-red-600 uppercase mb-1">Problem Statement</div>
+                                <p class="text-slate-700 font-medium">${escapeHtml(d.fivewhys.problem)}</p>
+                            </div>
+                            ${['why1','why2','why3','why4','why5'].filter(k=>d.fivewhys[k]).map((k,i)=>`
+                            <div class="flex items-start gap-3 pl-4">
+                                <div class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold mt-0.5">W${i+1}</div>
+                                <div class="bg-white border border-slate-200 rounded-lg p-3 flex-1">
+                                    <div class="text-xs font-bold text-slate-500 uppercase mb-0.5">Why ${i+1}</div>
+                                    <p class="text-slate-700 text-sm">${escapeHtml(d.fivewhys[k])}</p>
+                                </div>
+                            </div>`).join('')}
+                            ${d.fivewhys.rootCause ? `
+                            <div class="bg-emerald-50 border-l-4 border-emerald-500 rounded-r-lg p-4 mt-2">
+                                <div class="text-xs font-bold text-emerald-700 uppercase mb-1">Root Cause Identified</div>
+                                <p class="text-emerald-800 font-semibold">${escapeHtml(d.fivewhys.rootCause)}</p>
+                            </div>` : ''}
+                        </div>
+                    </section>
+                ` : ''}
+
+                <!-- ===== GANTT TIMELINE ===== -->
+                ${(d.gantt?.length > 0) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">G</span>
+                            Project Timeline (Gantt)
+                        </h2>
+                        <div class="border border-slate-200 rounded-xl overflow-hidden">
+                            <table class="w-full text-sm">
+                                <thead class="bg-slate-50">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Task</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Start</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">End</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Progress</th>
+                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Owner</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    ${d.gantt.map(g=>`
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-2 font-medium text-slate-800">${escapeHtml(g.task||g.title||'')}</td>
+                                        <td class="px-4 py-2 text-slate-500 text-xs font-mono">${escapeHtml(g.start||g.startDate||'')}</td>
+                                        <td class="px-4 py-2 text-slate-500 text-xs font-mono">${escapeHtml(g.end||g.endDate||'')}</td>
+                                        <td class="px-4 py-2">
+                                            <div class="flex items-center gap-2">
+                                                <div class="flex-1 bg-slate-200 rounded-full h-2 min-w-[60px]">
+                                                    <div class="bg-indigo-500 rounded-full h-2" style="width:${Math.min(100,Math.max(0,parseInt(g.progress||g.percent||0)))}%"></div>
+                                                </div>
+                                                <span class="text-xs text-slate-500 flex-shrink-0">${parseInt(g.progress||g.percent||0)}%</span>
+                                            </div>
+                                        </td>
+                                        <td class="px-4 py-2 text-slate-500 text-xs">${escapeHtml(g.owner||g.responsible||'')}</td>
+                                    </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </section>
+                ` : ''}
+
+                <!-- ===== SURVEYS ===== -->
+                ${(d.surveys?.length > 0) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-pink-100 text-pink-600 flex items-center justify-center text-sm font-bold">Q</span>
+                            Surveys &amp; Patient Feedback (${d.surveys.length})
+                        </h2>
+                        <div class="space-y-3">
+                            ${d.surveys.map((sv,i)=>`
+                            <div class="bg-white border border-slate-200 rounded-xl p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h4 class="font-bold text-slate-800">${escapeHtml(sv.title||sv.name||'Survey '+(i+1))}</h4>
+                                    <span class="text-xs text-slate-400">${escapeHtml(sv.date||sv.createdAt||'')}</span>
+                                </div>
+                                ${sv.responses ? `<p class="text-sm text-slate-600">Responses: ${sv.responses}</p>` : ''}
+                                ${sv.summary ? `<p class="text-sm text-slate-600 mt-1">${escapeHtml(sv.summary)}</p>` : ''}
+                            </div>`).join('')}
+                        </div>
+                    </section>
+                ` : ''}
+
             <footer class="bg-slate-50 px-8 py-4 rounded-b-xl border-t border-slate-200 print:bg-white">
                 <div class="flex justify-between items-center text-xs text-slate-500">
                     <span>Generated by RCEM QIP Assistant</span>

@@ -1,6 +1,7 @@
 // supervisor.js
 import { state } from "./state.js";
 import { showToast } from "./utils.js";
+import { renderQIPLeadPanel } from "./qip-lead.js";
 
 export function renderSupervisorDashboard() {
     const container = document.getElementById('view-supervisor');
@@ -90,6 +91,12 @@ export function renderSupervisorDashboard() {
         </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // QIP Lead management panel — rendered separately
+    const leadPanel = document.getElementById('qip-lead-panel');
+    if (leadPanel && typeof window.renderQIPLeadPanelFn === 'function') {
+        window.renderQIPLeadPanelFn();
+    }
 }
 
 window.updateAssesmentLevel = (level) => {

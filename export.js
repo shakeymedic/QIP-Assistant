@@ -413,40 +413,71 @@ export function printPoster() {
 }
 
 export function printPosterOnly() {
+    const { state } = window._qipModules || {};
+    if (!state?.projectData) { showToast("No project loaded.", "error"); return; }
+    
+    // Navigate to full view first to ensure all content renders
     const fullView = document.getElementById('view-full');
-    if (!fullView) { 
-        showToast("Error locating report structure.", "error"); 
-        return; 
+    if (!fullView) { showToast("Error locating report.", "error"); return; }
+    
+    const wasHidden = fullView.classList.contains('hidden');
+    let prevView = null;
+    if (wasHidden) {
+        const active = document.querySelector('.view-section:not(.hidden)');
+        if (active) prevView = active.id.replace('view-', '');
+        if (window.router) window.router('full');
     }
     
-    // Check if we are currently on the full view, if not, temporarily route there
-    const currentViewHidden = fullView.classList.contains('hidden');
-    let previousViewId = null;
-    
-    if (currentViewHidden) {
-        const activeEl = document.querySelector('.view-section:not(.hidden)');
-        if (activeEl) previousViewId = activeEl.id.replace('view-', '');
-        
-        if (window.router) {
-            window.router('full');
-            // Ensure full view charts render before printing
-            setTimeout(() => executePrint(), 500);
+    // Allow full view + charts to render
+    setTimeout(() => {
+        const exportTarget = document.getElementById('full-project-container');
+        if (!exportTarget) { showToast("Could not locate report content.", "error"); return; }
+
+        const title = state?.projectData?.meta?.title || 'QIP Report';
+        const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_qip_report.pdf';
+
+        showToast("Generating PDF — this may take a few seconds…", "info");
+
+        // html2pdf options
+        const opt = {
+            margin: [10, 10, 12, 10],
+            filename,
+            image: { type: 'jpeg', quality: 0.95 },
+            html2canvas: {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                allowTaint: true,
+                backgroundColor: '#ffffff',
+                onclone: (cloned) => {
+                    // Make all sections visible in the clone
+                    cloned.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
+                    // Remove interactive elements not needed in PDF
+                    cloned.querySelectorAll('button, .no-print').forEach(el => el.remove());
+                }
+            },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+        };
+
+        if (typeof html2pdf === 'undefined') {
+            showToast("PDF library not loaded — try refreshing.", "error");
             return;
         }
-    }
-    
-    executePrint();
 
-    function executePrint() {
-        document.body.classList.add('printing-poster-mode');
-        window.print();
-        
-        // Cleanup after print dialog closes
-        setTimeout(() => {
-            document.body.classList.remove('printing-poster-mode');
-            if (previousViewId && window.router) {
-                window.router(previousViewId);
-            }
-        }, 1000);
-    }
+        html2pdf()
+            .set(opt)
+            .from(exportTarget)
+            .save()
+            .then(() => {
+                showToast(\`PDF saved: \${filename}\`, "success");
+                if (prevView && window.router) window.router(prevView);
+            })
+            .catch(err => {
+                console.error("PDF error:", err);
+                showToast("PDF generation failed. Try using browser print (Ctrl+P) instead.", "error");
+                if (prevView && window.router) window.router(prevView);
+            });
+
+    }, wasHidden ? 800 : 200);
 }

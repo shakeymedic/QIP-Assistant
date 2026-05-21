@@ -82,6 +82,7 @@ export const emptyProject = {
     surveys: [],
     fivewhys: { problem: '', why1: '', why2: '', why3: '', why4: '', why5: '', rootCause: '' },
     patientFeedback: [],
+    qipLeads: [],
     assessment: {
         traineeLevel: 'core',
         capabilitiesMet: [],

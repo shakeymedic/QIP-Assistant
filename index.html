@@ -206,6 +206,11 @@
                         <span class="w-5 h-5 rounded-full bg-emerald-700 text-emerald-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9315;</span>
                         Review & Sign-off
                     </div>
+                    <button id="nav-lead-dashboard" onclick="window.showQIPLeadDashboard()"
+                            class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all" title="QIP Lead Dashboard">
+                        <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0 text-indigo-400"></i>
+                        <span class="truncate text-sm">Lead Dashboard</span>
+                    </button>
                     <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
                         <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
                     </button>
@@ -280,6 +285,18 @@
                                 <i data-lucide="plus" class="w-4 h-4"></i> New Project
                             </button>
                         </header>
+                        <!-- QIP Lead badge — shown when user supervises others -->
+                        <div id="qip-lead-badge" class="hidden mb-4 bg-indigo-50 border border-indigo-200 rounded-xl px-4 py-3 flex items-center justify-between">
+                            <div class="flex items-center gap-2">
+                                <i data-lucide="users" class="w-4 h-4 text-indigo-600"></i>
+                                <span class="font-medium text-indigo-800 text-sm" id="qip-lead-badge-text"></span>
+                            </div>
+                            <button onclick="window.showQIPLeadDashboard()" class="bg-indigo-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1.5">
+                                <i data-lucide="layout-dashboard" class="w-3 h-3"></i> Open Lead Dashboard
+                            </button>
+                        </div>
+                        <!-- QIP Lead dashboard panel -->
+                        <div id="qip-lead-dashboard-container" class="hidden w-full"></div>
                         <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
                     </div>
 
@@ -626,7 +643,7 @@
                         </div>
                     </div>
 
-                    <div id="view-supervisor" class="view-section hidden max-w-5xl mx-auto"></div>
+                    <div id="view-supervisor" class="view-section hidden max-w-5xl mx-auto"><div id="qip-lead-panel" class="mt-4"></div></div>
 
                     <div id="view-publish" class="view-section hidden max-w-5xl mx-auto pb-32">
                         <header class="mb-10 flex justify-between items-center border-b border-slate-200 pb-6">
