@@ -808,8 +808,15 @@ if (auth) {
                 loadMasterAdminDashboard();
             } else {
                 if (ud) ud.textContent = user.email;
+                // Auto-save email to qipUsers so admin dashboard can resolve names
+                if (db) {
+                    setDoc(doc(db, 'qipUsers', user.uid), {
+                        email: user.email || '',
+                        displayName: user.displayName || '',
+                        lastLogin: new Date().toISOString()
+                    }, { merge: true }).catch(e => console.warn('[Profile] auto-save:', e));
+                }
                 loadProjectList();
-                // Check if user is also a QIP Lead for others' projects
                 checkQIPLeadStatus(user);
             }
         } else {
@@ -1745,18 +1752,38 @@ async function loadMasterAdminDashboard() {
             userMap[ownerUid].push({ projectId, data });
         });
 
-        // Fetch user emails from qipUsers collection
+        // Known UID→email map seeded from Firebase Auth (covers all users pre-dating auto-save)
+        const KNOWN_USER_EMAILS = {
+            'n6JSBUsE0Kg4x5hvFQp252A0ny32': 'emevidence999@gmail.com',
+            '57bYrw6cyKg42U4EYzRfFsmeEob2': 'helen-michelle.spindler@uhb.nhs.uk',
+            'MYxJA61V3GNOxgqNwJ2kYkxIrmj2': 'sophie.mellor5@nhs.net',
+            'G2HVZqpc5CYENZRHQNQl834JhPa2': 'breijes.05@gmail.com',
+            'QNdzNb18T0YAxmh2BDubaiWYGLj1': 'chloe_thomson@hotmail.co.uk',
+            'Mm1VlbNzvYS25JmASN8zjIBEh2v1': 'chloe.thomson635@gmail.com',
+            'IcjFLqDIZufOZx72hmljb335Kvq2': 'testuser12345@example.com',
+            '6rNMSd2TTqUZOY7XTS4nV0IMbsn1': 'jaketurner2503@gmail.com'
+        };
+
+        // Fetch user emails — qipUsers doc first, then KNOWN_USER_EMAILS fallback
         const userEmails = {};
         for (const uid of Object.keys(userMap)) {
             try {
                 const uSnap = await getDoc(doc(db, 'qipUsers', uid));
                 if (uSnap.exists()) {
                     const ud = uSnap.data();
-                    userEmails[uid] = ud.displayName ? `${ud.displayName} (${ud.email})` : (ud.email || uid);
+                    userEmails[uid] = ud.displayName ? `${ud.displayName} (${ud.email})` : (ud.email || KNOWN_USER_EMAILS[uid] || `User (${uid.substring(0,8)}\u2026)`);
                 } else {
-                    userEmails[uid] = uid;
+                    const knownEmail = KNOWN_USER_EMAILS[uid];
+                    if (knownEmail) {
+                        userEmails[uid] = knownEmail;
+                        // Silently seed qipUsers so future lookups hit the fast path
+                        setDoc(doc(db, 'qipUsers', uid), { email: knownEmail }, { merge: true })
+                            .catch(e => console.warn('[Admin] seed qipUsers:', e));
+                    } else {
+                        userEmails[uid] = `User (${uid.substring(0,8)}\u2026)`;
+                    }
                 }
-            } catch (e) { userEmails[uid] = uid; }
+            } catch (e) { userEmails[uid] = KNOWN_USER_EMAILS[uid] || `User (${uid.substring(0,8)}\u2026)`; }
         }
 
         const totalProjects = state.adminAllProjects.length;
