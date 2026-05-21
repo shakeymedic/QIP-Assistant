@@ -2220,30 +2220,34 @@ export function renderFullProject() {
 
                 <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->
                 ${(d.stakeholders?.length > 0) ? (() => {
-                    // De-overlap: bucket dots to nearest 5% grid, spread clashes in a spiral
+                    // Stakeholders use s.x (interest, left→right) and s.y (power, 0=bottom, 100=top)
+                    // CSS top = 100 - s.y  (matching the interactive view)
+                    // De-overlap: bucket to nearest 5% grid and spiral-spread clashes
                     const offsets = [[0,0],[5,-5],[5,5],[-5,5],[-5,-5],[0,-8],[8,0],[0,8],[-8,0],[3,-8],[-3,-8],[3,8],[-3,8]];
                     const buckets = {};
                     d.stakeholders.forEach((s, idx) => {
-                        const bx = Math.round((s.interest||50) / 5) * 5;
-                        const by = Math.round((100-(s.power||50)) / 5) * 5;
+                        const bx = Math.round((s.x||50) / 5) * 5;
+                        const by = Math.round((100-(s.y||50)) / 5) * 5; // CSS top bucket
                         const key = `${bx}_${by}`;
                         if (!buckets[key]) buckets[key] = [];
                         buckets[key].push(idx);
                     });
                     const finalPos = d.stakeholders.map((s, idx) => {
-                        const base = { x: Math.max(5,Math.min(95,s.interest||50)), y: Math.max(5,Math.min(95,100-(s.power||50))) };
-                        const bx = Math.round(base.x/5)*5, by = Math.round(base.y/5)*5;
+                        // cssLeft = s.x, cssTop = 100 - s.y
+                        const baseLeft = Math.max(5, Math.min(95, s.x||50));
+                        const baseTop  = Math.max(5, Math.min(95, 100-(s.y||50)));
+                        const bx = Math.round(baseLeft/5)*5, by = Math.round(baseTop/5)*5;
                         const key = `${bx}_${by}`;
                         const slot = buckets[key].indexOf(idx);
                         const [ox, oy] = offsets[slot % offsets.length];
-                        return { x: Math.max(4, Math.min(96, base.x + ox)), y: Math.max(4, Math.min(96, base.y + oy)) };
+                        return { left: Math.max(4, Math.min(96, baseLeft + ox)), top: Math.max(4, Math.min(96, baseTop + oy)) };
                     });
                     const dots = d.stakeholders.map((s, idx) => {
-                        const { x: sx, y: sy } = finalPos[idx];
-                        const hp = (s.power||50)>=50, hi = (s.interest||50)>=50;
+                        const { left, top } = finalPos[idx];
+                        const hp = (s.y||50) >= 50, hi = (s.x||50) >= 50; // high power = high y
                         const bg = hp&&hi?'#dc2626':hp?'#d97706':hi?'#2563eb':'#64748b';
                         const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        return `<div style="position:absolute;left:${sx}%;top:${sy}%;transform:translate(-50%,-50%);z-index:${idx+1}" title="${escapeHtml(s.name||'')}">
+                        return `<div style="position:absolute;left:${left}%;top:${top}%;transform:translate(-50%,-50%);z-index:${idx+1}" title="${escapeHtml(s.name||'')}">
                             <div style="width:30px;height:30px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.8)">${escapeHtml(initials)}</div>
                         </div>`;
                     }).join('');
@@ -2274,13 +2278,13 @@ export function renderFullProject() {
                             </div>
                             <div class="space-y-2">
                                 ${d.stakeholders.map(s => {
-                                    const hp=(s.power||50)>=50, hi=(s.interest||50)>=50;
+                                    const hp=(s.y||50)>=50, hi=(s.x||50)>=50;
                                     const q=hp&&hi?'Manage Closely':hp?'Keep Satisfied':hi?'Keep Informed':'Monitor';
                                     const qc=hp&&hi?'bg-red-100 text-red-700':hp?'bg-amber-100 text-amber-700':hi?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-600';
                                     return `<div class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
                                         <div class="flex-1 min-w-0">
                                             <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(s.name||'')}</div>
-                                            <div class="text-xs text-slate-400">${escapeHtml(s.role||s.organisation||'')} · Power ${s.power||50}% · Interest ${s.interest||50}%</div>
+                                            <div class="text-xs text-slate-400">${escapeHtml(s.role||'')}</div>
                                         </div>
                                         <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${qc}">${q}</span>
                                     </div>`;
