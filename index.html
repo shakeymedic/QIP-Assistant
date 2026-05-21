@@ -53,6 +53,12 @@
         </div>
     </div>
 
+    <div id="admin-bar" class="hidden fixed top-0 inset-x-0 bg-red-700 text-white text-xs font-bold text-center py-2 z-[88] flex items-center justify-center gap-2 shadow-lg">
+        <i data-lucide="shield" class="w-3 h-3"></i>
+        MASTER ADMIN MODE — Read-only view of all user projects
+        <span id="admin-project-count" class="bg-white/20 text-white px-2 py-0.5 rounded-full ml-2 text-[11px] border border-white/30"></span>
+    </div>
+
     <div id="offline-indicator" class="hidden fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-1 text-xs font-bold z-[80]">
         <i data-lucide="wifi-off" class="w-3 h-3 inline mr-1"></i> You are offline. Changes are saved locally.
     </div>
@@ -98,8 +104,8 @@
             </form>
             
             <div class="mt-4 flex items-center justify-between gap-2">
-                <button id="btn-register" aria-label="Register" class="text-sm text-rcem-purple hover:underline">
-                    No account? Sign Up
+                <button id="btn-register" aria-label="Register" class="text-sm text-rcem-purple hover:underline font-medium">
+                    Create new account
                 </button>
                 <button id="btn-forgot-password" aria-label="Forgot Password" class="text-sm text-slate-400 hover:text-rcem-purple hover:underline">
                     Forgot password?
@@ -131,6 +137,155 @@
                     <span>Try Demo Mode</span>
                 </button>
                 <p class="text-xs text-slate-400 text-center mt-2">Explore with sample data. No account needed.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         REGISTRATION SCREEN
+         ============================================================ -->
+    <div id="register-screen" class="hidden fixed inset-0 bg-gradient-to-br from-slate-900 via-rcem-purple to-indigo-900 z-[9999] overflow-y-auto">
+        <div class="min-h-screen flex items-center justify-center p-4 py-10">
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl">
+
+                <!-- Header -->
+                <div class="text-center pt-8 px-8 pb-4">
+                    <img src="./logo.png" alt="Emergency Medicine Evidence Logo" class="h-14 mx-auto mb-3">
+                    <h1 class="text-2xl font-bold text-slate-800">Create Your Account</h1>
+                    <p class="text-slate-500 text-sm mt-1">Gold Standard Quality Improvement Tool</p>
+                </div>
+
+                <!-- Progress dots -->
+                <div class="flex items-center justify-center gap-3 mb-0 px-8 pb-2">
+                    <div id="reg-dot-1" class="w-2.5 h-2.5 rounded-full bg-rcem-purple transition-all"></div>
+                    <div class="w-12 h-px bg-slate-200"></div>
+                    <div id="reg-dot-2" class="w-2.5 h-2.5 rounded-full bg-slate-200 transition-all"></div>
+                </div>
+
+                <!-- ── STEP 1: Role Selection ── -->
+                <div id="reg-step-1" class="p-8">
+                    <h2 class="text-center font-bold text-slate-800 mb-1">Step 1 — Choose Your Role(s)</h2>
+                    <p class="text-center text-sm text-slate-500 mb-6">Select all that apply. You can change these in Settings at any time.</p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
+
+                        <!-- Trainee -->
+                        <div id="role-card-trainee" onclick="window.toggleRegRole('trainee')"
+                             class="role-card relative border-2 border-slate-200 rounded-xl p-5 cursor-pointer transition-all hover:border-rcem-purple hover:shadow-md select-none">
+                            <div class="role-check-indicator absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center transition-all"></div>
+                            <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center mb-3">
+                                <i data-lucide="user" class="w-5 h-5 text-blue-600"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 mb-1.5">Trainee</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed mb-3">Manage your own QIP projects. Document improvement work, complete PDSA cycles and generate your SLO sign-off.</p>
+                            <span class="text-xs font-semibold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg">Most Common</span>
+                        </div>
+
+                        <!-- Clinical Supervisor -->
+                        <div id="role-card-supervisor" onclick="window.toggleRegRole('supervisor')"
+                             class="role-card relative border-2 border-slate-200 rounded-xl p-5 cursor-pointer transition-all hover:border-rcem-purple hover:shadow-md select-none">
+                            <div class="role-check-indicator absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center transition-all"></div>
+                            <div class="w-10 h-10 bg-emerald-100 rounded-lg flex items-center justify-center mb-3">
+                                <i data-lucide="user-check" class="w-5 h-5 text-emerald-600"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 mb-1.5">Clinical Supervisor</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed mb-3">Review and sign off your trainees' QIPs. Trainees add you to their project by your email — you don't need to do anything extra.</p>
+                            <span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2 py-1 rounded-lg">For Supervisors</span>
+                        </div>
+
+                        <!-- QIP Lead -->
+                        <div id="role-card-qip_lead" onclick="window.toggleRegRole('qip_lead')"
+                             class="role-card relative border-2 border-slate-200 rounded-xl p-5 cursor-pointer transition-all hover:border-rcem-purple hover:shadow-md select-none">
+                            <div class="role-check-indicator absolute top-3 right-3 w-5 h-5 rounded-full border-2 border-slate-300 flex items-center justify-center transition-all"></div>
+                            <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center mb-3">
+                                <i data-lucide="layout-dashboard" class="w-5 h-5 text-purple-600"></i>
+                            </div>
+                            <h3 class="font-bold text-slate-800 mb-1.5">Departmental QIP Lead</h3>
+                            <p class="text-xs text-slate-500 leading-relaxed mb-3">Dashboard overview of all trainees' QIPs in your department. Trainees add you to their projects and you see them all in one place.</p>
+                            <span class="text-xs font-semibold text-purple-700 bg-purple-50 px-2 py-1 rounded-lg">Department Leaders</span>
+                        </div>
+                    </div>
+
+                    <p class="text-xs text-slate-400 text-center mb-5">
+                        <i data-lucide="info" class="w-3 h-3 inline mr-1"></i>
+                        You can select multiple roles and update them any time in Settings.
+                    </p>
+
+                    <div id="reg-step1-error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4"></div>
+
+                    <div class="flex gap-3">
+                        <button onclick="window.hideRegisterScreen()"
+                                class="flex-1 border border-slate-300 text-slate-600 py-3 rounded-lg font-medium hover:bg-slate-50 transition-colors text-sm">
+                            ← Back to Sign In
+                        </button>
+                        <button onclick="window.regNextStep()"
+                                class="flex-1 bg-rcem-purple text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors">
+                            Continue →
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ── STEP 2: Account Creation ── -->
+                <div id="reg-step-2" class="hidden p-8">
+                    <button onclick="window.regGoBack()" class="text-sm text-slate-400 hover:text-rcem-purple mb-5 flex items-center gap-1.5 transition-colors">
+                        <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back to role selection
+                    </button>
+
+                    <h2 class="text-center font-bold text-slate-800 mb-1">Step 2 — Create Your Account</h2>
+                    <div id="reg-roles-summary" class="text-center text-sm text-slate-500 mb-6"></div>
+
+                    <div id="reg-error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm mb-4"></div>
+
+                    <!-- Google -->
+                    <button id="reg-btn-google" onclick="window.registerWithGoogle()"
+                            class="w-full flex items-center justify-center gap-3 border border-slate-300 bg-white text-slate-700 py-3 rounded-lg font-medium hover:bg-slate-50 hover:shadow-sm transition-all mb-4">
+                        <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+                            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+                            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+                            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+                            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+                            <path fill="none" d="M0 0h48v48H0z"/>
+                        </svg>
+                        <span>Sign up with Google</span>
+                    </button>
+
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="flex-1 h-px bg-slate-200"></div>
+                        <span class="text-xs text-slate-400 font-medium">or use email &amp; password</span>
+                        <div class="flex-1 h-px bg-slate-200"></div>
+                    </div>
+
+                    <form id="reg-form" class="space-y-4" onsubmit="return false;">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Your Name <span class="text-slate-400 font-normal">(optional)</span></label>
+                            <input type="text" id="reg-name"
+                                   class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
+                                   placeholder="Dr. Jane Smith">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Email Address</label>
+                            <input type="email" id="reg-email" required
+                                   class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
+                                   placeholder="your.email@nhs.net">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Password <span class="text-slate-400 font-normal">(min. 6 characters)</span></label>
+                            <input type="password" id="reg-password" required minlength="6"
+                                   class="w-full px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-rcem-purple focus:border-transparent transition-all"
+                                   placeholder="Choose a secure password">
+                        </div>
+                        <button type="button" id="reg-submit-btn" onclick="window.submitRegister()"
+                                class="w-full bg-rcem-purple text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2">
+                            <i data-lucide="user-plus" class="w-4 h-4"></i>
+                            <span>Create Account</span>
+                        </button>
+                    </form>
+
+                    <p class="text-xs text-slate-400 text-center mt-4">
+                        By creating an account you agree to use this tool responsibly for quality improvement purposes.
+                    </p>
+                </div>
+
             </div>
         </div>
     </div>
@@ -923,6 +1078,18 @@
                     </div>
                 </div>
             </div>
+                <!-- Role Management -->
+                <div id="settings-roles-section" class="py-3 border-t border-slate-200">
+                    <div class="flex items-center justify-between mb-2">
+                        <div>
+                            <p class="text-sm font-medium text-slate-700">My Account Roles</p>
+                            <p class="text-xs text-slate-400">Add or remove roles from your account</p>
+                        </div>
+                    </div>
+                    <div id="settings-roles-container" class="space-y-2">
+                        <p class="text-xs text-slate-400 italic">Sign in to manage roles</p>
+                    </div>
+                </div>
             <div class="flex justify-end gap-2 mt-6">
                 <button aria-label="Cancel Global Settings Edit" onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button aria-label="Save Global Settings" onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>

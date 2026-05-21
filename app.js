@@ -1,6 +1,9 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { doc, setDoc, getDocs, collection, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+// ─── Master Admin ─────────────────────────────────────────────────────────────
+const ADMIN_EMAIL = 'emevidence999@gmail.com';
 
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
@@ -34,6 +37,10 @@ window.renderQIPLeadPanelFn = function() {
 // QIP Lead runtime state
 state.isQIPLead = false;
 state.qipLeadProjects = [];
+
+// Master Admin runtime state
+state.isMasterAdmin = false;
+state.adminAllProjects = [];
 
 (function cleanURL() {
     const url = new URL(window.location.href);
@@ -115,15 +122,21 @@ window.closeHowTo = function() {
 };
 
 window.returnToProjects = () => {
-    state.currentProjectId = null; 
-    state.projectData = null; 
+    state.currentProjectId = null;
+    state.projectData = null;
     state.isReadOnly = false;
+    state.isLeadViewing = false;
     const ind = document.getElementById('readonly-indicator');
-    if(ind) ind.classList.add('hidden');
+    if (ind) ind.classList.add('hidden');
     document.body.classList.remove('readonly-mode');
-    
+
     if (window.unsubscribeProject) window.unsubscribeProject();
-    loadProjectList();
+
+    if (state.isMasterAdmin) {
+        loadMasterAdminDashboard();
+    } else {
+        loadProjectList();
+    }
 };
 
 window.exportProjectToFile = function() {
@@ -170,9 +183,18 @@ window.importProjectFromFile = function(input) {
 
 window.openGlobalSettings = () => {
     const el = document.getElementById('settings-ai-key');
-    if(el) el.value = state.aiKey || '';
+    if (el) el.value = state.aiKey || '';
+    // Hide roles section for demo mode / admin
+    const rolesSection = document.getElementById('settings-roles-section');
+    if (rolesSection) {
+        rolesSection.classList.toggle('hidden', state.isDemoMode || state.isMasterAdmin || !state.currentUser);
+    }
     const modal = document.getElementById('global-settings-modal');
-    if(modal) modal.classList.remove('hidden');
+    if (modal) modal.classList.remove('hidden');
+    // Load current roles for logged-in normal users
+    if (state.currentUser && !state.isDemoMode && !state.isMasterAdmin) {
+        loadRolesIntoSettings();
+    }
 };
 
 window.saveGlobalSettings = () => {
@@ -766,16 +788,39 @@ if (auth) {
 
         state.currentUser = user;
         if (user) {
+            state.isMasterAdmin = (user.email && user.email.toLowerCase() === ADMIN_EMAIL);
+
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
+            // Hide register screen if somehow visible
+            const rs = document.getElementById('register-screen');
+            if (rs) rs.classList.add('hidden');
+
             const ud = document.getElementById('user-display');
-            if(ud) ud.textContent = user.email;
-            loadProjectList();
-            // Check if user is also a QIP Lead for others' projects
-            checkQIPLeadStatus(user);
+
+            if (state.isMasterAdmin) {
+                if (ud) ud.textContent = '\uD83D\uDC41 Master Admin';
+                const adminBar = document.getElementById('admin-bar');
+                if (adminBar) adminBar.classList.remove('hidden');
+                // Push content down so admin bar doesn't overlap nav
+                const appContainer = document.getElementById('app-container');
+                if (appContainer) appContainer.style.marginTop = '32px';
+                loadMasterAdminDashboard();
+            } else {
+                if (ud) ud.textContent = user.email;
+                loadProjectList();
+                // Check if user is also a QIP Lead for others' projects
+                checkQIPLeadStatus(user);
+            }
         } else {
             document.getElementById('auth-screen').classList.remove('hidden');
+            // Reset admin state on logout
+            state.isMasterAdmin = false;
+            const adminBar = document.getElementById('admin-bar');
+            if (adminBar) adminBar.classList.add('hidden');
+            const appContainer = document.getElementById('app-container');
+            if (appContainer) appContainer.style.marginTop = '';
         }
     });
 }
@@ -942,7 +987,8 @@ window.removeQIPLeadBtn = async function(idx) {
 };
 
 async function loadProjectList() {
-    if(state.isReadOnly) return;
+    if (state.isReadOnly) return;
+    if (state.isMasterAdmin) { loadMasterAdminDashboard(); return; }
     window.router('projects');
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.add('hidden');
@@ -1184,47 +1230,8 @@ function initAuthHandlers() {
     }
 
     const btnRegister = document.getElementById('btn-register');
-    
-    if(btnRegister) {
-        btnRegister.addEventListener('click', async () => {
-            clearFieldErrors();
-            
-            const emailInput = document.getElementById('email');
-            const passwordInput = document.getElementById('password');
-            
-            const email = emailInput.value.trim();
-            const password = passwordInput.value;
-            
-            if (!email || !isValidEmail(email)) {
-                setFieldError('email', true, 'Please enter a valid email address');
-                return;
-            }
-            
-            if (!password || password.length < 6) {
-                setFieldError('password', true, 'Password must be at least 6 characters');
-                return;
-            }
-            
-            if (!auth) {
-                showToast("Authentication service unavailable.", "error");
-                return;
-            }
-            
-            setButtonLoading(btnRegister, true, 'Creating account...');
-            
-            try { 
-                await createUserWithEmailAndPassword(auth, email, password);
-                showToast("Account created successfully!", "success");
-            } 
-            catch (error) {
-                const errorDetails = getAuthErrorDetails(error);
-                if (errorDetails.field) {
-                    setFieldError(errorDetails.field, true, errorDetails.message);
-                }
-                showToast(errorDetails.message, errorDetails.type);
-                setButtonLoading(btnRegister, false, null, 'Register');
-            }
-        });
+    if (btnRegister) {
+        btnRegister.addEventListener('click', () => window.showRegisterScreen());
     }
 
     const logoutBtn = document.getElementById('logout-btn');
@@ -1483,5 +1490,486 @@ window.submitBatchEntry = function() {
         showToast(`${added} point${added !== 1 ? 's' : ''} added`, 'success');
     } else if (errors.length === 0) {
         showToast('No data in rows — please enter dates and values', 'error');
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REGISTRATION SCREEN — role selection + account creation
+// ─────────────────────────────────────────────────────────────────────────────
+let _regSelectedRoles = [];
+
+window.showRegisterScreen = function() {
+    const reg = document.getElementById('register-screen');
+    const auth = document.getElementById('auth-screen');
+    if (!reg) return;
+    reg.classList.remove('hidden');
+    if (auth) auth.classList.add('hidden');
+
+    // Reset state
+    _regSelectedRoles = [];
+
+    // Reset step visibility
+    const s1 = document.getElementById('reg-step-1');
+    const s2 = document.getElementById('reg-step-2');
+    if (s1) s1.classList.remove('hidden');
+    if (s2) s2.classList.add('hidden');
+
+    // Reset progress dots
+    const d1 = document.getElementById('reg-dot-1');
+    const d2 = document.getElementById('reg-dot-2');
+    if (d1) { d1.classList.add('bg-rcem-purple'); d1.classList.remove('bg-slate-200'); }
+    if (d2) { d2.classList.remove('bg-rcem-purple'); d2.classList.add('bg-slate-200'); }
+
+    // Reset role cards
+    ['trainee', 'supervisor', 'qip_lead'].forEach(role => {
+        const card = document.getElementById(`role-card-${role}`);
+        if (!card) return;
+        card.classList.remove('border-rcem-purple', 'bg-indigo-50', 'shadow-md');
+        const ind = card.querySelector('.role-check-indicator');
+        if (ind) {
+            ind.classList.remove('bg-rcem-purple', 'border-rcem-purple');
+            ind.classList.add('border-slate-300');
+            ind.innerHTML = '';
+        }
+    });
+
+    // Clear errors
+    const e1 = document.getElementById('reg-step1-error');
+    const e2 = document.getElementById('reg-error');
+    if (e1) { e1.classList.add('hidden'); e1.textContent = ''; }
+    if (e2) { e2.classList.add('hidden'); e2.textContent = ''; }
+
+    // Clear form fields
+    ['reg-name', 'reg-email', 'reg-password'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.value = '';
+    });
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.hideRegisterScreen = function() {
+    const reg = document.getElementById('register-screen');
+    const auth = document.getElementById('auth-screen');
+    if (reg) reg.classList.add('hidden');
+    if (auth) auth.classList.remove('hidden');
+};
+
+window.toggleRegRole = function(role) {
+    const card = document.getElementById(`role-card-${role}`);
+    if (!card) return;
+    const ind = card.querySelector('.role-check-indicator');
+
+    if (_regSelectedRoles.includes(role)) {
+        _regSelectedRoles = _regSelectedRoles.filter(r => r !== role);
+        card.classList.remove('border-rcem-purple', 'bg-indigo-50', 'shadow-md');
+        if (ind) {
+            ind.classList.remove('bg-rcem-purple', 'border-rcem-purple');
+            ind.classList.add('border-slate-300');
+            ind.innerHTML = '';
+        }
+    } else {
+        _regSelectedRoles.push(role);
+        card.classList.add('border-rcem-purple', 'bg-indigo-50', 'shadow-md');
+        if (ind) {
+            ind.classList.add('bg-rcem-purple', 'border-rcem-purple');
+            ind.classList.remove('border-slate-300');
+            ind.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        }
+    }
+};
+
+window.regNextStep = function() {
+    const errEl = document.getElementById('reg-step1-error');
+    if (_regSelectedRoles.length === 0) {
+        if (errEl) { errEl.textContent = 'Please select at least one role to continue.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+    if (errEl) errEl.classList.add('hidden');
+
+    // Build role summary
+    const roleLabels = { trainee: 'Trainee', supervisor: 'Clinical Supervisor', qip_lead: 'Departmental QIP Lead' };
+    const summaryEl = document.getElementById('reg-roles-summary');
+    if (summaryEl) {
+        summaryEl.innerHTML = 'Roles selected: ' + _regSelectedRoles.map(r =>
+            `<span class="font-bold text-rcem-purple">${roleLabels[r] || r}</span>`
+        ).join(', ');
+    }
+
+    // Transition to step 2
+    const s1 = document.getElementById('reg-step-1');
+    const s2 = document.getElementById('reg-step-2');
+    if (s1) s1.classList.add('hidden');
+    if (s2) s2.classList.remove('hidden');
+
+    // Update progress dots
+    const d2 = document.getElementById('reg-dot-2');
+    if (d2) { d2.classList.add('bg-rcem-purple'); d2.classList.remove('bg-slate-200'); }
+
+    // Focus email
+    setTimeout(() => { const em = document.getElementById('reg-email'); if (em) em.focus(); }, 80);
+};
+
+window.regGoBack = function() {
+    const s1 = document.getElementById('reg-step-1');
+    const s2 = document.getElementById('reg-step-2');
+    if (s2) s2.classList.add('hidden');
+    if (s1) s1.classList.remove('hidden');
+    const d2 = document.getElementById('reg-dot-2');
+    if (d2) { d2.classList.remove('bg-rcem-purple'); d2.classList.add('bg-slate-200'); }
+};
+
+async function saveUserProfileToFirestore(uid, email, displayName) {
+    if (!db) return;
+    try {
+        await setDoc(doc(db, 'qipUsers', uid), {
+            email: email || '',
+            displayName: displayName || '',
+            roles: _regSelectedRoles,
+            createdAt: new Date().toISOString()
+        }, { merge: true });
+    } catch (e) {
+        console.warn('[Register] Failed to save user profile to Firestore:', e);
+    }
+}
+
+window.submitRegister = async function() {
+    const nameEl = document.getElementById('reg-name');
+    const emailEl = document.getElementById('reg-email');
+    const passEl = document.getElementById('reg-password');
+    const errEl = document.getElementById('reg-error');
+    const submitBtn = document.getElementById('reg-submit-btn');
+
+    const name = nameEl ? nameEl.value.trim() : '';
+    const email = emailEl ? emailEl.value.trim() : '';
+    const password = passEl ? passEl.value : '';
+
+    if (!email || !isValidEmail(email)) {
+        if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+    if (!password || password.length < 6) {
+        if (errEl) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+    if (errEl) errEl.classList.add('hidden');
+
+    setButtonLoading(submitBtn, true, 'Creating account...');
+    try {
+        const cred = await createUserWithEmailAndPassword(auth, email, password);
+        await saveUserProfileToFirestore(cred.user.uid, email, name);
+        // onAuthStateChanged will fire and load the app
+        const reg = document.getElementById('register-screen');
+        if (reg) reg.classList.add('hidden');
+        showToast('Account created successfully! Welcome.', 'success');
+    } catch (error) {
+        const details = getAuthErrorDetails(error);
+        if (errEl) { errEl.textContent = details.message; errEl.classList.remove('hidden'); }
+        setButtonLoading(submitBtn, false, null, 'Create Account');
+    }
+};
+
+window.registerWithGoogle = async function() {
+    const errEl = document.getElementById('reg-error');
+    const googleBtn = document.getElementById('reg-btn-google');
+    if (errEl) errEl.classList.add('hidden');
+    setButtonLoading(googleBtn, true, 'Signing up with Google...');
+
+    try {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        const cred = await signInWithPopup(auth, provider);
+        await saveUserProfileToFirestore(cred.user.uid, cred.user.email, cred.user.displayName || '');
+        const reg = document.getElementById('register-screen');
+        if (reg) reg.classList.add('hidden');
+        showToast('Account created with Google! Welcome.', 'success');
+    } catch (error) {
+        if (error.code === 'auth/popup-closed-by-user' || error.code === 'auth/cancelled-popup-request') {
+            setButtonLoading(googleBtn, false, null, 'Sign up with Google');
+            return;
+        }
+        const details = getAuthErrorDetails(error);
+        if (errEl) { errEl.textContent = details.message; errEl.classList.remove('hidden'); }
+        setButtonLoading(googleBtn, false, null, 'Sign up with Google');
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MASTER ADMIN DASHBOARD — read-only view of ALL users' projects
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadMasterAdminDashboard() {
+    if (!state.isMasterAdmin || !db) return;
+
+    window.router('projects');
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.classList.add('hidden');
+
+    // Patch the view-projects header for admin context
+    const h1 = document.querySelector('#view-projects header h1');
+    if (h1) h1.textContent = 'Master Admin — All Projects';
+    const sub = document.querySelector('#view-projects header p');
+    if (sub) sub.textContent = 'Read-only overview of every user\'s QIP projects';
+    // Hide the "New Project" button for admin
+    const newBtn = document.querySelector('#view-projects header button');
+    if (newBtn) newBtn.classList.add('hidden');
+    // Hide QIP lead badge
+    const badge = document.getElementById('qip-lead-badge');
+    if (badge) badge.classList.add('hidden');
+    // Hide QIP lead dashboard container
+    const leadCont = document.getElementById('qip-lead-dashboard-container');
+    if (leadCont) leadCont.classList.add('hidden');
+
+    const listEl = document.getElementById('project-list');
+    if (!listEl) return;
+
+    listEl.className = 'w-full'; // override grid
+    listEl.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+            <div class="animate-spin rounded-full h-10 w-10 border-4 border-rcem-purple border-t-transparent mb-4"></div>
+            <p class="text-slate-500 font-medium">Loading all projects across all users&hellip;</p>
+        </div>`;
+
+    try {
+        const snap = await getDocs(collectionGroup(db, 'projects'));
+        state.adminAllProjects = [];
+        const userMap = {};
+
+        snap.forEach(docSnap => {
+            const pathParts = docSnap.ref.path.split('/');
+            // Path: users/{uid}/projects/{pid}
+            if (pathParts.length < 4 || pathParts[0] !== 'users' || pathParts[2] !== 'projects') return;
+            const ownerUid = pathParts[1];
+            const projectId = docSnap.id;
+            const data = docSnap.data();
+            state.adminAllProjects.push({ ownerUid, projectId, data });
+            if (!userMap[ownerUid]) userMap[ownerUid] = [];
+            userMap[ownerUid].push({ projectId, data });
+        });
+
+        // Fetch user emails from qipUsers collection
+        const userEmails = {};
+        for (const uid of Object.keys(userMap)) {
+            try {
+                const uSnap = await getDoc(doc(db, 'qipUsers', uid));
+                if (uSnap.exists()) {
+                    const ud = uSnap.data();
+                    userEmails[uid] = ud.displayName ? `${ud.displayName} (${ud.email})` : (ud.email || uid);
+                } else {
+                    userEmails[uid] = uid;
+                }
+            } catch (e) { userEmails[uid] = uid; }
+        }
+
+        const totalProjects = state.adminAllProjects.length;
+        const totalUsers = Object.keys(userMap).length;
+
+        // Update admin bar count
+        const countEl = document.getElementById('admin-project-count');
+        if (countEl) countEl.textContent = `${totalProjects} project${totalProjects !== 1 ? 's' : ''} · ${totalUsers} user${totalUsers !== 1 ? 's' : ''}`;
+
+        if (totalProjects === 0) {
+            listEl.innerHTML = `
+                <div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
+                    <i data-lucide="inbox" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
+                    <h3 class="font-bold text-slate-600 mb-1">No Projects Found</h3>
+                    <p class="text-slate-400 text-sm">No users have created QIP projects yet.</p>
+                </div>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        // Render — grouped by user
+        let html = `
+            <div class="mb-6 grid grid-cols-3 gap-4">
+                <div class="bg-rcem-purple text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${totalProjects}</div>
+                    <div class="text-xs opacity-80 mt-1">Total Projects</div>
+                </div>
+                <div class="bg-indigo-600 text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${totalUsers}</div>
+                    <div class="text-xs opacity-80 mt-1">Users</div>
+                </div>
+                <div class="bg-emerald-600 text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${state.adminAllProjects.reduce((s, p) => s + (p.data.pdsa || []).length, 0)}</div>
+                    <div class="text-xs opacity-80 mt-1">Total PDSA Cycles</div>
+                </div>
+            </div>`;
+
+        for (const [uid, projects] of Object.entries(userMap)) {
+            const email = escapeHtml(userEmails[uid] || uid);
+            html += `
+                <div class="mb-8">
+                    <div class="flex items-center gap-2 mb-3 pb-2 border-b border-slate-200">
+                        <div class="w-7 h-7 bg-rcem-purple rounded-full flex items-center justify-center flex-shrink-0">
+                            <i data-lucide="user" class="w-3.5 h-3.5 text-white"></i>
+                        </div>
+                        <span class="font-bold text-slate-700">${email}</span>
+                        <span class="text-xs text-slate-400 ml-1">${projects.length} project${projects.length !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">`;
+
+            projects.forEach(({ projectId, data }, idx) => {
+                const title = escapeHtml(data.meta?.title || 'Untitled');
+                const created = data.meta?.created ? new Date(data.meta.created).toLocaleDateString('en-GB') : '?';
+                const updated = data.meta?.updated ? new Date(data.meta.updated).toLocaleDateString('en-GB') : '?';
+                const pdsaCount = (data.pdsa || []).length;
+                const dataPoints = (data.chartData || []).length;
+                const c = data.checklist || {};
+                const filled = ['problem_desc', 'aim', 'outcome_measure', 'process_measure', 'lit_review'].filter(k => c[k]).length;
+                const progress = Math.round((filled / 5) * 100);
+
+                html += `
+                    <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group"
+                         onclick="window.adminViewProject('${uid}', '${projectId}')">
+                        <div class="flex items-start justify-between mb-2 gap-2">
+                            <h3 class="font-bold text-slate-800 truncate group-hover:text-rcem-purple transition-colors" title="${title}">${title}</h3>
+                            <span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap flex-shrink-0">Read-only</span>
+                        </div>
+                        <p class="text-xs text-slate-400 mb-3">Created: ${created}&ensp;·&ensp;Updated: ${updated}</p>
+                        <div class="w-full bg-slate-100 rounded-full h-1.5 mb-3">
+                            <div class="bg-rcem-purple h-1.5 rounded-full transition-all" style="width:${progress}%"></div>
+                        </div>
+                        <div class="flex flex-wrap gap-1.5 text-[11px] text-slate-500">
+                            <span class="bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                <i data-lucide="refresh-cw" class="w-3 h-3 inline mr-0.5"></i>${pdsaCount} PDSA
+                            </span>
+                            <span class="bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                <i data-lucide="activity" class="w-3 h-3 inline mr-0.5"></i>${dataPoints} data pts
+                            </span>
+                            <span class="bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
+                                <i data-lucide="check-square" class="w-3 h-3 inline mr-0.5"></i>${progress}% complete
+                            </span>
+                        </div>
+                    </div>`;
+            });
+
+            html += `</div></div>`;
+        }
+
+        listEl.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    } catch (e) {
+        console.error('[Admin] loadMasterAdminDashboard error:', e);
+        listEl.innerHTML = `
+            <div class="p-8 bg-red-50 rounded-xl border border-red-200 text-center">
+                <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-red-500 mb-3"></i>
+                <h3 class="font-bold text-red-700 mb-1">Failed to Load Projects</h3>
+                <p class="text-red-600 text-sm mb-2">${escapeHtml(e.message)}</p>
+                <p class="text-slate-500 text-xs">Make sure the Firestore collection group rules are set up correctly (see the rules provided).</p>
+            </div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+window.adminViewProject = async function(uid, projectId) {
+    if (!state.isMasterAdmin) return;
+    try {
+        const snap = await getDoc(doc(db, `users/${uid}/projects`, projectId));
+        if (!snap.exists()) { showToast('Project not found', 'error'); return; }
+
+        const data = snap.data();
+        // Ensure all expected fields exist
+        if (!data.checklist) data.checklist = {};
+        if (!data.drivers) data.drivers = { primary: [], secondary: [], changes: [] };
+        if (!data.fishbone) data.fishbone = {};
+        if (!data.pdsa) data.pdsa = [];
+        if (!data.chartData) data.chartData = [];
+        if (!data.stakeholders) data.stakeholders = [];
+        if (!data.gantt) data.gantt = [];
+        if (!data.teamMembers) data.teamMembers = [];
+        if (!data.chartSettings) data.chartSettings = {};
+        if (!data.process) data.process = ['Start', 'End'];
+        if (!data.surveys) data.surveys = [];
+
+        state.projectData = data;
+        state.currentProjectId = projectId;
+        state.isReadOnly = true;
+        state.isLeadViewing = false;
+
+        const headerTitle = document.getElementById('project-header-title');
+        if (headerTitle) headerTitle.textContent = (data.meta?.title || 'Untitled') + ' \u2014 Admin View';
+
+        const topBar = document.getElementById('top-bar');
+        if (topBar) topBar.classList.remove('hidden');
+
+        window.router('dashboard');
+        showToast('Admin: read-only project view', 'info');
+    } catch (e) {
+        showToast('Failed to open project: ' + e.message, 'error');
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE MANAGEMENT — load and toggle roles in Settings modal
+// ─────────────────────────────────────────────────────────────────────────────
+async function loadRolesIntoSettings() {
+    const container = document.getElementById('settings-roles-container');
+    if (!container || !state.currentUser || !db) return;
+
+    container.innerHTML = '<p class="text-xs text-slate-400 italic">Loading...</p>';
+
+    try {
+        const snap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
+        const currentRoles = snap.exists() ? (snap.data().roles || []) : [];
+
+        const roleOptions = [
+            { key: 'trainee',   label: 'Trainee',                icon: 'user',             desc: 'Manage your own QIP projects' },
+            { key: 'supervisor', label: 'Clinical Supervisor',   icon: 'user-check',        desc: 'Review & sign off trainees\' projects' },
+            { key: 'qip_lead',   label: 'Departmental QIP Lead', icon: 'layout-dashboard',  desc: 'Dashboard of all department QIPs' }
+        ];
+
+        container.innerHTML = roleOptions.map(ro => {
+            const active = currentRoles.includes(ro.key);
+            return `
+                <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2.5 gap-3">
+                    <div class="flex items-center gap-2 min-w-0">
+                        <i data-lucide="${ro.icon}" class="w-4 h-4 text-rcem-purple flex-shrink-0"></i>
+                        <div class="min-w-0">
+                            <p class="text-xs font-medium text-slate-700 truncate">${ro.label}</p>
+                            <p class="text-[11px] text-slate-400 truncate">${ro.desc}</p>
+                        </div>
+                    </div>
+                    <button onclick="window.toggleSettingsRole('${ro.key}', this)"
+                            data-active="${active}"
+                            class="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${active
+                                ? 'bg-rcem-purple text-white border-rcem-purple hover:bg-indigo-700'
+                                : 'bg-white text-slate-600 border-slate-300 hover:border-rcem-purple hover:text-rcem-purple'}">
+                        ${active ? 'Remove' : 'Add'}
+                    </button>
+                </div>`;
+        }).join('');
+
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [container] });
+    } catch (e) {
+        container.innerHTML = '<p class="text-xs text-red-500">Could not load roles</p>';
+        console.warn('[Settings] loadRolesIntoSettings error:', e);
+    }
+}
+
+window.toggleSettingsRole = async function(role, btnEl) {
+    if (!state.currentUser || !db) return;
+    const wasActive = btnEl.dataset.active === 'true';
+
+    try {
+        const snap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
+        let roles = snap.exists() ? (snap.data().roles || []) : [];
+
+        if (wasActive) {
+            roles = roles.filter(r => r !== role);
+        } else {
+            if (!roles.includes(role)) roles.push(role);
+        }
+
+        await setDoc(doc(db, 'qipUsers', state.currentUser.uid), {
+            email: state.currentUser.email || '',
+            roles
+        }, { merge: true });
+
+        // Refresh the role list UI
+        await loadRolesIntoSettings();
+        showToast(`Role ${wasActive ? 'removed' : 'added'}`, 'success');
+    } catch (e) {
+        showToast('Failed to update roles: ' + e.message, 'error');
     }
 };
