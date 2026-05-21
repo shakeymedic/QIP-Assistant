@@ -470,7 +470,7 @@ export function printPosterOnly() {
             .from(exportTarget)
             .save()
             .then(() => {
-                showToast(\`PDF saved: \${filename}\`, "success");
+                showToast(`PDF saved: ${filename}`, "success");
                 if (prevView && window.router) window.router(prevView);
             })
             .catch(err => {
