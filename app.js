@@ -805,6 +805,11 @@ if (auth) {
                 // Push content down so admin bar doesn't overlap nav
                 const appContainer = document.getElementById('app-container');
                 if (appContainer) appContainer.style.marginTop = '32px';
+                // Show Admin Dashboard button in sidebar, relabel Switch Project
+                const adminHomeBtn = document.getElementById('sidebar-admin-home');
+                if (adminHomeBtn) adminHomeBtn.classList.remove('hidden');
+                const switchLbl = document.getElementById('switch-project-label');
+                if (switchLbl) switchLbl.textContent = 'All Projects';
                 loadMasterAdminDashboard();
             } else {
                 if (ud) ud.textContent = user.email;
@@ -899,9 +904,11 @@ async function checkQIPLeadStatus(user) {
             const badgeText = document.getElementById('qip-lead-badge-text');
             if (badge) badge.classList.remove('hidden');
             if (badgeText) badgeText.textContent = `Supervising ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
-            // Show Lead Dashboard nav button
+            // Show Lead Dashboard nav button + sidebar home button
             const navBtn = document.getElementById('nav-lead-dashboard');
             if (navBtn) navBtn.classList.remove('hidden');
+            const leadHomeBtn = document.getElementById('sidebar-lead-home');
+            if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
             // Render QIP Lead panel in supervisor section
             const panel = document.getElementById('qip-lead-panel');
             if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);

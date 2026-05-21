@@ -2160,52 +2160,108 @@ export function renderFullProject() {
                 <!-- ===== FISHBONE DIAGRAM ===== -->
                 ${(d.fishbone?.categories?.filter(c=>c.text).length > 0) ? (() => {
                     const cats = d.fishbone.categories.filter(c => c.text);
-                    const W = 900, H = 420, spineY = H/2, headX = W-90, tailX = 70;
+                    // SVG skeleton — no cause text in SVG to prevent overlap
+                    const W = 1060, H = 340, spineY = H/2, headX = W-80, tailX = 60;
                     const spacing = (headX - tailX) / (cats.length + 1);
+                    const armH = 120;
                     let paths = '', lbls = '';
                     cats.forEach((cat, i) => {
                         const bx = tailX + (i+1)*spacing;
                         const above = i%2===0;
-                        const ex = bx - spacing*0.45, ey = above ? spineY-110 : spineY+110;
+                        const ex = bx - spacing*0.38;
+                        const ey = above ? spineY-armH : spineY+armH;
+                        // Bone arm
                         paths += `<line x1="${bx}" y1="${spineY}" x2="${ex}" y2="${ey}" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>`;
-                        const catText = (cat.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                        lbls += `<text x="${ex}" y="${above?ey-12:ey+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">${catText}</text>`;
-                        (cat.causes||[]).slice(0,5).forEach((cause,j)=>{
-                            const t=(j+1)/((cat.causes.length||1)+1);
-                            const cx=bx+t*(ex-bx), cy=spineY+t*(ey-spineY);
-                            const cex=cx+(above?-45:-45), cey=cy+(above?-38:38);
-                            paths += `<line x1="${cx}" y1="${cy}" x2="${cex}" y2="${cey}" stroke="#818cf8" stroke-width="1.5"/>`;
-                            const ct = (cause.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                            lbls += `<text x="${cex}" y="${above?cey-4:cey+11}" text-anchor="${above?'end':'end'}" font-size="9" fill="#4b5563">${ct}</text>`;
+                        // Tick marks for causes (no text — detail goes in cards below)
+                        (cat.causes||[]).slice(0,6).forEach((_, j) => {
+                            const t = (j+1) / (Math.min((cat.causes||[]).length, 6) + 1);
+                            const cx = bx + t*(ex-bx), cy = spineY + t*(ey-spineY);
+                            const tx2 = cx + (above ? -22 : -22), ty2 = cy + (above ? -18 : 18);
+                            paths += `<line x1="${cx}" y1="${cy}" x2="${tx2}" y2="${ty2}" stroke="#818cf8" stroke-width="1.5" opacity="0.65"/>`;
                         });
+                        // Category label pill
+                        const safe = escapeHtml(cat.text||'');
+                        const pw = Math.min(safe.length * 7 + 22, 170);
+                        const py = above ? ey-28 : ey+8;
+                        lbls += `<rect x="${ex - pw/2}" y="${py}" width="${pw}" height="22" rx="5" fill="#312e81"/>`;
+                        lbls += `<text x="${ex}" y="${py+15}" text-anchor="middle" font-size="11" font-weight="700" fill="white">${safe}</text>`;
                     });
+                    // Problem label (short excerpt)
+                    const probText = escapeHtml((d.checklist?.problem_desc||d.fivewhys?.problem||'').substring(0,20)) + ((d.checklist?.problem_desc||d.fivewhys?.problem||'').length > 20 ? '\u2026' : '');
+                    // Cause detail cards
+                    const cardHtml = cats.map(cat => `
+                        <div class="bg-white rounded-lg border border-indigo-100 p-3">
+                            <div class="font-bold text-indigo-800 text-sm mb-2 pb-1 border-b border-indigo-100">${escapeHtml(cat.text||'')}</div>
+                            <ul class="space-y-1">
+                                ${(cat.causes||[]).length > 0
+                                    ? (cat.causes||[]).map(c => `<li class="text-xs text-slate-600 flex gap-1.5 items-start"><span class="text-indigo-400 mt-0.5 flex-shrink-0">&bull;</span><span>${escapeHtml(c.text||'')}</span></li>`).join('')
+                                    : '<li class="text-xs text-slate-400 italic">No causes added</li>'}
+                            </ul>
+                        </div>`).join('');
                     return `<section>
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">F</span>
                             Fishbone (Cause &amp; Effect) Diagram
                         </h2>
-                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-2 overflow-x-auto">
-                            <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:200px">
+                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 overflow-x-auto mb-4">
+                            <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:160px;max-height:280px">
                                 <rect x="0" y="0" width="${W}" height="${H}" fill="#f8fafc" rx="8"/>
                                 <line x1="${tailX}" y1="${spineY}" x2="${headX}" y2="${spineY}" stroke="#1e1b4b" stroke-width="3.5"/>
                                 <polygon points="${headX+4},${spineY} ${headX-14},${spineY-8} ${headX-14},${spineY+8}" fill="#1e1b4b"/>
                                 ${paths}${lbls}
-                                <rect x="${headX+6}" y="${spineY-22}" width="80" height="44" rx="6" fill="#ef4444"/>
-                                <text x="${headX+46}" y="${spineY+5}" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Problem</text>
+                                <rect x="${headX+6}" y="${spineY-24}" width="78" height="48" rx="6" fill="#ef4444"/>
+                                <text x="${headX+45}" y="${spineY-6}" text-anchor="middle" font-size="10" font-weight="bold" fill="white">Problem</text>
+                                <text x="${headX+45}" y="${spineY+9}" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)">${probText}</text>
                             </svg>
                         </div>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">${cardHtml}</div>
                     </section>`;
                 })() : ''}
 
                 <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->
-                ${(d.stakeholders?.length > 0) ? `
+                ${(d.stakeholders?.length > 0) ? (() => {
+                    // De-overlap: bucket dots to nearest 5% grid, spread clashes in a spiral
+                    const offsets = [[0,0],[5,-5],[5,5],[-5,5],[-5,-5],[0,-8],[8,0],[0,8],[-8,0],[3,-8],[-3,-8],[3,8],[-3,8]];
+                    const buckets = {};
+                    d.stakeholders.forEach((s, idx) => {
+                        const bx = Math.round((s.interest||50) / 5) * 5;
+                        const by = Math.round((100-(s.power||50)) / 5) * 5;
+                        const key = `${bx}_${by}`;
+                        if (!buckets[key]) buckets[key] = [];
+                        buckets[key].push(idx);
+                    });
+                    const finalPos = d.stakeholders.map((s, idx) => {
+                        const base = { x: Math.max(5,Math.min(95,s.interest||50)), y: Math.max(5,Math.min(95,100-(s.power||50))) };
+                        const bx = Math.round(base.x/5)*5, by = Math.round(base.y/5)*5;
+                        const key = `${bx}_${by}`;
+                        const slot = buckets[key].indexOf(idx);
+                        const [ox, oy] = offsets[slot % offsets.length];
+                        return { x: Math.max(4, Math.min(96, base.x + ox)), y: Math.max(4, Math.min(96, base.y + oy)) };
+                    });
+                    const dots = d.stakeholders.map((s, idx) => {
+                        const { x: sx, y: sy } = finalPos[idx];
+                        const hp = (s.power||50)>=50, hi = (s.interest||50)>=50;
+                        const bg = hp&&hi?'#dc2626':hp?'#d97706':hi?'#2563eb':'#64748b';
+                        const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+                        return `<div style="position:absolute;left:${sx}%;top:${sy}%;transform:translate(-50%,-50%);z-index:${idx+1}" title="${escapeHtml(s.name||'')}">
+                            <div style="width:30px;height:30px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.8)">${escapeHtml(initials)}</div>
+                        </div>`;
+                    }).join('');
+                    return `
                     <section>
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">S</span>
                             Stakeholder Power / Interest Matrix
                         </h2>
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="relative bg-white rounded-xl border-2 border-slate-200" style="aspect-ratio:1; overflow:hidden;">
+                            <div class="relative bg-white rounded-xl border-2 border-slate-200" style="aspect-ratio:1;">
+                                <!-- Axis labels -->
+                                <div class="absolute -left-6 inset-y-0 flex items-center pointer-events-none">
+                                    <span style="writing-mode:vertical-rl;transform:rotate(180deg)" class="text-[10px] font-bold text-slate-500 tracking-widest">POWER &uarr;</span>
+                                </div>
+                                <div class="absolute inset-x-0 -bottom-5 flex justify-center pointer-events-none">
+                                    <span class="text-[10px] font-bold text-slate-500 tracking-widest">INTEREST &rarr;</span>
+                                </div>
                                 <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
                                     <div class="border-r border-b border-slate-200 bg-amber-50/60 p-2 flex flex-col justify-start"><span class="text-[9px] font-bold text-amber-700">KEEP SATISFIED</span><span class="text-[8px] text-amber-500">High Power / Low Interest</span></div>
                                     <div class="border-b border-slate-200 bg-red-50/60 p-2 flex flex-col items-end"><span class="text-[9px] font-bold text-red-700">MANAGE CLOSELY</span><span class="text-[8px] text-red-500">High Power / High Interest</span></div>
@@ -2214,16 +2270,7 @@ export function renderFullProject() {
                                 </div>
                                 <div class="absolute inset-y-0 left-1/2 border-l border-slate-300 pointer-events-none"></div>
                                 <div class="absolute inset-x-0 top-1/2 border-t border-slate-300 pointer-events-none"></div>
-                                ${d.stakeholders.map(s => {
-                                    const sx = Math.max(3,Math.min(97,s.interest||50));
-                                    const sy = Math.max(3,Math.min(97,100-(s.power||50)));
-                                    const hp = (s.power||50)>=50, hi = (s.interest||50)>=50;
-                                    const bg = hp&&hi?'#dc2626':hp?'#d97706':hi?'#2563eb':'#64748b';
-                                    const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                                    return `<div style="position:absolute;left:${sx}%;top:${sy}%;transform:translate(-50%,-50%)" title="${escapeHtml(s.name||'')}">
-                                        <div style="width:26px;height:26px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;color:white;font-size:8px;font-weight:700;box-shadow:0 2px 4px rgba(0,0,0,0.25)">${escapeHtml(initials)}</div>
-                                    </div>`;
-                                }).join('')}
+                                ${dots}
                             </div>
                             <div class="space-y-2">
                                 ${d.stakeholders.map(s => {
@@ -2241,7 +2288,8 @@ export function renderFullProject() {
                             </div>
                         </div>
                     </section>
-                ` : ''}
+                `;
+                })() : ''}
 
                 <!-- ===== 5-WHYS ===== -->
                 ${(d.fivewhys?.problem) ? `
