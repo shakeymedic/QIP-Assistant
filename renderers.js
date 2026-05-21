@@ -2167,34 +2167,34 @@ export function renderFullProject() {
                         const bx = tailX + (i+1)*spacing;
                         const above = i%2===0;
                         const ex = bx - spacing*0.45, ey = above ? spineY-110 : spineY+110;
-                        paths += \`<line x1="\${bx}" y1="\${spineY}" x2="\${ex}" y2="\${ey}" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>\`;
+                        paths += `<line x1="${bx}" y1="${spineY}" x2="${ex}" y2="${ey}" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>`;
                         const catText = (cat.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                        lbls += \`<text x="\${ex}" y="\${above?ey-12:ey+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">\${catText}</text>\`;
+                        lbls += `<text x="${ex}" y="${above?ey-12:ey+20}" text-anchor="middle" font-size="12" font-weight="700" fill="#312e81">${catText}</text>`;
                         (cat.causes||[]).slice(0,5).forEach((cause,j)=>{
                             const t=(j+1)/((cat.causes.length||1)+1);
                             const cx=bx+t*(ex-bx), cy=spineY+t*(ey-spineY);
                             const cex=cx+(above?-45:-45), cey=cy+(above?-38:38);
-                            paths += \`<line x1="\${cx}" y1="\${cy}" x2="\${cex}" y2="\${cey}" stroke="#818cf8" stroke-width="1.5"/>\`;
+                            paths += `<line x1="${cx}" y1="${cy}" x2="${cex}" y2="${cey}" stroke="#818cf8" stroke-width="1.5"/>`;
                             const ct = (cause.text||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-                            lbls += \`<text x="\${cex}" y="\${above?cey-4:cey+11}" text-anchor="\${above?'end':'end'}" font-size="9" fill="#4b5563">\${ct}</text>\`;
+                            lbls += `<text x="${cex}" y="${above?cey-4:cey+11}" text-anchor="${above?'end':'end'}" font-size="9" fill="#4b5563">${ct}</text>`;
                         });
                     });
-                    return \`<section>
+                    return `<section>
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">F</span>
                             Fishbone (Cause &amp; Effect) Diagram
                         </h2>
                         <div class="bg-slate-50 rounded-xl border border-slate-200 p-2 overflow-x-auto">
-                            <svg viewBox="0 0 \${W} \${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:200px">
-                                <rect x="0" y="0" width="\${W}" height="\${H}" fill="#f8fafc" rx="8"/>
-                                <line x1="\${tailX}" y1="\${spineY}" x2="\${headX}" y2="\${spineY}" stroke="#1e1b4b" stroke-width="3.5"/>
-                                <polygon points="\${headX+4},\${spineY} \${headX-14},\${spineY-8} \${headX-14},\${spineY+8}" fill="#1e1b4b"/>
-                                \${paths}\${lbls}
-                                <rect x="\${headX+6}" y="\${spineY-22}" width="80" height="44" rx="6" fill="#ef4444"/>
-                                <text x="\${headX+46}" y="\${spineY+5}" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Problem</text>
+                            <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:200px">
+                                <rect x="0" y="0" width="${W}" height="${H}" fill="#f8fafc" rx="8"/>
+                                <line x1="${tailX}" y1="${spineY}" x2="${headX}" y2="${spineY}" stroke="#1e1b4b" stroke-width="3.5"/>
+                                <polygon points="${headX+4},${spineY} ${headX-14},${spineY-8} ${headX-14},${spineY+8}" fill="#1e1b4b"/>
+                                ${paths}${lbls}
+                                <rect x="${headX+6}" y="${spineY-22}" width="80" height="44" rx="6" fill="#ef4444"/>
+                                <text x="${headX+46}" y="${spineY+5}" text-anchor="middle" font-size="11" font-weight="bold" fill="white">Problem</text>
                             </svg>
                         </div>
-                    </section>\`;
+                    </section>`;
                 })() : ''}
 
                 <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->

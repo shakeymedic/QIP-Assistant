@@ -1,10 +1,6 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-
-// ─── Master Admin ─────────────────────────────────────────────────────────────
-const ADMIN_EMAIL = 'emevidence999@gmail.com';
-
 import { state, emptyProject, getDemoData } from "./state.js";
 import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
 window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
@@ -25,6 +21,9 @@ import { exportToKaizen } from "./kaizen-export.js";
 import { renderSupervisorDashboard } from "./supervisor.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
+
+// ─── Master Admin ───────────────────────────────────────────────────────
+const ADMIN_EMAIL = 'emevidence999@gmail.com';
 
 console.log('App starting...');
 window._qipModules = { state }; // expose for export functions
