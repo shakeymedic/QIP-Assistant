@@ -457,6 +457,7 @@ window.deleteLeadershipLog = R.deleteLeadershipLog;
 window.addStakeholder = R.addStakeholder;
 window.updateStake = R.updateStake;
 window.removeStake = R.removeStake;
+window.editStakeholder = R.editStakeholder;
 window.toggleStakeView = R.toggleStakeView;
 
 window.addPDSA = R.addPDSA;

@@ -1512,9 +1512,14 @@ export function renderStakeholders() {
                         <div class="${bgColor} text-white px-3 py-2 rounded-lg shadow-md hover:shadow-lg transition-all text-xs font-medium max-w-[140px] text-center leading-tight">
                             <div class="font-bold">${escapeHtml(s.name || 'Unknown')}</div>
                             ${s.role ? `<div class="text-[10px] opacity-80 mt-0.5">${escapeHtml(s.role)}</div>` : ''}
+                            ${s.organisation ? `<div class="text-[10px] opacity-70 mt-0.5">${escapeHtml(s.organisation)}</div>` : ''}
                         </div>
+                        <button onclick="event.stopPropagation(); window.editStakeholder(${i})"
+                                class="absolute -top-2 -left-2 w-5 h-5 bg-indigo-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-indigo-600" title="Edit">
+                            <i data-lucide="pencil" class="w-2.5 h-2.5 pointer-events-none"></i>
+                        </button>
                         <button onclick="event.stopPropagation(); window.removeStake(${i})" 
-                                class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs hover:bg-red-600">
+                                class="absolute -top-2 -right-2 w-5 h-5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-xs hover:bg-red-600" title="Remove">
                             ×
                         </button>
                     </div>
@@ -1548,7 +1553,7 @@ function initStakeholderDrag() {
         const index = parseInt(label.dataset.index);
         
         label.addEventListener('mousedown', (e) => {
-            if (e.target.tagName === 'BUTTON') return;
+            if (e.target.closest('button')) return;
             e.preventDefault();
             
             const rect = matrix.getBoundingClientRect();
@@ -1587,13 +1592,15 @@ export function addStakeholder() {
         'Add Stakeholder',
         [
             { id: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Dr Sarah Hart', required: true },
-            { id: 'role', label: 'Role / Position', type: 'text', placeholder: 'e.g. Senior Nurse Manager (optional)' }
+            { id: 'role', label: 'Role / Title', type: 'text', placeholder: 'e.g. Senior Nurse Manager' },
+            { id: 'organisation', label: 'Organisation / Department', type: 'text', placeholder: 'e.g. Emergency Department' }
         ],
         (data) => {
             if (!state.projectData.stakeholders) state.projectData.stakeholders = [];
             state.projectData.stakeholders.push({
                 name: data.name,
                 role: data.role || '',
+                organisation: data.organisation || '',
                 x: 50,
                 y: 50
             });
@@ -1616,6 +1623,29 @@ export function removeStake(index) {
         renderStakeholders();
         showToast('Stakeholder removed', 'info');
     }, 'Remove', 'Remove Stakeholder');
+}
+
+export function editStakeholder(index) {
+    if (!state.projectData.stakeholders) return;
+    const s = state.projectData.stakeholders[index];
+    if (!s) return;
+    window.showInputModal(
+        'Edit Stakeholder',
+        [
+            { id: 'name', label: 'Name', type: 'text', placeholder: 'e.g. Dr Sarah Hart', required: true, value: s.name || '' },
+            { id: 'role', label: 'Role / Title', type: 'text', placeholder: 'e.g. Senior Nurse Manager', value: s.role || '' },
+            { id: 'organisation', label: 'Organisation / Department', type: 'text', placeholder: 'e.g. Emergency Department', value: s.organisation || '' }
+        ],
+        (data) => {
+            state.projectData.stakeholders[index].name = data.name;
+            state.projectData.stakeholders[index].role = data.role || '';
+            state.projectData.stakeholders[index].organisation = data.organisation || '';
+            if (window.saveData) window.saveData();
+            renderStakeholders();
+            showToast('Stakeholder updated', 'success');
+        },
+        'Save Changes'
+    );
 }
 
 export function toggleStakeView() {
@@ -1671,12 +1701,18 @@ export function toggleStakeView() {
                                 return `
                                     <tr class="hover:bg-slate-50">
                                         <td class="px-4 py-3 font-medium">${escapeHtml(s.name)}</td>
-                                        <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(s.role || '-')}</td>
+                                        <td class="px-4 py-3 text-sm text-slate-600">
+                                            <div>${escapeHtml(s.role || '-')}</div>
+                                            ${s.organisation ? `<div class="text-xs text-slate-400">${escapeHtml(s.organisation)}</div>` : ''}
+                                        </td>
                                         <td class="px-4 py-3 text-sm">${power}%</td>
                                         <td class="px-4 py-3 text-sm">${interest}%</td>
                                         <td class="px-4 py-3 text-sm font-medium ${strategyColor}">${strategy}</td>
-                                        <td class="px-4 py-3 text-right">
-                                            <button onclick="window.removeStake(${i})" class="text-slate-300 hover:text-red-500">
+                                        <td class="px-4 py-3 text-right flex items-center justify-end gap-2">
+                                            <button onclick="window.editStakeholder(${i})" class="text-slate-300 hover:text-indigo-500" title="Edit">
+                                                <i data-lucide="pencil" class="w-4 h-4"></i>
+                                            </button>
+                                            <button onclick="window.removeStake(${i})" class="text-slate-300 hover:text-red-500" title="Remove">
                                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                                             </button>
                                         </td>
@@ -2284,7 +2320,7 @@ export function renderFullProject() {
                                     return `<div class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
                                         <div class="flex-1 min-w-0">
                                             <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(s.name||'')}</div>
-                                            <div class="text-xs text-slate-400">${escapeHtml(s.role||'')}</div>
+                                            <div class="text-xs text-slate-400">${escapeHtml([s.role, s.organisation].filter(Boolean).join(' \u2014 '))}</div>
                                         </div>
                                         <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${qc}">${q}</span>
                                     </div>`;
