@@ -1590,8 +1590,18 @@ window.toggleRegRole = function(role) {
     const card = document.getElementById(`role-card-${role}`);
     if (!card) return;
     const ind = card.querySelector('.role-check-indicator');
+    const errEl = document.getElementById('reg-step1-error');
 
     if (_regSelectedRoles.includes(role)) {
+        // Guard: cannot deselect the only remaining role
+        if (_regSelectedRoles.length === 1) {
+            if (errEl) {
+                errEl.textContent = 'You must keep at least one role selected.';
+                errEl.classList.remove('hidden');
+                setTimeout(() => errEl.classList.add('hidden'), 3000);
+            }
+            return;
+        }
         _regSelectedRoles = _regSelectedRoles.filter(r => r !== role);
         card.classList.remove('border-rcem-purple', 'bg-indigo-50', 'shadow-md');
         if (ind) {
@@ -1607,6 +1617,8 @@ window.toggleRegRole = function(role) {
             ind.classList.remove('border-slate-300');
             ind.innerHTML = '<svg class="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
         }
+        // Clear any error once a valid selection exists
+        if (errEl) errEl.classList.add('hidden');
     }
 };
 
@@ -1675,6 +1687,12 @@ window.submitRegister = async function() {
     const email = emailEl ? emailEl.value.trim() : '';
     const password = passEl ? passEl.value : '';
 
+    // Safety net: roles must have been selected in step 1
+    if (_regSelectedRoles.length === 0) {
+        if (errEl) { errEl.textContent = 'Please go back and select at least one role.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
     if (!email || !isValidEmail(email)) {
         if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.classList.remove('hidden'); }
         return;
@@ -1703,6 +1721,13 @@ window.submitRegister = async function() {
 window.registerWithGoogle = async function() {
     const errEl = document.getElementById('reg-error');
     const googleBtn = document.getElementById('reg-btn-google');
+
+    // Safety net: roles must have been selected in step 1
+    if (_regSelectedRoles.length === 0) {
+        if (errEl) { errEl.textContent = 'Please go back and select at least one role.'; errEl.classList.remove('hidden'); }
+        return;
+    }
+
     if (errEl) errEl.classList.add('hidden');
     setButtonLoading(googleBtn, true, 'Signing up with Google...');
 
