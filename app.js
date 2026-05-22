@@ -416,32 +416,41 @@ window.startOnboarding = startOnboarding;
 
 window.openMemberModal = R.openMemberModal;
 window.saveMember = () => {
-    const name = document.getElementById('member-name').value;
-    const role = document.getElementById('member-role').value;
-    const grade = document.getElementById('member-grade').value;
-    const resp = document.getElementById('member-resp').value;
-    const init = document.getElementById('member-init').value;
-    
-    if(!name) { showToast("Name is required", "error"); return; }
-    
+    const name  = document.getElementById('member-name').value.trim();
+    const role  = document.getElementById('member-role').value.trim();
+    const grade = document.getElementById('member-grade').value.trim();
+    const resp  = document.getElementById('member-resp').value.trim();
+    const init  = document.getElementById('member-init').value.trim();
+    const idxRaw = document.getElementById('member-index').value;
+    const editIndex = idxRaw !== '' ? parseInt(idxRaw, 10) : null;
+
+    if (!name) { showToast('Name is required', 'error'); return; }
+
     if (!state.projectData.teamMembers) state.projectData.teamMembers = [];
-    state.projectData.teamMembers.push({ 
-        id: Date.now().toString(),
-        name, role, grade, responsibilities: resp, 
-        initials: init || name.substring(0,2).toUpperCase() 
-    });
-    
+
+    const memberData = {
+        name, role, grade, responsibilities: resp,
+        initials: init || name.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase()
+    };
+
+    if (editIndex !== null && state.projectData.teamMembers[editIndex]) {
+        // Preserve the original id when editing
+        memberData.id = state.projectData.teamMembers[editIndex].id || Date.now().toString();
+        state.projectData.teamMembers[editIndex] = memberData;
+        showToast('Member updated', 'success');
+    } else {
+        memberData.id = Date.now().toString();
+        state.projectData.teamMembers.push(memberData);
+        showToast('Member added', 'success');
+    }
+
     window.saveData();
     document.getElementById('member-modal').classList.add('hidden');
-    
-    document.getElementById('member-name').value = '';
-    document.getElementById('member-role').value = '';
-    document.getElementById('member-grade').value = '';
-    document.getElementById('member-resp').value = '';
-    document.getElementById('member-init').value = '';
-    
+    document.getElementById('member-modal').classList.remove('flex');
+    ['member-name','member-role','member-grade','member-resp','member-init','member-index']
+        .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+
     R.renderTeam();
-    showToast("Member added", "success");
 };
 window.deleteMember = (index) => {
     window.showConfirmDialog('Remove this team member?', () => {

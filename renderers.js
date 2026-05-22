@@ -922,7 +922,7 @@ export function renderTeam() {
                         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-4 hover:shadow-md transition-shadow">
                             <div class="flex items-start justify-between">
                                 <div class="flex items-center gap-3">
-                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center font-bold">
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 text-white flex items-center justify-center font-bold flex-shrink-0">
                                         ${escapeHtml((m.name || '?')[0].toUpperCase())}
                                     </div>
                                     <div>
@@ -930,9 +930,14 @@ export function renderTeam() {
                                         <div class="text-xs text-slate-500">${escapeHtml(m.role || 'No role')}</div>
                                     </div>
                                 </div>
-                                <button onclick="window.deleteMember(${i})" class="text-slate-300 hover:text-red-500 transition-colors">
-                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
-                                </button>
+                                <div class="flex items-center gap-2 flex-shrink-0">
+                                    <button onclick="window.openMemberModal(${i})" class="text-slate-300 hover:text-indigo-500 transition-colors" title="Edit member">
+                                        <i data-lucide="pencil" class="w-4 h-4"></i>
+                                    </button>
+                                    <button onclick="window.deleteMember(${i})" class="text-slate-300 hover:text-red-500 transition-colors" title="Remove member">
+                                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                    </button>
+                                </div>
                             </div>
                             ${m.grade ? `<div class="mt-2 text-xs text-slate-600"><span class="font-medium">Grade:</span> ${escapeHtml(m.grade)}</div>` : ''}
                             ${m.responsibilities ? `<div class="mt-1 text-xs text-slate-600"><span class="font-medium">Responsibility:</span> ${escapeHtml(m.responsibilities)}</div>` : ''}
@@ -1000,19 +1005,29 @@ export function renderTeam() {
 export function openMemberModal(index = null) {
     const modal = document.getElementById('member-modal');
     if (!modal) return;
-    
+
     const d = state.projectData;
     const member = index !== null ? (d.teamMembers || [])[index] : null;
-    
-    document.getElementById('member-index').value = index ?? '';
+
+    // Update title to reflect add vs edit mode
+    const titleEl = modal.querySelector('h3');
+    if (titleEl) titleEl.textContent = member ? 'Edit Team Member' : 'Add Team Member';
+
+    document.getElementById('member-index').value = index !== null ? index : '';
     document.getElementById('member-name').value = member?.name || '';
     document.getElementById('member-role').value = member?.role || '';
     document.getElementById('member-grade').value = member?.grade || '';
     document.getElementById('member-resp').value = member?.responsibilities || '';
     document.getElementById('member-init').value = member?.initials || '';
-    
+
     modal.classList.remove('hidden');
     modal.classList.add('flex');
+
+    // Focus name field
+    setTimeout(() => {
+        const nameEl = document.getElementById('member-name');
+        if (nameEl) nameEl.focus();
+    }, 50);
 }
 
 export function addLeadershipLog() {
