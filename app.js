@@ -1970,8 +1970,13 @@ async function loadRolesIntoSettings() {
             { key: 'qip_lead',   label: 'Departmental QIP Lead', icon: 'layout-dashboard',  desc: 'Dashboard of all department QIPs' }
         ];
 
+        const activeCount = currentRoles.length;
         container.innerHTML = roleOptions.map(ro => {
             const active = currentRoles.includes(ro.key);
+            const isLastRole = active && activeCount === 1;
+            const removeStyle = isLastRole
+                ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                : 'bg-rcem-purple text-white border-rcem-purple hover:bg-indigo-700';
             return `
                 <div class="flex items-center justify-between bg-slate-50 rounded-lg px-3 py-2.5 gap-3">
                     <div class="flex items-center gap-2 min-w-0">
@@ -1983,8 +1988,9 @@ async function loadRolesIntoSettings() {
                     </div>
                     <button onclick="window.toggleSettingsRole('${ro.key}', this)"
                             data-active="${active}"
+                            ${isLastRole ? 'title="You must keep at least one role"' : ''}
                             class="flex-shrink-0 px-3 py-1 rounded-lg text-xs font-semibold border transition-all ${active
-                                ? 'bg-rcem-purple text-white border-rcem-purple hover:bg-indigo-700'
+                                ? removeStyle
                                 : 'bg-white text-slate-600 border-slate-300 hover:border-rcem-purple hover:text-rcem-purple'}">
                         ${active ? 'Remove' : 'Add'}
                     </button>
@@ -2007,6 +2013,11 @@ window.toggleSettingsRole = async function(role, btnEl) {
         let roles = snap.exists() ? (snap.data().roles || []) : [];
 
         if (wasActive) {
+            // Prevent removing the last role
+            if (roles.filter(r => r !== role).length === 0) {
+                showToast('You must keep at least one role on your account.', 'error');
+                return;
+            }
             roles = roles.filter(r => r !== role);
         } else {
             if (!roles.includes(role)) roles.push(role);

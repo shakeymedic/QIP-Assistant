@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.8';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.8';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.8';
+const CACHE_NAME = 'rcem-qip-v3.15.9';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.9';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.9';
 
 const STATIC_ASSETS = [
     '/',
@@ -42,7 +42,7 @@ async function trimCache(cacheName, maxItems) {
 }
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.15.8...');
+    console.log('[SW] Installing service worker v3.15.9...');
     
     event.waitUntil(
         Promise.all([
