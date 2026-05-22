@@ -188,6 +188,13 @@ window.openGlobalSettings = () => {
     if (rolesSection) {
         rolesSection.classList.toggle('hidden', state.isDemoMode || state.isMasterAdmin || !state.currentUser);
     }
+    // Show project access section when a project is loaded and user is not admin
+    const accessSection = document.getElementById('project-access-section');
+    if (accessSection) {
+        const show = !state.isMasterAdmin && !state.isDemoMode && state.currentUser && state.currentProjectId;
+        accessSection.classList.toggle('hidden', !show);
+        if (show) loadProjectAccessIntoSettings();
+    }
     const modal = document.getElementById('global-settings-modal');
     if (modal) modal.classList.remove('hidden');
     // Load current roles for logged-in normal users
@@ -833,6 +840,7 @@ if (auth) {
                 }
                 loadProjectList();
                 checkQIPLeadStatus(user);
+                checkSupervisorStatus();
             }
         } else {
             document.getElementById('auth-screen').classList.remove('hidden');
@@ -2016,3 +2024,213 @@ window.toggleSettingsRole = async function(role, btnEl) {
         showToast('Failed to update roles: ' + e.message, 'error');
     }
 };
+
+// ==========================================
+// PROJECT ACCESS — Supervisor & QIP Lead
+// ==========================================
+
+function loadProjectAccessIntoSettings() {
+    const supervisors = state.projectData?.supervisors || [];
+    const leads = state.projectData?.qipLeads || [];
+
+    const supList = document.getElementById('settings-supervisor-list');
+    if (supList) {
+        supList.innerHTML = supervisors.length === 0
+            ? '<p class="text-xs text-slate-400 italic">No supervisor added yet</p>'
+            : supervisors.map((s, i) => `
+                <div class="flex items-center justify-between bg-teal-50 border border-teal-100 rounded-lg px-3 py-1.5">
+                    <span class="text-xs text-slate-700 font-medium">${s.email || s}</span>
+                    <button onclick="window.removeSettingsSupervisor(${i})" class="text-slate-300 hover:text-red-500 ml-2" title="Remove">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>`).join('');
+    }
+
+    const leadList = document.getElementById('settings-lead-list');
+    if (leadList) {
+        leadList.innerHTML = leads.length === 0
+            ? '<p class="text-xs text-slate-400 italic">No QIP Lead added yet</p>'
+            : leads.map((l, i) => `
+                <div class="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5">
+                    <span class="text-xs text-slate-700 font-medium">${l.email || l}</span>
+                    <button onclick="window.removeSettingsLead(${i})" class="text-slate-300 hover:text-red-500 ml-2" title="Remove">
+                        <i data-lucide="x" class="w-3 h-3"></i>
+                    </button>
+                </div>`).join('');
+    }
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+window.addSupervisorFromSettings = async function() {
+    const input = document.getElementById('settings-supervisor-email');
+    const email = (input?.value || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('Please enter a valid email address', 'error'); return;
+    }
+    if (!state.projectData || !state.currentProjectId || !state.currentUser) {
+        showToast('No project loaded', 'error'); return;
+    }
+    if (!state.projectData.supervisors) state.projectData.supervisors = [];
+    if (state.projectData.supervisors.some(s => (s.email || s) === email)) {
+        showToast('That email is already listed as a supervisor', 'info'); return;
+    }
+
+    const entry = { email, addedAt: new Date().toISOString() };
+    state.projectData.supervisors.push(entry);
+
+    // Write supervisorInvites/{email} so supervisor sees this project on login
+    try {
+        const { doc, setDoc, arrayUnion } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+        const inviteEntry = {
+            ownerUid: state.currentUser.uid,
+            projectId: state.currentProjectId,
+            projectTitle: state.projectData.checklist?.project_title || state.projectData.title || 'Untitled QIP',
+            traineeName: state.currentUser.email,
+            addedAt: new Date().toISOString()
+        };
+        await setDoc(doc(db, 'supervisorInvites', email),
+            { email, projects: arrayUnion(inviteEntry) }, { merge: true });
+    } catch (e) {
+        console.warn('[Access] supervisorInvites write failed:', e);
+    }
+
+    window.saveData();
+    if (input) input.value = '';
+    loadProjectAccessIntoSettings();
+    showToast(`Supervisor invite sent to ${email}`, 'success');
+};
+
+window.removeSettingsSupervisor = async function(index) {
+    const supervisors = state.projectData?.supervisors || [];
+    const removed = supervisors[index];
+    if (!removed) return;
+    supervisors.splice(index, 1);
+    // Remove from supervisorInvites
+    try {
+        const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+        const email = removed.email || removed;
+        const ref = doc(db, 'supervisorInvites', email);
+        const snap = await getDoc(ref);
+        if (snap.exists()) {
+            const projects = (snap.data().projects || []).filter(
+                p => !(p.ownerUid === state.currentUser?.uid && p.projectId === state.currentProjectId)
+            );
+            await setDoc(ref, { email, projects }, { merge: false });
+        }
+    } catch (e) { console.warn('[Access] remove supervisorInvite failed:', e); }
+    window.saveData();
+    loadProjectAccessIntoSettings();
+    showToast('Supervisor removed', 'info');
+};
+
+window.addLeadFromSettings = async function() {
+    const input = document.getElementById('settings-lead-email');
+    const email = (input?.value || '').trim().toLowerCase();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showToast('Please enter a valid email address', 'error'); return;
+    }
+    if (!state.projectData || !state.currentProjectId || !state.currentUser) {
+        showToast('No project loaded', 'error'); return;
+    }
+    if (!state.projectData.qipLeads) state.projectData.qipLeads = [];
+    if (state.projectData.qipLeads.some(l => l.email === email)) {
+        showToast('That email is already listed as a QIP Lead', 'info'); return;
+    }
+    const { addQIPLeadToProject } = await import('./qip-lead.js');
+    const ok = await addQIPLeadToProject(
+        db, state.currentUser.uid, state.currentProjectId, email,
+        state.currentUser.email,
+        state.projectData.checklist?.project_title || state.projectData.title || 'Untitled QIP'
+    );
+    if (ok) {
+        state.projectData.qipLeads.push({ email, addedAt: new Date().toISOString() });
+        window.saveData();
+        if (input) input.value = '';
+        loadProjectAccessIntoSettings();
+    }
+};
+
+window.removeSettingsLead = async function(index) {
+    const leads = state.projectData?.qipLeads || [];
+    const removed = leads[index];
+    if (!removed) return;
+    leads.splice(index, 1);
+    const { removeQIPLeadFromProject } = await import('./qip-lead.js');
+    await removeQIPLeadFromProject(db, state.currentUser?.uid, state.currentProjectId, removed.email || removed);
+    window.saveData();
+    loadProjectAccessIntoSettings();
+    showToast('QIP Lead removed', 'info');
+};
+
+// Check if logged-in user is a supervisor for any projects
+async function checkSupervisorStatus() {
+    if (!state.currentUser || state.isMasterAdmin) return;
+    try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+        const email = state.currentUser.email?.toLowerCase();
+        if (!email) return;
+        const snap = await getDoc(doc(db, 'supervisorInvites', email));
+        if (!snap.exists()) return;
+        const projects = snap.data().projects || [];
+        if (projects.length === 0) return;
+        state.supervisorProjects = projects;
+        // Show supervisor home button in sidebar
+        const btn = document.getElementById('sidebar-supervisor-home');
+        if (btn) {
+            btn.classList.remove('hidden');
+            btn.onclick = () => window.showSupervisorProjectList();
+        }
+    } catch (e) {
+        console.warn('[Supervisor] checkSupervisorStatus error:', e);
+    }
+}
+
+// Show a picker so the supervisor can choose which project to review
+window.showSupervisorProjectList = function() {
+    const projects = state.supervisorProjects || [];
+    if (projects.length === 0) { showToast('No supervised projects found', 'info'); return; }
+    if (projects.length === 1) {
+        loadSupervisedProject(projects[0]);
+        return;
+    }
+    // Multiple projects — show a simple modal-style picker
+    window.showInputModal(
+        'Select Supervised Project',
+        projects.map((p, i) => ({ id: `proj_${i}`, label: `${p.projectTitle || 'Untitled'} (${p.traineeName || p.ownerUid})`, type: 'hidden', value: String(i) })),
+        () => {}
+    );
+    // Override: show a list instead of inputs
+    const fieldsEl = document.getElementById('input-modal-fields');
+    if (fieldsEl) {
+        fieldsEl.innerHTML = projects.map((p, i) => `
+            <button onclick="window.loadSupervisedProjectByIndex(${i})" class="w-full text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-4 py-3 transition-colors">
+                <div class="font-semibold text-slate-800">${p.projectTitle || 'Untitled QIP'}</div>
+                <div class="text-xs text-slate-500">Trainee: ${p.traineeName || p.ownerUid}</div>
+            </button>`).join('');
+    }
+    const btn = document.getElementById('input-modal-submit');
+    if (btn) btn.style.display = 'none';
+};
+
+window.loadSupervisedProjectByIndex = function(i) {
+    const p = (state.supervisorProjects || [])[i];
+    if (p) loadSupervisedProject(p);
+    window.hideInputModal();
+};
+
+async function loadSupervisedProject(p) {
+    try {
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+        const snap = await getDoc(doc(db, 'users', p.ownerUid, 'projects', p.projectId));
+        if (!snap.exists()) { showToast('Project not found', 'error'); return; }
+        state.currentProjectId = p.projectId;
+        state.projectData = snap.data();
+        state.isLeadViewing = true;
+        showToast(`Viewing: ${p.projectTitle || 'QIP'}`, 'success');
+        window.router('supervisor');
+    } catch (e) {
+        showToast('Could not load project: ' + e.message, 'error');
+        console.error('[Supervisor] loadSupervisedProject error:', e);
+    }
+}

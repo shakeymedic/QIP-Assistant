@@ -394,6 +394,10 @@
                         class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-2 rounded text-xs font-bold mb-2">
                         <i data-lucide="layout-dashboard" class="w-3 h-3"></i> Lead Dashboard
                     </button>
+                    <button id="sidebar-supervisor-home"
+                        class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded text-xs font-bold mb-2">
+                        <i data-lucide="user-check" class="w-3 h-3"></i> My Supervised QIPs
+                    </button>
 
                     <button id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> <span id="switch-project-label">Switch Project</span>
@@ -1101,6 +1105,43 @@
                         <p class="text-xs text-slate-400 italic">Sign in to manage roles</p>
                     </div>
                 </div>
+
+                <!-- Project Access -->
+                <div id="project-access-section" class="hidden py-3 border-t border-slate-200">
+                    <p class="text-sm font-bold text-slate-700 mb-0.5 flex items-center gap-1.5">
+                        <i data-lucide="users" class="w-4 h-4 text-indigo-500"></i> Project Access
+                    </p>
+                    <p class="text-xs text-slate-400 mb-4">Grant people access to view or sign off this project</p>
+
+                    <!-- Clinical Supervisor -->
+                    <div class="mb-4">
+                        <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Clinical Supervisor</p>
+                        <div class="flex gap-2 mb-2">
+                            <input id="settings-supervisor-email" type="email" placeholder="supervisor@nhs.net"
+                                class="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+                            <button onclick="window.addSupervisorFromSettings()"
+                                class="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                        </div>
+                        <div id="settings-supervisor-list" class="space-y-1"></div>
+                    </div>
+
+                    <!-- Departmental QIP Lead -->
+                    <div>
+                        <p class="text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Departmental QIP Lead</p>
+                        <div class="flex gap-2 mb-2">
+                            <input id="settings-lead-email" type="email" placeholder="qiplead@nhs.net"
+                                class="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"/>
+                            <button onclick="window.addLeadFromSettings()"
+                                class="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1">
+                                <i data-lucide="plus" class="w-3 h-3"></i> Add
+                            </button>
+                        </div>
+                        <div id="settings-lead-list" class="space-y-1"></div>
+                    </div>
+                </div>
+
             <div class="flex justify-end gap-2 mt-6">
                 <button aria-label="Cancel Global Settings Edit" onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button aria-label="Save Global Settings" onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
