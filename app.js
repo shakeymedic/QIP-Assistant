@@ -510,6 +510,541 @@ window.applyTemplate = function(templateId) {
     }
 };
 
+// ─── EM-QIAT Journal ─────────────────────────────────────────────────────────
+const QI_JOURNEY_PHASES = [
+    { id: 'creatingConditions', title: 'Creating Conditions', description: 'Securing organisational support, building relationships, establishing governance, and creating the conditions necessary for improvement work to begin.' },
+    { id: 'understandingSystems', title: 'Understanding Systems', description: 'Mapping processes, collecting baseline data, conducting root cause analysis (driver diagrams, fishbone, 5 Whys), and understanding the problem from a systems perspective.' },
+    { id: 'developingAims', title: 'Developing Aims', description: 'Writing a SMART aim, defining outcome, process, and balancing measures, and linking the aim to national standards and local context.' },
+    { id: 'leadershipTeams', title: 'Leadership & Teams', description: 'Recruiting and engaging the improvement team, managing stakeholders, facilitating meetings, addressing resistance, and demonstrating leadership skills.' },
+    { id: 'projectManagement', title: 'Project Management & Communication', description: 'Planning and running PDSA cycles, managing timelines, presenting progress to governance, and disseminating findings.' }
+];
+const RATING_LABELS = { 1: 'Awareness', 2: 'Understanding', 3: 'Ability', 4: 'Proficiency' };
+const RATING_COLORS = { 1: 'bg-red-100 text-red-700', 2: 'bg-amber-100 text-amber-700', 3: 'bg-blue-100 text-blue-700', 4: 'bg-emerald-100 text-emerald-700' };
+const LAT_DOMAINS = [
+    { id: 'patientSafety', title: 'Patient Safety Culture', desc: 'Demonstrate leadership in promoting a culture of safety, openness, and learning from error.' },
+    { id: 'teamCulture', title: 'Team Working & Culture', desc: 'Build and sustain effective teams, manage conflict, and support colleague development.' },
+    { id: 'emotionalIntelligence', title: 'Emotional Intelligence', desc: 'Show self-awareness, empathy, and the ability to manage your own and others\' emotional responses under pressure.' },
+    { id: 'strategicInfluence', title: 'Strategic Influence & Vision', desc: 'Communicate a clear vision, influence decision-makers, and align improvement work with organisational priorities.' },
+    { id: 'serviceImprovement', title: 'Service Improvement Leadership', desc: 'Lead systematic improvement, facilitate change, and sustain new standards beyond the initial project.' }
+];
+const ED_LOG_TYPES = ['Regional QI Training Day', 'National QI Course', 'Online Module (e.g. IHI)', 'QI Conference', 'Departmental QI Meeting', 'Mentorship/Coaching', 'Self-Directed Learning', 'Other'];
+
+window.showEMQIATModal = function() {
+    const d = state.projectData;
+    if (!d) { showToast('Open a project first', 'info'); return; }
+    if (!d.emqiat) d.emqiat = {};
+    const em = d.emqiat;
+    if (!em.qiJourney) em.qiJourney = {};
+    if (!Array.isArray(em.educationLog)) em.educationLog = [];
+    if (!em.lat) em.lat = {};
+    const isHigher = d.meta?.trainingStage === 'higher';
+    let modal = document.getElementById('emqiat-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'emqiat-modal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column">
+            <div class="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-6 py-5 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="file-badge" class="w-6 h-6"></i>
+                        <div>
+                            <h2 class="text-lg font-bold">EM-QIAT Journal</h2>
+                            <p class="text-xs text-emerald-100">SLO 11 &amp; 12 — Quality Improvement Assessment Tool (August 2025 v1.5)</p>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('emqiat-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+            <div class="overflow-y-auto p-6 space-y-6">
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="target" class="w-4 h-4 text-emerald-600"></i> QI Personal Development Plan</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Goals for This Year</label>
+                            <textarea onchange="window.saveEMQIATField('pdpGoals', this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]" placeholder="What QI skills do you aim to develop this year?">${escapeHtml(em.pdpGoals||'')}</textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-slate-700 mb-1">Review of Previous Year</label>
+                            <textarea onchange="window.saveEMQIATField('pdpReview', this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]" placeholder="Reflect on last year — what did you achieve and what would you do differently?">${escapeHtml(em.pdpReview||'')}</textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="map" class="w-4 h-4 text-blue-600"></i> QI Journey — Personal Involvement</h3>
+                    <p class="text-xs text-slate-500 mb-4">Rate your involvement in each phase: 1 = Awareness | 2 = Understanding | 3 = Ability | 4 = Proficiency</p>
+                    <div class="space-y-4">
+                        ${QI_JOURNEY_PHASES.map(phase => {
+                            const phData = em.qiJourney[phase.id] || { rating: 1, evidence: '' };
+                            const rv = phData.rating || 1;
+                            return `<div class="border border-slate-100 rounded-lg p-4 bg-slate-50/50">
+                                <div class="flex items-start justify-between gap-4 mb-3">
+                                    <div class="flex-1">
+                                        <div class="font-bold text-sm text-slate-800 mb-0.5">${phase.title}</div>
+                                        <p class="text-xs text-slate-500 leading-relaxed">${phase.description}</p>
+                                    </div>
+                                    <div class="flex-shrink-0 text-center">
+                                        <select onchange="window.saveEMQIATJourney('${phase.id}', 'rating', parseInt(this.value))" class="text-xs border rounded px-2 py-1.5 bg-white font-bold">
+                                            ${[1,2,3,4].map(v => `<option value="${v}" ${rv===v?'selected':''}>${v} — ${RATING_LABELS[v]}</option>`).join('')}
+                                        </select>
+                                        <div class="mt-1"><span class="text-[10px] px-2 py-0.5 rounded-full font-bold ${RATING_COLORS[rv]}">${RATING_LABELS[rv]}</span></div>
+                                    </div>
+                                </div>
+                                <textarea onchange="window.saveEMQIATJourney('${phase.id}', 'evidence', this.value)" class="w-full p-2 border border-slate-200 rounded text-xs min-h-[60px] bg-white" placeholder="Specific evidence of your involvement — actions taken, contributions, learning points...">${escapeHtml(phData.evidence||'')}</textarea>
+                            </div>`;
+                        }).join('')}
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-purple-600"></i> QI Education Log</h3>
+                        <button onclick="window.addEducationEntry()" class="text-xs bg-slate-800 text-white px-2.5 py-1.5 rounded flex items-center gap-1 hover:bg-slate-700"><i data-lucide="plus" class="w-3 h-3"></i> Add Activity</button>
+                    </div>
+                    <div id="education-log-list">
+                        ${em.educationLog.length === 0 ? '<p class="text-xs text-slate-400 italic py-2">No QI education activities logged yet. Add courses, training days, conferences, and online modules.</p>' :
+                        em.educationLog.map((entry, ei) => `
+                        <div class="border border-slate-200 rounded-lg p-3 mb-2 bg-slate-50" id="edu-entry-${ei}">
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                                <input type="date" value="${escapeHtml(entry.date||'')}" onchange="window.updateEducationEntry(${ei},'date',this.value)" class="p-1.5 border border-slate-200 rounded text-xs bg-white">
+                                <select onchange="window.updateEducationEntry(${ei},'type',this.value)" class="p-1.5 border border-slate-200 rounded text-xs bg-white">${ED_LOG_TYPES.map(t => `<option value="${t}" ${entry.type===t?'selected':''}>${t}</option>`).join('')}</select>
+                                <input type="text" value="${escapeHtml(entry.provider||'')}" placeholder="Provider / organisation" onchange="window.updateEducationEntry(${ei},'provider',this.value)" class="p-1.5 border border-slate-200 rounded text-xs bg-white">
+                                <div class="flex gap-1 items-center">
+                                    <input type="number" min="0" max="40" step="0.5" value="${escapeHtml(String(entry.hours||''))}" placeholder="Hrs" onchange="window.updateEducationEntry(${ei},'hours',this.value)" class="flex-1 p-1.5 border border-slate-200 rounded text-xs bg-white">
+                                    <button onclick="window.deleteEducationEntry(${ei})" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                                </div>
+                            </div>
+                            <textarea onchange="window.updateEducationEntry(${ei},'reflection',this.value)" placeholder="Brief reflection on key learning..." class="w-full p-1.5 border border-slate-200 rounded text-xs min-h-[40px] bg-white">${escapeHtml(entry.reflection||'')}</textarea>
+                        </div>`).join('')}
+                    </div>
+                </div>
+                <div class="bg-white border border-slate-200 rounded-xl p-5">
+                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4 text-amber-600"></i> Leadership Assessment — SLO 12 (LAT) <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold ml-1">August 2025 v1.5</span></h3>
+                    <p class="text-xs text-slate-500 mb-4">Document evidence of your leadership development across each domain. Completed by your Educational Supervisor in Part B.</p>
+                    <div class="space-y-3">
+                        ${LAT_DOMAINS.map(dom => `
+                        <div class="border border-slate-100 rounded-lg p-4">
+                            <div class="font-bold text-sm text-slate-800 mb-0.5">${dom.title}</div>
+                            <p class="text-xs text-slate-500 mb-2 leading-relaxed">${dom.desc}</p>
+                            <textarea onchange="window.saveEMQIATLAT('${dom.id}', this.value)" class="w-full p-2 border border-slate-200 rounded text-xs min-h-[60px] bg-slate-50/50" placeholder="Evidence of your leadership in this domain...">${escapeHtml((em.lat||{})[dom.id]||'')}</textarea>
+                        </div>`).join('')}
+                    </div>
+                </div>
+                ${isHigher ? `
+                <div class="bg-white border border-emerald-200 rounded-xl p-5">
+                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-600"></i> CCT Journey Summary <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold ml-1">ST6 / CCT</span></h3>
+                    <p class="text-xs text-slate-500 mb-3">Required at final ARCP. Reflect on your development as an improvement leader throughout training and your vision for continued QI leadership as a consultant.</p>
+                    <textarea onchange="window.saveEMQIATField('cctSummary', this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[150px]" placeholder="Reflect on your progression across training stages, key learning moments, how you have changed practice, and how you will embed QI as a consultant...">${escapeHtml(em.cctSummary||'')}</textarea>
+                </div>` : `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                    <p class="text-xs text-slate-400"><i data-lucide="lock" class="w-3 h-3 inline mr-1"></i> CCT Journey Summary is available for Higher Specialty Trainees (ST4–ST6). Set your training stage in project settings.</p>
+                </div>`}
+            </div>
+            <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
+                <span class="text-xs text-slate-400">All changes auto-save to your project</span>
+                <button onclick="document.getElementById('emqiat-modal').remove()" class="px-4 py-2 text-sm font-bold text-slate-700 hover:text-slate-900 bg-white border border-slate-200 rounded-lg transition-colors">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+window.saveEMQIATField = function(field, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.emqiat) d.emqiat = {};
+    d.emqiat[field] = value;
+    if (window.saveData) window.saveData();
+};
+window.saveEMQIATJourney = function(phase, field, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.emqiat) d.emqiat = {};
+    if (!d.emqiat.qiJourney) d.emqiat.qiJourney = {};
+    if (!d.emqiat.qiJourney[phase]) d.emqiat.qiJourney[phase] = { rating: 1, evidence: '' };
+    d.emqiat.qiJourney[phase][field] = value;
+    if (window.saveData) window.saveData();
+};
+window.saveEMQIATLAT = function(domain, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.emqiat) d.emqiat = {};
+    if (!d.emqiat.lat) d.emqiat.lat = {};
+    d.emqiat.lat[domain] = value;
+    if (window.saveData) window.saveData();
+};
+window.addEducationEntry = function() {
+    const d = state.projectData; if (!d) return;
+    if (!d.emqiat) d.emqiat = {};
+    if (!Array.isArray(d.emqiat.educationLog)) d.emqiat.educationLog = [];
+    d.emqiat.educationLog.push({ date: '', type: ED_LOG_TYPES[0], provider: '', hours: '', reflection: '' });
+    if (window.saveData) window.saveData();
+    window.showEMQIATModal();
+};
+window.deleteEducationEntry = function(idx) {
+    const d = state.projectData; if (!d?.emqiat?.educationLog) return;
+    d.emqiat.educationLog.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    window.showEMQIATModal();
+};
+window.updateEducationEntry = function(idx, field, value) {
+    const d = state.projectData; if (!d?.emqiat?.educationLog?.[idx]) return;
+    d.emqiat.educationLog[idx][field] = value;
+    if (window.saveData) window.saveData();
+};
+
+// ─── FRCEM Submission Readiness Checker ──────────────────────────────────────
+window.showFRCEMReadinessChecker = function() {
+    const d = state.projectData;
+    if (!d) { showToast('Open a project first', 'info'); return; }
+    const c = d.checklist || {};
+    const pdsa = d.pdsa || [];
+    const changeIdeas = d.changeIdeas || [];
+    const fmea = d.fmea || [];
+    const swot = c.swot || {};
+    const isHigher = d.meta?.trainingStage === 'higher';
+    const wc2 = (text) => text ? text.trim().split(/\s+/).filter(Boolean).length : 0;
+    const totalWC = [c.problem_desc, c.problem_context, c.problem_evidence, c.aim, c.outcome_measure, c.process_measure, c.balance_measure, c.lit_review, c.results_analysis, c.learning_points, c.sustainability]
+        .reduce((acc, t) => acc + wc2(t||''), 0);
+    const domains = [
+        { num:1, title:'Narrative Structure & Problem Analysis', icon:'file-text',
+          sat: !!(c.problem_desc && c.lit_review),
+          exc: !!(c.problem_desc && c.problem_context && c.problem_evidence && c.lit_review && (Object.values(swot).some(v=>v) || fmea.length>0)),
+          satMissing: [!c.problem_desc && 'Problem statement', !c.lit_review && 'Literature review'].filter(Boolean),
+          excMissing: [!c.problem_context && 'Department context', !c.problem_evidence && 'Baseline evidence', (!Object.values(swot).some(v=>v) && fmea.length===0) && 'SWOT/PEST or FMEA analysis'].filter(Boolean),
+          wc: wc2(c.problem_desc||'') + wc2(c.problem_context||'') + wc2(c.problem_evidence||'') + wc2(c.lit_review||'') },
+        { num:2, title:'Team Engagement & Stakeholders', icon:'users',
+          sat: !!(d.teamMembers?.length >= 1),
+          exc: !!(d.teamMembers?.length >= 2 && d.stakeholders?.length >= 2),
+          satMissing: [(d.teamMembers?.length||0)<1 && 'At least 1 team member defined'].filter(Boolean),
+          excMissing: [(d.teamMembers?.length||0)<2 && '2+ team members', (d.stakeholders?.length||0)<2 && '2+ stakeholders mapped on matrix'].filter(Boolean),
+          wc: 0 },
+        { num:3, title:'SMART Aim & Family of Measures', icon:'target',
+          sat: !!(c.aim && c.outcome_measure),
+          exc: !!(c.aim && c.outcome_measure && c.process_measure && c.balance_measure && c.aim_target),
+          satMissing: [!c.aim && 'SMART aim', !c.outcome_measure && 'Outcome measure'].filter(Boolean),
+          excMissing: [!c.process_measure && 'Process measure', !c.balance_measure && 'Balancing measure', !c.aim_target && 'Numeric aim target on chart'].filter(Boolean),
+          wc: wc2(c.aim||'') + wc2(c.outcome_measure||'') + wc2(c.process_measure||'') + wc2(c.balance_measure||'') },
+        { num:4, title:'Change Management & PDSA Cycles', icon:'refresh-cw',
+          sat: !!(pdsa.length >= 2),
+          exc: !!(pdsa.length >= 3 && changeIdeas.length >= 1),
+          satMissing: [pdsa.length<2 && ('At least 2 PDSA cycles (you have '+pdsa.length+')')].filter(Boolean),
+          excMissing: [pdsa.length<3 && ('3+ iterative PDSA cycles (you have '+pdsa.length+')'), changeIdeas.length<1 && 'Structured change ideas defined'].filter(Boolean),
+          wc: pdsa.reduce((acc,p) => acc + wc2(p.plan||p.desc||'') + wc2(p.study||'') + wc2(p.act||''), 0) },
+        { num:5, title:'Data Collection & Run Chart', icon:'bar-chart-2',
+          sat: !!((d.chartData?.length||0) >= 8),
+          exc: !!((d.chartData?.length||0) >= 12 && c.results_analysis && (d.chartEvents?.length||0) >= 1),
+          satMissing: [(d.chartData?.length||0)<8 && ('8+ data points (you have '+(d.chartData?.length||0)+')')].filter(Boolean),
+          excMissing: [(d.chartData?.length||0)<12 && ('12+ data points (you have '+(d.chartData?.length||0)+')'), !c.results_analysis && 'Results analysis narrative', !(d.chartEvents?.length>=1) && 'Chart event markers annotating interventions'].filter(Boolean),
+          wc: wc2(c.results_analysis||'') },
+        { num:6, title:'Reflection & Sustainability', icon:'lightbulb',
+          sat: !!(c.learning_points && c.sustainability),
+          exc: !!(c.learning_points && c.sustainability && (c.spreadPlan?.whoAdopts || c.spreadPlan?.maintenancePlan)),
+          satMissing: [!c.learning_points && 'Key learning points', !c.sustainability && 'Sustainability plan summary'].filter(Boolean),
+          excMissing: [!(c.spreadPlan?.whoAdopts || c.spreadPlan?.maintenancePlan) && 'Structured spread & sustainability plan completed'].filter(Boolean),
+          wc: wc2(c.learning_points||'') + wc2(c.sustainability||'') },
+        { num:7, title:'Ethics & Governance', icon:'shield-check',
+          sat: !!(c.ethics),
+          exc: !!(c.ethics && Object.keys(c.hraChecklist||{}).length >= 4),
+          satMissing: [!c.ethics && 'Governance / ethics documentation'].filter(Boolean),
+          excMissing: [Object.keys(c.hraChecklist||{}).length<4 && 'HRA checklist fully completed (all 4 questions)'].filter(Boolean),
+          wc: wc2(c.ethics||'') },
+        { num:8, title:'References & Formatting', icon:'bookmark',
+          sat: !!((c.referencesList?.length||0) >= 3),
+          exc: !!((c.referencesList?.length||0) >= 5),
+          satMissing: [(c.referencesList?.length||0)<3 && ('3+ Vancouver references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
+          excMissing: [(c.referencesList?.length||0)<5 && ('5+ Vancouver references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
+          wc: 0 }
+    ];
+    const metSat = domains.filter(x => x.sat).length;
+    const metExc = domains.filter(x => x.exc).length;
+    const wcTarget = isHigher ? { min: 3000, max: 4000 } : { min: 2000, max: 3000 };
+    const wcColor = totalWC < wcTarget.min ? 'text-amber-600' : totalWC > wcTarget.max ? 'text-red-600' : 'text-emerald-600';
+    let modal = document.getElementById('frcem-readiness-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'frcem-readiness-modal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column">
+            <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 text-white px-6 py-5 flex-shrink-0">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+                        <div>
+                            <h2 class="text-lg font-bold">FRCEM Submission Readiness</h2>
+                            <p class="text-xs text-indigo-200">8-domain assessment against Satisfactory and Excellent criteria</p>
+                        </div>
+                    </div>
+                    <button onclick="document.getElementById('frcem-readiness-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
+            </div>
+            <div class="overflow-y-auto p-6 space-y-4">
+                <div class="grid grid-cols-3 gap-3">
+                    <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-amber-600">${metSat}/8</div>
+                        <div class="text-xs text-amber-700 font-bold mt-1">Satisfactory Domains</div>
+                    </div>
+                    <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black text-emerald-600">${metExc}/8</div>
+                        <div class="text-xs text-emerald-700 font-bold mt-1">Excellent Domains</div>
+                    </div>
+                    <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
+                        <div class="text-3xl font-black ${wcColor}">${totalWC}</div>
+                        <div class="text-xs text-slate-600 font-bold mt-1">Est. Words (target ${wcTarget.min}–${wcTarget.max})</div>
+                    </div>
+                </div>
+                ${domains.map(dom => {
+                    const isExc = dom.exc;
+                    const isSat = dom.sat && !dom.exc;
+                    const ragBg = isExc ? 'bg-emerald-50 border-emerald-200' : isSat ? 'bg-amber-50 border-amber-200' : 'bg-red-50 border-red-200';
+                    const ragText = isExc ? 'text-emerald-700' : isSat ? 'text-amber-700' : 'text-red-700';
+                    const ragLabel = isExc ? 'Excellent' : isSat ? 'Satisfactory' : 'Not Yet';
+                    const ragBadge = isExc ? 'bg-emerald-100 text-emerald-700' : isSat ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+                    const missing = isExc ? [] : isSat ? dom.excMissing : [...dom.satMissing, ...dom.excMissing];
+                    return `<div class="border ${ragBg} rounded-xl p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-6 h-6 rounded-full bg-white border flex items-center justify-center text-xs font-black ${ragText}">${dom.num}</span>
+                                <i data-lucide="${dom.icon}" class="w-4 h-4 ${ragText}"></i>
+                                <span class="font-bold text-sm text-slate-800">${dom.title}</span>
+                            </div>
+                            <span class="text-xs px-2 py-0.5 rounded-full font-bold ${ragBadge}">${ragLabel}</span>
+                        </div>
+                        ${dom.wc > 0 ? `<div class="text-xs text-slate-400 mb-2">~${dom.wc} words in this section</div>` : ''}
+                        ${missing.length > 0 ? `<div class="space-y-1">${missing.map(item => `<div class="flex items-center gap-1.5 text-xs ${ragText}"><i data-lucide="alert-circle" class="w-3 h-3 flex-shrink-0"></i>${item}</div>`).join('')}</div>` : `<div class="flex items-center gap-1.5 text-xs text-emerald-600"><i data-lucide="check-circle" class="w-3 h-3"></i>All criteria met</div>`}
+                    </div>`;
+                }).join('')}
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <h4 class="font-bold text-sm text-blue-800 mb-3 flex items-center gap-2"><i data-lucide="type" class="w-4 h-4"></i> Formatting Checklist</h4>
+                    <div class="space-y-1 text-xs text-blue-700">
+                        <div>✓ Word count: 3,000–4,000 words (Higher Training)</div>
+                        <div>✓ Font: 11pt Arial or Times New Roman, double-spaced</div>
+                        <div>✓ Referencing: Vancouver format throughout</div>
+                        <div>✓ All PDSA cycles include a written prediction in the Plan section</div>
+                        <div>✓ Run chart annotated at the point changes were introduced</div>
+                    </div>
+                </div>
+            </div>
+            <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50">
+                <button onclick="document.getElementById('frcem-readiness-modal').remove()" class="w-full py-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors">Close</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+
+// ─── Chart Event Markers ──────────────────────────────────────────────────────
+window.showEventMarkersPanel = function() {
+    const d = state.projectData; if (!d) return;
+    if (!Array.isArray(d.chartEvents)) d.chartEvents = [];
+    let modal = document.getElementById('chart-events-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'chart-events-modal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md mx-auto">
+            <div class="bg-gradient-to-r from-teal-600 to-cyan-600 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
+                <div class="flex items-center gap-2"><i data-lucide="flag" class="w-5 h-5"></i><span class="font-bold">Chart Event Markers</span></div>
+                <button onclick="document.getElementById('chart-events-modal').remove()" class="p-1.5 hover:bg-white/20 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="p-5">
+                <p class="text-xs text-slate-500 mb-4">Annotate your run chart at the exact point a change was introduced. These appear as coloured vertical lines — distinct from the PDSA phase markers already shown.</p>
+                <div class="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4">
+                    <div class="font-bold text-sm text-teal-800 mb-3">Add New Marker</div>
+                    <div class="grid grid-cols-2 gap-3 mb-3">
+                        <div>
+                            <label class="text-xs font-medium text-slate-600 mb-1 block">Date</label>
+                            <input type="date" id="em-date" class="w-full p-2 border border-slate-300 rounded text-xs bg-white">
+                        </div>
+                        <div>
+                            <label class="text-xs font-medium text-slate-600 mb-1 block">Colour</label>
+                            <select id="em-color" class="w-full p-2 border border-slate-300 rounded text-xs bg-white">
+                                <option value="#14b8a6">Teal — change introduced</option>
+                                <option value="#6366f1">Indigo — milestone</option>
+                                <option value="#ef4444">Red — adverse event</option>
+                                <option value="#f59e0b">Amber — pause/review</option>
+                            </select>
+                        </div>
+                    </div>
+                    <input type="text" id="em-label" placeholder="Label (e.g. New proforma launched)" class="w-full p-2 border border-slate-300 rounded text-xs bg-white mb-3">
+                    <button onclick="window.addEventMarker()" class="w-full bg-teal-600 hover:bg-teal-700 text-white py-2 rounded-lg text-xs font-bold">Add to Chart</button>
+                </div>
+                <div id="event-markers-list">
+                    ${d.chartEvents.length === 0 ? '<p class="text-xs text-slate-400 italic text-center py-2">No custom markers yet</p>' :
+                    d.chartEvents.map((ev, i) => `
+                    <div class="flex items-center gap-2 py-2 border-b border-slate-100 last:border-0">
+                        <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${ev.color}"></span>
+                        <span class="text-xs font-mono text-slate-500 flex-shrink-0">${ev.date}</span>
+                        <span class="text-xs text-slate-700 flex-1 truncate">${escapeHtml(ev.label)}</span>
+                        <button onclick="window.deleteEventMarker(${i})" class="text-red-400 hover:text-red-600 flex-shrink-0"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                    </div>`).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+window.addEventMarker = function() {
+    const d = state.projectData; if (!d) return;
+    const date = document.getElementById('em-date')?.value;
+    const label = document.getElementById('em-label')?.value?.trim();
+    const color = document.getElementById('em-color')?.value || '#14b8a6';
+    if (!date || !label) { showToast('Date and label are both required', 'error'); return; }
+    if (!Array.isArray(d.chartEvents)) d.chartEvents = [];
+    d.chartEvents.push({ id: Date.now().toString(), date, label, color });
+    d.chartEvents.sort((a, b) => a.date.localeCompare(b.date));
+    if (window.saveData) window.saveData();
+    if (window.renderChart) window.renderChart();
+    window.showEventMarkersPanel();
+    showToast('Marker added', 'success');
+};
+window.deleteEventMarker = function(idx) {
+    const d = state.projectData; if (!d?.chartEvents) return;
+    d.chartEvents.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    if (window.renderChart) window.renderChart();
+    window.showEventMarkersPanel();
+    showToast('Marker removed', 'success');
+};
+
+// ─── Project Snapshots ────────────────────────────────────────────────────────
+window.takeProjectSnapshot = function(label) {
+    const d = state.projectData; if (!d) return;
+    if (!Array.isArray(d.snapshots)) d.snapshots = [];
+    if (d.snapshots.length >= 10) d.snapshots.shift();
+    const snapLabel = label || ('Snapshot — ' + new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }));
+    d.snapshots.push({ id: Date.now().toString(), label: snapLabel, timestamp: new Date().toISOString(),
+        data: JSON.parse(JSON.stringify({ checklist: d.checklist, changeIdeas: d.changeIdeas, pdsa: d.pdsa, chartData: d.chartData })) });
+    if (window.saveData) window.saveData();
+    showToast('Snapshot saved: ' + snapLabel, 'success');
+};
+window.showSnapshotHistory = function() {
+    const d = state.projectData; if (!d) return;
+    const snaps = d.snapshots || [];
+    let modal = document.getElementById('snapshots-modal');
+    if (modal) modal.remove();
+    modal = document.createElement('div');
+    modal.id = 'snapshots-modal';
+    modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg mx-auto">
+            <div class="bg-gradient-to-r from-slate-700 to-slate-900 text-white px-5 py-4 rounded-t-2xl flex items-center justify-between">
+                <div class="flex items-center gap-2"><i data-lucide="history" class="w-5 h-5"></i><span class="font-bold">Version History</span></div>
+                <button onclick="document.getElementById('snapshots-modal').remove()" class="p-1.5 hover:bg-white/20 rounded-lg"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div class="p-5">
+                <div class="flex justify-between items-center mb-4">
+                    <p class="text-xs text-slate-500">${snaps.length} saved snapshot${snaps.length!==1?'s':''} (max 10 stored)</p>
+                    <button onclick="window.takeProjectSnapshot(); window.showSnapshotHistory();" class="bg-slate-800 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 hover:bg-slate-700"><i data-lucide="camera" class="w-3 h-3"></i> Save Now</button>
+                </div>
+                ${snaps.length === 0 ? '<p class="text-xs text-slate-400 italic text-center py-6">No snapshots yet. Save a snapshot before making major changes to preserve a restore point.</p>' :
+                `<div class="space-y-2 max-h-[50vh] overflow-y-auto">${[...snaps].reverse().map((snap, ri) => {
+                    const actualIdx = snaps.length - 1 - ri;
+                    const ts = new Date(snap.timestamp).toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' });
+                    return `<div class="border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-2">
+                        <div class="flex-1"><div class="font-bold text-sm text-slate-800">${escapeHtml(snap.label)}</div><div class="text-xs text-slate-400">${ts}</div></div>
+                        <div class="flex gap-2">
+                            <button onclick="window.restoreSnapshot(${actualIdx})" class="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 font-bold">Restore</button>
+                            <button onclick="window.deleteSnapshot(${actualIdx})" class="text-red-400 hover:text-red-600 p-1"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                        </div>
+                    </div>`;
+                }).join('')}</div>`}
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+};
+window.restoreSnapshot = function(idx) {
+    const d = state.projectData; if (!d?.snapshots?.[idx]) return;
+    window.showConfirmDialog('Restore snapshot "' + d.snapshots[idx].label + '"? This will overwrite your current checklist, PDSA cycles, change ideas, and chart data.', () => {
+        const snap = d.snapshots[idx].data;
+        if (snap.checklist) d.checklist = JSON.parse(JSON.stringify(snap.checklist));
+        if (snap.changeIdeas) d.changeIdeas = JSON.parse(JSON.stringify(snap.changeIdeas));
+        if (snap.pdsa) d.pdsa = JSON.parse(JSON.stringify(snap.pdsa));
+        if (snap.chartData) d.chartData = JSON.parse(JSON.stringify(snap.chartData));
+        if (window.saveData) window.saveData();
+        document.getElementById('snapshots-modal')?.remove();
+        if (window.R?.renderAll) window.R.renderAll('dashboard');
+        showToast('Snapshot restored', 'success');
+    }, 'Restore', 'Restore Snapshot');
+};
+window.deleteSnapshot = function(idx) {
+    const d = state.projectData; if (!d?.snapshots) return;
+    d.snapshots.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    window.showSnapshotHistory();
+};
+
+// ─── SWOT / PEST helpers ──────────────────────────────────────────────────────
+window.saveSWOTField = function(field, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.checklist.swot) d.checklist.swot = {};
+    d.checklist.swot[field] = value; if (window.saveData) window.saveData();
+};
+window.savePESTField = function(field, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.checklist.pest) d.checklist.pest = {};
+    d.checklist.pest[field] = value; if (window.saveData) window.saveData();
+};
+window.setSWOTMode = function(mode) {
+    const d = state.projectData; if (!d) return;
+    d.checklist.swotMode = mode;
+    if (window.saveData) window.saveData();
+    const swotP = document.getElementById('swot-panel');
+    const pestP = document.getElementById('pest-panel');
+    const toggleEl = document.getElementById('swot-mode-toggle');
+    if (swotP) swotP.classList.toggle('hidden', mode !== 'swot');
+    if (pestP) pestP.classList.toggle('hidden', mode !== 'pest');
+    if (toggleEl) toggleEl.innerHTML = `<button onclick="event.stopPropagation(); window.setSWOTMode('swot')" class="px-2 py-1 text-[10px] font-bold rounded-l ${mode==='swot' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">SWOT</button><button onclick="event.stopPropagation(); window.setSWOTMode('pest')" class="px-2 py-1 text-[10px] font-bold rounded-r ${mode==='pest' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">PEST</button>`;
+};
+window.toggleSWOTPESTPanel = function() {
+    const content = document.getElementById('swot-pest-content');
+    const chevron = document.getElementById('swot-chevron');
+    const d = state.projectData;
+    if (content) {
+        const isNowOpen = content.classList.toggle('hidden');
+        if (d) { d.checklist.swotOpen = !content.classList.contains('hidden'); if (window.saveData) window.saveData(); }
+        if (chevron) chevron.style.transform = content.classList.contains('hidden') ? 'rotate(-90deg)' : '';
+    }
+};
+// ─── FMEA helpers ────────────────────────────────────────────────────────────
+window.addFMEARow = function() {
+    const d = state.projectData; if (!d) return;
+    if (!Array.isArray(d.fmea)) d.fmea = [];
+    d.fmea.push({ step:'', failureMode:'', effect:'', likelihood:1, severity:1, detectability:1, mitigation:'' });
+    if (window.saveData) window.saveData();
+    if (window.R?.renderChecklist) window.R.renderChecklist();
+};
+window.deleteFMEARow = function(idx) {
+    const d = state.projectData; if (!d?.fmea) return;
+    d.fmea.splice(idx, 1);
+    if (window.saveData) window.saveData();
+    if (window.R?.renderChecklist) window.R.renderChecklist();
+};
+window.updateFMEARow = function(idx, field, value) {
+    const d = state.projectData; if (!d?.fmea?.[idx]) return;
+    d.fmea[idx][field] = value;
+    if (['likelihood','severity','detectability'].includes(field)) {
+        const row = d.fmea[idx];
+        const rpn = (row.likelihood||1) * (row.severity||1) * (row.detectability||1);
+        const el = document.querySelector(`#fmea-table-body tr:nth-child(${idx+1}) .rpn-badge`);
+        if (el) {
+            el.textContent = rpn;
+            el.className = 'rpn-badge px-2 py-0.5 rounded ' + (rpn>=50 ? 'bg-red-100 text-red-800 font-black' : rpn>=20 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-100 text-emerald-800');
+        }
+    }
+    if (window.saveData) window.saveData();
+};
+// Spread planner helper
+window.saveSpreadField = function(field, value) {
+    const d = state.projectData; if (!d) return;
+    if (!d.checklist.spreadPlan) d.checklist.spreadPlan = {};
+    d.checklist.spreadPlan[field] = value; if (window.saveData) window.saveData();
+};
+
 window.showHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (!m) return;

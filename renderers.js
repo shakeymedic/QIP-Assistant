@@ -85,6 +85,32 @@ function updateNavigationUI(currentView) {
             btn.appendChild(badge);
         }
     });
+
+    // FRCEM domain progress chip
+    const chip = document.getElementById('frcem-progress-chip');
+    if (chip && state.projectData) {
+        const d2 = state.projectData;
+        const c2 = d2.checklist || {};
+        const domains = [
+            !!(c2.problem_desc && c2.problem_evidence),
+            !!(c2.aim),
+            !!(d2.drivers && (d2.drivers.primary?.length > 0 || d2.drivers.changes?.length > 0)),
+            !!(d2.pdsa && d2.pdsa.length > 0),
+            !!(d2.chartData && d2.chartData.length >= 6),
+            !!(c2.learning_points),
+            !!(c2.sustainability || c2.spreadPlan?.whoAdopts),
+            !!(c2.ethics)
+        ];
+        const score = domains.filter(Boolean).length;
+        const pct = Math.round((score / 8) * 100);
+        const chipColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
+        chip.innerHTML = `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/20">
+            <div class="flex-1 bg-white/20 rounded-full h-1.5"><div class="${chipColor} h-1.5 rounded-full transition-all" style="width:${pct}%"></div></div>
+            <span class="text-xs font-bold text-white whitespace-nowrap">${score}/8 FRCEM</span>
+        </div>`;
+    } else if (chip) {
+        chip.innerHTML = '';
+    }
 }
 
 // ==========================================
@@ -455,6 +481,12 @@ export function renderChecklist() {
     if (!container) return;
     
     const c = d.checklist || {};
+    const swot = c.swot || {};
+    const pest = c.pest || {};
+    const swotMode = c.swotMode || 'swot';
+    const swotOpen = !!c.swotOpen;
+    const fmea = d.fmea || [];
+    const spreadPlan = c.spreadPlan || {};
     
     // Completion dot helper
     const csDot = (ok) => ok
@@ -504,6 +536,37 @@ export function renderChecklist() {
                     <textarea id="check-evidence" onchange="window.saveChecklistField('problem_evidence', this.value)" 
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="Baseline audit results, national standards gap, pilot data — what demonstrates the problem quantitatively?">${escapeHtml(c.problem_evidence || '')}</textarea>
+                </div>
+
+                <!-- SWOT / PEST collapsible panel -->
+                <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
+                    <button onclick="window.toggleSWOTPESTPanel()" class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-all">
+                        <span class="flex items-center gap-2"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i> SWOT / PEST Analysis</span>
+                        <i data-lucide="${swotOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-400"></i>
+                    </button>
+                    <div id="swot-pest-body" class="${swotOpen ? '' : 'hidden'} p-4">
+                        <!-- Mode toggle -->
+                        <div class="flex gap-2 mb-4">
+                            <button onclick="window.setSWOTMode('swot')" class="px-3 py-1 rounded text-xs font-bold border transition-all ${swotMode==='swot' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">SWOT</button>
+                            <button onclick="window.setSWOTMode('pest')" class="px-3 py-1 rounded text-xs font-bold border transition-all ${swotMode==='pest' ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-slate-600 border-slate-300 hover:border-indigo-400'}">PEST</button>
+                        </div>
+                        <!-- SWOT grid -->
+                        <div id="swot-grid" class="${swotMode==='swot' ? '' : 'hidden'} grid grid-cols-2 gap-3">
+                            ${[['strengths','Strengths','bg-emerald-50 border-emerald-200','text-emerald-700'],['weaknesses','Weaknesses','bg-red-50 border-red-200','text-red-700'],['opportunities','Opportunities','bg-blue-50 border-blue-200','text-blue-700'],['threats','Threats','bg-amber-50 border-amber-200','text-amber-700']].map(([k,label,bg,txt]) => `
+                            <div class="${bg} border rounded-lg p-3">
+                                <label class="block text-xs font-bold ${txt} mb-1">${label}</label>
+                                <textarea onchange="window.saveSWOTField('${k}',this.value)" class="w-full text-sm p-2 rounded border border-slate-200 min-h-[80px] resize-none" placeholder="${label}...">${escapeHtml(swot[k]||'')}</textarea>
+                            </div>`).join('')}
+                        </div>
+                        <!-- PEST grid -->
+                        <div id="pest-grid" class="${swotMode==='pest' ? '' : 'hidden'} grid grid-cols-2 gap-3">
+                            ${[['political','Political','bg-purple-50 border-purple-200','text-purple-700'],['economic','Economic','bg-teal-50 border-teal-200','text-teal-700'],['social','Social','bg-pink-50 border-pink-200','text-pink-700'],['technological','Technological','bg-cyan-50 border-cyan-200','text-cyan-700']].map(([k,label,bg,txt]) => `
+                            <div class="${bg} border rounded-lg p-3">
+                                <label class="block text-xs font-bold ${txt} mb-1">${label}</label>
+                                <textarea onchange="window.savePESTField('${k}',this.value)" class="w-full text-sm p-2 rounded border border-slate-200 min-h-[80px] resize-none" placeholder="${label}...">${escapeHtml(pest[k]||'')}</textarea>
+                            </div>`).join('')}
+                        </div>
+                    </div>
                 </div>
             </div>
         </section>
@@ -750,10 +813,39 @@ export function renderChecklist() {
                         placeholder="What worked? What didn't? What would you do differently?">${escapeHtml(c.learning_points || '')}</textarea>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Sustainability Plan</label>
+                    <label class="block text-sm font-medium text-slate-700 mb-1">Sustainability Summary</label>
                     <textarea id="check-sustainability" onchange="window.saveChecklistField('sustainability', this.value)"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
-                        placeholder="How will improvements be maintained? Who owns this? What systems are in place?">${escapeHtml(c.sustainability || '')}</textarea>
+                        placeholder="High-level sustainability narrative for the FRCEM submission.">${escapeHtml(c.sustainability || '')}</textarea>
+                </div>
+            </div>
+            <!-- Sustainability & Spread Planner -->
+            <div class="mt-4 border border-teal-200 rounded-lg overflow-hidden">
+                <div class="bg-teal-50 px-4 py-3 flex items-center gap-2">
+                    <i data-lucide="rocket" class="w-4 h-4 text-teal-600"></i>
+                    <span class="text-sm font-bold text-teal-800">Sustainability &amp; Spread Planner</span>
+                </div>
+                <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Who Will Adopt This? (Target adopters)</label>
+                        <textarea onchange="window.saveSpreadField('whoAdopts',this.value)" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="Other EDs, ward teams, national rollout...">${escapeHtml(spreadPlan.whoAdopts||'')}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Infrastructure Required</label>
+                        <textarea onchange="window.saveSpreadField('infrastructure',this.value)" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="IT systems, training, resources needed...">${escapeHtml(spreadPlan.infrastructure||'')}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Maintenance Plan (Who owns it?)</label>
+                        <textarea onchange="window.saveSpreadField('maintenancePlan',this.value)" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="Named owner, governance, audit cycle...">${escapeHtml(spreadPlan.maintenancePlan||'')}</textarea>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Spread Timeline</label>
+                        <textarea onchange="window.saveSpreadField('spreadTimeline',this.value)" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="Phase 1: 3 months — local; Phase 2: 6 months — regional...">${escapeHtml(spreadPlan.spreadTimeline||'')}</textarea>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Embedding Strategy (how will change become routine?)</label>
+                        <textarea onchange="window.saveSpreadField('embeddingStrategy',this.value)" class="w-full p-2 border border-slate-300 rounded text-sm min-h-[70px]" placeholder="SOP update, induction inclusion, mandatory training, guideline integration...">${escapeHtml(spreadPlan.embeddingStrategy||'')}</textarea>
+                    </div>
                 </div>
             </div>
             <div class="mt-4">
@@ -761,6 +853,57 @@ export function renderChecklist() {
                 <textarea id="check-next-pdp" onchange="window.saveChecklistField('next_pdp', this.value)"
                     class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
                     placeholder="What specific QI skills do you want to develop next year?">${escapeHtml(c.next_pdp || '')}</textarea>
+            </div>
+        </section>
+
+        <!-- Section 8: FMEA Risk Table -->
+        <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
+            <h2 onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1 cursor-pointer select-none">
+                <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">8</span>
+                Failure Mode &amp; Effect Analysis (FMEA)
+                ${csDot(fmea.length > 0)}
+                <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
+            </h2>
+            <div>
+                <p class="text-xs text-slate-500 mb-3">Proactively identify where your QI process could fail, assess risk (Likelihood × Severity × Detectability = RPN), and plan mitigations. RPN ≥ 50 = High risk (red), ≥ 20 = Medium (amber), &lt; 20 = Low (green).</p>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-xs border-collapse" id="fmea-table">
+                        <thead>
+                            <tr class="bg-slate-100">
+                                <th class="border border-slate-200 px-2 py-2 text-left font-semibold text-slate-600">Process Step</th>
+                                <th class="border border-slate-200 px-2 py-2 text-left font-semibold text-slate-600">Failure Mode</th>
+                                <th class="border border-slate-200 px-2 py-2 text-left font-semibold text-slate-600">Effect on Patient/Process</th>
+                                <th class="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 w-10" title="Likelihood 1-5">L</th>
+                                <th class="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 w-10" title="Severity 1-5">S</th>
+                                <th class="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 w-10" title="Detectability 1-5">D</th>
+                                <th class="border border-slate-200 px-2 py-2 text-center font-semibold text-slate-600 w-14">RPN</th>
+                                <th class="border border-slate-200 px-2 py-2 text-left font-semibold text-slate-600">Mitigation</th>
+                                <th class="border border-slate-200 px-2 py-2 w-8"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="fmea-body">
+                            ${fmea.length === 0 ? '<tr><td colspan="9" class="border border-slate-200 px-3 py-4 text-center text-slate-400">No rows yet — click &quot;Add Row&quot; to begin</td></tr>' :
+                            fmea.map((row, i) => {
+                                const rpn = (parseInt(row.likelihood)||1) * (parseInt(row.severity)||1) * (parseInt(row.detectability)||1);
+                                const rpnClass = rpn >= 50 ? 'bg-red-100 text-red-700 font-bold' : rpn >= 20 ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-green-100 text-green-700 font-bold';
+                                return `<tr>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.step||'')}" onchange="window.updateFMEARow(${i},'step',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Step..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.failureMode||'')}" onchange="window.updateFMEARow(${i},'failureMode',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="What could go wrong?"/></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.effect||'')}" onchange="window.updateFMEARow(${i},'effect',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Impact..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.likelihood||1}" onchange="window.updateFMEARow(${i},'likelihood',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.severity||1}" onchange="window.updateFMEARow(${i},'severity',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.detectability||1}" onchange="window.updateFMEARow(${i},'detectability',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><span class="px-2 py-1 rounded ${rpnClass}">${rpn}</span></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.mitigation||'')}" onchange="window.updateFMEARow(${i},'mitigation',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Action to reduce risk..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><button onclick="window.deleteFMEARow(${i})" class="text-red-400 hover:text-red-600 p-1" title="Delete row"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+                <button onclick="window.addFMEARow()" class="mt-3 flex items-center gap-2 px-3 py-2 bg-orange-50 border border-orange-200 text-orange-700 rounded-lg text-xs font-semibold hover:bg-orange-100 transition-all">
+                    <i data-lucide="plus" class="w-3 h-3"></i> Add Row
+                </button>
             </div>
         </section>
     `;

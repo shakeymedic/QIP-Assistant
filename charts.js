@@ -656,6 +656,31 @@ function getPDSAAnnotations() {
     return annotations;
 }
 
+function getEventMarkerAnnotations() {
+    const annotations = {};
+    if (state.projectData?.chartEvents && state.projectData.chartEvents.length > 0) {
+        state.projectData.chartEvents.forEach((ev, i) => {
+            annotations['event_' + i] = {
+                type: 'line',
+                xMin: ev.date,
+                xMax: ev.date,
+                borderColor: ev.color || '#14b8a6',
+                borderWidth: 2,
+                borderDash: [3, 3],
+                label: {
+                    display: true,
+                    content: ev.label || 'Event',
+                    position: 'end',
+                    backgroundColor: ev.color || '#14b8a6',
+                    color: 'white',
+                    font: { size: 9, weight: 'bold' }
+                }
+            };
+        });
+    }
+    return annotations;
+}
+
 // Helper: detect NHS Improvement run chart signals
 function detectRunChartSignals(data, median) {
     const n = data.length;
@@ -803,6 +828,8 @@ function renderRunChart(ctx, canvasId) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }
+    // Event marker annotations
+    annotations = { ...annotations, ...getEventMarkerAnnotations() };
 
     const gradeColors = {
         'Baseline': '#64748b', 'Cycle 1': '#3b82f6', 'Cycle 2': '#8b5cf6',
@@ -923,6 +950,8 @@ function renderSPCChart(ctx, canvasId) {
         const pdsaAnnotations = getPDSAAnnotations();
         annotations = { ...annotations, ...pdsaAnnotations };
     }
+    // Event marker annotations
+    annotations = { ...annotations, ...getEventMarkerAnnotations() };
 
     const chart = new Chart(ctx, {
         type: 'line',

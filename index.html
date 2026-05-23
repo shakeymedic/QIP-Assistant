@@ -309,6 +309,7 @@
                 </div>
                 
                 <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
+                    <div id="frcem-progress-chip" class="mb-2 px-1"></div>
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-2 flex items-center gap-2">
                         <span class="w-5 h-5 rounded-full bg-slate-600 text-slate-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9312;</span>
                         Define & Measure
@@ -373,6 +374,10 @@
                     <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
                         <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
                     </button>
+                    <button aria-label="Open EM-QIAT Journal" onclick="window.showEMQIATModal()" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-100 transition-all border border-emerald-800/50 mb-1" id="nav-emqiat">
+                        <i data-lucide="file-badge" class="w-4 h-4 flex-shrink-0"></i>
+                        <span class="text-sm font-semibold">EM-QIAT Journal</span>
+                    </button>
 
                     <div class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 px-3 mt-4 flex items-center gap-2">
                         <span class="w-5 h-5 rounded-full bg-sky-700 text-sky-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9316;</span>
@@ -408,6 +413,12 @@
                     </button>
                     <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="help-circle" class="w-3 h-3"></i> Help &amp; Guide
+                    </button>
+                    <button aria-label="FRCEM Readiness Check" onclick="window.showFRCEMReadinessChecker()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                        <i data-lucide="clipboard-check" class="w-3 h-3"></i> FRCEM Readiness
+                    </button>
+                    <button aria-label="Version History" onclick="window.showSnapshotHistory()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
+                        <i data-lucide="history" class="w-3 h-3"></i> Version History
                     </button>
                     <button aria-label="Open Settings" onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="settings" class="w-3 h-3"></i> Settings
@@ -678,6 +689,9 @@
                                         </button>
                                         <button aria-label="Open Chart Settings" onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1" title="Chart Settings">
                                             <i data-lucide="settings" class="w-4 h-4"></i>
+                                        </button>
+                                        <button aria-label="Event Markers" onclick="window.showEventMarkersPanel()" class="text-teal-500 hover:text-teal-700 p-1" title="Event Markers">
+                                            <i data-lucide="flag" class="w-4 h-4"></i>
                                         </button>
                                         <button aria-label="Copy Chart Image" onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy Chart">
                                             <i data-lucide="copy" class="w-4 h-4"></i>
