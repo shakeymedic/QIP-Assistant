@@ -25,6 +25,127 @@ import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySu
 // ─── Master Admin ───────────────────────────────────────────────────────
 const ADMIN_EMAIL = 'emevidence999@gmail.com';
 
+// ─── Project data migration ───────────────────────────────────────────────────
+function migrateProjectData(d) {
+    if (!d) return;
+    // Ensure changeIdeas exists
+    if (!Array.isArray(d.changeIdeas)) d.changeIdeas = [];
+    // One-time migration: move any flat d.pdsa cycles into a default change idea
+    if (Array.isArray(d.pdsa) && d.pdsa.length > 0 && d.changeIdeas.length === 0) {
+        d.changeIdeas = [{
+            id: 'ci-legacy',
+            title: 'Change Idea 1',
+            description: '',
+            driverLink: '',
+            status: 'active',
+            pdsaCycles: JSON.parse(JSON.stringify(d.pdsa))
+        }];
+        // d.pdsa kept intact so charts/export keep working
+    }
+}
+
+// ─── Clinical Templates ───────────────────────────────────────────────────────
+const CLINICAL_TEMPLATES = [
+    {
+        id: 'mental-health-self-harm',
+        title: 'Mental Health: Self-Harm',
+        year: '2025–2026',
+        stage: 'All stages',
+        color: 'rose',
+        description: 'Risk assessment, safety planning, and early referral pathways for patients presenting with self-harm or suicidal ideation.',
+        checklist: {
+            problem_desc: 'Inconsistent risk assessment and safety planning documentation for patients presenting to the ED with self-harm or suicidal ideation.',
+            aim: 'To improve compliance with RCEM self-harm standards by 30% within 12 months, ensuring all patients presenting with self-harm receive a documented risk assessment and safety plan before discharge.',
+            outcome_measure: 'Proportion of patients presenting with self-harm who have a completed, documented risk assessment and safety plan prior to discharge.',
+            process_measure: 'Proportion of clinicians using the trust safety planning proforma; number of patients referred to mental health liaison within 4 hours.',
+            balance_measure: 'Average ED length of stay for mental health presentations; unplanned re-attendance rate within 72 hours.'
+        },
+        changeIdeas: [
+            { title: 'Implement standardised safety planning proforma in EPR', description: 'Embed a mandatory safety planning template within the EPR clerking for all mental health triage presentations.' },
+            { title: 'Targeted education session for ED clinicians', description: 'Run a focused training session on NICE self-harm guidelines and local referral pathways for all grades.' }
+        ]
+    },
+    {
+        id: 'delirium-screening',
+        title: 'Care of Older People: Delirium Screening',
+        year: '2025–2026',
+        stage: 'ST4–ST6',
+        color: 'blue',
+        description: 'Improve 4AT delirium screening rates for patients aged 75+ presenting to the Emergency Department.',
+        checklist: {
+            problem_desc: 'Delirium is under-recognised in the ED, with low rates of formal 4AT screening in patients aged 75 and older.',
+            aim: 'To improve the rate of documented 4AT delirium screening from 10% to 20% for patients aged 75+ presenting to the ED by August 2026.',
+            outcome_measure: 'Percentage of patients aged 75+ receiving a documented delirium screen upon ED presentation.',
+            process_measure: 'Type of screening tool utilised; screening rates across different shifts; role of the screening clinician.',
+            balance_measure: 'Total ED length of stay for geriatric patients; time to initial clinical assessment.'
+        },
+        changeIdeas: [
+            { title: 'Focused education on 4AT screening tool', description: 'Deliver education sessions on identifying delirium and using 4AT for all nursing and medical staff.' },
+            { title: 'Establish inter-departmental handover protocol', description: 'Create a formal handover protocol between ED and geriatric medicine to ensure screening results are communicated at admission.' }
+        ]
+    },
+    {
+        id: 'time-critical-medications',
+        title: 'Time-Critical Medications',
+        year: '2025–2026',
+        stage: 'All stages',
+        color: 'amber',
+        description: 'Eliminate delays in administering essential pharmacotherapy such as antibiotics in sepsis or anticonvulsants in status epilepticus.',
+        checklist: {
+            problem_desc: 'Delays in administration of time-critical medications in the ED result in avoidable patient harm.',
+            aim: 'To reduce the median time to administration of antibiotics in sepsis to under 60 minutes from ED arrival, achieving compliance with RCEM time-critical medication standards.',
+            outcome_measure: 'Median time (minutes) from ED arrival to first antibiotic dose in suspected sepsis.',
+            process_measure: 'Proportion of sepsis cases with antibiotics prescribed within 30 minutes; rate of blood cultures prior to antibiotic administration.',
+            balance_measure: 'Rate of inappropriate antibiotic prescribing; incidence of documented antibiotic allergy reactions.'
+        },
+        changeIdeas: [
+            { title: 'Sepsis recognition prompt in triage EPR', description: 'Embed a mandatory sepsis screening question and automatic antibiotic alert within the triage EPR module.' },
+            { title: 'Pre-draw antibiotic protocol for resus bay', description: 'Implement a nurse-initiated protocol to pre-draw and administer antibiotics in confirmed sepsis without waiting for a prescription.' }
+        ]
+    },
+    {
+        id: 'adolescent-mental-health',
+        title: 'Adolescent Mental Health (HEEADSSS)',
+        year: '2025–2026',
+        stage: 'All stages',
+        color: 'purple',
+        description: 'Multi-domain HEEADSSS psychosocial screening for adolescent psychiatric emergencies in the ED.',
+        checklist: {
+            problem_desc: 'Adolescents presenting to the ED with mental health crises are not consistently receiving structured HEEADSSS psychosocial assessments, resulting in missed safeguarding concerns.',
+            aim: 'To achieve compliance with HEEADSSS psychosocial screening documentation in 60% of adolescent mental health presentations within 12 months.',
+            outcome_measure: 'Proportion of adolescent mental health presentations with a documented HEEADSSS assessment.',
+            process_measure: 'Proportion of presentations with onward mental health referral documented; rate of safeguarding alerts raised.',
+            balance_measure: 'ED length of stay for adolescent mental health presentations; rate of re-attendance within 7 days.'
+        },
+        changeIdeas: [
+            { title: 'Introduce HEEADSSS proforma in EPR', description: 'Create an EPR proforma embedding the HEEADSSS domains for all adolescent mental health assessments.' },
+            { title: 'Multi-disciplinary teaching on adolescent safeguarding', description: 'Deliver joint teaching with CAMHS on adolescent safeguarding, referral thresholds, and HEEADSSS assessment.' }
+        ]
+    },
+    {
+        id: 'paracetamol-overdose',
+        title: 'Paracetamol Overdose Management',
+        year: '2025–2026 (from Jan 2026)',
+        stage: 'All stages',
+        color: 'emerald',
+        description: 'Standardise blood testing timelines and treatment regimens for paracetamol overdose presentations.',
+        checklist: {
+            problem_desc: 'Variation in blood test timing and treatment decision-making in paracetamol overdose presentations to the ED.',
+            aim: 'To achieve 90% compliance with RCEM paracetamol overdose blood testing timelines and treatment protocols, reducing variation in clinical management.',
+            outcome_measure: 'Proportion of paracetamol overdose presentations with blood tests taken at the correct time (4 hours post-ingestion, or time of presentation if >4 hours).',
+            process_measure: 'Proportion of cases with treatment decision documented using the paracetamol nomogram; rate of Pharmacy involvement.',
+            balance_measure: 'Rate of under- or over-treatment; unplanned re-attendance rate within 72 hours.'
+        },
+        changeIdeas: [
+            { title: 'Standardised paracetamol overdose EPR proforma', description: 'Introduce a structured EPR clerking proforma for all paracetamol overdose presentations with auto-calculated treatment prompts.' },
+            { title: 'Treatment nomogram poster and EPR hyperlink', description: 'Place visual nomogram decision aids in resus and majors; embed as a hyperlink in the EPR drug prescribing module.' }
+        ]
+    }
+];
+
+window.CLINICAL_TEMPLATES = CLINICAL_TEMPLATES;
+window.R = R; // expose renderer module for applyTemplate and other dynamic callers
+
 console.log('App starting...');
 window._qipModules = { state }; // expose for export functions
 // Expose QIP Lead panel renderer for supervisor.js
@@ -96,6 +217,299 @@ window.router = (view) => {
 // ==========================================
 // HOW-TO GUIDE MODAL
 // ==========================================
+// ─── Education Hub (Learn Panel) ─────────────────────────────────────────────
+window.showLearnPanel = function() {
+    let modal = document.getElementById('learn-panel-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'learn-panel-modal';
+        modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column">
+                <div class="bg-gradient-to-r from-rcem-purple to-indigo-600 text-white px-6 py-5 flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="graduation-cap" class="w-6 h-6"></i>
+                            <div>
+                                <h2 class="text-lg font-bold">QI Learning Hub</h2>
+                                <p class="text-xs text-indigo-200">Resources, guidance, and the FRCEM marking rubric</p>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('learn-panel-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-y-auto p-6 space-y-6">
+
+                    <!-- Stage guide -->
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="map" class="w-4 h-4 text-rcem-purple"></i> What is Expected at Each Stage?</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                                <div class="font-bold text-blue-800 text-sm mb-1">ACCS (ST1–ST2)</div>
+                                <p class="text-xs text-blue-700 leading-relaxed">Contribute to a departmental project. Demonstrate basic understanding of QI principles and reflect on team dynamics.</p>
+                            </div>
+                            <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                                <div class="font-bold text-indigo-800 text-sm mb-1">Intermediate (ST3)</div>
+                                <p class="text-xs text-indigo-700 leading-relaxed">Understand QI methods, execute data analysis, and evaluate the impact of clinical changes. At least 2 PDSA cycles.</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                                <div class="font-bold text-purple-800 text-sm mb-1">HST (ST4–ST6)</div>
+                                <p class="text-xs text-purple-700 leading-relaxed">Provide clinical leadership, drive safety culture, and manage governance. ST6: lead, complete, and write up a robust QIP. 3+ iterative PDSA cycles for Excellent.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- FRCEM Marking Rubric -->
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="clipboard-check" class="w-4 h-4 text-emerald-600"></i> FRCEM Marking Rubric at a Glance</h3>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs border-collapse">
+                                <thead>
+                                    <tr class="bg-slate-50">
+                                        <th class="text-left p-2 border border-slate-200 font-bold text-slate-700">Domain</th>
+                                        <th class="text-left p-2 border border-slate-200 font-bold text-amber-700">Satisfactory</th>
+                                        <th class="text-left p-2 border border-slate-200 font-bold text-emerald-700">Excellent</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td class="p-2 border border-slate-200 font-medium">Narrative Structure</td><td class="p-2 border border-slate-200 text-slate-600">Clear problem ID; relevant local context; cohesive structure</td><td class="p-2 border border-slate-200 text-slate-600">Compelling narrative flow; fluid transitions; clear logical progression</td></tr>
+                                    <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Engagement & Team</td><td class="p-2 border border-slate-200 text-slate-600">Identified team members; defined roles; documented contributions</td><td class="p-2 border border-slate-200 text-slate-600">Interdisciplinary team; documented management of resistance; patient co-design</td></tr>
+                                    <tr><td class="p-2 border border-slate-200 font-medium">Problem Analysis</td><td class="p-2 border border-slate-200 text-slate-600">Baseline audit; critical appraisal of clinical literature</td><td class="p-2 border border-slate-200 text-slate-600">Multiple analysis tools (SWOT, PEST, Ishikawa, FMEA); option appraisal</td></tr>
+                                    <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Change Management</td><td class="p-2 border border-slate-200 text-slate-600">Basic Model for Improvement; <strong>at least 2 PDSA cycles</strong></td><td class="p-2 border border-slate-200 text-slate-600">Gantt charts; stakeholder forcefields; <strong>3+ distinct, iterative PDSA cycles</strong></td></tr>
+                                    <tr><td class="p-2 border border-slate-200 font-medium">Measuring Outcomes</td><td class="p-2 border border-slate-200 text-slate-600">Outcome, process, and balancing measures; basic data tables</td><td class="p-2 border border-slate-200 text-slate-600">Annotated run charts or SPC charts; justified metrics</td></tr>
+                                    <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Reflection</td><td class="p-2 border border-slate-200 text-slate-600">Basic personal reflection; future project steps identified</td><td class="p-2 border border-slate-200 text-slate-600">Deep, self-aware reflection; personal strengths/weaknesses; sustainability analysis</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-2">Word count: 3,000–4,000 words. Formatting: 11pt double-spaced Arial/Times New Roman. Referencing: Vancouver.</p>
+                    </div>
+
+                    <!-- Educational resources -->
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-blue-600"></i> Curated Learning Resources</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <a href="https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-300 transition-colors group">
+                                <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-blue-700">IHI Open School</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Basic Certificate in QI & Safety. Free modules: Model for Improvement, PDSA cycles, Run/Control Charting. All training stages.</div>
+                                </div>
+                            </a>
+                            <a href="https://www.nhselect.nhs.uk/training-development/improvement" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100 hover:border-emerald-300 transition-colors group">
+                                <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-emerald-700">NHS Elect — QI Practitioner Programme</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Four modules: QI Fundamentals; Measurement Frameworks & Driver Diagrams; Run Chart Interpretation; Sustaining Change. For HST trainees & operational leads.</div>
+                                </div>
+                            </a>
+                            <a href="https://www.hqip.org.uk/resource/guide-to-quality-improvement-tools" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100 hover:border-orange-300 transition-colors group">
+                                <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-orange-700">HQIP — Guide to QI Tools</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Technical overview of 11 improvement tools: Root Cause Analysis, clinical audit, Lean, SPC, and more. For all healthcare professionals.</div>
+                                </div>
+                            </a>
+                            <a href="https://awsem.co.uk/outside-the-ed/quality-improvement/" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-indigo-50 rounded-xl border border-indigo-100 hover:border-indigo-300 transition-colors group">
+                                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-indigo-700">AWSEM — EM Quality Improvement Hub</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Emergency Medicine-specific QI resources, templates, and guidance tailored to the ED environment.</div>
+                                </div>
+                            </a>
+                            <a href="https://rcem.ac.uk/rcem-curriculum/" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors group">
+                                <div class="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-slate-700">RCEM SLO 11 Guidance</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Official RCEM curriculum guidance for SLO 11 — QI competencies, EM-QIAT requirements, and ARCP expectations at each stage.</div>
+                                </div>
+                            </a>
+                            <a href="https://www.gsqia.nhs.uk/" target="_blank" rel="noopener"
+                               class="flex items-start gap-3 p-4 bg-teal-50 rounded-xl border border-teal-100 hover:border-teal-300 transition-colors group">
+                                <div class="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-teal-700">GSQIA Silver Templates</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Downloadable cause-and-effect diagrams, SPC calculators, phased run charts, and progress slides. For core and HST trainees.</div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Key terminology -->
+                    <div>
+                        <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="help-circle" class="w-4 h-4 text-purple-600"></i> Key Concepts</h3>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            ${[
+                                ['Driver Diagram', 'A visual map linking your Aim to Primary Drivers (main categories of causes), Secondary Drivers (specific contributing factors), and Change Ideas (interventions to test).'],
+                                ['PDSA Cycle', 'Plan (what you will test & predict), Do (run the test), Study (analyse results vs prediction), Act (adopt, adapt, or abandon). Each cycle builds on the last.'],
+                                ['Change Idea', 'A specific intervention to be tested through PDSA cycles. You can have multiple change ideas within one project, each with their own iterative cycles.'],
+                                ['Run Chart', 'A graph of your data over time with the median marked. Used to spot trends, shifts, and the impact of your change ideas on outcomes.'],
+                                ['Outcome Measure', 'What ultimately changes for the patient (e.g. % receiving a correct diagnosis).'],
+                                ['Process Measure', 'Whether the clinical process you changed is being followed (e.g. % of forms completed).'],
+                                ['Balancing Measure', 'Unintended consequences of your change — things that might get worse while you improve the target (e.g. length of stay).'],
+                                ['SPC Chart', 'Statistical Process Control: a run chart with control limits to detect special-cause variation — a signal that your change is having a real, non-random effect.']
+                            ].map(([term, def]) => `
+                            <div class="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                                <div class="font-bold text-xs text-slate-700 mb-0.5">${term}</div>
+                                <p class="text-xs text-slate-500 leading-relaxed">${def}</p>
+                            </div>`).join('')}
+                        </div>
+                    </div>
+
+                </div>
+                <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50">
+                    <button onclick="document.getElementById('learn-panel-modal').remove()" class="w-full py-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+};
+
+// ─── Clinical Templates Modal ─────────────────────────────────────────────────
+window.showTemplatesModal = function() {
+    let modal = document.getElementById('templates-modal');
+    if (!modal) {
+        const colorMap = {
+            rose: 'bg-rose-50 border-rose-200 text-rose-800',
+            blue: 'bg-blue-50 border-blue-200 text-blue-800',
+            amber: 'bg-amber-50 border-amber-200 text-amber-800',
+            purple: 'bg-purple-50 border-purple-200 text-purple-800',
+            emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800'
+        };
+        const btnMap = {
+            rose: 'bg-rose-600 hover:bg-rose-700',
+            blue: 'bg-blue-600 hover:bg-blue-700',
+            amber: 'bg-amber-600 hover:bg-amber-700',
+            purple: 'bg-purple-600 hover:bg-purple-700',
+            emerald: 'bg-emerald-600 hover:bg-emerald-700'
+        };
+        modal = document.createElement('div');
+        modal.id = 'templates-modal';
+        modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
+        modal.innerHTML = `
+            <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-auto overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column">
+                <div class="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-5 flex-shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i data-lucide="layout-template" class="w-6 h-6"></i>
+                            <div>
+                                <h2 class="text-lg font-bold">RCEM Clinical Templates</h2>
+                                <p class="text-xs text-amber-100">2025–2026 national QIP topics — pre-filled aims, measures & change ideas</p>
+                            </div>
+                        </div>
+                        <button onclick="document.getElementById('templates-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
+                            <i data-lucide="x" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="overflow-y-auto p-6 space-y-4">
+                    <p class="text-sm text-slate-600">Select a template to pre-fill your current project's aim statement, measures, and change ideas. <strong>Your existing data will not be overwritten</strong> unless a field is currently empty.</p>
+                    ${CLINICAL_TEMPLATES.map(t => `
+                    <div class="border-2 ${colorMap[t.color]||'border-slate-200 bg-slate-50'} rounded-xl p-4">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-2 flex-wrap mb-1">
+                                    <span class="font-bold text-sm">${t.title}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/70 border font-medium">${t.year}</span>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-white/70 border font-medium">${t.stage}</span>
+                                </div>
+                                <p class="text-xs leading-relaxed opacity-80">${t.description}</p>
+                                <div class="mt-2 flex flex-wrap gap-1">
+                                    ${t.changeIdeas.map(ci => `<span class="text-[10px] px-2 py-0.5 rounded-full bg-white/60 border opacity-80">${ci.title}</span>`).join('')}
+                                </div>
+                            </div>
+                            <button onclick="window.applyTemplate('${t.id}')" class="flex-shrink-0 px-3 py-1.5 text-xs font-bold text-white rounded-lg transition-colors ${btnMap[t.color]||'bg-slate-600 hover:bg-slate-700'}">
+                                Apply
+                            </button>
+                        </div>
+                    </div>`).join('')}
+                </div>
+                <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50">
+                    <button onclick="document.getElementById('templates-modal').remove()" class="w-full py-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors">Close</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } else {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+};
+
+window.applyTemplate = function(templateId) {
+    const t = CLINICAL_TEMPLATES.find(x => x.id === templateId);
+    if (!t) return;
+
+    if (!state.projectData) {
+        showToast('Open a project first to apply a template.', 'info');
+        return;
+    }
+
+    const d = state.projectData;
+    if (!d.checklist) d.checklist = {};
+
+    // Apply checklist fields only if currently empty
+    Object.entries(t.checklist).forEach(([k, v]) => {
+        if (!d.checklist[k]) d.checklist[k] = v;
+    });
+
+    // Add change ideas (always adds — user can delete unwanted ones)
+    if (!Array.isArray(d.changeIdeas)) d.changeIdeas = [];
+    t.changeIdeas.forEach(ci => {
+        d.changeIdeas.push({
+            id: 'ci-tmpl-' + Date.now() + '-' + Math.random().toString(36).slice(2),
+            title: ci.title,
+            description: ci.description,
+            driverLink: '',
+            status: 'planning',
+            pdsaCycles: []
+        });
+    });
+
+    // Sync flat pdsa
+    d.pdsa = (d.changeIdeas || []).flatMap(idea => (idea.pdsaCycles || []));
+
+    if (window.saveData) window.saveData();
+
+    // Close modal and navigate
+    const modal = document.getElementById('templates-modal');
+    if (modal) modal.remove();
+
+    showToast('Template applied — change ideas added and aim fields pre-filled where empty.', 'success');
+
+    // Re-render current view
+    const currentView = document.querySelector('.view-section:not(.hidden)');
+    if (currentView) {
+        const viewName = currentView.id.replace('view-', '');
+        if (viewName === 'pdsa') { if (window.R?.renderPDSA) window.R.renderPDSA(); }
+        else if (viewName === 'checklist') { if (window.R?.renderChecklist) window.R.renderChecklist(); }
+    }
+};
+
 window.showHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (!m) return;
@@ -479,6 +893,12 @@ window.toggleStakeView = R.toggleStakeView;
 window.addPDSA = R.addPDSA;
 window.updatePDSA = R.updatePDSA;
 window.deletePDSA = R.deletePDSA;
+window.addChangeIdea = R.addChangeIdea;
+window.updateChangeIdea = R.updateChangeIdea;
+window.deleteChangeIdea = R.deleteChangeIdea;
+window.addCycleToIdea = R.addCycleToIdea;
+window.updateCycleInIdea = R.updateCycleInIdea;
+window.deleteCycleFromIdea = R.deleteCycleFromIdea;
 
 window.openGanttModal = R.openGanttModal;
 window.saveGanttTask = () => {
@@ -1173,6 +1593,7 @@ window.openProject = (id) => {
                 signedOff: false, signedOffBy: '', signedOffDate: ''
             };
             if(!state.projectData.surveys) state.projectData.surveys = [];
+            migrateProjectData(state.projectData);
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
