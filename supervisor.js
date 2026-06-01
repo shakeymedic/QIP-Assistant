@@ -89,12 +89,14 @@ export function renderSupervisorDashboard() {
                 </div>
             </div>
         </div>
+
+        <!-- QIP Lead management panel — re-injected here so getElementById finds it -->
+        <div id="qip-lead-panel" class="mt-4"></div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
-    // QIP Lead management panel — rendered separately
-    const leadPanel = document.getElementById('qip-lead-panel');
-    if (leadPanel && typeof window.renderQIPLeadPanelFn === 'function') {
+    // Now the panel div exists in DOM — populate it
+    if (typeof window.renderQIPLeadPanelFn === 'function') {
         window.renderQIPLeadPanelFn();
     }
 }

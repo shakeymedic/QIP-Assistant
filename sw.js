@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.14';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.14';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.14';
+const CACHE_NAME = 'rcem-qip-v3.15.15';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.15';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.15';
 
 const STATIC_ASSETS = [
     '/',
@@ -14,6 +14,10 @@ const STATIC_ASSETS = [
     '/config.js',
     '/ai.js',
     '/onboarding.js',
+    '/supervisor.js',
+    '/surveys.js',
+    '/kaizen-export.js',
+    '/qip-lead.js',
     '/styles.css',
     '/manifest.json',
     '/logo.png'
@@ -27,6 +31,7 @@ const CDN_ASSETS = [
     'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
     'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
+    'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css',
     'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js',
     'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap'
@@ -42,7 +47,7 @@ async function trimCache(cacheName, maxItems) {
 }
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.15.14...');
+    console.log('[SW] Installing service worker v3.15.15...');
     
     event.waitUntil(
         Promise.all([
@@ -249,4 +254,4 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service worker loaded - v3.2.1');
+console.log('[SW] Service worker loaded - v3.15.15');
