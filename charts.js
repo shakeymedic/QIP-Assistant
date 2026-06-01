@@ -1413,15 +1413,182 @@ export function saveChartSettings() {
 
 export function copyChartImage() {
     const c = document.getElementById('mainChart');
-    if(c) {
-        c.toBlob(b => { 
-            if (b) {
-                navigator.clipboard.write([new ClipboardItem({'image/png': b})])
-                    .then(() => showToast("Chart copied to clipboard.", "success"))
-                    .catch(() => showToast("Copy failed. Try right-click to save.", "error")); 
-            }
-        });
+    if (!c) { showToast("No chart to copy.", "error"); return; }
+    // Fallback to download if Clipboard API is unavailable (non-HTTPS, Firefox, etc.)
+    if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
+        downloadChartPNG();
+        return;
     }
+    c.toBlob(b => {
+        if (!b) { showToast("Chart export failed.", "error"); return; }
+        navigator.clipboard.write([new ClipboardItem({'image/png': b})])
+            .then(() => showToast("Chart copied to clipboard.", "success"))
+            .catch(() => { downloadChartPNG(); });
+    }, 'image/png', 1.0);
+}
+
+// ============================================================
+// DOWNLOAD CHART PNG (reliable cross-browser download)
+// ============================================================
+export function downloadChartPNG() {
+    const canvas = document.getElementById('mainChart');
+    if (!canvas) { showToast("No chart to export.", "error"); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'chart').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const chartType = typeof chartMode !== 'undefined' ? chartMode : 'chart';
+    canvas.toBlob(blob => {
+        if (!blob) { showToast("Chart export failed.", "error"); return; }
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${title}_${chartType}_${new Date().toISOString().slice(0,10)}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        showToast("Chart PNG downloaded.", "success");
+    }, 'image/png', 1.0);
+}
+
+// ============================================================
+// GANTT EXPORTS (PNG + PDF)
+// html2canvas is bundled with html2pdf but also loaded standalone
+// ============================================================
+export function exportGanttPNG() {
+    const container = document.getElementById('gantt-container');
+    if (!container) { showToast("No Gantt chart found.", "error"); return; }
+    if (typeof html2canvas === 'undefined') { showToast("Export library not loaded — please refresh.", "error"); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'gantt').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    showToast("Generating Gantt PNG…", "info");
+    html2canvas(container, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        logging: false, allowTaint: true
+    }).then(canvas => {
+        canvas.toBlob(blob => {
+            if (!blob) { showToast("Gantt PNG export failed.", "error"); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}_gantt_${new Date().toISOString().slice(0,10)}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            showToast("Gantt PNG downloaded.", "success");
+        }, 'image/png');
+    }).catch(err => {
+        console.error('Gantt PNG export:', err);
+        showToast("PNG export failed — try PDF instead.", "error");
+    });
+}
+
+export function exportGanttPDF() {
+    const container = document.getElementById('gantt-container');
+    if (!container) { showToast("No Gantt chart found.", "error"); return; }
+    if (typeof html2pdf === 'undefined') { showToast("PDF library not loaded — please refresh.", "error"); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'gantt').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = `${title}_gantt_${new Date().toISOString().slice(0,10)}.pdf`;
+    showToast("Generating Gantt PDF…", "info");
+    html2pdf().set({
+        margin: 8,
+        filename,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', allowTaint: true },
+        jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' },
+        pagebreak: { mode: 'avoid-all' }
+    }).from(container).save()
+      .then(() => showToast("Gantt PDF downloaded.", "success"))
+      .catch(err => { console.error('Gantt PDF export:', err); showToast("PDF export failed.", "error"); });
+}
+
+// ============================================================
+// DIAGRAM EXPORTS (PNG + SVG)
+// ============================================================
+export function exportDiagramPNG() {
+    const container = document.getElementById('diagram-canvas');
+    if (!container) { showToast("No diagram found.", "error"); return; }
+    if (typeof html2canvas === 'undefined') { showToast("Export library not loaded — please refresh.", "error"); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'diagram').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    showToast("Generating diagram PNG…", "info");
+    html2canvas(container, {
+        scale: 2, useCORS: true, backgroundColor: '#f8fafc',
+        logging: false, allowTaint: true
+    }).then(canvas => {
+        canvas.toBlob(blob => {
+            if (!blob) { showToast("Diagram PNG export failed.", "error"); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}_diagram_${new Date().toISOString().slice(0,10)}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            showToast("Diagram PNG downloaded.", "success");
+        }, 'image/png');
+    }).catch(err => {
+        console.error('Diagram PNG export:', err);
+        showToast("Diagram PNG export failed.", "error");
+    });
+}
+
+export function exportDiagramSVG() {
+    const container = document.getElementById('diagram-canvas');
+    if (!container) { showToast("No diagram found.", "error"); return; }
+    const svg = container.querySelector('svg');
+    if (!svg) { showToast("No SVG diagram — try PNG export instead.", "info"); exportDiagramPNG(); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'diagram').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const serializer = new XMLSerializer();
+    let svgStr = serializer.serializeToString(svg);
+    if (!svgStr.includes('xmlns=')) {
+        svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${title}_diagram_${new Date().toISOString().slice(0,10)}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    showToast("Diagram SVG downloaded.", "success");
+}
+
+// ============================================================
+// STAKEHOLDER MAP EXPORT (PNG)
+// ============================================================
+export function exportStakeholderPNG() {
+    const container = document.getElementById('stakeholder-canvas');
+    if (!container) { showToast("No stakeholder map found.", "error"); return; }
+    if (typeof html2canvas === 'undefined') { showToast("Export library not loaded — please refresh.", "error"); return; }
+    const d = state.projectData;
+    const title = (d?.meta?.title || 'stakeholders').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    showToast("Generating stakeholder map PNG…", "info");
+    html2canvas(container, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff',
+        logging: false, allowTaint: true
+    }).then(canvas => {
+        canvas.toBlob(blob => {
+            if (!blob) { showToast("Stakeholder PNG export failed.", "error"); return; }
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${title}_stakeholders_${new Date().toISOString().slice(0,10)}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 2000);
+            showToast("Stakeholder map PNG downloaded.", "success");
+        }, 'image/png');
+    }).catch(err => {
+        console.error('Stakeholder PNG export:', err);
+        showToast("Stakeholder PNG export failed.", "error");
+    });
 }
 
 export function updateChartEducation() {

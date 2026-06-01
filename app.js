@@ -11,7 +11,9 @@ import {
     zoomIn, zoomOut, resetZoom, resetProcess, 
     setToolMode, setChartMode, updateChartEducation, renderTools, toolMode,
     openChartSettings, saveChartSettings, copyChartImage, renderFullViewChart,
-    toggleToolHelp
+    toggleToolHelp,
+    downloadChartPNG, exportGanttPNG, exportGanttPDF,
+    exportDiagramPNG, exportDiagramSVG, exportStakeholderPNG
 } from "./charts.js";
 
 import * as R from "./renderers.js";
@@ -1341,6 +1343,12 @@ window.updateChartEducation = updateChartEducation;
 window.openChartSettings = openChartSettings;
 window.saveChartSettings = saveChartSettings;
 window.copyChartImage = copyChartImage;
+window.downloadChartPNG = downloadChartPNG;
+window.exportGanttPNG = exportGanttPNG;
+window.exportGanttPDF = exportGanttPDF;
+window.exportDiagramPNG = exportDiagramPNG;
+window.exportDiagramSVG = exportDiagramSVG;
+window.exportStakeholderPNG = exportStakeholderPNG;
 window.renderFullViewChart = renderFullViewChart;
 
 window.setToolMode = setToolMode;

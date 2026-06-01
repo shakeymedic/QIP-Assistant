@@ -40,6 +40,7 @@
     <script src="https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body class="bg-slate-100 min-h-screen font-sans antialiased">
@@ -641,7 +642,17 @@
                     </div>
 
                     <div id="view-tools" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col">
-                        <header class="flex flex-wrap justify-between items-center p-4 gap-4 bg-white border-b border-slate-100"></header>
+                        <header class="flex flex-wrap justify-between items-center p-4 gap-4 bg-white border-b border-slate-100">
+                            <span class="text-sm font-semibold text-slate-600">Export Diagram:</span>
+                            <div class="flex gap-2">
+                                <button aria-label="Export Diagram as PNG" onclick="window.exportDiagramPNG()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-indigo-100 transition-all" title="Download diagram as PNG image">
+                                    <i data-lucide="image-down" class="w-4 h-4"></i> Export PNG
+                                </button>
+                                <button aria-label="Export Diagram as SVG" onclick="window.exportDiagramSVG()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-emerald-100 transition-all" title="Download diagram as scalable SVG">
+                                    <i data-lucide="vector" class="w-4 h-4"></i> Export SVG
+                                </button>
+                            </div>
+                        </header>
                         <div class="flex-1 bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col overflow-hidden relative m-4">
                             <div id="diagram-wrapper" class="flex-1 overflow-auto relative bg-slate-50 min-h-[500px]">
                                 <div id="diagram-canvas" class="w-full min-h-[500px] relative p-4"></div>
@@ -693,8 +704,11 @@
                                         <button aria-label="Event Markers" onclick="window.showEventMarkersPanel()" class="text-teal-500 hover:text-teal-700 p-1" title="Event Markers">
                                             <i data-lucide="flag" class="w-4 h-4"></i>
                                         </button>
-                                        <button aria-label="Copy Chart Image" onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy Chart">
+                                        <button aria-label="Copy Chart Image" onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy to Clipboard">
                                             <i data-lucide="copy" class="w-4 h-4"></i>
+                                        </button>
+                                        <button aria-label="Download Chart PNG" onclick="window.downloadChartPNG()" class="text-indigo-500 hover:text-indigo-700 p-1" title="Download PNG">
+                                            <i data-lucide="image-down" class="w-4 h-4"></i>
                                         </button>
                                     </div>
                                 </div>
@@ -810,6 +824,11 @@
                     <div id="view-surveys" class="view-section hidden max-w-6xl mx-auto"></div>
 
                     <div id="view-stakeholders" class="view-section hidden max-w-6xl mx-auto h-full flex flex-col">
+                        <div class="flex justify-end mb-3">
+                            <button aria-label="Export Stakeholder Map as PNG" onclick="window.exportStakeholderPNG()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-indigo-100 transition-all" title="Download stakeholder map as PNG">
+                                <i data-lucide="image-down" class="w-4 h-4"></i> Export PNG
+                            </button>
+                        </div>
                         <div class="relative h-full">
                             <div id="stakeholder-canvas"></div>
                         </div>
@@ -822,9 +841,17 @@
                                     <i data-lucide="calendar-clock" class="text-rcem-purple"></i> Timeline (Gantt)
                                 </h2>
                             </div>
-                            <button aria-label="Add Gantt Task" onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2">
-                                <i data-lucide="plus" class="w-4 h-4"></i> Add Task
-                            </button>
+                            <div class="flex gap-2 items-center">
+                                <button aria-label="Export Gantt as PNG" onclick="window.exportGanttPNG()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-indigo-100 transition-all" title="Download Gantt as PNG image">
+                                    <i data-lucide="image-down" class="w-4 h-4"></i> Export PNG
+                                </button>
+                                <button aria-label="Export Gantt as PDF" onclick="window.exportGanttPDF()" class="bg-red-50 text-red-700 border border-red-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-red-100 transition-all" title="Download Gantt as A3 landscape PDF">
+                                    <i data-lucide="file-down" class="w-4 h-4"></i> Export PDF
+                                </button>
+                                <button aria-label="Add Gantt Task" onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-3 py-1.5 rounded font-medium flex items-center gap-2">
+                                    <i data-lucide="plus" class="w-4 h-4"></i> Add Task
+                                </button>
+                            </div>
                         </header>
                         <div id="gantt-scroll-container" class="overflow-x-auto bg-white rounded-xl shadow-sm border border-slate-200">
                             <div id="gantt-container" class="min-w-[800px] p-6 min-h-[300px] relative"></div>
