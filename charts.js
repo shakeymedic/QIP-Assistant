@@ -131,12 +131,12 @@ function renderToolUI() {
     if(!header) return;
 
     header.innerHTML = `
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-4 flex-wrap">
             <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
                 <i data-lucide="git-branch" class="w-5 h-5 text-rcem-purple"></i>
                 Diagnosis Tools
             </h2>
-            <div class="flex bg-slate-100 p-1 rounded-lg">
+            <div class="flex bg-slate-100 p-1 rounded-lg flex-wrap gap-0.5">
                 <button aria-label="Open Driver Diagram" class="tool-tab-btn px-4 py-2 rounded-md text-sm font-bold transition-all ${toolMode === 'driver' ? 'bg-rcem-purple text-white shadow' : 'bg-white text-slate-500 hover:bg-slate-50'}" 
                         data-mode="driver" onclick="window.setToolMode('driver')">
                     <i data-lucide="git-merge" class="w-4 h-4 inline mr-1"></i> Driver Diagram
@@ -155,7 +155,7 @@ function renderToolUI() {
                 </button>
             </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 flex-wrap">
             ${toolMode === 'fishbone' ? `
                 <div class="flex items-center gap-1 bg-slate-100 rounded-lg px-2 py-1">
                     <span class="text-xs text-slate-500 mr-1">Zoom</span>
@@ -169,6 +169,13 @@ function renderToolUI() {
                     <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Generate
                 </button>
             ` : ''}
+            <!-- Export buttons — always present, not lost on re-render -->
+            <button aria-label="Export Diagram as PNG" onclick="window.exportDiagramPNG()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-indigo-100 transition-all" title="Download diagram as PNG">
+                <i data-lucide="image-down" class="w-4 h-4"></i> PNG
+            </button>
+            <button aria-label="Export Diagram as SVG" onclick="window.exportDiagramSVG()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-emerald-100 transition-all" title="Download diagram as SVG">
+                <i data-lucide="vector" class="w-4 h-4"></i> SVG
+            </button>
             <button aria-label="Toggle Help" onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
                 <i data-lucide="help-circle" class="w-5 h-5"></i>
             </button>
@@ -893,13 +900,15 @@ function renderRunChart(ctx, canvasId) {
             scales: {
                 x: { 
                     title: { display: true, text: 'Date', font: { weight: 'bold' } },
-                    ticks: { maxRotation: 45, minRotation: 45 }
+                    ticks: { maxRotation: 45, minRotation: 45 },
+                    grid: { color: 'rgba(148,163,184,0.12)' }
                 },
                 y: { 
                     title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } }, 
                     beginAtZero: false,
                     suggestedMin: Math.min(...data) - 5,
-                    suggestedMax: Math.max(...data) + 5
+                    suggestedMax: Math.max(...data) + 5,
+                    grid: { color: 'rgba(148,163,184,0.12)' }
                 }
             }
         }
@@ -909,7 +918,22 @@ function renderRunChart(ctx, canvasId) {
 
 function renderSPCChart(ctx, canvasId) {
     const d = state.projectData.chartData;
-    if(d.length < 2) return;
+    if(d.length < 2) {
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: { labels: ['Need more data'], datasets: [{ data: [] }] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    title: { display: true, text: 'SPC chart needs at least 2 data points — add more in the Data tab', color: '#94a3b8', font: { weight: 'normal', size: 14 } }
+                },
+                scales: { x: { display: false }, y: { display: false } }
+            }
+        });
+        ctx.chartInstance = chart;
+        return;
+    }
     
     const settings = state.projectData.chartSettings || {};
     const sortedD = [...d].sort((a, b) => new Date(a.date) - new Date(b.date));
@@ -923,24 +947,49 @@ function renderSPCChart(ctx, canvasId) {
     
     const ucl = avg + (2.66 * avgMR);
     const lcl = Math.max(0, avg - (2.66 * avgMR));
-    
-    const pointColors = data.map(v => (v > ucl || v < lcl) ? '#ef4444' : '#64748b');
+
+    // Detect 8-in-a-row above or below mean
+    const spcSignals = new Array(data.length).fill(null);
+    let spcRunSide = null, spcRunStart = 0, spcRunLen = 0;
+    for (let i = 0; i < data.length; i++) {
+        const side = data[i] > avg ? 'above' : data[i] < avg ? 'below' : null;
+        if (side && side === spcRunSide) {
+            spcRunLen++;
+            if (spcRunLen >= 8) { for (let j = spcRunStart; j <= i; j++) { if (!spcSignals[j]) spcSignals[j] = 'run'; } }
+        } else {
+            spcRunSide = side || spcRunSide;
+            if (side) { spcRunStart = i; spcRunLen = 1; }
+        }
+    }
+    // Mark out-of-control points
+    data.forEach((v, i) => { if (v > ucl || v < lcl) spcSignals[i] = 'ooc'; });
+
+    const spcPointColors = data.map((v, i) => {
+        if (spcSignals[i] === 'ooc') return '#ef4444';
+        if (spcSignals[i] === 'run') return '#f59e0b';
+        return '#64748b';
+    });
+    const spcPointRadii = spcSignals.map(s => s ? 8 : 5);
 
     let annotations = {
+        uclBand: {
+            type: 'box', yMin: lcl, yMax: ucl,
+            backgroundColor: 'rgba(239, 68, 68, 0.04)', borderWidth: 0
+        },
         ucl: { 
             type: 'line', yMin: ucl, yMax: ucl, 
-            borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, 
-            label: { display: true, content: `UCL: ${ucl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
+            borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, 
+            label: { display: true, content: `UCL: ${ucl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
         }, 
         lcl: { 
             type: 'line', yMin: lcl, yMax: lcl, 
-            borderColor: '#ef4444', borderDash: [2, 2], borderWidth: 2, 
-            label: { display: true, content: `LCL: ${lcl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', font: { size: 9 } } 
+            borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, 
+            label: { display: true, content: `LCL: ${lcl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
         }, 
         avg: { 
             type: 'line', yMin: avg, yMax: avg, 
             borderColor: '#22c55e', borderWidth: 2, 
-            label: { display: true, content: `Mean: ${avg.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(34, 197, 94, 0.9)', font: { size: 9 } } 
+            label: { display: true, content: `Mean: ${avg.toFixed(1)}`, position: 'start', backgroundColor: 'rgba(34, 197, 94, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
         }
     };
 
@@ -960,12 +1009,14 @@ function renderSPCChart(ctx, canvasId) {
             datasets: [{ 
                 label: settings.yAxisLabel || 'Measure', 
                 data: data, 
-                borderColor: '#64748b', 
-                backgroundColor: '#64748b', 
-                pointBackgroundColor: pointColors, 
+                borderColor: '#64748b',
+                borderWidth: 2,
+                backgroundColor: 'transparent',
+                pointBackgroundColor: spcPointColors, 
                 pointBorderColor: '#fff', 
                 pointBorderWidth: 2, 
-                pointRadius: 6, 
+                pointRadius: spcPointRadii,
+                pointHoverRadius: 9,
                 tension: 0, 
                 fill: false 
             }] 
@@ -974,13 +1025,30 @@ function renderSPCChart(ctx, canvasId) {
             responsive: true, 
             maintainAspectRatio: false, 
             plugins: { 
-                title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b' }, 
+                title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 20 } }, 
                 legend: { display: false },
-                annotation: { annotations: annotations } 
+                annotation: { annotations: annotations },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            const sig = spcSignals[context.dataIndex];
+                            const v = data[context.dataIndex];
+                            const lines = [];
+                            if (sig === 'ooc') lines.push('\u26a0 Special cause: outside control limits');
+                            if (sig === 'run') lines.push('\u26a0 Special cause: 8+ consecutive on same side of mean');
+                            if (!sig) lines.push('\u2713 Common cause variation');
+                            lines.push(`UCL: ${ucl.toFixed(1)}  |  Mean: ${avg.toFixed(1)}  |  LCL: ${lcl.toFixed(1)}`);
+                            return lines;
+                        }
+                    }
+                }
             }, 
             scales: { 
-                x: { ticks: { maxRotation: 45, minRotation: 45 } },
-                y: { title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } } } 
+                x: { ticks: { maxRotation: 45, minRotation: 45 }, grid: { color: 'rgba(148,163,184,0.15)' } },
+                y: { 
+                    title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } },
+                    grid: { color: 'rgba(148,163,184,0.15)' }
+                } 
             } 
         }
     });
@@ -1020,6 +1088,34 @@ function renderHistogram(ctx, canvasId) {
         }).length;
     }
     
+    const mean = d.reduce((a, b) => a + b, 0) / d.length;
+    const sortedForMedian = [...d].sort((a, b) => a - b);
+    const histMedian = sortedForMedian[Math.floor(sortedForMedian.length / 2)];
+
+    // Find which bin the mean and median fall into (as fraction labels)
+    const meanBin = Math.min(bins - 1, Math.max(0, Math.floor((mean - min) / (step || 1))));
+    const medianBin = Math.min(bins - 1, Math.max(0, Math.floor((histMedian - min) / (step || 1))));
+
+    const barColors = buckets.map((_, i) => {
+        if (i === meanBin) return '#6366f1';
+        return '#8b5cf6';
+    });
+
+    const histAnnotations = {
+        meanLine: {
+            type: 'line', xMin: meanBin, xMax: meanBin,
+            borderColor: '#6366f1', borderWidth: 2, borderDash: [5, 5],
+            label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'start',
+                backgroundColor: 'rgba(99,102,241,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
+        },
+        medianLine: {
+            type: 'line', xMin: medianBin, xMax: medianBin,
+            borderColor: '#a855f7', borderWidth: 2, borderDash: [3, 3],
+            label: { display: meanBin !== medianBin, content: `Median: ${histMedian.toFixed(1)}`, position: 'end',
+                backgroundColor: 'rgba(168,85,247,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
+        }
+    };
+
     const chart = new Chart(ctx, { 
         type: 'bar', 
         data: { 
@@ -1027,21 +1123,38 @@ function renderHistogram(ctx, canvasId) {
             datasets: [{ 
                 label: 'Frequency', 
                 data: buckets, 
-                backgroundColor: '#8b5cf6', 
+                backgroundColor: barColors,
                 borderColor: '#7c3aed', 
-                borderWidth: 1 
+                borderWidth: 1,
+                borderRadius: 4
             }] 
         }, 
         options: { 
             responsive: true, 
             maintainAspectRatio: false, 
             plugins: { 
-                title: { display: true, text: settings.title || 'Data Distribution', font: { size: 16, weight: 'bold' }, color: '#1e293b' },
-                legend: { display: false }
+                title: { display: true, text: settings.title || 'Data Distribution', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 16 } },
+                legend: { display: false },
+                annotation: { annotations: histAnnotations },
+                tooltip: {
+                    callbacks: {
+                        afterBody: function() {
+                            return [`Mean: ${mean.toFixed(2)}`, `Median: ${histMedian.toFixed(2)}`, `n = ${d.length}`];
+                        }
+                    }
+                }
             }, 
             scales: { 
-                x: { title: { display: true, text: settings.yAxisLabel || 'Value Range', font: { weight: 'bold' } } }, 
-                y: { title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, beginAtZero: true, ticks: { stepSize: 1 } } 
+                x: { 
+                    title: { display: true, text: settings.yAxisLabel || 'Value Range', font: { weight: 'bold' } },
+                    grid: { display: false }
+                }, 
+                y: { 
+                    title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, 
+                    beginAtZero: true, 
+                    ticks: { stepSize: 1 },
+                    grid: { color: 'rgba(148,163,184,0.15)' }
+                } 
             } 
         } 
     });
@@ -1063,6 +1176,21 @@ function renderPareto(ctx, canvasId) {
     let cum = 0; 
     const cumulative = values.map(v => { cum += v; return (cum / total) * 100; });
 
+    // Build gradient colours — darkest for tallest bar
+    const paretoColors = sortedCats.map((_, i) => {
+        const opacity = 1 - (i / sortedCats.length) * 0.5;
+        return `rgba(45, 46, 131, ${opacity})`;
+    });
+
+    const paretoAnnotations = {
+        eightyPct: {
+            type: 'line', yMin: 80, yMax: 80, yScaleID: 'y1',
+            borderColor: '#ef4444', borderWidth: 1.5, borderDash: [6, 3],
+            label: { display: true, content: '80%', position: 'start',
+                backgroundColor: 'rgba(239,68,68,0.85)', color: 'white', font: { size: 10, weight: 'bold' } }
+        }
+    };
+
     const chart = new Chart(ctx, { 
         type: 'bar', 
         data: { 
@@ -1070,24 +1198,30 @@ function renderPareto(ctx, canvasId) {
             datasets: [ 
                 { 
                     type: 'line', 
-                    label: 'Cumulative Percentage', 
+                    label: 'Cumulative %', 
                     data: cumulative, 
                     borderColor: '#f36f21', 
-                    backgroundColor: 'rgba(243, 111, 33, 0.1)', 
+                    backgroundColor: 'rgba(243, 111, 33, 0.08)', 
                     pointBackgroundColor: '#f36f21', 
-                    pointRadius: 4, 
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2,
+                    pointRadius: 5, 
+                    pointHoverRadius: 7,
                     yAxisID: 'y1', 
                     tension: 0.2, 
-                    fill: false 
+                    fill: true,
+                    order: 1
                 }, 
                 { 
                     type: 'bar', 
                     label: 'Frequency', 
                     data: values, 
-                    backgroundColor: '#2d2e83', 
+                    backgroundColor: paretoColors,
                     borderColor: '#1e1f5c', 
-                    borderWidth: 1, 
-                    yAxisID: 'y' 
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    yAxisID: 'y',
+                    order: 2
                 } 
             ] 
         }, 
@@ -1095,11 +1229,40 @@ function renderPareto(ctx, canvasId) {
             responsive: true, 
             maintainAspectRatio: false, 
             plugins: { 
-                title: { display: true, text: settings.title || 'Pareto Analysis', font: { size: 16, weight: 'bold' }, color: '#1e293b' } 
+                title: { display: true, text: settings.title || 'Pareto Analysis', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 16 } },
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: { usePointStyle: true, pointStyle: 'circle', font: { size: 11 } }
+                },
+                annotation: { annotations: paretoAnnotations },
+                tooltip: {
+                    callbacks: {
+                        afterLabel: function(context) {
+                            if (context.datasetIndex === 0) {
+                                const idx = context.dataIndex;
+                                return cumulative[idx] <= 80 ? '\u2605 Within 80% — prioritise these' : '';
+                            }
+                            const idx = context.dataIndex;
+                            const pct = ((values[idx] / total) * 100).toFixed(1);
+                            return [`${pct}% of total`, `Cumulative: ${cumulative[idx].toFixed(1)}%`];
+                        }
+                    }
+                }
             }, 
             scales: { 
-                y: { title: { display: true, text: 'Count', font: { weight: 'bold' } }, beginAtZero: true }, 
-                y1: { position: 'right', max: 100, title: { display: true, text: 'Cumulative Percentage', font: { weight: 'bold' } }, grid: { drawOnChartArea: false } } 
+                x: { grid: { display: false } },
+                y: { 
+                    title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, 
+                    beginAtZero: true,
+                    grid: { color: 'rgba(148,163,184,0.15)' }
+                }, 
+                y1: { 
+                    position: 'right', max: 100, 
+                    title: { display: true, text: 'Cumulative %', font: { weight: 'bold' } }, 
+                    grid: { drawOnChartArea: false },
+                    ticks: { callback: v => v + '%' }
+                } 
             } 
         } 
     });
@@ -1419,24 +1582,36 @@ export function copyChartImage() {
         downloadChartPNG();
         return;
     }
-    c.toBlob(b => {
+    chartToWhiteBackgroundBlob(c, b => {
         if (!b) { showToast("Chart export failed.", "error"); return; }
         navigator.clipboard.write([new ClipboardItem({'image/png': b})])
             .then(() => showToast("Chart copied to clipboard.", "success"))
             .catch(() => { downloadChartPNG(); });
-    }, 'image/png', 1.0);
+    });
 }
 
 // ============================================================
 // DOWNLOAD CHART PNG (reliable cross-browser download)
+// Uses offscreen canvas to ensure white background
 // ============================================================
+function chartToWhiteBackgroundBlob(canvas, callback) {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const offCtx = offscreen.getContext('2d');
+    offCtx.fillStyle = '#ffffff';
+    offCtx.fillRect(0, 0, offscreen.width, offscreen.height);
+    offCtx.drawImage(canvas, 0, 0);
+    offscreen.toBlob(callback, 'image/png', 1.0);
+}
+
 export function downloadChartPNG() {
     const canvas = document.getElementById('mainChart');
     if (!canvas) { showToast("No chart to export.", "error"); return; }
     const d = state.projectData;
     const title = (d?.meta?.title || 'chart').replace(/[^a-z0-9]/gi, '_').toLowerCase();
     const chartType = typeof chartMode !== 'undefined' ? chartMode : 'chart';
-    canvas.toBlob(blob => {
+    chartToWhiteBackgroundBlob(canvas, blob => {
         if (!blob) { showToast("Chart export failed.", "error"); return; }
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -1447,7 +1622,7 @@ export function downloadChartPNG() {
         document.body.removeChild(a);
         setTimeout(() => URL.revokeObjectURL(url), 2000);
         showToast("Chart PNG downloaded.", "success");
-    }, 'image/png', 1.0);
+    });
 }
 
 // ============================================================
