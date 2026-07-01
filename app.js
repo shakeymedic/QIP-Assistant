@@ -2460,6 +2460,8 @@ window.addBatchEntryRow = function() {
             <option value="PDSA 2">PDSA 2</option>
             <option value="PDSA 3">PDSA 3</option>
             <option value="PDSA 4">PDSA 4</option>
+            <option value="PDSA 5">PDSA 5</option>
+            <option value="PDSA 6">PDSA 6</option>
             <option value="Sustain">Sustain</option>
         </select></td>
         <td class="py-0.5 pl-1"><button onclick="this.closest('tr').remove()" class="text-slate-300 hover:text-red-400 text-base leading-none px-1" title="Remove row">&times;</button></td>

@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.19';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.19';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.19';
+const CACHE_NAME = 'rcem-qip-v3.15.20';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.20';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.20';
 
 const STATIC_ASSETS = [
     '/',
@@ -31,7 +31,6 @@ const CDN_ASSETS = [
     'https://unpkg.com/lucide@latest',
     'https://cdn.jsdelivr.net/npm/chart.js',
     'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js',
-    'https://cdn.jsdelivr.net/npm/mermaid@10.9.0/dist/mermaid.min.js',
     'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
