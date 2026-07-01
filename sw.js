@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.18';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.18';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.18';
+const CACHE_NAME = 'rcem-qip-v3.15.19';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.19';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.19';
 
 const STATIC_ASSETS = [
     '/',
@@ -19,6 +19,8 @@ const STATIC_ASSETS = [
     '/kaizen-export.js',
     '/qip-lead.js',
     '/learn.js',
+    '/patient-tracker.js',
+    '/green-calculator.js',
     '/styles.css',
     '/manifest.json',
     '/logo.png'
@@ -255,4 +257,4 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service worker loaded - v3.15.17');
+console.log('[SW] Service worker loaded - v3.15.19');

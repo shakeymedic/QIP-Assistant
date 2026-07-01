@@ -1107,27 +1107,45 @@ window.triggerImportProject = function() {
     document.getElementById('project-upload-input').click();
 }
 
-window.importProjectFromFile = function(input) {
+window.importProjectFromFile = async function(input) {
     const file = input.files[0];
     if (!file) return;
-    
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        try {
-            const json = JSON.parse(e.target.result);
-            if (!json.meta || !json.checklist) throw new Error("Invalid QIP file");
-            
-            state.projectData = json;
-            window.saveData(true);
-            window.router('dashboard');
-            showToast("Project loaded from file", "success");
-        } catch (err) {
-            console.error(err);
-            showToast("Failed to load project: " + err.message, "error");
-        }
-    };
-    reader.readAsText(file);
     input.value = '';
+
+    let json;
+    try {
+        const text = await file.text();
+        json = JSON.parse(text);
+        if (!json.meta || !json.checklist) throw new Error('Invalid QIP file — missing meta or checklist');
+    } catch (err) {
+        console.error(err);
+        showToast('Failed to read file: ' + err.message, 'error');
+        return;
+    }
+
+    // If no project is currently open, create a new Firestore doc first so data persists
+    if (!state.currentProjectId && state.currentUser && db) {
+        try {
+            const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), json);
+            state.currentProjectId = docRef.id;
+            state.projectData = json;
+            migrateProjectData(state.projectData);
+            const topBar = document.getElementById('top-bar');
+            if (topBar) topBar.classList.remove('hidden');
+            window.router('dashboard');
+            showToast('Project imported successfully', 'success');
+        } catch (err) {
+            showToast('Import failed: ' + err.message, 'error');
+        }
+        return;
+    }
+
+    // Project already open — overwrite it in place
+    state.projectData = json;
+    migrateProjectData(state.projectData);
+    window.saveData(true);
+    window.router('dashboard');
+    showToast('Project imported and saved', 'success');
 }
 
 window.openGlobalSettings = () => {
