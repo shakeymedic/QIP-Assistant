@@ -1074,6 +1074,7 @@ window.returnToProjects = () => {
     state.isReadOnly = false;
     state.isLeadViewing = false;
     state.isSupervisorViewing = false;
+    state.supervisorTargetUid = null;
     const ind = document.getElementById('readonly-indicator');
     if (ind) ind.classList.add('hidden');
     document.body.classList.remove('readonly-mode');
@@ -1117,8 +1118,8 @@ window.importProjectFromFile = function(input) {
             if (!json.meta || !json.checklist) throw new Error("Invalid QIP file");
             
             state.projectData = json;
-            window.saveData(true); 
-            R.renderAll('dashboard');
+            window.saveData(true);
+            window.router('dashboard');
             showToast("Project loaded from file", "success");
         } catch (err) {
             console.error(err);
@@ -1545,7 +1546,10 @@ window.saveData = async function(skipHistory = false) {
     if(!skipHistory) pushHistory();
     
     try {
-        await setDoc(doc(db, `users/${state.currentUser.uid}/projects`, state.currentProjectId), state.projectData, { merge: true });
+        const ownerUid = (state.isSupervisorViewing && state.supervisorTargetUid)
+            ? state.supervisorTargetUid
+            : state.currentUser.uid;
+        await setDoc(doc(db, 'users/' + ownerUid + '/projects', state.currentProjectId), state.projectData, { merge: true });
         
         const s = document.getElementById('save-status');
         if(s) { 
@@ -3083,7 +3087,7 @@ window.addSupervisorFromSettings = async function() {
         const inviteEntry = {
             ownerUid: state.currentUser.uid,
             projectId: state.currentProjectId,
-            projectTitle: state.projectData.checklist?.project_title || state.projectData.title || 'Untitled QIP',
+            projectTitle: state.projectData.meta?.title || 'Untitled QIP',
             traineeName: state.currentUser.email,
             addedAt: new Date().toISOString()
         };
@@ -3139,7 +3143,7 @@ window.addLeadFromSettings = async function() {
     const ok = await addQIPLeadToProject(
         db, state.currentUser.uid, state.currentProjectId, email,
         state.currentUser.email,
-        state.projectData.checklist?.project_title || state.projectData.title || 'Untitled QIP'
+        state.projectData.meta?.title || 'Untitled QIP'
     );
     if (ok) {
         state.projectData.qipLeads.push({ email, addedAt: new Date().toISOString() });
@@ -3229,7 +3233,10 @@ async function loadSupervisedProject(p) {
         const snap = await getDoc(doc(db, 'users', p.ownerUid, 'projects', p.projectId));
         if (!snap.exists()) { showToast('Project not found', 'error'); return; }
         state.currentProjectId = p.projectId;
-        state.projectData = migrateProjectData(snap.data());
+        state.supervisorTargetUid = p.ownerUid;
+        const _snapData = snap.data();
+        migrateProjectData(_snapData);
+        state.projectData = _snapData;
         state.isLeadViewing = true;
         state.isSupervisorViewing = true;
         // Show top bar so supervisor can navigate
