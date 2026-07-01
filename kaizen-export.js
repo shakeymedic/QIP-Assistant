@@ -1,7 +1,9 @@
 // kaizen-export.js
 
+import { state } from "./state.js";
+
 export function exportToKaizen() {
-    const data = window.projectData || {};
+    const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
     const pdsa = data.pdsa || [];
     const team = data.teamMembers || [];

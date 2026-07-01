@@ -23,7 +23,7 @@ export function renderAll(view) {
         case 'dashboard': renderDashboard(); break;
         case 'checklist': 
             renderChecklist(); 
-            if (typeof renderPatientTracker === 'function') renderPatientTracker();
+            if (typeof renderPatientTracker === 'function' && state.projectData) renderPatientTracker(state.projectData, window.saveData);
             break; 
         case 'team': renderTeam(); break;
         case 'tools': renderTools(); break;
