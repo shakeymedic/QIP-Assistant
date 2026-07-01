@@ -203,6 +203,9 @@ window.router = (view) => {
     document.querySelectorAll('.nav-btn').forEach(btn => btn.classList.remove('bg-rcem-purple', 'text-white'));
     const btn = document.getElementById(`nav-${view}`);
     if(btn) btn.classList.add('bg-rcem-purple', 'text-white');
+    // nav-learn has a teal base colour — use inline style to guarantee white text when active
+    const navLearnBtn = document.getElementById('nav-learn');
+    if (navLearnBtn) navLearnBtn.style.color = (view === 'learn') ? 'white' : '';
 
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar && sidebar.classList.contains('z-50')) { 
@@ -1070,6 +1073,7 @@ window.returnToProjects = () => {
     state.projectData = null;
     state.isReadOnly = false;
     state.isLeadViewing = false;
+    state.isSupervisorViewing = false;
     const ind = document.getElementById('readonly-indicator');
     if (ind) ind.classList.add('hidden');
     document.body.classList.remove('readonly-mode');
@@ -3175,6 +3179,12 @@ async function checkSupervisorStatus() {
             btn.classList.remove('hidden');
             btn.onclick = () => window.showSupervisorProjectList();
         }
+        // Show supervisor badge on projects page
+        const badge = document.getElementById('supervisor-badge');
+        const badgeText = document.getElementById('supervisor-badge-text');
+        if (badge) badge.classList.remove('hidden');
+        if (badgeText) badgeText.textContent = 'Supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' as Clinical Supervisor';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         console.warn('[Supervisor] checkSupervisorStatus error:', e);
     }
@@ -3219,12 +3229,24 @@ async function loadSupervisedProject(p) {
         const snap = await getDoc(doc(db, 'users', p.ownerUid, 'projects', p.projectId));
         if (!snap.exists()) { showToast('Project not found', 'error'); return; }
         state.currentProjectId = p.projectId;
-        state.projectData = snap.data();
+        state.projectData = migrateProjectData(snap.data());
         state.isLeadViewing = true;
-        showToast(`Viewing: ${p.projectTitle || 'QIP'}`, 'success');
+        state.isSupervisorViewing = true;
+        // Show top bar so supervisor can navigate
+        const topBar = document.getElementById('top-bar');
+        if (topBar) topBar.classList.remove('hidden');
+        const headerTitle = document.getElementById('project-header-title');
+        if (headerTitle) headerTitle.textContent = (p.projectTitle || 'QIP') + ' — Supervisor Review';
+        showToast('Supervisor Review: ' + (p.projectTitle || 'Trainee QIP'), 'success');
         window.router('supervisor');
     } catch (e) {
         showToast('Could not load project: ' + e.message, 'error');
         console.error('[Supervisor] loadSupervisedProject error:', e);
     }
 }
+
+window.returnFromSupervisorView = function() {
+    state.isSupervisorViewing = false;
+    state.isLeadViewing = false;
+    window.returnToProjects();
+};

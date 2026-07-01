@@ -18,7 +18,8 @@ export function renderAll(view) {
     updateNavigationUI(view);
     
     switch(view) {
-        case 'projects': break; 
+        case 'projects': break;
+        case 'intro': break;  // static HTML, no JS render needed
         case 'dashboard': renderDashboard(); break;
         case 'checklist': 
             renderChecklist(); 
@@ -44,7 +45,8 @@ export function renderAll(view) {
 
 function updateNavigationUI(currentView) {
     // Grey out project nav items when no project is loaded
-    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full', 'learn'];
+    // 'learn' intentionally excluded — always accessible regardless of project state
+    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
     const hasProject = !!state.projectData;
     allProjectNavIds.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);

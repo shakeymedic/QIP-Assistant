@@ -30,7 +30,24 @@ export function renderSupervisorDashboard() {
     const cap2Checked = assessment.capabilitiesMet.includes('cap2') ? 'checked' : '';
     const cap3Checked = assessment.capabilitiesMet.includes('cap3') ? 'checked' : '';
 
-    container.innerHTML = `
+    // Build supervisor-review banner (shown when a supervisor is reviewing a trainee's project)
+    const reviewingBanner = state.isLeadViewing ? `
+        <div class="bg-gradient-to-r from-teal-700 to-teal-600 text-white px-5 py-4 rounded-xl mb-5 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="w-9 h-9 bg-white/20 rounded-lg flex items-center justify-center flex-shrink-0">
+                    <i data-lucide="user-check" class="w-5 h-5"></i>
+                </div>
+                <div>
+                    <div class="font-bold text-base">Supervisor Review Mode</div>
+                    <div class="text-teal-200 text-xs mt-0.5">You are reviewing: <strong class="text-white">${projectData.meta?.title || 'Trainee QIP'}</strong></div>
+                </div>
+            </div>
+            <button onclick="window.returnFromSupervisorView()" class="flex items-center gap-2 bg-white/20 hover:bg-white/30 text-white text-sm font-bold px-4 py-2 rounded-lg transition-colors whitespace-nowrap">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i> Return to My Projects
+            </button>
+        </div>` : '';
+
+    container.innerHTML = reviewingBanner + `
         <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
             <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-4">SLO 11 Mapping and Supervisor Sign-off</h2>
             <p class="text-slate-600 mb-6 text-sm md:text-base">Use this dashboard to map your project to the RCEM Key Capabilities. Your Educational or Clinical Supervisor must review and sign off on this section before your ARCP.</p>
