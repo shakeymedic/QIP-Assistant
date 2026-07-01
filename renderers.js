@@ -44,7 +44,7 @@ export function renderAll(view) {
 
 function updateNavigationUI(currentView) {
     // Grey out project nav items when no project is loaded
-    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
+    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full', 'learn'];
     const hasProject = !!state.projectData;
     allProjectNavIds.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);

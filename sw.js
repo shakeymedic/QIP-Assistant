@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.15';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.15';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.15';
+const CACHE_NAME = 'rcem-qip-v3.15.16';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.16';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.16';
 
 const STATIC_ASSETS = [
     '/',
@@ -18,6 +18,7 @@ const STATIC_ASSETS = [
     '/surveys.js',
     '/kaizen-export.js',
     '/qip-lead.js',
+    '/learn.js',
     '/styles.css',
     '/manifest.json',
     '/logo.png'
@@ -47,7 +48,7 @@ async function trimCache(cacheName, maxItems) {
 }
 
 self.addEventListener('install', (event) => {
-    console.log('[SW] Installing service worker v3.15.15...');
+    console.log('[SW] Installing service worker v3.15.16...');
     
     event.waitUntil(
         Promise.all([
@@ -254,4 +255,4 @@ self.addEventListener('notificationclick', (event) => {
     );
 });
 
-console.log('[SW] Service worker loaded - v3.15.15');
+console.log('[SW] Service worker loaded - v3.15.16');

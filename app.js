@@ -23,6 +23,7 @@ import { exportToKaizen } from "./kaizen-export.js";
 import { renderSupervisorDashboard } from "./supervisor.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
+import { renderLearn } from "./learn.js";
 
 // ─── Master Admin ───────────────────────────────────────────────────────
 const ADMIN_EMAIL = 'emevidence999@gmail.com';
@@ -189,7 +190,7 @@ state.adminAllProjects = [];
 Object.defineProperty(window, 'projectData', { get: () => state.projectData, set: (v) => state.projectData = v });
 
 window.router = (view) => {
-    if (view !== 'projects' && !state.projectData) { 
+    if (view !== 'projects' && view !== 'learn' && !state.projectData) { 
         showToast("Please select a project first.", "error"); 
         return; 
     }
@@ -211,6 +212,8 @@ window.router = (view) => {
 
     if (view === 'supervisor') {
         renderSupervisorDashboard();
+    } else if (view === 'learn') {
+        renderLearn();
     } else {
         R.renderAll(view);
     }
@@ -219,14 +222,11 @@ window.router = (view) => {
 // ==========================================
 // HOW-TO GUIDE MODAL
 // ==========================================
-// ─── Education Hub (Learn Panel) ─────────────────────────────────────────────
-window.showLearnPanel = function() {
-    let modal = document.getElementById('learn-panel-modal');
-    if (!modal) {
-        modal = document.createElement('div');
-        modal.id = 'learn-panel-modal';
-        modal.className = 'fixed inset-0 bg-black/60 z-[9999] flex items-center justify-center p-4';
-        modal.innerHTML = `
+// ─── Education Hub (Learn Panel) — redirects to full Learn view ──────────────
+window.showLearnPanel = function() { window.router('learn'); };
+
+/* LEGACY MODAL — kept as comment for reference, replaced by view-learn / learn.js
+const _legacyLearnModal = `
             <div class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mx-auto overflow-hidden" style="max-height:90vh;display:flex;flex-direction:column">
                 <div class="bg-gradient-to-r from-rcem-purple to-indigo-600 text-white px-6 py-5 flex-shrink-0">
                     <div class="flex items-center justify-between">
@@ -382,13 +382,7 @@ window.showLearnPanel = function() {
                 </div>
             </div>
         `;
-        document.body.appendChild(modal);
-        if (typeof lucide !== 'undefined') lucide.createIcons();
-    } else {
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-    }
-};
+*/
 
 // ─── Clinical Templates Modal ─────────────────────────────────────────────────
 window.showTemplatesModal = function() {

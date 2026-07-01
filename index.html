@@ -352,7 +352,7 @@
                     <button aria-label="Go to Data & SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
                         <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Data & SPC
                     </button>
-                    <button aria-label="Open QI Learning Hub" onclick="window.showLearnPanel()" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-teal-300 hover:bg-teal-500/20 hover:text-teal-100 transition-all border border-teal-800/50 mb-1" id="nav-learn">
+                    <button aria-label="Open QI Learning Hub" onclick="window.router('learn')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-teal-300 hover:bg-teal-500/20 hover:text-teal-100 transition-all border border-teal-800/50 mb-1" id="nav-learn">
                         <i data-lucide="graduation-cap" class="w-5 h-5 flex-shrink-0"></i>
                         <span class="text-sm font-semibold">QI Learning Hub</span>
                     </button>
@@ -872,6 +872,11 @@
 
                     <div id="view-green" class="view-section hidden max-w-5xl mx-auto pt-8">
                         <div id="green-calculator-container"></div>
+                    </div>
+
+                    <!-- ─── Learning Hub ───────────────────────────────── -->
+                    <div id="view-learn" class="view-section hidden">
+                        <!-- Populated by renderLearn() in learn.js -->
                     </div>
                 </div>
             </main>
