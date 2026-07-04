@@ -387,6 +387,28 @@ const _legacyLearnModal = `
         `;
 */
 
+// ─── Rename Project ──────────────────────────────────────────────────────────
+window.renameProject = function() {
+    if (!state.projectData || state.isReadOnly || state.isSupervisorViewing) return;
+    const currentTitle = state.projectData.meta?.title || '';
+    showInputModal(
+        'Rename Project',
+        [{ id: 'new_title', label: 'Project Title', type: 'text', value: currentTitle, placeholder: 'Enter project title...' }],
+        async (vals) => {
+            const newTitle = (vals.new_title || '').trim();
+            if (!newTitle) { showToast('Title cannot be empty', 'error'); return; }
+            if (newTitle === currentTitle) return;
+            if (!state.projectData.meta) state.projectData.meta = {};
+            state.projectData.meta.title = newTitle;
+            const headerTitle = document.getElementById('project-header-title');
+            if (headerTitle) headerTitle.textContent = newTitle;
+            await window.saveData(false);
+            showToast('Project renamed to "' + newTitle + '"', 'success');
+        },
+        'Rename'
+    );
+};
+
 // ─── Clinical Templates Modal ─────────────────────────────────────────────────
 window.showTemplatesModal = function() {
     let modal = document.getElementById('templates-modal');
@@ -2160,6 +2182,8 @@ window.openProject = (id) => {
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
+            const renameBtn = document.getElementById('btn-rename-project');
+            if(renameBtn) renameBtn.style.display = 'inline-flex';
 
             if (firstLoad) {
                 // First snapshot: data is ready — now it's safe to navigate
