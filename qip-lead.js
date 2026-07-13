@@ -150,7 +150,11 @@ export function renderQIPLeadDashboard(container, leadProjects, onViewProject) {
                         const d = proj._data || {};
                         const meta = d.meta || {};
                         const pdsa = d.pdsa || [];
-                        const chartData = d.chartData || [];
+                        // Sum data points across all measures if the project has multiple
+                        // measures; falls back to the legacy flat chartData otherwise.
+                        const chartData = Array.isArray(d.measures) && d.measures.length > 0
+                            ? d.measures.reduce((acc, m) => acc.concat(Array.isArray(m.chartData) ? m.chartData : []), [])
+                            : (d.chartData || []);
                         const progress = proj._progress || 0;
                         const lastPdsa = pdsa.length > 0 ? pdsa[pdsa.length - 1] : null;
                         const progressColor = progress >= 75 ? 'bg-emerald-500' : progress >= 40 ? 'bg-amber-500' : 'bg-slate-300';

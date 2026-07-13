@@ -457,8 +457,8 @@
                             <i data-lucide="help-circle" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Help</span>
                         </button>
-                        <button aria-label="Export to PowerPoint" onclick="window.exportPPTX()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1" title="Export PowerPoint">
-                            <i data-lucide="presentation" class="w-4 h-4"></i>
+                        <button aria-label="Open Export Center" onclick="window.openExportCenter()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded text-sm font-medium flex items-center gap-1" title="Export report, data, or backup in any format">
+                            <i data-lucide="download" class="w-4 h-4"></i>
                             <span class="hidden sm:inline">Export</span>
                         </button>
                     </div>
@@ -688,7 +688,10 @@
                                 </label>
                             </div>
                         </header>
-                        
+
+                        <!-- Measure tabs: switch between multiple tracked measures (e.g. "Time to Kit", "Knowledge Assessment") -->
+                        <div id="measure-tabs-bar" class="flex items-center gap-2 mb-4 overflow-x-auto pb-1"></div>
+
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                 <div class="flex justify-between items-center mb-4">
@@ -733,6 +736,7 @@
                                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Add Data Point
+                                        <span id="active-measure-label" class="text-xs font-normal text-slate-400 normal-case"></span>
                                     </h3>
                                     <div class="space-y-3">
                                         <div>
@@ -1207,6 +1211,60 @@
             <div class="flex justify-end gap-2 mt-6">
                 <button aria-label="Cancel Global Settings Edit" onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button aria-label="Save Global Settings" onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Export Center Modal -->
+    <div id="export-center-modal" class="hidden fixed inset-0 bg-black/50 z-[100] items-center justify-center p-4">
+        <div class="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[85vh] overflow-y-auto">
+            <div class="p-5 border-b border-slate-100 flex justify-between items-center sticky top-0 bg-white rounded-t-2xl">
+                <h3 class="font-bold text-lg text-slate-800 flex items-center gap-2">
+                    <i data-lucide="download" class="w-5 h-5 text-rcem-purple"></i> Export Center
+                </h3>
+                <button aria-label="Close Export Center" onclick="window.closeExportCenter()" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-5 space-y-3">
+                <button aria-label="Export Full Report as PDF" onclick="window.printPosterOnly(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
+                    <div class="bg-red-100 text-red-600 p-2 rounded-lg shrink-0"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Full Report — PDF</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Every section written out in full — problem, aim, drivers, PDSA cycles, data analysis, learning points. Ready to submit as your written report.</div>
+                    </div>
+                </button>
+                <button aria-label="Export QIAT Portfolio as PDF" onclick="window.exportToKaizen(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
+                    <div class="bg-purple-100 text-purple-600 p-2 rounded-lg shrink-0"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">QIAT Portfolio Summary — PDF</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Condensed ARCP/QIAT-style summary of the project and team working — quick to print or attach to your portfolio.</div>
+                    </div>
+                </button>
+                <button aria-label="Export Presentation as PowerPoint" onclick="window.exportPPTX(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
+                    <div class="bg-amber-100 text-amber-600 p-2 rounded-lg shrink-0"><i data-lucide="presentation" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Presentation — PowerPoint</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Branded slide deck covering background, aim, measures, PDSA cycles, and results — ready for QI meetings or department presentations.</div>
+                    </div>
+                </button>
+                <button aria-label="Export All Data as CSV" onclick="window.exportAllDataCSV(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
+                    <div class="bg-emerald-100 text-emerald-600 p-2 rounded-lg shrink-0"><i data-lucide="table" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">All Data Points — CSV</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Every data point from every measure you're tracking (e.g. Time to Kit AND Knowledge Assessment), in one spreadsheet-ready file.</div>
+                    </div>
+                </button>
+                <button aria-label="Export Full Project Backup as JSON" onclick="window.exportProjectToFile(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
+                    <div class="bg-slate-100 text-slate-600 p-2 rounded-lg shrink-0"><i data-lucide="database" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Full Project Backup — JSON</div>
+                        <div class="text-xs text-slate-500 mt-0.5">A complete copy of everything in this project. Keep it safe, or import it back into QIP Assist later.</div>
+                    </div>
+                </button>
+            </div>
+            <div class="p-4 border-t border-slate-100 bg-slate-50 rounded-b-2xl">
+                <p class="text-xs text-slate-500">Need just one chart, the Gantt chart, driver diagram, or stakeholder map as an image? Use the download icon inside each of those sections directly.</p>
             </div>
         </div>
     </div>

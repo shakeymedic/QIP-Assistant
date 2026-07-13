@@ -10,6 +10,18 @@ import { renderPatientTracker } from "./patient-tracker.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
 import { renderSurveys } from "./surveys.js";
 
+// Returns the primary/first measure's chartData array. QIAT scoring,
+// dashboard status ticks, and auto-generated report text always assess
+// the PRIMARY outcome measure, regardless of which measure tab the user
+// currently has open in the Data view (that uses d.chartData directly).
+function primaryChartData(d) {
+    if (!d) return [];
+    if (Array.isArray(d.measures) && d.measures[0] && Array.isArray(d.measures[0].chartData)) {
+        return d.measures[0].chartData;
+    }
+    return d.chartData || [];
+}
+
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
 // ==========================================
@@ -70,7 +82,7 @@ function updateNavigationUI(currentView) {
         if (!d) return;
         
         if(id === 'checklist' && d.checklist && d.checklist.aim && d.checklist.problem_desc) status = '✓';
-        else if(id === 'data' && d.chartData && d.chartData.length >= 6) status = '✓';
+        else if(id === 'data' && primaryChartData(d).length >= 6) status = '✓';
         else if(id === 'pdsa' && d.pdsa && d.pdsa.length > 0) status = '✓';
         else if(id === 'team' && d.teamMembers && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist && d.checklist.ethics) status = '✓';
@@ -98,7 +110,7 @@ function updateNavigationUI(currentView) {
             !!(c2.aim),
             !!(d2.drivers && (d2.drivers.primary?.length > 0 || d2.drivers.changes?.length > 0)),
             !!(d2.pdsa && d2.pdsa.length > 0),
-            !!(d2.chartData && d2.chartData.length >= 6),
+            !!(primaryChartData(d2).length >= 6),
             !!(c2.learning_points),
             !!(c2.sustainability || c2.spreadPlan?.whoAdopts),
             !!(c2.ethics)
@@ -210,7 +222,7 @@ function updatePortfolioReadiness() {
         { label: 'Measures Defined', met: !!(c.outcome_measure || c.process_measure) },
         { label: 'Driver Diagram', met: (d.drivers?.primary?.length > 0) },
         { label: isHigher ? '3+ PDSA Cycles' : '1+ PDSA Cycle', met: isHigher ? pdsa.length >= 3 : pdsa.length >= 1 },
-        { label: 'Data Chart with Analysis', met: (d.chartData?.length >= 5 && !!c.results_analysis) },
+        { label: 'Data Chart with Analysis', met: (primaryChartData(d).length >= 5 && !!c.results_analysis) },
         { label: 'Learning Reflections', met: !!c.learning_points },
         { label: 'Sustainability Plan', met: !!c.sustainability },
         { label: 'QI Team Defined', met: (d.teamMembers?.length >= 1) },
@@ -981,10 +993,58 @@ function renderSignalPanel() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// Renders the measure tab bar in the Data view, letting the user switch
+// between, add, rename, or delete tracked measures (e.g. "Time to Kit"
+// and "Knowledge Assessment Score" as separate datasets/charts).
+export function renderMeasureTabs() {
+    const d = state.projectData;
+    const bar = document.getElementById('measure-tabs-bar');
+    if (!bar || !d) return;
+
+    const measures = Array.isArray(d.measures) ? d.measures : [];
+    if (measures.length === 0) { bar.innerHTML = ''; return; }
+
+    const activeId = d.activeMeasureId || measures[0].id;
+
+    bar.innerHTML = measures.map(m => {
+        const isActive = m.id === activeId;
+        const count = Array.isArray(m.chartData) ? m.chartData.length : 0;
+        const base = isActive
+            ? 'bg-rcem-purple text-white shadow'
+            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+        return `
+            <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure('${m.id}')">
+                <span>${escapeHtml(m.name)}</span>
+                <span class="opacity-70 font-normal">(${count})</span>
+                <span class="hidden group-hover:inline-flex items-center gap-0.5 ml-1">
+                    <button aria-label="Rename measure" onclick="event.stopPropagation(); window.renameMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}" title="Rename">
+                        <i data-lucide="pencil" class="w-3 h-3"></i>
+                    </button>
+                    ${measures.length > 1 ? `<button aria-label="Delete measure" onclick="event.stopPropagation(); window.deleteMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-red-500'}" title="Delete"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ''}
+                </span>
+            </div>
+        `;
+    }).join('') + `
+        <button aria-label="Add new measure" onclick="window.addMeasure()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
+            <i data-lucide="plus" class="w-3 h-3"></i> Add Measure
+        </button>
+    `;
+
+    const label = document.getElementById('active-measure-label');
+    if (label) {
+        const active = measures.find(m => m.id === activeId) || measures[0];
+        label.textContent = `— ${active.name}${active.unit ? ' (' + active.unit + ')' : ''}`;
+    }
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+window.renderMeasureTabs = renderMeasureTabs;
+
 export function renderDataView() {
     const d = state.projectData;
     if (!d) return;
-    
+
+    renderMeasureTabs();
     if (window.renderChart) window.renderChart();
     renderSignalPanel();
     if (window.initBatchEntry) window.initBatchEntry();
@@ -2860,7 +2920,7 @@ function renderQIATForm(d) {
     const hasSpread = c.sustainability?.toLowerCase().includes('spread') || c.sustainability?.toLowerCase().includes('other');
     const hasLeadership = logs.length >= 3 || team.some(m => m.role?.toLowerCase().includes('lead'));
     const hasProjectManagement = d.gantt?.length > 0 || pdsa.length >= 2;
-    const hasMeasurement = d.chartData?.length >= 10;
+    const hasMeasurement = primaryChartData(d).length >= 10;
 
     // Stage-specific guidance banners
     const stageBanner = isHigher
@@ -2974,11 +3034,11 @@ function renderQIATForm(d) {
                                 2.1 Involvement - Engagement with QI education over the past year
                             </label>
                             <div id="qiat-education" class="bg-slate-50 p-3 rounded text-sm text-slate-700 min-h-[80px]">
-                                ${(d.meta?.title || pdsa.length > 0 || d.chartData?.length > 0) ? `
+                                ${(d.meta?.title || pdsa.length > 0 || primaryChartData(d).length > 0) ? `
                                     <ul class="space-y-1 text-sm text-slate-700">
                                         ${d.meta?.title ? `<li>QIP: "${escapeHtml(d.meta.title)}"</li>` : ''}
                                         ${pdsa.length > 0 ? `<li>${pdsa.length} PDSA cycle${pdsa.length > 1 ? 's' : ''} completed</li>` : ''}
-                                        ${(d.chartData?.length || 0) > 0 ? `<li>${d.chartData.length} data points collected and analysed</li>` : ''}
+                                        ${primaryChartData(d).length > 0 ? `<li>${primaryChartData(d).length} data points collected and analysed</li>` : ''}
                                         ${team.length > 0 ? `<li>${team.length} team member${team.length > 1 ? 's' : ''} engaged</li>` : ''}
                                         ${(d.stakeholders?.length || 0) > 0 ? `<li>${d.stakeholders.length} stakeholder${d.stakeholders.length > 1 ? 's' : ''} mapped</li>` : ''}
                                         ${logs.length > 0 ? `<li>${logs.length} leadership engagement${logs.length > 1 ? 's' : ''} documented</li>` : ''}
@@ -3127,7 +3187,7 @@ function renderAbstractForm(d) {
 
     // Default values for each section from existing project data if not yet saved separately
     const bgDefault = c.abstract_background || `${c.problem_desc || '[Problem statement — describe the gap between current and desired state]'}`;
-    const methodsDefault = c.abstract_methods || `We used the Model for Improvement with ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}. ${d.chartData?.length || 0} data points were collected. Outcome measure: ${c.outcome_measure || '[outcome measure]'}. Process measure: ${c.process_measure || '[process measure]'}.`;
+    const methodsDefault = c.abstract_methods || `We used the Model for Improvement with ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}. ${primaryChartData(d).length} data points were collected. Outcome measure: ${c.outcome_measure || '[outcome measure]'}. Process measure: ${c.process_measure || '[process measure]'}.`;
     const resultsDefault = c.abstract_results || c.results_analysis || '[Analysis showing pre/post intervention data, any special cause variation detected, percentage improvement achieved]';
     const conclusionsDefault = c.abstract_conclusions || c.learning_points || '[Key learning points and implications for practice]';
 

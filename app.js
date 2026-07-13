@@ -24,6 +24,8 @@ import { renderSupervisorDashboard } from "./supervisor.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
+import "./measures.js"; // multi-measure management (self-registers window.addMeasure etc.)
+import "./export-center.js"; // unified Export Center (self-registers window.openExportCenter etc.)
 
 // ─── Master Admin ───────────────────────────────────────────────────────
 const ADMIN_EMAIL = 'emevidence999@gmail.com';
@@ -45,7 +47,49 @@ function migrateProjectData(d) {
         }];
         // d.pdsa kept intact so charts/export keep working
     }
+
+    // ─── Multi-measure migration ───────────────────────────────────────────
+    // Older projects (and legacy Firestore documents) only have a single
+    // flat d.chartData / d.chartSettings. Wrap that into measures[0] so the
+    // app can support tracking several independent measures at once.
+    if (!Array.isArray(d.measures) || d.measures.length === 0) {
+        d.measures = [{
+            id: 'measure_default',
+            name: (d.checklist && d.checklist.outcome_measure)
+                ? String(d.checklist.outcome_measure).slice(0, 60)
+                : 'Primary Outcome Measure',
+            unit: '',
+            chartData: Array.isArray(d.chartData) ? d.chartData : [],
+            chartSettings: (d.chartSettings && typeof d.chartSettings === 'object') ? d.chartSettings : {
+                mode: 'run', showMedian: true, showMean: false, ucl: null, lcl: null,
+                title: '', yAxisLabel: '', showAnnotations: true
+            }
+        }];
+        d.activeMeasureId = 'measure_default';
+    }
+    // Keep d.chartData / d.chartSettings as live references to the active
+    // measure so all existing chart/QIAT/report code keeps working unmodified.
+    if (!d.activeMeasureId || !d.measures.find(m => m.id === d.activeMeasureId)) {
+        d.activeMeasureId = d.measures[0].id;
+    }
+    const activeMeasure = d.measures.find(m => m.id === d.activeMeasureId) || d.measures[0];
+    if (!Array.isArray(activeMeasure.chartData)) activeMeasure.chartData = [];
+    if (!activeMeasure.chartSettings || typeof activeMeasure.chartSettings !== 'object') {
+        activeMeasure.chartSettings = { mode: 'run', showMedian: true, showMean: false, ucl: null, lcl: null, title: '', yAxisLabel: '', showAnnotations: true };
+    }
+    d.chartData = activeMeasure.chartData;
+    d.chartSettings = activeMeasure.chartSettings;
 }
+
+// Returns the primary/first measure — used for QIAT scoring, dashboard
+// counts, and auto-generated report text so those stay consistent
+// regardless of which measure tab the user currently has open.
+function getPrimaryMeasure(d) {
+    if (!d) return null;
+    if (Array.isArray(d.measures) && d.measures.length > 0) return d.measures[0];
+    return { chartData: d.chartData || [], chartSettings: d.chartSettings || {} };
+}
+window.getPrimaryMeasure = getPrimaryMeasure;
 
 // ─── Clinical Templates ───────────────────────────────────────────────────────
 const CLINICAL_TEMPLATES = [
@@ -751,10 +795,10 @@ window.showFRCEMReadinessChecker = function() {
           excMissing: [pdsa.length<3 && ('3+ iterative PDSA cycles (you have '+pdsa.length+')'), changeIdeas.length<1 && 'Structured change ideas defined'].filter(Boolean),
           wc: pdsa.reduce((acc,p) => acc + wc2(p.plan||p.desc||'') + wc2(p.study||'') + wc2(p.act||''), 0) },
         { num:5, title:'Data Collection & Run Chart', icon:'bar-chart-2',
-          sat: !!((d.chartData?.length||0) >= 8),
-          exc: !!((d.chartData?.length||0) >= 12 && c.results_analysis && (d.chartEvents?.length||0) >= 1),
-          satMissing: [(d.chartData?.length||0)<8 && ('8+ data points (you have '+(d.chartData?.length||0)+')')].filter(Boolean),
-          excMissing: [(d.chartData?.length||0)<12 && ('12+ data points (you have '+(d.chartData?.length||0)+')'), !c.results_analysis && 'Results analysis narrative', !(d.chartEvents?.length>=1) && 'Chart event markers annotating interventions'].filter(Boolean),
+          sat: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= 8),
+          exc: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= 12 && c.results_analysis && (d.chartEvents?.length||0) >= 1),
+          satMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<8 && ('8+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')')].filter(Boolean),
+          excMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<12 && ('12+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')'), !c.results_analysis && 'Results analysis narrative', !(d.chartEvents?.length>=1) && 'Chart event markers annotating interventions'].filter(Boolean),
           wc: wc2(c.results_analysis||'') },
         { num:6, title:'Reflection & Sustainability', icon:'lightbulb',
           sat: !!(c.learning_points && c.sustainability),
@@ -2398,6 +2442,7 @@ if (document.readyState === 'loading') {
 
 window.openDemoProject = () => {
     state.projectData = getDemoData();
+    migrateProjectData(state.projectData);
     state.currentProjectId = 'DEMO';
     state.historyStack = [JSON.stringify(state.projectData)];
     state.redoStack = [];

@@ -64,6 +64,30 @@ export const emptyProject = {
     },
     process: ["Start", "End"],
     pdsa: [],
+    // Multi-measure support: each project can track several independent
+    // measures (e.g. "Time to Kit" AND "Knowledge Assessment Score").
+    // d.chartData / d.chartSettings below are kept as live references to
+    // whichever measure is active, so all existing chart/QIAT/report code
+    // that reads d.chartData / d.chartSettings keeps working unmodified.
+    measures: [
+        {
+            id: 'measure_default',
+            name: 'Primary Outcome Measure',
+            unit: '',
+            chartData: [],
+            chartSettings: {
+                mode: 'run',
+                showMedian: true,
+                showMean: false,
+                ucl: null,
+                lcl: null,
+                title: '',
+                yAxisLabel: '',
+                showAnnotations: true
+            }
+        }
+    ],
+    activeMeasureId: 'measure_default',
     chartData: [],
     chartSettings: {
         mode: 'run',
