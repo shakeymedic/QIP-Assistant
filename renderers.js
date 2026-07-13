@@ -206,6 +206,17 @@ export function renderDashboard() {
     if (qaDate && !qaDate.value) {
         qaDate.value = new Date().toISOString().split('T')[0];
     }
+    // Clarify which measure Quick Add targets when a project has more than one
+    const qaLabel = document.getElementById('quick-add-target-label');
+    if (qaLabel) {
+        const measures = Array.isArray(d.measures) ? d.measures : [];
+        if (measures.length > 1) {
+            const active = measures.find(m => m.id === d.activeMeasureId) || measures[0];
+            qaLabel.textContent = `Adding to: ${active.name}`;
+        } else {
+            qaLabel.textContent = '';
+        }
+    }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
@@ -1006,29 +1017,32 @@ export function renderMeasureTabs() {
 
     const activeId = d.activeMeasureId || measures[0].id;
 
+    const readOnly = !!state.isReadOnly;
     bar.innerHTML = measures.map(m => {
         const isActive = m.id === activeId;
         const count = Array.isArray(m.chartData) ? m.chartData.length : 0;
         const base = isActive
             ? 'bg-rcem-purple text-white shadow'
             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
-        return `
-            <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure('${m.id}')">
-                <span>${escapeHtml(m.name)}</span>
-                <span class="opacity-70 font-normal">(${count})</span>
+        const editControls = readOnly ? '' : `
                 <span class="hidden group-hover:inline-flex items-center gap-0.5 ml-1">
                     <button aria-label="Rename measure" onclick="event.stopPropagation(); window.renameMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}" title="Rename">
                         <i data-lucide="pencil" class="w-3 h-3"></i>
                     </button>
                     ${measures.length > 1 ? `<button aria-label="Delete measure" onclick="event.stopPropagation(); window.deleteMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-red-500'}" title="Delete"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ''}
-                </span>
+                </span>`;
+        return `
+            <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure('${m.id}')">
+                <span>${escapeHtml(m.name)}</span>
+                <span class="opacity-70 font-normal">(${count})</span>
+                ${editControls}
             </div>
         `;
-    }).join('') + `
+    }).join('') + (readOnly ? '' : `
         <button aria-label="Add new measure" onclick="window.addMeasure()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100">
             <i data-lucide="plus" class="w-3 h-3"></i> Add Measure
         </button>
-    `;
+    `);
 
     const label = document.getElementById('active-measure-label');
     if (label) {

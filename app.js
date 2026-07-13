@@ -981,7 +981,8 @@ window.takeProjectSnapshot = function(label) {
     if (d.snapshots.length >= 10) d.snapshots.shift();
     const snapLabel = label || ('Snapshot — ' + new Date().toLocaleString('en-GB', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' }));
     d.snapshots.push({ id: Date.now().toString(), label: snapLabel, timestamp: new Date().toISOString(),
-        data: JSON.parse(JSON.stringify({ checklist: d.checklist, changeIdeas: d.changeIdeas, pdsa: d.pdsa, chartData: d.chartData })) });
+        data: JSON.parse(JSON.stringify({ checklist: d.checklist, changeIdeas: d.changeIdeas, pdsa: d.pdsa, chartData: d.chartData,
+            measures: d.measures, activeMeasureId: d.activeMeasureId })) }); // measures/activeMeasureId captured so multi-measure projects restore fully, not just the active measure
     if (window.saveData) window.saveData();
     showToast('Snapshot saved: ' + snapLabel, 'success');
 };
@@ -1029,7 +1030,23 @@ window.restoreSnapshot = function(idx) {
         if (snap.checklist) d.checklist = JSON.parse(JSON.stringify(snap.checklist));
         if (snap.changeIdeas) d.changeIdeas = JSON.parse(JSON.stringify(snap.changeIdeas));
         if (snap.pdsa) d.pdsa = JSON.parse(JSON.stringify(snap.pdsa));
-        if (snap.chartData) d.chartData = JSON.parse(JSON.stringify(snap.chartData));
+        if (Array.isArray(snap.measures) && snap.measures.length > 0) {
+            // Newer snapshot: restore ALL measures, not just the active one.
+            d.measures = JSON.parse(JSON.stringify(snap.measures));
+            d.activeMeasureId = snap.activeMeasureId && d.measures.some(m => m.id === snap.activeMeasureId)
+                ? snap.activeMeasureId : d.measures[0].id;
+            const active = d.measures.find(m => m.id === d.activeMeasureId) || d.measures[0];
+            d.chartData = active.chartData;
+            d.chartSettings = active.chartSettings;
+        } else if (snap.chartData) {
+            // Older snapshot taken before multi-measure existed: restore into
+            // the currently active measure only, keeping references in sync.
+            d.chartData = JSON.parse(JSON.stringify(snap.chartData));
+            if (Array.isArray(d.measures) && d.measures.length > 0) {
+                const active = d.measures.find(m => m.id === d.activeMeasureId) || d.measures[0];
+                active.chartData = d.chartData;
+            }
+        }
         if (window.saveData) window.saveData();
         document.getElementById('snapshots-modal')?.remove();
         if (window.R?.renderAll) window.R.renderAll('dashboard');
@@ -1698,6 +1715,7 @@ window.undo = () => {
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
     state.projectData = JSON.parse(prevState);
+    migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     let currentView = document.querySelector('.view-section:not(.hidden)');
     if (currentView) {
         let viewName = currentView.id.replace('view-', '');
@@ -1713,6 +1731,7 @@ window.redo = () => {
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
     state.projectData = JSON.parse(nextState);
+    migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     let currentView = document.querySelector('.view-section:not(.hidden)');
     if (currentView) {
         let viewName = currentView.id.replace('view-', '');
@@ -3013,6 +3032,7 @@ window.adminViewProject = async function(uid, projectId) {
         if (!data.process) data.process = ['Start', 'End'];
         if (!data.surveys) data.surveys = [];
 
+        migrateProjectData(data); // ensure admin view also sees measure tabs for multi-measure projects
         state.projectData = data;
         state.currentProjectId = projectId;
         state.isReadOnly = true;

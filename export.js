@@ -254,14 +254,35 @@ export async function exportPPTX() {
             dataView.classList.remove('hidden');
         }
 
+        // The deck always charts the PRIMARY measure regardless of which
+        // measure tab is active in the Data view, to stay consistent with
+        // the results narrative below (which also describes the primary
+        // measure). Temporarily re-render #mainChart with the primary
+        // measure's data before capturing, then restore the active measure.
+        const d = state.projectData;
+        const measures = Array.isArray(d?.measures) ? d.measures : [];
+        const multiMeasure = measures.length > 1 && typeof window.getPrimaryMeasure === 'function';
+        let savedChartData, savedChartSettings;
+        if (multiMeasure) {
+            const primary = window.getPrimaryMeasure(d);
+            savedChartData = d.chartData; savedChartSettings = d.chartSettings;
+            d.chartData = primary.chartData; d.chartSettings = primary.chartSettings;
+            if (window.renderChart) window.renderChart('mainChart');
+        }
+
         try {
             await new Promise(r => setTimeout(r, 100)); // Small wait for chart render
-            const dataUrl = canvas.toDataURL('image/png', 1.0);
+            const liveCanvas = document.getElementById('mainChart'); // renderChart replaces the node, so re-fetch it
+            const dataUrl = liveCanvas.toDataURL('image/png', 1.0);
             slide.addImage({ data: dataUrl, x: 0.5, y: 1.2, w: 5.5, h: 4.0 });
         } catch (e) {
             console.error(e);
             slide.addText("[Chart image capture failed]", { x: 0.5, y: 2, color: "red" });
         } finally {
+            if (multiMeasure) {
+                d.chartData = savedChartData; d.chartSettings = savedChartSettings;
+                if (window.renderChart) window.renderChart('mainChart'); // restore the active measure's chart on screen
+            }
             if (wasHidden) {
                 dataView.classList.add('hidden');
                 dataView.style.position = '';

@@ -53,6 +53,7 @@ export function switchMeasure(measureId) {
 export function addMeasure() {
     const d = state.projectData;
     if (!d) return;
+    if (state.isReadOnly) { showToast('Read-only view: cannot add measures', 'error'); return; }
     if (!Array.isArray(d.measures)) d.measures = [];
     window.showInputModal('Add New Measure', [
         { id: 'name', label: 'Measure Name', placeholder: 'e.g. Knowledge Assessment Score', required: true },
@@ -79,6 +80,7 @@ export function addMeasure() {
 
 export function renameMeasure(measureId) {
     const d = state.projectData;
+    if (state.isReadOnly) { showToast('Read-only view: cannot rename measures', 'error'); return; }
     const m = d && Array.isArray(d.measures) ? d.measures.find(x => x.id === measureId) : null;
     if (!m) return;
     window.showInputModal('Rename Measure', [
@@ -95,6 +97,7 @@ export function renameMeasure(measureId) {
 
 export function deleteMeasure(measureId) {
     const d = state.projectData;
+    if (state.isReadOnly) { showToast('Read-only view: cannot delete measures', 'error'); return; }
     if (!d || !Array.isArray(d.measures) || d.measures.length <= 1) {
         showToast('You must keep at least one measure', 'error');
         return;

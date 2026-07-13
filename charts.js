@@ -1801,5 +1801,22 @@ export function renderFullViewChart() {
         c.innerHTML = ''; 
         c.appendChild(cv); 
     }
-    renderChart('full-view-chart-canvas');
+    // The formal report always charts the PRIMARY measure, regardless of
+    // which measure tab is active in the Data view, so the report narrative
+    // (which also always describes the primary measure) and the chart image
+    // stay consistent. Temporarily point chartData/chartSettings at the
+    // primary measure, render, then restore the active measure's references.
+    const d = state.projectData;
+    const measures = Array.isArray(d?.measures) ? d.measures : [];
+    if (measures.length > 1 && typeof window.getPrimaryMeasure === 'function') {
+        const primary = window.getPrimaryMeasure(d);
+        const savedChartData = d.chartData, savedChartSettings = d.chartSettings;
+        d.chartData = primary.chartData;
+        d.chartSettings = primary.chartSettings;
+        renderChart('full-view-chart-canvas');
+        d.chartData = savedChartData;
+        d.chartSettings = savedChartSettings;
+    } else {
+        renderChart('full-view-chart-canvas');
+    }
 }

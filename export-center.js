@@ -36,7 +36,8 @@ export function exportAllDataCSV() {
     if (rows.length === 1) { showToast('No data points to export yet', 'error'); return; }
 
     const csv = rows.map(r => r.map(csvEscape).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    // Prefix with a UTF-8 BOM so Excel on Windows renders £, \u2265/\u2264, and en/em dashes correctly instead of mangling them.
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const cleanTitle = (d.meta?.title || 'QIP').replace(/[^a-z0-9]/gi, '_').toLowerCase();
