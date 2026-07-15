@@ -1973,19 +1973,26 @@ async function checkShareLink() {
 
 // ─── QIP Lead status check ───────────────────────────────────────────────────
 async function checkQIPLeadStatus(user) {
-    if (!user?.email || !db) return;
+    if (!user?.uid || !user?.email || !db) return;
     try {
-        const projects = await getQIPLeadProjects(db, user.email);
-        if (!projects.length) return;
+        // Check if user has the qip_lead role on their account
+        const roleSnap = await getDoc(doc(db, 'users', user.uid));
+        const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+        const hasLeadRole = userRoles.includes('qip_lead');
 
-        // Load data for each supervised project
+        // Get projects they've been individually invited to as QIP Lead
+        const projects = await getQIPLeadProjects(db, user.email);
+
+        // If no role and no invites, nothing to do
+        if (!hasLeadRole && !projects.length) return;
+
+        // Load data for each individually invited project
         const enriched = [];
         for (const proj of projects) {
             try {
                 const snap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
                 if (snap.exists()) {
                     const d = snap.data();
-                    // Compute a rough progress score
                     const c = d.checklist || {};
                     const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k=>c[k]).length;
                     const hasPdsa = (d.pdsa||[]).length > 0;
@@ -1996,29 +2003,36 @@ async function checkQIPLeadStatus(user) {
             } catch(e) { enriched.push({ ...proj, _data: {}, _progress: 0 }); }
         }
         state.qipLeadProjects = enriched;
-        state.isQIPLead = enriched.length > 0;
+        state.isQIPLead = hasLeadRole || enriched.length > 0;
 
-        if (enriched.length > 0) {
-            // Show badge on projects page
+        // Show UI elements whenever user has the role OR has invited projects
+        if (state.isQIPLead) {
             const badge = document.getElementById('qip-lead-badge');
             const badgeText = document.getElementById('qip-lead-badge-text');
             if (badge) badge.classList.remove('hidden');
-            if (badgeText) badgeText.textContent = `You have access to ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
+            if (badgeText) {
+                if (enriched.length > 0) {
+                    badgeText.textContent = `You have access to ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
+                } else {
+                    badgeText.textContent = 'Departmental QIP Lead — no projects have been shared with you yet';
+                }
+            }
             // Show Lead Dashboard nav button + sidebar home button
             const navBtn = document.getElementById('nav-lead-dashboard');
             if (navBtn) navBtn.classList.remove('hidden');
             const leadHomeBtn = document.getElementById('sidebar-lead-home');
             if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
-            // Show the prominent supervisor/lead access button
+            // Show the prominent supervisor/lead access button in sidebar
             const accessBtn = document.getElementById('sidebar-supervisor-access');
             if (accessBtn) {
                 accessBtn.classList.remove('hidden');
                 const lbl = document.getElementById('sidebar-supervisor-access-label');
-                if (lbl) lbl.textContent = 'QIP Lead Dashboard';
+                if (lbl) lbl.textContent = enriched.length > 0 ? 'QIP Lead Dashboard' : 'Lead Dashboard';
             }
-            // Render QIP Lead panel in supervisor section
-            const panel = document.getElementById('qip-lead-panel');
-            if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+            if (enriched.length > 0) {
+                const panel = document.getElementById('qip-lead-panel');
+                if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
+            }
         }
     } catch(e) {
         console.warn('[QIPLead] checkQIPLeadStatus error:', e);
@@ -3302,29 +3316,43 @@ async function checkSupervisorStatus() {
         const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
         const email = state.currentUser.email?.toLowerCase();
         if (!email) return;
+
+        // Check role on account
+        const roleSnap = await getDoc(doc(db, 'users', state.currentUser.uid));
+        const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+        const hasSupervisorRole = userRoles.includes('supervisor');
+
         const snap = await getDoc(doc(db, 'supervisorInvites', email));
-        if (!snap.exists()) return;
-        const projects = snap.data().projects || [];
-        if (projects.length === 0) return;
+        const projects = snap.exists() ? (snap.data().projects || []) : [];
+
+        // Show button if they have the role OR have invited projects
+        if (!hasSupervisorRole && projects.length === 0) return;
+
         state.supervisorProjects = projects;
-        // Show supervisor home button in sidebar
+
+        // Show the access button even if no projects yet
+        const accessBtn = document.getElementById('sidebar-supervisor-access');
+        if (accessBtn) {
+            accessBtn.classList.remove('hidden');
+            const lbl = document.getElementById('sidebar-supervisor-access-label');
+            if (lbl) lbl.textContent = projects.length > 0 ? 'My Supervised QIPs' : 'Supervisor View';
+        }
+        const badge = document.getElementById('supervisor-badge');
+        const badgeText = document.getElementById('supervisor-badge-text');
+        if (badge) badge.classList.remove('hidden');
+        if (badgeText) {
+            badgeText.textContent = projects.length > 0
+                ? 'You are supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' — click to review and sign off'
+                : 'Clinical Supervisor — no projects have been shared with you yet';
+        }
+
+        if (projects.length === 0) { if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
+        // Show supervisor home button in sidebar (for projects with invites)
         const btn = document.getElementById('sidebar-supervisor-home');
         if (btn) {
             btn.classList.remove('hidden');
             btn.onclick = () => window.showSupervisorProjectList();
         }
-        // Show the prominent supervisor/lead access button
-        const accessBtn = document.getElementById('sidebar-supervisor-access');
-        if (accessBtn) {
-            accessBtn.classList.remove('hidden');
-            const lbl = document.getElementById('sidebar-supervisor-access-label');
-            if (lbl) lbl.textContent = 'My Supervised QIPs';
-        }
-        // Show supervisor badge on projects page
-        const badge = document.getElementById('supervisor-badge');
-        const badgeText = document.getElementById('supervisor-badge-text');
-        if (badge) badge.classList.remove('hidden');
-        if (badgeText) badgeText.textContent = 'You are supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' — click to review and sign off';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         console.warn('[Supervisor] checkSupervisorStatus error:', e);
