@@ -412,6 +412,9 @@
                     <button id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> <span id="switch-project-label">Switch Project</span>
                     </button>
+                    <button id="sidebar-supervisor-access" onclick="window.openSupervisorOrLeadView()" class="hidden w-full flex items-center gap-2 bg-teal-700 hover:bg-teal-600 text-teal-100 hover:text-white px-2 py-2 rounded text-xs font-bold mb-1 border border-teal-600/50">
+                        <i data-lucide="shield-check" class="w-3 h-3 flex-shrink-0"></i> <span id="sidebar-supervisor-access-label">Supervisor / Lead View</span>
+                    </button>
                     <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="help-circle" class="w-3 h-3"></i> Help &amp; Guide
                     </button>
@@ -1043,7 +1046,7 @@
         </div>
     </div>
 
-    <div id="task-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div id="task-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Add/Edit Task</h3>
             <input type="hidden" id="task-index">
@@ -1099,7 +1102,7 @@
         </div>
     </div>
 
-    <div id="chart-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4">
+    <div id="chart-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Chart Settings</h3>
             <div class="space-y-4">
@@ -1124,12 +1127,14 @@
     </div>
 
     <div id="global-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <i data-lucide="settings" class="w-5 h-5 text-rcem-purple"></i>
-                Settings
-            </h3>
-            <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col max-h-[90vh]">
+            <div class="flex-shrink-0 px-6 pt-6 pb-2">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="settings" class="w-5 h-5 text-rcem-purple"></i>
+                    Settings
+                </h3>
+            </div>
+            <div class="space-y-4 overflow-y-auto flex-1 px-6 pb-2">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Google AI (Gemini) API Key</label>
                     <div class="flex gap-2">
@@ -1209,7 +1214,7 @@
                     </div>
                 </div>
 
-            <div class="flex justify-end gap-2 mt-6">
+            <div class="flex justify-end gap-2 p-4 border-t border-slate-100 flex-shrink-0">
                 <button aria-label="Cancel Global Settings Edit" onclick="document.getElementById('global-settings-modal').classList.add('hidden')" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded">Cancel</button>
                 <button aria-label="Save Global Settings" onclick="window.saveGlobalSettings()" class="px-4 py-2 bg-rcem-purple text-white rounded font-medium">Save</button>
             </div>
@@ -1298,15 +1303,15 @@
          INPUT MODAL — replaces all browser prompt() calls
          ============================================================ -->
     <div id="input-modal" class="hidden fixed inset-0 bg-black/60 z-[9999] items-center justify-center p-4">
-        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto p-6 animate-fade-in">
-            <div class="flex items-center justify-between mb-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-auto flex flex-col max-h-[90vh] animate-fade-in">
+            <div class="flex items-center justify-between p-6 pb-4 flex-shrink-0">
                 <h3 id="input-modal-title" class="font-semibold text-slate-900 text-base">Add Entry</h3>
                 <button onclick="window.hideInputModal()" class="text-slate-400 hover:text-slate-600 transition-colors p-1 rounded-lg hover:bg-slate-100">
                     <i data-lucide="x" class="w-5 h-5"></i>
                 </button>
             </div>
-            <div id="input-modal-fields" class="space-y-4 mb-5"></div>
-            <div class="flex gap-2 justify-end">
+            <div id="input-modal-fields" class="space-y-4 px-6 overflow-y-auto flex-1"></div>
+            <div class="flex gap-2 justify-end p-6 pt-4 flex-shrink-0 border-t border-slate-100 mt-4">
                 <button onclick="window.hideInputModal()" class="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">Cancel</button>
                 <button id="input-modal-submit" class="px-4 py-2 text-sm font-medium text-white bg-rcem-purple hover:bg-indigo-700 rounded-lg transition-colors">Add</button>
             </div>

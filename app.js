@@ -431,7 +431,23 @@ const _legacyLearnModal = `
         `;
 */
 
-// ─── Rename Project ──────────────────────────────────────────────────────────
+// ─── Supervisor / QIP Lead View dispatcher ───────────────────────────────────
+window.openSupervisorOrLeadView = function() {
+    // If user is a QIP Lead, open the lead dashboard
+    if (document.getElementById('nav-lead-dashboard') && 
+        !document.getElementById('nav-lead-dashboard').classList.contains('hidden')) {
+        window.showQIPLeadDashboard();
+        return;
+    }
+    // If user is a supervisor, open the supervised project list
+    if (state.supervisorProjects && state.supervisorProjects.length > 0) {
+        window.showSupervisorProjectList();
+        return;
+    }
+    showToast('No supervisor or lead projects found', 'info');
+};
+
+// ─── Rename Project ───────────────────────────────────────────────────────────
 window.renameProject = function() {
     if (!state.projectData || state.isReadOnly || state.isSupervisorViewing) return;
     const currentTitle = state.projectData.meta?.title || '';
@@ -1995,6 +2011,13 @@ async function checkQIPLeadStatus(user) {
             if (navBtn) navBtn.classList.remove('hidden');
             const leadHomeBtn = document.getElementById('sidebar-lead-home');
             if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
+            // Show the prominent supervisor/lead access button
+            const accessBtn = document.getElementById('sidebar-supervisor-access');
+            if (accessBtn) {
+                accessBtn.classList.remove('hidden');
+                const lbl = document.getElementById('sidebar-supervisor-access-label');
+                if (lbl) lbl.textContent = 'QIP Lead Dashboard';
+            }
             // Render QIP Lead panel in supervisor section
             const panel = document.getElementById('qip-lead-panel');
             if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
@@ -3291,6 +3314,13 @@ async function checkSupervisorStatus() {
         if (btn) {
             btn.classList.remove('hidden');
             btn.onclick = () => window.showSupervisorProjectList();
+        }
+        // Show the prominent supervisor/lead access button
+        const accessBtn = document.getElementById('sidebar-supervisor-access');
+        if (accessBtn) {
+            accessBtn.classList.remove('hidden');
+            const lbl = document.getElementById('sidebar-supervisor-access-label');
+            if (lbl) lbl.textContent = 'My Supervised QIPs';
         }
         // Show supervisor badge on projects page
         const badge = document.getElementById('supervisor-badge');
