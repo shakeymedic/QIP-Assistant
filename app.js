@@ -433,18 +433,16 @@ const _legacyLearnModal = `
 
 // ─── Supervisor / QIP Lead View dispatcher ───────────────────────────────────
 window.openSupervisorOrLeadView = function() {
-    // If user is a QIP Lead, open the lead dashboard
-    if (document.getElementById('nav-lead-dashboard') && 
-        !document.getElementById('nav-lead-dashboard').classList.contains('hidden')) {
-        window.showQIPLeadDashboard();
-        return;
-    }
-    // If user is a supervisor, open the supervised project list
-    if (state.supervisorProjects && state.supervisorProjects.length > 0) {
-        window.showSupervisorProjectList();
-        return;
-    }
-    showToast('No supervisor or lead projects found', 'info');
+    // Always navigate to projects view first so the banners are visible
+    window.router('projects');
+    // Then open the appropriate view after a tick
+    setTimeout(() => {
+        if (state.isQIPLead && state.qipLeadProjects?.length > 0) {
+            window.showQIPLeadDashboard();
+        } else if (state.supervisorProjects?.length > 0) {
+            window.showSupervisorProjectList();
+        }
+    }, 100);
 };
 
 // ─── Rename Project ───────────────────────────────────────────────────────────
@@ -2005,7 +2003,7 @@ async function checkQIPLeadStatus(user) {
             const badge = document.getElementById('qip-lead-badge');
             const badgeText = document.getElementById('qip-lead-badge-text');
             if (badge) badge.classList.remove('hidden');
-            if (badgeText) badgeText.textContent = `Supervising ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
+            if (badgeText) badgeText.textContent = `You have access to ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
             // Show Lead Dashboard nav button + sidebar home button
             const navBtn = document.getElementById('nav-lead-dashboard');
             if (navBtn) navBtn.classList.remove('hidden');
@@ -3326,7 +3324,7 @@ async function checkSupervisorStatus() {
         const badge = document.getElementById('supervisor-badge');
         const badgeText = document.getElementById('supervisor-badge-text');
         if (badge) badge.classList.remove('hidden');
-        if (badgeText) badgeText.textContent = 'Supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' as Clinical Supervisor';
+        if (badgeText) badgeText.textContent = 'You are supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' — click to review and sign off';
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         console.warn('[Supervisor] checkSupervisorStatus error:', e);
