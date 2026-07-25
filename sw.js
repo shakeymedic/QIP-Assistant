@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.15.29';
-const STATIC_CACHE = 'rcem-qip-static-v3.15.29';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.29';
+const CACHE_NAME = 'rcem-qip-v3.15.30';
+const STATIC_CACHE = 'rcem-qip-static-v3.15.30';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.15.30';
 
 const STATIC_ASSETS = [
     '/',
@@ -13,6 +13,7 @@ const STATIC_ASSETS = [
     '/utils.js',
     '/config.js',
     '/ai.js',
+    '/ai-review.js',
     '/onboarding.js',
     '/supervisor.js',
     '/surveys.js',

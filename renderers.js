@@ -7,6 +7,7 @@ import {
 
 // Import external modules to populate missing DOM elements
 import { renderPatientTracker } from "./patient-tracker.js";
+import { runFullAIAssessment, runSectionAI } from "./ai-review.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
 import { renderSurveys } from "./surveys.js";
 
@@ -47,6 +48,7 @@ export function renderAll(view) {
         case 'green': 
             if (typeof renderGreenCalculator === 'function') renderGreenCalculator(); 
             break;         
+        case 'aireview': renderAIReview(); break;
         case 'full': renderFullProject(); break;    
         case 'publish': renderPublish(); break;     
         default: renderDashboard();
@@ -3913,3 +3915,14 @@ window.showExample = function(section) {
     document.body.appendChild(modal);
     if (typeof lucide !== 'undefined') lucide.createIcons();
 };
+
+// ─── AI Review Centre renderer ────────────────────────────────────────────────
+export function renderAIReview() {
+    const hasKey = !!(state.aiKey || localStorage.getItem('rcem_qip_ai_key'));
+    const noKeyEl = document.getElementById('aireview-nokey');
+    const runPanel = document.getElementById('aireview-run-panel');
+    const quickEl  = document.getElementById('aireview-quick');
+    if (noKeyEl)  noKeyEl.classList.toggle('hidden', hasKey);
+    if (runPanel) runPanel.classList.toggle('opacity-50', !hasKey);
+    if (quickEl)  quickEl.classList.toggle('opacity-50', !hasKey);
+}
