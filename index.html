@@ -392,8 +392,13 @@
                     </button>
                 </nav>
                 
-                <div class="p-3 border-t border-white/10">
+                <div class="p-3 border-t border-white/10 overflow-y-auto">
                     <div id="user-display" class="text-xs text-slate-400 mb-2 px-2 truncate"></div>
+
+                    <!-- Supervisor / Lead access button — shown first, prominently, whenever role is active -->
+                    <button id="sidebar-supervisor-access" onclick="window.openSupervisorOrLeadView()" class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-2 border border-teal-500/50 shadow-sm">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-supervisor-access-label">Supervisor / Lead View</span>
+                    </button>
 
                     <!-- Role-specific home buttons — shown/hidden by JS -->
                     <button id="sidebar-admin-home" onclick="window.returnToProjects()"
@@ -405,15 +410,12 @@
                         <i data-lucide="layout-dashboard" class="w-3 h-3"></i> Lead Dashboard
                     </button>
                     <button id="sidebar-supervisor-home"
-                        class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2 rounded text-xs font-bold mb-2">
+                        class="hidden w-full flex items-center gap-2 bg-teal-700 hover:bg-teal-600 text-white px-2 py-2 rounded text-xs font-bold mb-2">
                         <i data-lucide="user-check" class="w-3 h-3"></i> My Supervised QIPs
                     </button>
 
                     <button id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="folder-open" class="w-3 h-3"></i> <span id="switch-project-label">Switch Project</span>
-                    </button>
-                    <button id="sidebar-supervisor-access" onclick="window.openSupervisorOrLeadView()" class="hidden w-full flex items-center gap-2 bg-teal-700 hover:bg-teal-600 text-teal-100 hover:text-white px-2 py-2 rounded text-xs font-bold mb-1 border border-teal-600/50">
-                        <i data-lucide="shield-check" class="w-3 h-3 flex-shrink-0"></i> <span id="sidebar-supervisor-access-label">Supervisor / Lead View</span>
                     </button>
                     <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
                         <i data-lucide="help-circle" class="w-3 h-3"></i> Help &amp; Guide
