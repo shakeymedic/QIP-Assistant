@@ -1891,6 +1891,17 @@ if (auth) {
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
+
+            // Show supervisor/lead button immediately from localStorage cache
+            // (will be confirmed/hidden by Firestore check below)
+            const cachedLead = localStorage.getItem('rcem_is_qip_lead');
+            const cachedSupervisor = localStorage.getItem('rcem_is_supervisor');
+            const earlyBtn = document.getElementById('sidebar-supervisor-access');
+            if (earlyBtn && (cachedLead || cachedSupervisor)) {
+                earlyBtn.classList.remove('hidden');
+                const lbl = document.getElementById('sidebar-supervisor-access-label');
+                if (lbl) lbl.textContent = cachedLead ? 'QIP Lead Dashboard' : 'My Supervised QIPs';
+            }
             // Hide register screen if somehow visible
             const rs = document.getElementById('register-screen');
             if (rs) rs.classList.add('hidden');
@@ -2004,6 +2015,10 @@ async function checkQIPLeadStatus(user) {
         }
         state.qipLeadProjects = enriched;
         state.isQIPLead = hasLeadRole || enriched.length > 0;
+
+        // Cache role to localStorage so button appears instantly on next load
+        if (state.isQIPLead) localStorage.setItem('rcem_is_qip_lead', '1');
+        else localStorage.removeItem('rcem_is_qip_lead');
 
         // Show UI elements whenever user has the role OR has invited projects
         if (state.isQIPLead) {
@@ -3326,8 +3341,13 @@ async function checkSupervisorStatus() {
         const projects = snap.exists() ? (snap.data().projects || []) : [];
 
         // Show button if they have the role OR have invited projects
-        if (!hasSupervisorRole && projects.length === 0) return;
+        if (!hasSupervisorRole && projects.length === 0) {
+            localStorage.removeItem('rcem_is_supervisor');
+            return;
+        }
 
+        // Cache to localStorage for instant show on next load
+        localStorage.setItem('rcem_is_supervisor', '1');
         state.supervisorProjects = projects;
 
         // Show the access button even if no projects yet
