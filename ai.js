@@ -1,7 +1,14 @@
 import { state } from "./state.js";
 import { showToast } from "./utils.js";
 
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent";
+// Model cascade: try newest first, fall back if unavailable
+const GEMINI_MODELS = [
+    'gemini-2.0-flash',
+    'gemini-2.0-flash-lite',
+    'gemini-1.5-flash-latest',
+    'gemini-1.5-flash-8b',
+];
+const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const SYSTEM_PROMPT = `
 You are an expert Quality Improvement Coach specialising in Emergency Medicine for the UK National Health Service. 
@@ -38,50 +45,66 @@ export async function callAI(userPrompt, jsonMode = false, schema = null) {
 
     const stageContext = getTrainingStageContext();
     const finalPrompt = `${SYSTEM_PROMPT}${stageContext}\n\nUSER REQUEST:\n${userPrompt}`;
-    
+
     const generationConfig = {
         temperature: 0.7,
         maxOutputTokens: 2000,
     };
-
     if (jsonMode) {
         generationConfig.responseMimeType = "application/json";
-        if (schema) {
-            generationConfig.responseSchema = schema;
-        }
+        if (schema) generationConfig.responseSchema = schema;
     }
 
     const payload = {
         contents: [{ parts: [{ text: finalPrompt }] }],
-        generationConfig: generationConfig
+        generationConfig,
     };
 
-    try {
-        const response = await fetch(`${API_URL}?key=${key}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
+    // Try each model in cascade until one succeeds
+    let lastError = null;
+    for (const model of GEMINI_MODELS) {
+        try {
+            const url = `${API_BASE}/${model}:generateContent?key=${key}`;
+            const response = await fetch(url, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
 
-        if (!response.ok) {
-            const err = await response.json();
-            throw new Error(err.error?.message || "API Error");
+            if (!response.ok) {
+                const err = await response.json();
+                const msg = err.error?.message || "API Error";
+                // If model not found / not supported, try next
+                if (msg.includes('not found') || msg.includes('not supported') || response.status === 404) {
+                    lastError = new Error(`${model}: ${msg}`);
+                    console.warn(`[AI] ${model} unavailable, trying next...`);
+                    continue;
+                }
+                throw new Error(msg);
+            }
+
+            const data = await response.json();
+            const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!text) throw new Error('Empty response from model');
+
+            if (jsonMode) return JSON.parse(text);
+            return text;
+
+        } catch (error) {
+            if (error.message?.includes('not found') || error.message?.includes('not supported')) {
+                lastError = error;
+                continue;
+            }
+            console.error("AI Call Failed:", error);
+            showToast(`AI Error: ${error.message}`, "error");
+            return null;
         }
-
-        const data = await response.json();
-        const text = data.candidates[0].content.parts[0].text;
-
-        if (jsonMode) {
-            return JSON.parse(text);
-        }
-
-        return text;
-
-    } catch (error) {
-        console.error("AI Call Failed:", error);
-        showToast(`AI Error: ${error.message}`, "error");
-        return null;
     }
+
+    // All models failed
+    console.error("All Gemini models failed:", lastError);
+    showToast(`AI Error: No available model. Check your API key or try again later.`, "error");
+    return null;
 }
 
 export async function runGapAnalysis(projectData) {
