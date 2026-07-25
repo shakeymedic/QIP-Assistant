@@ -1975,8 +1975,8 @@ async function checkShareLink() {
 async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db) return;
     try {
-        // Check if user has the qip_lead role on their account
-        const roleSnap = await getDoc(doc(db, 'users', user.uid));
+        // Check if user has the qip_lead role on their account (stored in qipUsers collection)
+        const roleSnap = await getDoc(doc(db, 'qipUsers', user.uid));
         const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
         const hasLeadRole = userRoles.includes('qip_lead');
 
@@ -3317,8 +3317,8 @@ async function checkSupervisorStatus() {
         const email = state.currentUser.email?.toLowerCase();
         if (!email) return;
 
-        // Check role on account
-        const roleSnap = await getDoc(doc(db, 'users', state.currentUser.uid));
+        // Check role on account (stored in qipUsers collection)
+        const roleSnap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
         const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
         const hasSupervisorRole = userRoles.includes('supervisor');
 
