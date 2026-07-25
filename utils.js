@@ -50,7 +50,7 @@ export function showToast(msg, type = 'info') {
     };
     
     const toast = document.createElement('div');
-    toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 max-w-sm`;
+    toast.className = `${colors[type] || colors.info} text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3 transform transition-all duration-300 translate-x-full opacity-0 w-full`;
     toast.innerHTML = `
         <i data-lucide="${icons[type] || icons.info}" class="w-5 h-5 flex-shrink-0"></i>
         <span class="text-sm font-medium">${escapeHtml(msg)}</span>

@@ -1987,12 +1987,19 @@ async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db) return;
     try {
         // Check if user has the qip_lead role on their account (stored in qipUsers collection)
-        const roleSnap = await getDoc(doc(db, 'qipUsers', user.uid));
-        const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
-        const hasLeadRole = userRoles.includes('qip_lead');
+        let hasLeadRole = false;
+        try {
+            const roleSnap = await getDoc(doc(db, 'qipUsers', user.uid));
+            const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+            hasLeadRole = userRoles.includes('qip_lead');
+            console.log('[QIPLead] roles from qipUsers:', userRoles, 'hasLeadRole:', hasLeadRole);
+        } catch (roleErr) {
+            console.warn('[QIPLead] Could not read qipUsers role:', roleErr);
+        }
 
         // Get projects they've been individually invited to as QIP Lead
         const projects = await getQIPLeadProjects(db, user.email);
+        console.log('[QIPLead] invited projects:', projects.length, 'hasLeadRole:', hasLeadRole);
 
         // If no role and no invites, nothing to do
         if (!hasLeadRole && !projects.length) return;
