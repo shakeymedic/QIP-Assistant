@@ -597,3 +597,31 @@ textarea {
         bottom: calc(16px + env(safe-area-inset-bottom));
     }
 }
+
+/* ==========================================================================
+   COLLAPSIBLE NAV GROUPS & ACCORDIONS (streamlined sidebar, Data & SPC page)
+   ========================================================================== */
+
+/* Sidebar nav group chevron rotation is applied inline via JS (transform
+   style), but keep a default upright state + smooth transition here. */
+.nav-group-header {
+    cursor: pointer;
+}
+.nav-group-chevron {
+    transform: rotate(0deg);
+}
+
+/* Native <details> accordions (Rapid Entry / Operational Definition cards) */
+details > summary {
+    -webkit-tap-highlight-color: transparent;
+}
+details > summary::-webkit-details-marker {
+    display: none;
+}
+.details-chevron {
+    transition: transform 0.2s ease;
+    transform: rotate(0deg);
+}
+details[open] .details-chevron {
+    transform: rotate(90deg);
+}

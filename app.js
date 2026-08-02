@@ -233,6 +233,63 @@ state.adminAllProjects = [];
 
 Object.defineProperty(window, 'projectData', { get: () => state.projectData, set: (v) => state.projectData = v });
 
+// ─── Collapsible sidebar nav groups ────────────────────────────────────────
+// Maps each collapsible sidebar group id to the router view names it
+// contains, so we can auto-expand the right group whenever the user
+// navigates to a view inside a currently-collapsed section.
+const NAV_GROUP_VIEWS = {
+    define: ['dashboard', 'intro', 'full', 'checklist', 'team'],
+    diagnose: ['tools', 'stakeholders', 'gantt'],
+    test: ['data', 'results', 'aireview', 'learn', 'pdsa', 'surveys'],
+    review: ['supervisor'],
+    share: ['publish', 'green']
+};
+const NAV_GROUP_COLLAPSE_KEY = (groupId) => `qipNavGroupCollapsed_${groupId}`;
+
+// Toggles (or forces via `expand`) a sidebar nav group open/closed, rotates
+// its chevron, and persists the collapsed state to localStorage so it
+// survives reloads.
+window.toggleNavGroup = (groupId, expand) => {
+    const items = document.getElementById(`nav-group-items-${groupId}`);
+    const header = document.querySelector(`.nav-group[data-group="${groupId}"] .nav-group-header`);
+    if (!items) return;
+
+    const shouldExpand = (typeof expand === 'boolean') ? expand : items.classList.contains('hidden');
+
+    if (shouldExpand) {
+        items.classList.remove('hidden');
+    } else {
+        items.classList.add('hidden');
+    }
+
+    const chevron = header ? header.querySelector('.nav-group-chevron') : null;
+    if (chevron) chevron.style.transform = shouldExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
+
+    try {
+        localStorage.setItem(NAV_GROUP_COLLAPSE_KEY(groupId), shouldExpand ? '0' : '1');
+    } catch (e) { /* localStorage unavailable — ignore */ }
+};
+
+// Force-expands whichever sidebar group contains the given view, e.g. so
+// navigating straight to 'results' always reveals the Test & Learn group
+// even if the user had collapsed it.
+window.expandNavGroupForView = (view) => {
+    const groupId = Object.keys(NAV_GROUP_VIEWS).find(g => NAV_GROUP_VIEWS[g].includes(view));
+    if (groupId) window.toggleNavGroup(groupId, true);
+};
+
+// Applies any saved collapse state to all nav groups on load. Safe to call
+// at top level here since app.js is a deferred `type="module"` script, so
+// the DOM is already parsed by the time this file executes.
+window.initNavGroups = () => {
+    Object.keys(NAV_GROUP_VIEWS).forEach(groupId => {
+        let collapsed = false;
+        try { collapsed = localStorage.getItem(NAV_GROUP_COLLAPSE_KEY(groupId)) === '1'; } catch (e) { /* ignore */ }
+        window.toggleNavGroup(groupId, !collapsed);
+    });
+};
+window.initNavGroups();
+
 window.router = (view) => {
     if (view !== 'projects' && view !== 'learn' && !state.projectData) { 
         showToast("Please select a project first.", "error"); 
@@ -250,6 +307,7 @@ window.router = (view) => {
     // nav-learn has a teal base colour — use inline style to guarantee white text when active
     const navLearnBtn = document.getElementById('nav-learn');
     if (navLearnBtn) navLearnBtn.style.color = (view === 'learn') ? 'white' : '';
+    window.expandNavGroupForView(view);
 
     const sidebar = document.getElementById('app-sidebar');
     if (sidebar && sidebar.classList.contains('z-50')) { 

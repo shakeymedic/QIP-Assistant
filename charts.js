@@ -46,7 +46,8 @@ const CHART_EDUCATION = {
             "Rule 1: A single point falls outside the control limits.",
             "Rule 2: Eight consecutive points fall on the same side of the mean line.",
             "Rule 3: Six consecutive points steadily increase or decrease.",
-            "Use this chart to confirm your intervention caused a statistically significant improvement."
+            "Use this chart to confirm your intervention caused a statistically significant improvement.",
+            "Caveat: if your measure is a proportion or percentage (e.g. '% compliance'), these control limits use a continuous-data formula. Technically a p-chart (which accounts for varying sample sizes) is more statistically correct for proportion data — treat SPC signals on percentage measures as indicative rather than definitive."
         ]
     },
     histogram: {
@@ -65,6 +66,16 @@ const CHART_EDUCATION = {
             "Focus your initial PDSA cycles on the tallest bars on the left.",
             "The orange line shows the cumulative percentage.",
             "Re-run this chart after interventions to observe shifting priorities."
+        ]
+    },
+    beforeafter: {
+        title: "Before / After Chart Guidance",
+        desc: "Compares your earliest data 'Phase' against your latest data 'Phase' side by side — ideal for small-N paired data like a pre- vs post-intervention knowledge assessment. Points are paired using the label at the start of each point's note (e.g. 'ST3 — pre-QRH...' pairs with 'ST3 — post-QRH...'). Tag your data points with a Phase (e.g. 'Baseline' and 'Post-Intervention') and a short ID in the note to use this view.",
+        rules: [
+            "Grey bars = your earliest Phase (Before). Green bars = your latest Phase (After).",
+            "Dashed lines show the median for each phase.",
+            "Best for small samples (e.g. N<20) being compared before vs after a single change — for larger continuous datasets, use the Run or SPC chart instead.",
+            "If pairing fails (labels don't match 1:1), points are compared in entry order instead."
         ]
     }
 };
@@ -565,9 +576,7 @@ function renderFiveWhysVisual(container) {
     `;
 }
 
-export function setChartMode(m) { 
-    chartMode = m; 
-    
+function syncChartModeButtons(m) {
     const modeControls = document.getElementById('chart-mode-controls');
     if (modeControls) {
         modeControls.querySelectorAll('button').forEach(btn => {
@@ -579,7 +588,17 @@ export function setChartMode(m) {
             }
         });
     }
-    
+}
+
+export function setChartMode(m) { 
+    chartMode = m; 
+    syncChartModeButtons(m);
+    // Persist the chosen mode against the ACTIVE measure so each measure
+    // remembers its own preferred chart type when you switch tabs.
+    if (state.projectData && state.projectData.chartSettings) {
+        state.projectData.chartSettings.mode = m;
+        if (window.saveData) window.saveData();
+    }
     renderChart(); 
     updateChartEducation();
 }
@@ -598,7 +617,16 @@ export function renderChart(canvasId = 'mainChart') {
     const ctx = newCtx;
 
     const d = state.projectData?.chartData || [];
-    
+
+    // Pick up whichever chart mode is saved against the ACTIVE measure (falls
+    // back to whatever mode is already selected if this measure has none set
+    // yet), and keep the mode-selector buttons in sync.
+    const savedMode = state.projectData?.chartSettings?.mode;
+    if (savedMode && savedMode !== chartMode) {
+        chartMode = savedMode;
+    }
+    syncChartModeButtons(chartMode);
+
     if (d.length === 0) {
         const context = ctx.getContext('2d');
         context.clearRect(0, 0, ctx.width, ctx.height);
@@ -628,6 +656,7 @@ export function renderChart(canvasId = 'mainChart') {
         else if (chartMode === 'spc') renderSPCChart(ctx, canvasId);
         else if (chartMode === 'histogram') renderHistogram(ctx, canvasId);
         else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
+        else if (chartMode === 'beforeafter') renderBeforeAfter(ctx, canvasId);
     } catch (error) {
         console.error("[renderChart] Error drawing chart:", error);
     }
@@ -1265,6 +1294,169 @@ function renderPareto(ctx, canvasId) {
                 } 
             } 
         } 
+    });
+    ctx.chartInstance = chart;
+}
+
+// Extracts a short pairing label from the start of a data point's note field,
+// e.g. "ST3 \u2014 pre-QRH: 3 critical points missed" -> "ST3". Falls back to a
+// positional label if no usable text is found.
+function extractPairLabel(point, fallback) {
+    if (point && point.note) {
+        const m = point.note.match(/^([^\u2014(:-]+)/);
+        if (m && m[1].trim()) return m[1].trim();
+    }
+    return fallback;
+}
+
+// De-duplicates repeated labels within a group (e.g. two points both
+// labelled "ST4") by appending an occurrence count, so paired bars stay
+// distinguishable on the x-axis.
+function dedupeLabels(labels) {
+    const seen = {};
+    return labels.map(l => {
+        seen[l] = (seen[l] || 0) + 1;
+        return seen[l] > 1 ? `${l} (${seen[l]})` : l;
+    });
+}
+
+function median(values) {
+    const v = values.filter(x => x !== null && x !== undefined && !isNaN(x)).slice().sort((a, b) => a - b);
+    if (!v.length) return null;
+    const mid = Math.floor(v.length / 2);
+    return v.length % 2 ? v[mid] : (v[mid - 1] + v[mid]) / 2;
+}
+
+// "Before / After" chart: contrasts the earliest data Phase against the
+// latest data Phase, pairing individual points (e.g. by trainee ID found in
+// each point's note) so small-N pre/post comparisons — like a knowledge
+// assessment taken before and after a QRH intervention — read clearly as
+// paired bars rather than clustering on a single timeline.
+function renderBeforeAfter(ctx, canvasId) {
+    const raw = state.projectData.chartData || [];
+    const settings = state.projectData.chartSettings || {};
+
+    if (raw.length < 2) {
+        showToast("Need at least 2 data points (before and after) for this chart", "info");
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: ['No Data'], datasets: [{ data: [] }] },
+            options: { plugins: { title: { display: true, text: 'Add pre- and post-intervention data points to compare' } } }
+        });
+        ctx.chartInstance = chart;
+        return;
+    }
+
+    // Group points by Phase (the "grade" field), ordered chronologically by
+    // each phase's earliest date. Before = earliest phase, After = latest.
+    const phaseEarliestDate = {};
+    raw.forEach(p => {
+        const g = p.grade || 'Ungraded';
+        const t = new Date(p.date).getTime() || 0;
+        if (!(g in phaseEarliestDate) || t < phaseEarliestDate[g]) phaseEarliestDate[g] = t;
+    });
+    const phaseOrder = Object.keys(phaseEarliestDate).sort((a, b) => phaseEarliestDate[a] - phaseEarliestDate[b]);
+
+    if (phaseOrder.length < 2) {
+        showToast("Tag your data points with a Phase (e.g. 'Baseline' vs 'Post-Intervention') to use the Before/After view", "info");
+        const chart = new Chart(ctx, {
+            type: 'bar',
+            data: { labels: ['Only one Phase found'], datasets: [{ data: [] }] },
+            options: { plugins: { title: { display: true, text: 'Add a Phase tag to compare Before vs After' } } }
+        });
+        ctx.chartInstance = chart;
+        return;
+    }
+
+    const beforePhase = phaseOrder[0];
+    const afterPhase = phaseOrder[phaseOrder.length - 1];
+    const beforePts = raw.filter(p => (p.grade || 'Ungraded') === beforePhase);
+    const afterPts = raw.filter(p => (p.grade || 'Ungraded') === afterPhase);
+
+    const beforeLabels = dedupeLabels(beforePts.map((p, i) => extractPairLabel(p, `Point ${i + 1}`)));
+    const afterLabels = dedupeLabels(afterPts.map((p, i) => extractPairLabel(p, `Point ${i + 1}`)));
+
+    const beforeMap = {}; beforePts.forEach((p, i) => beforeMap[beforeLabels[i]] = p.value);
+    const afterMap = {}; afterPts.forEach((p, i) => afterMap[afterLabels[i]] = p.value);
+    const labelsMatch = beforeLabels.length === afterLabels.length && beforeLabels.every(l => l in afterMap);
+
+    let pairedLabels, beforeValues, afterValues;
+    if (labelsMatch) {
+        pairedLabels = beforeLabels;
+        beforeValues = pairedLabels.map(l => beforeMap[l]);
+        afterValues = pairedLabels.map(l => afterMap[l]);
+    } else {
+        // Labels didn't line up 1:1 — fall back to pairing by entry order.
+        const n = Math.max(beforePts.length, afterPts.length);
+        pairedLabels = Array.from({ length: n }, (_, i) => `#${i + 1}`);
+        beforeValues = Array.from({ length: n }, (_, i) => beforePts[i] ? beforePts[i].value : null);
+        afterValues = Array.from({ length: n }, (_, i) => afterPts[i] ? afterPts[i].value : null);
+    }
+
+    const beforeMedian = median(beforeValues);
+    const afterMedian = median(afterValues);
+    let changeText = '';
+    if (beforeMedian !== null && afterMedian !== null) {
+        if (beforeMedian === 0) {
+            changeText = afterMedian === 0 ? 'No change in median' : 'Median rose from 0';
+        } else {
+            const pct = ((afterMedian - beforeMedian) / beforeMedian) * 100;
+            changeText = `${pct > 0 ? '+' : ''}${pct.toFixed(0)}% median change (N=${pairedLabels.length} pairs)`;
+        }
+    }
+
+    const baChartAnnotations = {};
+    if (beforeMedian !== null) {
+        baChartAnnotations.beforeMedianLine = {
+            type: 'line', yMin: beforeMedian, yMax: beforeMedian,
+            borderColor: '#94a3b8', borderWidth: 2, borderDash: [6, 4],
+            label: { display: true, content: `${beforePhase} median: ${beforeMedian}`, position: 'start',
+                backgroundColor: 'rgba(100,116,139,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
+        };
+    }
+    if (afterMedian !== null) {
+        baChartAnnotations.afterMedianLine = {
+            type: 'line', yMin: afterMedian, yMax: afterMedian,
+            borderColor: '#10b981', borderWidth: 2, borderDash: [6, 4],
+            label: { display: true, content: `${afterPhase} median: ${afterMedian}`, position: 'end',
+                backgroundColor: 'rgba(16,185,129,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
+        };
+    }
+
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: pairedLabels,
+            datasets: [
+                { label: beforePhase, data: beforeValues, backgroundColor: '#94a3b8', borderColor: '#64748b', borderWidth: 1, borderRadius: 4 },
+                { label: afterPhase, data: afterValues, backgroundColor: '#10b981', borderColor: '#059669', borderWidth: 1, borderRadius: 4 }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                title: { display: true, text: settings.title || `${beforePhase} vs ${afterPhase}`, font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 4 } },
+                subtitle: { display: !!changeText, text: changeText, font: { size: 12, weight: 'normal' }, color: '#475569', padding: { bottom: 12 } },
+                legend: { display: true, position: 'top' },
+                annotation: { annotations: baChartAnnotations },
+                tooltip: {
+                    callbacks: {
+                        afterBody: function() {
+                            return [
+                                `${beforePhase} median: ${beforeMedian ?? 'n/a'}`,
+                                `${afterPhase} median: ${afterMedian ?? 'n/a'}`,
+                                labelsMatch ? 'Paired by ID from data point notes' : 'Paired by entry order (labels did not match)'
+                            ];
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { title: { display: true, text: 'Paired data points' }, grid: { display: false } },
+                y: { title: { display: true, text: settings.yAxisLabel || 'Value' }, beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } }
+            }
+        }
     });
     ctx.chartInstance = chart;
 }

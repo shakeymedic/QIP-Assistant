@@ -41,6 +41,7 @@ export function renderAll(view) {
         case 'team': renderTeam(); break;
         case 'tools': renderTools(); break;
         case 'data': renderDataView(); break;       
+        case 'results': renderResultsView(); break;
         case 'pdsa': renderPDSA(); break;
         case 'surveys': renderSurveys(); break;
         case 'stakeholders': renderStakeholders(); break;
@@ -60,7 +61,7 @@ export function renderAll(view) {
 function updateNavigationUI(currentView) {
     // Grey out project nav items when no project is loaded
     // 'learn' intentionally excluded — always accessible regardless of project state
-    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
+    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'results', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
     const hasProject = !!state.projectData;
     allProjectNavIds.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);
@@ -1113,6 +1114,154 @@ export function renderDataView() {
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
+
+// ==========================================
+// 4B. RESULTS & MEASUREMENTS VIEW
+// ==========================================
+
+// Simple median helper (does not mutate input).
+function _resultsMedian(values) {
+    const sorted = [...values].sort((a, b) => a - b);
+    const n = sorted.length;
+    if (n === 0) return null;
+    const mid = Math.floor(n / 2);
+    return n % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// Groups a measure's chartData by its Phase/Cycle ("grade") field, treating
+// the earliest-dated group as "Before" and the latest-dated group as
+// "After" — mirrors the pairing logic used by the Before/After chart mode
+// in charts.js, so the numbers shown here always match that chart.
+function _resultsBeforeAfterStats(chartData) {
+    const points = Array.isArray(chartData) ? chartData.filter(p => p && p.date && p.value !== undefined && p.value !== null) : [];
+    if (points.length === 0) return { n: 0, beforeMedian: null, afterMedian: null, pctChange: null, singlePhase: false };
+
+    const groups = {};
+    points.forEach(p => {
+        const key = p.grade || 'Ungrouped';
+        if (!groups[key]) groups[key] = [];
+        groups[key].push(p);
+    });
+
+    const groupKeys = Object.keys(groups);
+    const groupOrder = groupKeys
+        .map(key => ({ key, minDate: Math.min(...groups[key].map(p => new Date(p.date).getTime())) }))
+        .sort((a, b) => a.minDate - b.minDate)
+        .map(g => g.key);
+
+    const n = points.length;
+
+    if (groupOrder.length < 2) {
+        return { n, beforeMedian: _resultsMedian(points.map(p => Number(p.value))), afterMedian: null, pctChange: null, singlePhase: true };
+    }
+
+    const beforeVals = groups[groupOrder[0]].map(p => Number(p.value));
+    const afterVals = groups[groupOrder[groupOrder.length - 1]].map(p => Number(p.value));
+    const beforeMedian = _resultsMedian(beforeVals);
+    const afterMedian = _resultsMedian(afterVals);
+    let pctChange = null;
+    if (beforeMedian !== null && afterMedian !== null && beforeMedian !== 0) {
+        pctChange = ((afterMedian - beforeMedian) / beforeMedian) * 100;
+    }
+    return { n, beforeMedian, afterMedian, pctChange, singlePhase: false };
+}
+
+// Renders a lightweight inline SVG sparkline for a measure's data trend —
+// a fast, dependency-free "chart thumbnail" that avoids re-parenting the
+// heavier Chart.js instance used on the main Data & SPC page.
+function _resultsSparklineSVG(chartData) {
+    const points = Array.isArray(chartData)
+        ? [...chartData].filter(p => p && p.date && p.value !== undefined && p.value !== null).sort((a, b) => new Date(a.date) - new Date(b.date))
+        : [];
+    if (points.length < 2) {
+        return `<div class="flex items-center justify-center h-16 text-xs text-slate-300">Not enough data yet</div>`;
+    }
+    const w = 280, h = 64, pad = 6;
+    const values = points.map(p => Number(p.value));
+    const min = Math.min(...values), max = Math.max(...values);
+    const range = (max - min) || 1;
+    const stepX = (w - pad * 2) / (points.length - 1);
+    const coords = values.map((v, i) => {
+        const x = pad + i * stepX;
+        const y = h - pad - ((v - min) / range) * (h - pad * 2);
+        return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    const linePath = `M${coords.join(' L')}`;
+    const lastPoint = coords[coords.length - 1].split(',');
+    return `
+        <svg viewBox="0 0 ${w} ${h}" class="w-full h-16" preserveAspectRatio="none">
+            <path d="${linePath}" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+            <circle cx="${lastPoint[0]}" cy="${lastPoint[1]}" r="3" fill="#4f46e5"/>
+        </svg>
+    `;
+}
+
+// Builds the "Results & Measurements" view: one summary card per tracked
+// measure (sparkline + auto-computed before/after stats), plus the
+// project-level Operational Definition and Results Interpretation
+// narratives shown once at the top. Those two fields are currently stored
+// globally on the project checklist rather than per-measure — shown once
+// here rather than duplicated on every card until/unless the data model
+// is migrated to per-measure narratives.
+export function renderResultsView() {
+    const d = state.projectData;
+    const container = document.getElementById('results-measures-container');
+    if (!d || !container) return;
+
+    const c = d.checklist || {};
+    const opDefEl = document.getElementById('results-view-opdef');
+    if (opDefEl) opDefEl.textContent = c.operational_definition || 'Not yet defined — add this on the Data & SPC page.';
+    const resultsTextEl = document.getElementById('results-view-narrative');
+    if (resultsTextEl) resultsTextEl.textContent = c.results_analysis || 'Not yet written — add this on the Data & SPC page.';
+
+    const measures = Array.isArray(d.measures) ? d.measures : [];
+    if (measures.length === 0) {
+        container.innerHTML = `<div class="text-center text-slate-400 py-8 text-sm">No measures tracked yet. Add data on the Data & SPC page first.</div>`;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        return;
+    }
+
+    container.innerHTML = measures.map(m => {
+        const stats = _resultsBeforeAfterStats(m.chartData);
+        const sparkline = _resultsSparklineSVG(m.chartData);
+        const pctDisplay = stats.pctChange === null ? '—' : `${stats.pctChange > 0 ? '+' : ''}${stats.pctChange.toFixed(0)}%`;
+        const pctColor = stats.pctChange === null ? 'text-slate-400' : (stats.pctChange < 0 ? 'text-emerald-600' : (stats.pctChange > 0 ? 'text-amber-600' : 'text-slate-500'));
+        return `
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="activity" class="w-4 h-4 text-rose-400"></i> ${escapeHtml(m.name || 'Untitled Measure')}
+                        </h3>
+                        ${m.unit ? `<p class="text-xs text-slate-400 mt-0.5">Unit: ${escapeHtml(m.unit)}</p>` : ''}
+                    </div>
+                    <button aria-label="Open ${escapeHtml(m.name || 'measure')} on Data page" onclick="window.switchMeasure('${m.id}'); window.router('data');" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
+                        View chart &rarr;
+                    </button>
+                </div>
+                <div class="bg-slate-50 rounded-lg p-2 mb-3">${sparkline}</div>
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-slate-50 rounded-lg p-2">
+                        <div class="text-[10px] uppercase text-slate-400 font-bold">Median Before</div>
+                        <div class="text-sm font-bold text-slate-700">${stats.beforeMedian === null ? '—' : stats.beforeMedian}</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2">
+                        <div class="text-[10px] uppercase text-slate-400 font-bold">Median After</div>
+                        <div class="text-sm font-bold text-slate-700">${stats.singlePhase ? 'N/A (single phase)' : (stats.afterMedian === null ? '—' : stats.afterMedian)}</div>
+                    </div>
+                    <div class="bg-slate-50 rounded-lg p-2">
+                        <div class="text-[10px] uppercase text-slate-400 font-bold">% Change</div>
+                        <div class="text-sm font-bold ${pctColor}">${stats.singlePhase ? '—' : pctDisplay}</div>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-400 mt-2 text-center">N = ${stats.n} data point${stats.n === 1 ? '' : 's'}${stats.singlePhase ? ' · tag a second Phase/Cycle to compare Before vs After' : ''}</p>
+            </div>
+        `;
+    }).join('');
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+window.renderResultsView = renderResultsView;
 
 // ==========================================
 // 5. TEAM VIEW
