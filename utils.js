@@ -169,8 +169,13 @@ export function showInputModal(title, fields, onSubmit, submitLabel = 'Add') {
             <label class="block text-sm font-medium text-slate-700 mb-1">
                 ${escapeHtml(f.label)}${f.required ? ' <span class="text-red-500">*</span>' : ''}
             </label>
+            ${f.hint ? `<p class="text-xs text-slate-400 mb-1">${escapeHtml(f.hint)}</p>` : ''}
             ${f.type === 'textarea'
                 ? `<textarea id="imodal-${f.id}" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rcem-purple focus:border-transparent outline-none resize-none" rows="3" placeholder="${escapeHtml(f.placeholder || '')}">${escapeHtml(f.value || '')}</textarea>`
+                : f.type === 'select'
+                ? `<select id="imodal-${f.id}" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rcem-purple focus:border-transparent outline-none bg-white">
+                    ${(f.options || []).map(o => `<option value="${escapeHtml(o.value)}" ${String(o.value) === String(f.value || '') ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}
+                   </select>`
                 : `<input id="imodal-${f.id}" type="${f.type || 'text'}" class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rcem-purple focus:border-transparent outline-none" placeholder="${escapeHtml(f.placeholder || '')}" value="${escapeHtml(f.value || '')}">`
             }
         </div>

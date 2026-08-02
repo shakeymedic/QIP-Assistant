@@ -104,6 +104,11 @@ function renderOnboardingStep() {
                     <h4 class="text-xl font-bold text-slate-800">Plan First PDSA Cycle</h4>
                 </div>
                 <p class="text-sm text-slate-600 leading-relaxed">Do not try to fix everything at once. What is the very first, small change you want to test?</p>
+
+                <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
+                    <i data-lucide="info" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"></i>
+                    <p class="text-xs text-amber-800 leading-relaxed"><strong>Before you test a change:</strong> have you already collected roughly 10-12 baseline data points for your outcome measure? A PDSA cycle is much more convincing when you can compare it against a proper baseline, not just a couple of readings. If not yet, it is fine to record "Cycle 1: gather baseline data" as your first PDSA instead.</p>
+                </div>
                 
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">
                     <div>

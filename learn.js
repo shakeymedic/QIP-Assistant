@@ -547,6 +547,13 @@ function tabTools() {
             when: 'Early in the project to plan your engagement strategy. Revisit when implementing changes.',
             nav: 'Stakeholders view',
             tips: 'Map on a 2×2 grid: High influence/High interest = manage closely; High influence/Low interest = keep satisfied. Document your engagement plan for each stakeholder group.'
+        },
+        {
+            icon: 'users-round', color: 'cyan', name: 'Inter-Rater Reliability (Kappa)',
+            what: 'A statistic (Cohen\'s Kappa) that measures how much two or more assessors agree when independently rating or classifying the same thing, correcting for the agreement expected by chance alone. Relevant when your data depends on subjective judgement — e.g. two clinicians independently scoring the same screening tool, or grading the same audio-recorded assessment.',
+            when: 'Projects with a subjective assessment or classification step (e.g. deciding whether a screening tool was used "correctly", or grading a simulation). Not needed for straightforward counts, times, or percentages.',
+            nav: 'Not built into this app\'s chart tools — calculate separately (e.g. in Excel/SPSS/R) and report the Kappa value in your written analysis.',
+            tips: 'Kappa runs from -1 to 1: below 0.4 is generally considered poor agreement, 0.4-0.75 fair-to-good, above 0.75 excellent. Use it to justify why a single rater\'s subjective judgement is (or is not) trustworthy as a measure.'
         }
     ];
 
@@ -753,6 +760,7 @@ function tabGlossary() {
         ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (People, Process, Environment, Equipment, Policy) to identify why a problem exists.'],
         ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Demonstrates project management skills for the Excellent marking criterion in Change Management.'],
         ['IHI Open School', 'The Institute for Healthcare Improvement\'s free online education platform. Courses QI 101–103 cover the Model for Improvement, PDSA cycles, and run chart interpretation. Recommended for all trainees.'],
+        ['Inter-Rater Reliability (Kappa)', 'Cohen\'s Kappa measures how much two or more assessors agree when independently rating the same thing, correcting for chance agreement. Relevant when a measure depends on subjective judgement, e.g. two clinicians independently scoring the same screening tool. Not built into this app\'s charts — calculate separately and report the value in your write-up.'],
         ['Model for Improvement', 'The QI framework developed by Associates in Process Improvement. Built around three questions (Aim, Measurement, Change Ideas) and tested iteratively using PDSA cycles. The standard methodology for healthcare QI.'],
         ['Outcome Measure', 'The metric that tracks whether things improved for the patient. The primary measure of whether your project achieved its aim. e.g. % of patients receiving the correct treatment within target time.'],
         ['Pareto Chart', 'A bar chart ranking causes by frequency with a cumulative percentage line. Based on the Pareto principle (80% of problems from 20% of causes). Used to prioritise interventions.'],

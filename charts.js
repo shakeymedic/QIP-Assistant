@@ -599,6 +599,21 @@ export function setChartMode(m) {
         state.projectData.chartSettings.mode = m;
         if (window.saveData) window.saveData();
     }
+    // Proactively flag the proportion/% SPC caveat (rather than relying on
+    // the user opening the guidance panel) — shown once per measure per
+    // session so it nudges without nagging on every click.
+    if (m === 'spc' && window.getActiveMeasure) {
+        const active = window.getActiveMeasure();
+        if (active && active.measureType === 'proportion') {
+            const flagKey = 'qipSpcProportionNoted_' + active.id;
+            let alreadyShown = false;
+            try { alreadyShown = sessionStorage.getItem(flagKey) === '1'; } catch (e) { /* ignore */ }
+            if (!alreadyShown) {
+                showToast('This measure is tagged as a proportion/% — SPC control limits here use continuous-data maths. See the caveat below for details.', 'warning');
+                try { sessionStorage.setItem(flagKey, '1'); } catch (e) { /* ignore */ }
+            }
+        }
+    }
     renderChart(); 
     updateChartEducation();
 }

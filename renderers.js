@@ -501,6 +501,52 @@ function renderRecentActivity() {
 // 3. CHECKLIST (DEFINE & MEASURE) VIEW
 // ==========================================
 
+// Cross-checks the narrative Outcome/Process/Balancing measure text fields
+// on this checklist against the actual tracked data series in d.measures[]
+// (each optionally tagged with a role via Add/Rename Measure on the Data
+// page). Flags any narrative definition that has no linked tracked data
+// yet, since writing a lovely balancing-measure description without ever
+// tracking data against it is a common first-timer QIP pitfall.
+function renderMeasureRoleCoverage(d, c) {
+    const coverage = window.getMeasureRoleCoverage ? window.getMeasureRoleCoverage() : null;
+    if (!coverage) return '';
+
+    const roleMeta = {
+        outcome: { label: 'Outcome', field: c.outcome_measure, dot: 'bg-emerald-400' },
+        process: { label: 'Process', field: c.process_measure, dot: 'bg-blue-400' },
+        balance: { label: 'Balancing', field: c.balance_measure, dot: 'bg-amber-400' }
+    };
+
+    const rows = Object.keys(roleMeta).map(role => {
+        const meta = roleMeta[role];
+        const cov = coverage[role];
+        if (!meta.field || !meta.field.trim()) return '';
+        let status, statusClass;
+        if (cov.linkedCount === 0) {
+            status = 'No tracked measure linked yet';
+            statusClass = 'text-amber-700 bg-amber-50 border-amber-200';
+        } else if (!cov.hasData) {
+            status = 'Linked to "' + cov.names.join(', ') + '" but no data points yet';
+            statusClass = 'text-amber-700 bg-amber-50 border-amber-200';
+        } else {
+            status = 'Tracked via "' + cov.names.join(', ') + '"';
+            statusClass = 'text-emerald-700 bg-emerald-50 border-emerald-200';
+        }
+        return '<div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ' + statusClass + '">' +
+            '<span class="w-2 h-2 rounded-full ' + meta.dot + ' flex-shrink-0"></span>' +
+            '<span class="font-semibold">' + meta.label + ':</span> <span>' + status + '</span>' +
+            '</div>';
+    }).filter(Boolean).join('');
+
+    if (!rows) return '';
+
+    return '<div class="mt-4 pt-4 border-t border-slate-100">' +
+        '<p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Data check: is each measure actually tracked?</p>' +
+        '<div class="space-y-1.5">' + rows + '</div>' +
+        '<p class="text-[11px] text-slate-400 mt-2">Tag a measure\'s role on the Data &amp; SPC page (Add Measure or the pencil icon on a measure tab) to link it here.</p>' +
+        '</div>';
+}
+
 export function renderChecklist() {
     const d = state.projectData;
     if (!d) return;
@@ -694,6 +740,7 @@ export function renderChecklist() {
                         placeholder="Are we causing problems elsewhere?">${escapeHtml(c.balance_measure || '')}</textarea>
                 </div>
             </div>
+            ${renderMeasureRoleCoverage(d, c)}
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
@@ -1021,12 +1068,16 @@ export function renderMeasureTabs() {
     const activeId = d.activeMeasureId || measures[0].id;
 
     const readOnly = !!state.isReadOnly;
+    const ROLE_DOT = { outcome: 'bg-emerald-400', process: 'bg-blue-400', balance: 'bg-amber-400' };
+    const TYPE_ABBR = { proportion: '%', continuous: '⏱', count: '#', score: '★', categorical: '▤' };
     bar.innerHTML = measures.map(m => {
         const isActive = m.id === activeId;
         const count = Array.isArray(m.chartData) ? m.chartData.length : 0;
         const base = isActive
             ? 'bg-rcem-purple text-white shadow'
             : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
+        const roleDot = ROLE_DOT[m.role] ? `<span class="w-1.5 h-1.5 rounded-full ${ROLE_DOT[m.role]}" title="${escapeHtml(m.role)} measure"></span>` : '';
+        const typeAbbr = TYPE_ABBR[m.measureType] ? `<span class="opacity-60" title="${escapeHtml(m.measureType)}">${TYPE_ABBR[m.measureType]}</span>` : '';
         const editControls = readOnly ? '' : `
                 <span class="hidden group-hover:inline-flex items-center gap-0.5 ml-1">
                     <button aria-label="Rename measure" onclick="event.stopPropagation(); window.renameMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}" title="Rename">
@@ -1036,7 +1087,9 @@ export function renderMeasureTabs() {
                 </span>`;
         return `
             <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure('${m.id}')">
+                ${roleDot}
                 <span>${escapeHtml(m.name)}</span>
+                ${typeAbbr}
                 <span class="opacity-70 font-normal">(${count})</span>
                 ${editControls}
             </div>
@@ -1240,6 +1293,7 @@ export function renderResultsView() {
                     </button>
                 </div>
                 <div class="bg-slate-50 rounded-lg p-2 mb-3">${sparkline}</div>
+                ${!stats.singlePhase ? `<p class="text-[10px] text-slate-400 text-center mb-2">Before = earliest phase in your data &middot; After = latest phase</p>` : ''}
                 <div class="grid grid-cols-3 gap-2 text-center">
                     <div class="bg-slate-50 rounded-lg p-2">
                         <div class="text-[10px] uppercase text-slate-400 font-bold">Median Before</div>

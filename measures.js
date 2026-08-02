@@ -12,6 +12,30 @@ function genMeasureId() {
     return 'measure_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7);
 }
 
+// Measure-type options drive smarter default chart modes and let the SPC
+// proportion caveat be surfaced proactively instead of only living inside
+// the (easily-missed) chart guidance panel. Measure-role options link a
+// tracked data series back to the checklist's narrative Outcome/Process/
+// Balancing measure definitions so the app can flag when a defined role
+// has no data behind it yet.
+export const MEASURE_TYPE_OPTIONS = [
+    { value: '', label: 'Not set / not sure' },
+    { value: 'proportion', label: 'Proportion / percentage (e.g. % compliance)' },
+    { value: 'continuous', label: 'Continuous / time-based (e.g. minutes, seconds)' },
+    { value: 'count', label: 'Count (e.g. number of errors, incidents)' },
+    { value: 'score', label: 'Score (e.g. knowledge assessment /10)' },
+    { value: 'categorical', label: 'Categorical / nominal (e.g. tool type used)' }
+];
+export const MEASURE_ROLE_OPTIONS = [
+    { value: '', label: 'Not linked to a role' },
+    { value: 'outcome', label: 'Outcome measure' },
+    { value: 'process', label: 'Process measure' },
+    { value: 'balance', label: 'Balancing measure' }
+];
+function defaultChartModeForType(type) {
+    return type === 'categorical' ? 'pareto' : 'run';
+}
+
 // Re-point d.chartData / d.chartSettings at whichever measure is active.
 export function syncActiveMeasureRefs() {
     const d = state.projectData;
@@ -57,16 +81,21 @@ export function addMeasure() {
     if (!Array.isArray(d.measures)) d.measures = [];
     window.showInputModal('Add New Measure', [
         { id: 'name', label: 'Measure Name', placeholder: 'e.g. Knowledge Assessment Score', required: true },
-        { id: 'unit', label: 'Unit (optional)', placeholder: 'e.g. %, seconds, score/10' }
+        { id: 'unit', label: 'Unit (optional)', placeholder: 'e.g. %, seconds, score/10' },
+        { id: 'measureType', label: 'What kind of data is this?', type: 'select', options: MEASURE_TYPE_OPTIONS, hint: 'Helps pick a sensible default chart and surface the right statistical caveats.' },
+        { id: 'role', label: 'Which family-of-measures role is this?', type: 'select', options: MEASURE_ROLE_OPTIONS, hint: 'Links this tracked data back to your Outcome/Process/Balancing definitions on the Checklist page.' }
     ], (values) => {
         if (!values.name || !values.name.trim()) { showToast('Measure name is required', 'error'); return; }
+        const mode = defaultChartModeForType(values.measureType);
         const newMeasure = {
             id: genMeasureId(),
             name: values.name.trim(),
             unit: (values.unit || '').trim(),
+            measureType: values.measureType || '',
+            role: values.role || '',
             chartData: [],
             chartSettings: {
-                mode: 'run', showMedian: true, showMean: false, ucl: null, lcl: null,
+                mode, showMedian: true, showMean: false, ucl: null, lcl: null,
                 title: values.name.trim(), yAxisLabel: values.unit || '', showAnnotations: true
             }
         };
@@ -75,6 +104,9 @@ export function addMeasure() {
         syncActiveMeasureRefs();
         refreshUI();
         showToast('Measure added: ' + newMeasure.name, 'success');
+        if (values.measureType === 'proportion') {
+            showToast('Proportion/% measures need a p-chart for exact SPC maths — see the SPC guidance panel on the Data page for the caveat.', 'info');
+        }
     }, 'Add Measure');
 }
 
@@ -85,13 +117,20 @@ export function renameMeasure(measureId) {
     if (!m) return;
     window.showInputModal('Rename Measure', [
         { id: 'name', label: 'Measure Name', value: m.name, required: true },
-        { id: 'unit', label: 'Unit (optional)', value: m.unit || '' }
+        { id: 'unit', label: 'Unit (optional)', value: m.unit || '' },
+        { id: 'measureType', label: 'What kind of data is this?', type: 'select', options: MEASURE_TYPE_OPTIONS, value: m.measureType || '' },
+        { id: 'role', label: 'Which family-of-measures role is this?', type: 'select', options: MEASURE_ROLE_OPTIONS, value: m.role || '' }
     ], (values) => {
         if (!values.name || !values.name.trim()) { showToast('Measure name is required', 'error'); return; }
         m.name = values.name.trim();
         m.unit = (values.unit || '').trim();
+        m.measureType = values.measureType || '';
+        m.role = values.role || '';
         refreshUI();
-        showToast('Measure renamed', 'success');
+        showToast('Measure updated', 'success');
+        if (values.measureType === 'proportion') {
+            showToast('Reminder: proportion/% measures need a p-chart for exact SPC maths — see the SPC guidance panel.', 'info');
+        }
     }, 'Save');
 }
 
@@ -127,3 +166,27 @@ window.renameMeasure = renameMeasure;
 window.deleteMeasure = deleteMeasure;
 window.getActiveMeasure = getActiveMeasure;
 window.syncActiveMeasureRefs = syncActiveMeasureRefs;
+window.MEASURE_TYPE_OPTIONS = MEASURE_TYPE_OPTIONS;
+window.MEASURE_ROLE_OPTIONS = MEASURE_ROLE_OPTIONS;
+
+// Returns, for each family-of-measures role, whether at least one tracked
+// measure is linked to it and whether that measure has any data points yet.
+// Used to nudge users on the Checklist page when a narrative Outcome/
+// Process/Balancing definition has no tracked data behind it.
+export function getMeasureRoleCoverage() {
+    const d = state.projectData;
+    const measures = (d && Array.isArray(d.measures)) ? d.measures : [];
+    const roles = ['outcome', 'process', 'balance'];
+    const coverage = {};
+    roles.forEach(role => {
+        const linked = measures.filter(m => m.role === role);
+        const withData = linked.filter(m => Array.isArray(m.chartData) && m.chartData.length > 0);
+        coverage[role] = {
+            linkedCount: linked.length,
+            hasData: withData.length > 0,
+            names: linked.map(m => m.name)
+        };
+    });
+    return coverage;
+}
+window.getMeasureRoleCoverage = getMeasureRoleCoverage;

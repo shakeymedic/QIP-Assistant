@@ -59,6 +59,7 @@ function migrateProjectData(d) {
                 ? String(d.checklist.outcome_measure).slice(0, 60)
                 : 'Primary Outcome Measure',
             unit: '',
+            role: 'outcome',
             chartData: Array.isArray(d.chartData) ? d.chartData : [],
             chartSettings: (d.chartSettings && typeof d.chartSettings === 'object') ? d.chartSettings : {
                 mode: 'run', showMedian: true, showMean: false, ucl: null, lcl: null,
@@ -187,6 +188,22 @@ const CLINICAL_TEMPLATES = [
             { title: 'Standardised paracetamol overdose EPR proforma', description: 'Introduce a structured EPR clerking proforma for all paracetamol overdose presentations with auto-calculated treatment prompts.' },
             { title: 'Treatment nomogram poster and EPR hyperlink', description: 'Place visual nomogram decision aids in resus and majors; embed as a hyperlink in the EPR drug prescribing module.' }
         ]
+    },
+    {
+        id: 'generic-local-topic',
+        title: 'Locally-Chosen Topic (Generic Starter)',
+        year: 'Any',
+        stage: 'All stages',
+        color: 'slate',
+        description: 'Not doing one of the 5 national topics above? Use this generic starter for a locally-chosen QIP. It fills in example outcome/process/balancing measures for the most common data types (proportion, time-based, and count) so you can see the pattern, then edit every field to match your own topic.',
+        checklist: {
+            problem_desc: '[Describe your local problem here] e.g. "Compliance with [local guideline/standard] is inconsistent in our department, leading to [patient impact]."',
+            aim: '[Write your SMART aim here] e.g. "To improve [process] from X% to Y% for [patient group] by [date], as measured by [outcome measure]."',
+            outcome_measure: 'Pick the data type that fits your topic and adapt the wording:\n- Proportion/%: Proportion of patients receiving [intervention] within [target time/standard].\n- Time-based: Median time (minutes) from [start event] to [end event].\n- Count: Number of documented errors/incidents/omissions per [week/month].',
+            process_measure: 'Example: Proportion of staff using the new proforma/checklist/pathway; number of teaching sessions delivered; rate of correct tool selection.',
+            balance_measure: 'Are you inadvertently slowing another process down or increasing workload elsewhere? Example: department length of stay, staff time burden, or an unintended rise in a different error type.'
+        },
+        changeIdeas: []
     }
 ];
 
@@ -289,6 +306,25 @@ window.initNavGroups = () => {
     });
 };
 window.initNavGroups();
+
+// First-time-ever nudge: a brand-new project (no checklist fields filled
+// in at all) starts with only "Define & Measure" expanded, so a first-time
+// ST4 sees a short list of steps rather than 16 destinations across 5
+// groups on day one. Only fires once ever, and only if the user has never
+// manually customised a nav group before (so it never fights an explicit
+// preference on later projects).
+window.applyProgressiveNavDisclosure = () => {
+    try {
+        const anyCustomised = Object.keys(NAV_GROUP_VIEWS).some(g => localStorage.getItem(NAV_GROUP_COLLAPSE_KEY(g)) !== null);
+        if (anyCustomised) return;
+        const c = (state.projectData && state.projectData.checklist) || {};
+        const fields = ['problem_desc', 'problem_context', 'problem_evidence', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
+        const filled = fields.filter(f => c[f] && String(c[f]).trim()).length;
+        if (filled === 0) {
+            Object.keys(NAV_GROUP_VIEWS).forEach(g => { if (g !== 'define') window.toggleNavGroup(g, false); });
+        }
+    } catch (e) { /* localStorage unavailable — ignore, groups stay expanded */ }
+};
 
 window.router = (view) => {
     if (view !== 'projects' && view !== 'learn' && !state.projectData) { 
@@ -534,14 +570,16 @@ window.showTemplatesModal = function() {
             blue: 'bg-blue-50 border-blue-200 text-blue-800',
             amber: 'bg-amber-50 border-amber-200 text-amber-800',
             purple: 'bg-purple-50 border-purple-200 text-purple-800',
-            emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800'
+            emerald: 'bg-emerald-50 border-emerald-200 text-emerald-800',
+            slate: 'bg-slate-50 border-slate-300 text-slate-800'
         };
         const btnMap = {
             rose: 'bg-rose-600 hover:bg-rose-700',
             blue: 'bg-blue-600 hover:bg-blue-700',
             amber: 'bg-amber-600 hover:bg-amber-700',
             purple: 'bg-purple-600 hover:bg-purple-700',
-            emerald: 'bg-emerald-600 hover:bg-emerald-700'
+            emerald: 'bg-emerald-600 hover:bg-emerald-700',
+            slate: 'bg-slate-600 hover:bg-slate-700'
         };
         modal = document.createElement('div');
         modal.id = 'templates-modal';
@@ -2368,6 +2406,7 @@ window.openProject = (id) => {
                 firstLoad = false;
                 const topBar = document.getElementById('top-bar');
                 if(topBar) topBar.classList.remove('hidden');
+                if (window.applyProgressiveNavDisclosure) window.applyProgressiveNavDisclosure();
                 window.router('dashboard');
             } else {
                 // Subsequent snapshots (live updates): re-render current view
