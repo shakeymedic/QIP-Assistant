@@ -8,6 +8,20 @@
 
 import { state } from "./state.js";
 import { getProjectExportGaps } from "./utils.js";
+import { deriveStageLabel, deriveTeam, deriveRole, deriveOverview, deriveSharingResults, deriveReflections, deriveNextYearPdp, hasAnyProjectData, derivePdpFromJournal, deriveEducationInvolvementFromJournal, deriveEndOfTrainingFromJournal } from "./emqiat-shared.js";
+
+// Field label → friendly name, used only for the "tick all that apply" list below.
+const QI_JOURNEY_LABELS = {
+    creatingConditions: 'Creating Conditions',
+    understandingSystems: 'Understanding Systems',
+    developingAims: 'Developing Aims',
+    testingChanges: 'Testing Changes',
+    implement: 'Implement',
+    spread: 'Spread',
+    leadershipTeams: 'Leadership & Teams',
+    projectManagementCommunication: 'Project Management & Communication',
+    measurement: 'Measurement'
+};
 
 function esc(value) {
     if (value === null || value === undefined) return '';
@@ -16,12 +30,6 @@ function esc(value) {
 
 function nl2br(value) {
     return esc(value).replace(/\n/g, '<br>');
-}
-
-function stageLabel(trainingStage) {
-    if (trainingStage === 'higher') return 'ST6/ST7 (Higher Specialty Training) — confirm exact ST year';
-    if (trainingStage === 'intermediate') return 'ST4/ST5 (Intermediate Training) — confirm exact ST year';
-    return trainingStage || '[Add your stage of training, e.g. ST6]';
 }
 
 export function exportToKaizen() {
@@ -42,64 +50,72 @@ export function exportToKaizen() {
 function runKaizenExport() {
     const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
-    const pdsa = Array.isArray(data.pdsa) ? data.pdsa : [];
-    const charter = data.charter || {};
-    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
     const meta = data.meta || {};
-    const changeIdeas = Array.isArray(data.changeIdeas) ? data.changeIdeas : (data.drivers?.changes || []);
+    const emqiatForm = data.emqiatForm || {};
+    const overview = emqiatForm.overview || {};
+    const derivedOverview = deriveOverview(data);
+    const hasProject = hasAnyProjectData(data);
 
-    const projectAim = charter.aim || checklist.aim || '';
-    const hasProject = !!(checklist.problem_desc || pdsa.length || changeIdeas.length);
+    // Every field below PREFERS what the trainee actually typed into the
+    // in-app EM-QIAT form (data.emqiatForm.*) and only falls back to a derived
+    // suggestion from elsewhere in the project, then a bracketed placeholder,
+    // if the trainee hasn't filled it in yet. This keeps the export and the
+    // in-app form from ever drifting apart.
+    const stage = emqiatForm.stageOfTraining || deriveStageLabel(meta.trainingStage) || '[Add your stage of training, e.g. ST6]';
+    const placement = emqiatForm.placement || '[Add your placement/rotation for this training year, e.g. "ST6 year at &lt;hospital&gt;"]';
+    const dateOfCompletion = emqiatForm.dateOfCompletion || '[Add the date you expect to complete/submit this QIAT form]';
+    const pdp = emqiatForm.pdp || derivePdpFromJournal(data) || `This year's QI PDP centred on leading a full-cycle, trainee-initiated Quality Improvement Project (see Section 3 below).<p class="hint">[No PDP text entered yet on the EM-QIAT tab — add your own, or use "Suggest from project data" there.]</p>`;
+    const qiEducationInvolvement = emqiatForm.qiEducationInvolvement || deriveEducationInvolvementFromJournal(data) || '[No data available for this — add any online learning, courses, or conference attendance related to QI here.]';
+    const qiEducationLearning = emqiatForm.qiEducationLearning || '[No data available for this — describe what formal QI education contributed, separate from what you learned by doing the project itself.]';
+    const involvedAnswer = emqiatForm.involvedInProject === 'yes' ? 'Yes'
+        : emqiatForm.involvedInProject === 'no' ? 'No'
+        : (hasProject ? 'Yes' : '[Answer Yes/No]');
 
-    const teamString = team.map(m => `${m.name || ''}${m.role ? ' (' + m.role + ')' : ''}`).filter(Boolean).join(', ');
+    const ov = {
+        background: overview.background || derivedOverview.background || '[Add background]',
+        aim: overview.aim || derivedOverview.aim || '[Add your SMART aim]',
+        understandingProblem: overview.understandingProblem || derivedOverview.understandingProblem || '[Add baseline/scoping evidence]',
+        measures: overview.measures || derivedOverview.measures || '[Add outcome/process/balancing measures]',
+        interventions: overview.interventions || derivedOverview.interventions || '[Add your change ideas / PDSA cycles]',
+        results: overview.results || derivedOverview.results || '[Add results once available]',
+        nextSteps: overview.nextSteps || derivedOverview.nextSteps || '[Add next steps]'
+    };
+    const projectOverview = hasProject || Object.values(overview).some(Boolean) ? `
+        <p><strong>Background:</strong> ${nl2br(ov.background)}</p>
+        <p><strong>Aim:</strong> ${nl2br(ov.aim)}</p>
+        <p><strong>Understanding the Problem:</strong> ${nl2br(ov.understandingProblem)}</p>
+        <p><strong>Measures:</strong> ${nl2br(ov.measures)}</p>
+        <p><strong>Interventions:</strong> ${nl2br(ov.interventions)}</p>
+        <p><strong>Results:</strong> ${nl2br(ov.results)}</p>
+        <p><strong>Next Steps:</strong> ${nl2br(ov.nextSteps)}</p>
+    ` : '[No QI project data found yet — complete the Problem, Aim and Measures tabs, or fill in the EM-QIAT tab directly, first.]';
 
-    // 3.1 Project Overview — built using the RCEM-suggested headings (Background, Aim,
-    // Understanding the Problem, Measures, Interventions, Results, Next Steps).
-    const measuresLines = [checklist.outcome_measure, checklist.process_measure, checklist.balance_measure]
-        .filter(Boolean).join('<br><br>');
-    const interventionsSummary = changeIdeas.length
-        ? changeIdeas.map((c, i) => `${i + 1}. ${typeof c === 'string' ? c : (c.title || c.description || '')}`).filter(l => l.length > 3).join('<br>')
-        : (pdsa.length ? pdsa.map((p, i) => `Cycle ${i + 1}: ${p.title || ''}`).join('<br>') : '');
-    const resultsSummary = checklist.results_analysis || checklist.results_text || '';
-    const nextStepsSummary = checklist.next_pdp || checklist.sustainability || '';
+    const roleGuess = emqiatForm.role || deriveRole(data) || '[Describe your role — Lead / Co-lead / Team member]';
 
-    const projectOverview = hasProject ? `
-        <p><strong>Background:</strong> ${nl2br(checklist.problem_desc) || '[Add background]'}</p>
-        <p><strong>Aim:</strong> ${nl2br(projectAim) || '[Add your SMART aim]'}</p>
-        <p><strong>Understanding the Problem:</strong> ${nl2br(checklist.problem_evidence || checklist.problem_context) || '[Add baseline/scoping evidence]'}</p>
-        <p><strong>Measures:</strong> ${measuresLines || '[Add outcome/process/balancing measures]'}</p>
-        <p><strong>Interventions:</strong> ${interventionsSummary || '[Add your change ideas / PDSA cycles]'}</p>
-        <p><strong>Results:</strong> ${nl2br(resultsSummary) || '[Add results once available]'}</p>
-        <p><strong>Next Steps:</strong> ${nl2br(nextStepsSummary) || '[Add next steps]'}</p>
-    ` : '[No QI project data found in your project record yet — complete the Problem, Aim and Measures tabs first.]';
+    const teamDerived = deriveTeam(data);
+    const stakeholderNarrative = emqiatForm.teamStakeholders || (teamDerived
+        ? `${teamDerived}${data.stakeholders?.length ? '<br><br>Additional stakeholders engaged: ' + data.stakeholders.map(s => s.name || s).filter(Boolean).join(', ') : ''}`
+        : '[List your team members and how you engaged stakeholders]');
 
-    // 3.2 Your Role — infer "Lead" if the account owner appears as project lead.
-    const leadEntry = team.find(m => /lead/i.test(m.role || '') && !/deputy|co-|assist/i.test(m.role || ''));
-    const roleGuess = leadEntry ? 'Lead' : '[Describe your role — Lead / Co-lead / Team member]';
+    const sharingGuess = emqiatForm.sharingResults || deriveSharingResults(data) || '[Add details of any poster, presentation, or meeting where you shared this work]';
 
-    // 3.3 Team working and Stakeholders
-    const stakeholderNarrative = teamString
-        ? `${teamString}${data.stakeholders?.length ? '<br><br>Additional stakeholders engaged: ' + data.stakeholders.map(s => s.name || s).filter(Boolean).join(', ') : ''}`
-        : '[List your team members and how you engaged stakeholders]';
+    // 4.1 QI Journey — now a real tracked checklist (data.emqiatForm.qiJourney),
+    // not just an instruction to go tick it on the live form.
+    const qiJourney = emqiatForm.qiJourney || {};
+    const qiJourneyList = Object.entries(QI_JOURNEY_LABELS)
+        .map(([key, label]) => `${qiJourney[key] ? '☑' : '☐'} ${label}`)
+        .join(' &nbsp;&middot;&nbsp; ');
 
-    // 3.4 Sharing of results — pull from any dissemination/governance mention in sustainability text.
-    const sharingGuess = /governance meeting|consultant meeting|presented/i.test(checklist.sustainability || '')
-        ? '[Confirm date/details of your governance or consultant meeting presentation]'
-        : '[Add details of any poster, presentation, or meeting where you shared this work]';
+    const reflections = emqiatForm.reflections || deriveReflections(data) || '[Add your reflections — what went well, what didn\'t, what you would do differently]';
+    const nextYearPdp = emqiatForm.nextYearPdp || deriveNextYearPdp(data) || '[Add your QI plans for next year]';
 
-    // 4.2 Reflections and Learning
-    const reflections = checklist.learning_points || '[Add your reflections — what went well, what didn\'t, what you would do differently]';
-
-    // 4.3 Next Year's PDP
-    const nextYearPdp = checklist.next_pdp || '[Add your QI plans for next year]';
-
-    // 4.4 End of training QI development journey — draft skeleton only; this is a
-    // personal narrative and should not be fabricated, so we only combine what's
-    // already been written elsewhere and flag it clearly as a starting point.
+    // 4.4 End of training QI development journey — this is a personal narrative
+    // and should not be fabricated. Prefer the trainee's own text; only fall
+    // back to a clearly-marked draft skeleton if they haven't written anything.
     const journeyDraftParts = [checklist.sustainability, checklist.learning_points].filter(Boolean);
-    const journeyDraft = journeyDraftParts.length
+    const journeyDraft = emqiatForm.endOfTrainingJourney || deriveEndOfTrainingFromJournal(data) || (journeyDraftParts.length
         ? `${nl2br(journeyDraftParts.join('\n\n'))}<p style="color:#b45309;"><em>[DRAFT — this field asks for your longitudinal QI/leadership journey across your whole EM training with specific examples from earlier years. The text above is drawn only from this project's sustainability/learning notes — personalise it before submitting.]</em></p>`
-        : '[Add a summary of your QI/leadership development across your whole EM training, with specific examples from earlier training years]';
+        : '[Add a summary of your QI/leadership development across your whole EM training, with specific examples from earlier training years]');
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -143,55 +159,47 @@ function runKaizenExport() {
             <div class="section">
                 <h2>Header fields</h2>
                 <h3>Stage of training</h3>
-                <div class="content-box">${esc(stageLabel(meta.trainingStage))}</div>
+                <div class="content-box">${nl2br(stage)}</div>
                 <h3>Placement</h3>
-                <div class="content-box">[Add your placement/rotation for this training year, e.g. "ST6 year at &lt;hospital&gt;"]</div>
+                <div class="content-box">${nl2br(placement)}</div>
                 <h3>Date of completion</h3>
-                <div class="content-box">[Add the date you expect to complete/submit this QIAT form]</div>
+                <div class="content-box">${nl2br(dateOfCompletion)}</div>
             </div>
 
             <div class="section">
                 <span class="part-label">Part A</span>
                 <h2>1. QI Personal Development Plan &mdash; Current year</h2>
                 <h3>1.1 PDP &mdash; summarise your QI PDP for this year and list specific objectives</h3>
-                <div class="content-box">
-                    <p>This year's QI PDP centred on leading a full-cycle, trainee-initiated Quality Improvement Project (see Section 3 below). Specific objectives:</p>
-                    <p>1. Design and lead a multi-arm QI project using the Model for Improvement and PDSA methodology.<br>
-                    2. Develop stakeholder engagement and negotiation skills across multidisciplinary and cross-site teams.<br>
-                    3. Build competence in QI measurement (run charts, IHI rules, appropriate statistical testing) to produce defensible outcome data.<br>
-                    4. Develop supervisory/leadership capability by supporting junior team members with their own portfolio evidence.<br>
-                    5. Disseminate findings via departmental governance and, longer-term, regional/national platforms.</p>
-                    <p class="hint">[Review and personalise — these objectives are drafted from your project record, not a separate PDP conversation with your ES.]</p>
-                </div>
+                <div class="content-box">${nl2br(pdp)}</div>
             </div>
 
             <div class="section">
                 <h2>2. QI Education</h2>
                 <h3>2.1 Involvement &mdash; describe your engagement with QI education over the past year</h3>
-                <div class="content-box">[No data available in your project record for this &mdash; add any online learning, courses, or conference attendance related to QI here.]</div>
+                <div class="content-box">${nl2br(qiEducationInvolvement)}</div>
                 <h3>2.2 Learning &mdash; how has this developed your understanding of QI?</h3>
-                <div class="content-box">[No data available in your project record for this &mdash; describe what formal QI education contributed, separate from what you learned by doing the project itself.]</div>
+                <div class="content-box">${nl2br(qiEducationLearning)}</div>
             </div>
 
             <div class="section">
                 <h2>3. Project Involvement</h2>
                 <h3>3.0 Were you involved in a QI project in any way?</h3>
-                <div class="content-box">${hasProject ? 'Yes' : '[Answer Yes/No]'}</div>
+                <div class="content-box">${involvedAnswer}</div>
 
                 <h3>3.1 Project Overview</h3>
                 <div class="content-box">${projectOverview}</div>
 
                 <h3>3.2 Your Role in the Project</h3>
-                <div class="content-box">${roleGuess}</div>
+                <div class="content-box">${nl2br(roleGuess)}</div>
 
                 <h3>3.2.1 QI tools attachment</h3>
                 <div class="content-box hint">Attach your driver diagram, fishbone diagram, and run chart as files &mdash; use the PNG/SVG export buttons on the Diagnosis Tools and Data pages, then upload them to this field on the live form.</div>
 
                 <h3>3.3 Team working and Stakeholders</h3>
-                <div class="content-box">${stakeholderNarrative}</div>
+                <div class="content-box">${nl2br(stakeholderNarrative)}</div>
 
                 <h3>3.4 Sharing of results</h3>
-                <div class="content-box">${sharingGuess}</div>
+                <div class="content-box">${nl2br(sharingGuess)}</div>
 
                 <h3>3.5 Poster or Presentation</h3>
                 <div class="content-box hint">Attach any poster or slide deck as a file upload on the live form.</div>
@@ -199,8 +207,8 @@ function runKaizenExport() {
 
             <div class="section">
                 <h2>4. Learning &amp; Development</h2>
-                <h3>4.1 The QI Journey &mdash; tick all that apply on the live form</h3>
-                <div class="content-box hint">Creating Conditions &middot; Understanding Systems &middot; Developing Aims &middot; Testing Changes &middot; Implement &middot; Spread &middot; Leadership &amp; Teams &middot; Project Management &amp; Communication &middot; Measurement</div>
+                <h3>4.1 The QI Journey</h3>
+                <div class="content-box">${qiJourneyList}</div>
 
                 <h3>4.2 Reflections and Learning</h3>
                 <div class="content-box">${nl2br(reflections)}</div>
@@ -209,7 +217,7 @@ function runKaizenExport() {
                 <div class="content-box">${nl2br(nextYearPdp)}</div>
 
                 <h3>4.4 End of training &mdash; QI development journey</h3>
-                <div class="content-box">${journeyDraft}</div>
+                <div class="content-box">${nl2br(journeyDraft)}</div>
             </div>
 
             <script>

@@ -136,12 +136,59 @@ export const emptyProject = {
     patientFeedback: [],
     qipLeads: [],
     assessment: {
-        traineeLevel: 'core',
-        capabilitiesMet: [],
         supervisorComments: '',
         signedOff: false,
         signedOffBy: '',
-        signedOffDate: ''
+        signedOffByUid: '',
+        signedOffByEmail: '',
+        signedOffGmc: '',
+        signedOffDate: '',
+        lastSupervisorActivityAt: '',
+        traineeSeenAt: ''
+    },
+    // Mirrors the real RCEM EM-QIAT (2025 Update) form field-for-field, so what a
+    // supervisor reviews here is the same content that gets submitted on
+    // kaizenep.com — not a separate invented summary. Deliberately a DIFFERENT
+    // key from data.emqiat (the older, separate "EM-QIAT Journal" modal’s PDP/
+    // education-log/CCT-summary data — see window.showEMQIATModal in app.js) to
+    // avoid the two features colliding on the same object.
+    emqiatForm: {
+        dateOccurred: '',
+        endDate: '',
+        description: '',
+        stageOfTraining: '',
+        placement: '',
+        dateOfCompletion: '',
+        pdp: '', // 1.1
+        qiEducationInvolvement: '', // 2.1
+        qiEducationLearning: '', // 2.2
+        involvedInProject: '', // 3.0 — 'yes' | 'no' | ''
+        overview: { // 3.1
+            background: '',
+            aim: '',
+            understandingProblem: '',
+            measures: '',
+            interventions: '',
+            results: '',
+            nextSteps: ''
+        },
+        role: '', // 3.2
+        teamStakeholders: '', // 3.3
+        sharingResults: '', // 3.4
+        qiJourney: { // 4.1
+            creatingConditions: false,
+            understandingSystems: false,
+            developingAims: false,
+            testingChanges: false,
+            implement: false,
+            spread: false,
+            leadershipTeams: false,
+            projectManagementCommunication: false,
+            measurement: false
+        },
+        reflections: '', // 4.2
+        nextYearPdp: '', // 4.3
+        endOfTrainingJourney: '' // 4.4
     }
 };
 

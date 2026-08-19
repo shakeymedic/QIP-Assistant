@@ -109,6 +109,48 @@ function migrateProjectData(d) {
     }
     d.chartData = activeMeasure.chartData;
     d.chartSettings = activeMeasure.chartSettings;
+
+    // ─── EM-QIAT (2025 Update) form migration ──────────────────────────────
+    // Replaces the old invented "trainee level + 3 generic capabilities"
+    // supervisor checklist with fields that mirror the real RCEM EM-QIAT form
+    // field-for-field. Stored under d.emqiatForm — deliberately a DIFFERENT
+    // key from d.emqiat (the older, separate "EM-QIAT Journal" modal below,
+    // window.showEMQIATModal) so the two never collide on the same object.
+    // Additive only — never overwrites data already there.
+    if (!d.emqiatForm || typeof d.emqiatForm !== 'object') d.emqiatForm = {};
+    const emqiatFormDefaults = {
+        dateOccurred: '', endDate: '', description: '',
+        stageOfTraining: '', placement: '', dateOfCompletion: '',
+        pdp: '', qiEducationInvolvement: '', qiEducationLearning: '',
+        involvedInProject: '', role: '', teamStakeholders: '', sharingResults: '',
+        reflections: '', nextYearPdp: '', endOfTrainingJourney: ''
+    };
+    Object.keys(emqiatFormDefaults).forEach(key => {
+        if (d.emqiatForm[key] === undefined || d.emqiatForm[key] === null) d.emqiatForm[key] = emqiatFormDefaults[key];
+    });
+    if (!d.emqiatForm.overview || typeof d.emqiatForm.overview !== 'object') d.emqiatForm.overview = {};
+    ['background', 'aim', 'understandingProblem', 'measures', 'interventions', 'results', 'nextSteps'].forEach(key => {
+        if (d.emqiatForm.overview[key] === undefined || d.emqiatForm.overview[key] === null) d.emqiatForm.overview[key] = '';
+    });
+    if (!d.emqiatForm.qiJourney || typeof d.emqiatForm.qiJourney !== 'object') d.emqiatForm.qiJourney = {};
+    ['creatingConditions', 'understandingSystems', 'developingAims', 'testingChanges', 'implement', 'spread', 'leadershipTeams', 'projectManagementCommunication', 'measurement'].forEach(key => {
+        if (d.emqiatForm.qiJourney[key] === undefined || d.emqiatForm.qiJourney[key] === null) d.emqiatForm.qiJourney[key] = false;
+    });
+
+    // Assessment: drop the old traineeLevel/capabilitiesMet fields (superseded
+    // by d.emqiatForm.stageOfTraining and d.emqiatForm.qiJourney above) and add the
+    // identity-binding fields for sign-off.
+    if (!d.assessment || typeof d.assessment !== 'object') d.assessment = {};
+    const assessmentDefaults = {
+        supervisorComments: '', signedOff: false, signedOffBy: '', signedOffByUid: '',
+        signedOffByEmail: '', signedOffGmc: '', signedOffDate: '',
+        lastSupervisorActivityAt: '', traineeSeenAt: ''
+    };
+    Object.keys(assessmentDefaults).forEach(key => {
+        if (d.assessment[key] === undefined || d.assessment[key] === null) d.assessment[key] = assessmentDefaults[key];
+    });
+    delete d.assessment.traineeLevel;
+    delete d.assessment.capabilitiesMet;
 }
 
 // Returns the primary/first measure — used for QIAT scoring, dashboard
@@ -2574,8 +2616,9 @@ window.openProject = (id) => {
             if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
             if(!state.projectData.patientFeedback) state.projectData.patientFeedback = [];
             if(!state.projectData.assessment) state.projectData.assessment = {
-                traineeLevel: 'core', capabilitiesMet: [], supervisorComments: '',
-                signedOff: false, signedOffBy: '', signedOffDate: ''
+                supervisorComments: '', signedOff: false, signedOffBy: '', signedOffByUid: '',
+                signedOffByEmail: '', signedOffGmc: '', signedOffDate: '',
+                lastSupervisorActivityAt: '', traineeSeenAt: ''
             };
             if(!state.projectData.surveys) state.projectData.surveys = [];
             migrateProjectData(state.projectData);

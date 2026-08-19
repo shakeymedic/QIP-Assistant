@@ -2,6 +2,9 @@
 import { state } from "./state.js";
 import { showToast, escapeHtml } from "./utils.js";
 import { renderQIPLeadPanel } from "./qip-lead.js";
+import { renderEMQIATForm } from "./emqiat.js";
+import { db } from "./config.js";
+import { logProjectAccessEvent } from "./audit-log.js";
 
 // ─── Render Supervisor Overview (shown instead of project list) ───────────────
 // Mirrors renderQIPLeadDashboard's visual pattern (qip-lead.js), teal-themed,
@@ -155,11 +158,12 @@ export function renderSupervisorDashboard() {
     if (!projectData) return;
     if (!projectData.assessment) {
         projectData.assessment = {
-            traineeLevel: 'core',
-            capabilitiesMet: [],
             supervisorComments: '',
             signedOff: false,
             signedOffBy: '',
+            signedOffByUid: '',
+            signedOffByEmail: '',
+            signedOffGmc: '',
             signedOffDate: '',
             lastSupervisorActivityAt: '',
             traineeSeenAt: ''
@@ -169,6 +173,7 @@ export function renderSupervisorDashboard() {
     const assessment = projectData.assessment;
     if (assessment.lastSupervisorActivityAt === undefined) assessment.lastSupervisorActivityAt = '';
     if (assessment.traineeSeenAt === undefined) assessment.traineeSeenAt = '';
+    if (assessment.signedOffGmc === undefined) assessment.signedOffGmc = '';
 
     // Trainee (not the supervisor) is opening this tab — if the supervisor has
     // left new comments or changed sign-off status since the trainee last looked,
@@ -182,13 +187,6 @@ export function renderSupervisorDashboard() {
     }
     if (window.updateSupervisorNavBadge) window.updateSupervisorNavBadge();
 
-    const coreChecked = assessment.traineeLevel === 'core' ? 'checked' : '';
-    const intChecked = assessment.traineeLevel === 'intermediate' ? 'checked' : '';
-    const higherChecked = assessment.traineeLevel === 'higher' ? 'checked' : '';
-
-    const cap1Checked = assessment.capabilitiesMet.includes('cap1') ? 'checked' : '';
-    const cap2Checked = assessment.capabilitiesMet.includes('cap2') ? 'checked' : '';
-    const cap3Checked = assessment.capabilitiesMet.includes('cap3') ? 'checked' : '';
 
     // Build supervisor-review banner (shown when a supervisor is reviewing a trainee's project)
     const reviewingBanner = state.isLeadViewing ? `
@@ -213,59 +211,32 @@ export function renderSupervisorDashboard() {
             <span>Your supervisor has left new comments or updated the sign-off status on this project since you last checked.</span>
         </div>` : '';
 
-    container.innerHTML = reviewingBanner + traineeActivityBanner + `
-        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
-            <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-4">SLO 11 Mapping and Supervisor Sign-off</h2>
-            <p class="text-slate-600 mb-6 text-sm md:text-base">Use this dashboard to map your project to the RCEM Key Capabilities. Your Educational or Clinical Supervisor must review and sign off on this section before your ARCP.</p>
-            
-            <div class="mb-6 p-4 bg-slate-50 border border-slate-200 rounded">
-                <h3 class="font-bold text-slate-800 mb-3">1. Current Trainee Level</h3>
-                <div class="flex flex-col md:flex-row gap-4">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="t_level" value="core" ${coreChecked} onchange="window.updateAssesmentLevel('core')"> 
-                        <span>Core (ACCS)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="t_level" value="intermediate" ${intChecked} onchange="window.updateAssesmentLevel('intermediate')"> 
-                        <span>Intermediate</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="radio" name="t_level" value="higher" ${higherChecked} onchange="window.updateAssesmentLevel('higher')"> 
-                        <span>Higher (HST)</span>
-                    </label>
-                </div>
-            </div>
+    const signerIdentity = state.currentUser
+        ? escapeHtml(state.currentUser.displayName || state.currentUser.email || 'Unknown account')
+        : 'Not signed in';
 
-            <div class="mb-6 p-4 bg-slate-50 border border-slate-200 rounded">
-                <h3 class="font-bold text-slate-800 mb-3">2. Key Capabilities Demonstrated</h3>
-                <label class="flex items-start gap-3 mb-3 cursor-pointer">
-                    <input type="checkbox" class="mt-1" value="cap1" ${cap1Checked} onchange="window.toggleCapability('cap1', this.checked)"> 
-                    <span class="text-sm md:text-base">Contribute effectively to a departmental quality improvement project (Core Requirement).</span>
-                </label>
-                <label class="flex items-start gap-3 mb-3 cursor-pointer">
-                    <input type="checkbox" class="mt-1" value="cap2" ${cap2Checked} onchange="window.toggleCapability('cap2', this.checked)"> 
-                    <span class="text-sm md:text-base">Describe involvement, show an understanding of QI methods, and reflect on the project (Intermediate Requirement).</span>
-                </label>
-                <label class="flex items-start gap-3 mb-3 cursor-pointer">
-                    <input type="checkbox" class="mt-1" value="cap3" ${cap3Checked} onchange="window.toggleCapability('cap3', this.checked)"> 
-                    <span class="text-sm md:text-base">Provide clinical leadership on effective QI work and support a culture of safety (Higher Requirement).</span>
-                </label>
-            </div>
+    container.innerHTML = reviewingBanner + traineeActivityBanner + `
+        <div id="emqiat-form-container"></div>
+
+        <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+            <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-1">SLO 11 Supervisor Review &amp; Sign-off</h2>
+            <p class="text-slate-600 mb-6 text-sm md:text-base">Your Educational or Clinical Supervisor reviews the EM-QIAT above and signs off here before your ARCP.</p>
 
             <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded">
-                <h3 class="font-bold text-blue-800 mb-3">3. Supervisor Review</h3>
+                <h3 class="font-bold text-blue-800 mb-3">Supervisor Review</h3>
                 <textarea id="sup-comments" class="w-full border border-slate-300 rounded p-3 mb-3 text-sm md:text-base" rows="4" placeholder="Supervisor comments regarding progress against the 2025 curriculum requirements...">${assessment.supervisorComments}</textarea>
                 <button onclick="window.saveSupervisorComments()" class="bg-blue-600 text-white px-4 py-2 rounded font-bold hover:bg-blue-700 w-full md:w-auto mb-6">Save Comments</button>
-                
+
                 <div class="border-t border-blue-200 pt-6">
-                    ${assessment.signedOff ? 
+                    ${assessment.signedOff ?
                         `<div class="bg-emerald-100 text-emerald-800 p-4 rounded flex flex-col md:flex-row items-start md:items-center gap-3 font-bold">
-                            <i data-lucide="check-circle" class="w-6 h-6 shrink-0"></i> 
-                            <span>Signed off by ${assessment.signedOffBy} on ${assessment.signedOffDate}</span>
+                            <i data-lucide="check-circle" class="w-6 h-6 shrink-0"></i>
+                            <span>Signed off by ${escapeHtml(assessment.signedOffBy)}${assessment.signedOffGmc ? ' (GMC ' + escapeHtml(assessment.signedOffGmc) + ')' : ''} on ${assessment.signedOffDate}</span>
                             <button onclick="window.revokeSignOff()" class="mt-2 md:mt-0 md:ml-auto text-sm bg-red-100 text-red-700 px-3 py-1 rounded hover:bg-red-200 w-full md:w-auto">Revoke Sign-off</button>
-                        </div>` : 
-                        `<div class="flex flex-col md:flex-row gap-2">
-                             <input type="text" id="sup-name" class="w-full md:w-2/3 border border-slate-300 rounded p-2 text-sm md:text-base" placeholder="Supervisor Name and GMC Number">
+                        </div>` :
+                        `<div class="mb-2 text-xs text-slate-500">Signing in as <strong class="text-slate-700">${signerIdentity}</strong> — the sign-off is tied to this logged-in account, not free text, and is logged for audit.</div>
+                         <div class="flex flex-col md:flex-row gap-2">
+                             <input type="text" id="sup-gmc" class="w-full md:w-2/3 border border-slate-300 rounded p-2 text-sm md:text-base" placeholder="GMC number (optional but recommended)">
                              <button onclick="window.signOffProject()" class="bg-emerald-600 text-white px-4 py-2 rounded font-bold hover:bg-emerald-700 w-full md:w-1/3">Sign Off for ARCP</button>
                          </div>`
                     }
@@ -277,6 +248,11 @@ export function renderSupervisorDashboard() {
         ${!state.isSupervisorViewing ? '<div id="qip-lead-panel" class="mt-4"></div>' : ''}
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    // The real EM-QIAT form — editable for the trainee, read-only for a
+    // reviewing supervisor (renderSupervisorDashboard is called for both).
+    const emqiatContainer = document.getElementById('emqiat-form-container');
+    if (emqiatContainer) renderEMQIATForm(emqiatContainer, { readOnly: state.isSupervisorViewing });
 
     // Now the panel div exists in DOM — populate it. Skipped while a supervisor is
     // reviewing someone else's project: this panel manages the trainee's own QIP
@@ -304,21 +280,6 @@ function persistAssessment() {
     }
 }
 
-window.updateAssesmentLevel = (level) => {
-    state.projectData.assessment.traineeLevel = level;
-    persistAssessment();
-};
-
-window.toggleCapability = (cap, isChecked) => {
-    const assessment = state.projectData.assessment;
-    if (isChecked && !assessment.capabilitiesMet.includes(cap)) {
-        assessment.capabilitiesMet.push(cap);
-    } else if (!isChecked) {
-        assessment.capabilitiesMet = assessment.capabilitiesMet.filter(c => c !== cap);
-    }
-    persistAssessment();
-};
-
 window.saveSupervisorComments = () => {
     const comments = document.getElementById('sup-comments').value;
     state.projectData.assessment.supervisorComments = comments;
@@ -326,19 +287,36 @@ window.saveSupervisorComments = () => {
     showToast('Supervisor comments saved successfully.', 'success');
 };
 
+// Sign-off is now tied to the reviewer's authenticated account (name/email
+// from state.currentUser) instead of a free-typed name — a free-text field
+// could previously be filled with anyone's name by anyone with access.
 window.signOffProject = () => {
-    const name = document.getElementById('sup-name').value.trim();
-    if (!name) { 
-        showToast('Please enter your name and GMC number before signing off.', 'error'); 
-        return; 
+    if (!state.currentUser) {
+        showToast('You must be signed in to sign off this project.', 'error');
+        return;
     }
+    const gmc = document.getElementById('sup-gmc')?.value.trim() || '';
+    const identity = state.currentUser.displayName || state.currentUser.email || 'Unknown account';
     window.showConfirmDialog(
-        `Confirm sign-off as "${name}"? This formally certifies this QIP meets the RCEM Key Capabilities. It can be revoked but creates a permanent audit trail.`,
+        `Confirm sign-off as "${identity}"${gmc ? ' (GMC ' + gmc + ')' : ''}? This formally certifies this QIP meets the RCEM SLO 11 requirement. It can be revoked but creates a permanent audit trail tied to your account.`,
         () => {
-            state.projectData.assessment.signedOff = true;
-            state.projectData.assessment.signedOffBy = name;
-            state.projectData.assessment.signedOffDate = new Date().toLocaleDateString('en-GB');
+            const a = state.projectData.assessment;
+            a.signedOff = true;
+            a.signedOffBy = identity;
+            a.signedOffByUid = state.currentUser.uid || '';
+            a.signedOffByEmail = state.currentUser.email || '';
+            a.signedOffGmc = gmc;
+            a.signedOffDate = new Date().toLocaleDateString('en-GB');
             persistAssessment();
+            logProjectAccessEvent(db, {
+                viewerUid: state.currentUser.uid,
+                viewerEmail: state.currentUser.email,
+                viaRole: 'supervisor',
+                ownerUid: state.supervisorTargetUid,
+                projectId: state.currentProjectId,
+                projectTitle: state.projectData.meta?.title || 'Untitled QIP',
+                action: 'signed_off'
+            });
             renderSupervisorDashboard();
             showToast('Project signed off for ARCP.', 'success');
         },
@@ -351,10 +329,25 @@ window.revokeSignOff = () => {
     window.showConfirmDialog(
         'Revoke this supervisor sign-off? The project will return to unsigned status.',
         () => {
-            state.projectData.assessment.signedOff = false;
-            state.projectData.assessment.signedOffBy = '';
-            state.projectData.assessment.signedOffDate = '';
+            const a = state.projectData.assessment;
+            a.signedOff = false;
+            a.signedOffBy = '';
+            a.signedOffByUid = '';
+            a.signedOffByEmail = '';
+            a.signedOffGmc = '';
+            a.signedOffDate = '';
             persistAssessment();
+            if (state.currentUser) {
+                logProjectAccessEvent(db, {
+                    viewerUid: state.currentUser.uid,
+                    viewerEmail: state.currentUser.email,
+                    viaRole: 'supervisor',
+                    ownerUid: state.supervisorTargetUid,
+                    projectId: state.currentProjectId,
+                    projectTitle: state.projectData.meta?.title || 'Untitled QIP',
+                    action: 'signoff_revoked'
+                });
+            }
             renderSupervisorDashboard();
             showToast('Sign-off revoked.', 'info');
         },
