@@ -23,6 +23,7 @@ import { exportToKaizen } from "./kaizen-export.js";
 import { exportToA3 } from "./a3-export.js";
 import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
+import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
@@ -2180,6 +2181,9 @@ async function fetchAllProjectsEnriched() {
         const ownerUid = pathParts[1];
         const projectId = docSnap.id;
         const d = docSnap.data() || {};
+        // Owner opt-out: a trainee can hide their project from the blanket qip_lead
+        // view (Settings on their project) without needing per-lead invite management.
+        if (d.visibility && d.visibility.hideFromDeptQIPLead === true) return;
         const c = d.checklist || {};
         const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k => c[k]).length;
         const hasPdsa = (d.pdsa || []).length > 0;
@@ -2329,6 +2333,17 @@ window.viewLeadProject = async function(idx) {
     state.currentProjectId = proj.projectId;
     state.isReadOnly = true;
     state.isLeadViewing = true;
+    // Audit trail: this is a Departmental QIP Lead opening someone else's project
+    // (often via the blanket all-projects role, not an individual invite).
+    logProjectAccessEvent(db, {
+        viewerUid: state.currentUser?.uid,
+        viewerEmail: state.currentUser?.email,
+        viaRole: 'qip_lead',
+        ownerUid: proj.ownerUid,
+        projectId: proj.projectId,
+        projectTitle: proj._data.meta?.title || proj.projectTitle || 'Untitled QIP',
+        action: 'viewed'
+    });
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
     const headerTitle = document.getElementById('project-header-title');
@@ -2349,6 +2364,16 @@ window.returnFromLeadView = function() {
 };
 
 // ─── Add/Remove QIP Lead button handlers (called from supervisor view) ───────
+// Owner-controlled opt-out from the blanket Departmental QIP Lead view (see
+// fetchAllProjectsEnriched, which honours this flag).
+window.toggleHideFromDeptLead = function(hidden) {
+    if (!state.projectData) return;
+    if (!state.projectData.visibility) state.projectData.visibility = {};
+    state.projectData.visibility.hideFromDeptQIPLead = !!hidden;
+    if (window.saveData) window.saveData();
+    showToast(hidden ? 'Project hidden from the blanket Departmental QIP Lead view' : 'Project visible to Departmental QIP Leads again', 'info');
+};
+
 window.addQIPLeadBtn = async function() {
     const input = document.getElementById('qip-lead-email-input');
     if (!input) return;
@@ -2506,6 +2531,18 @@ window.deleteProject = async (id) => {
     );
 };
 
+// Shows/hides the amber dot on the sidebar's "SLO 11 Sign-off" link whenever
+// the supervisor has left activity the trainee hasn't opened that tab to see
+// yet. Called on every project snapshot (live) and cleared by supervisor.js
+// once the trainee actually opens the tab.
+window.updateSupervisorNavBadge = function() {
+    const badge = document.getElementById('nav-supervisor-badge');
+    if (!badge) return;
+    const a = state.projectData?.assessment;
+    const unseen = !!(a && a.lastSupervisorActivityAt && a.lastSupervisorActivityAt > (a.traineeSeenAt || ''));
+    badge.classList.toggle('hidden', !unseen || state.isSupervisorViewing);
+};
+
 window.openProject = (id) => {
     state.currentProjectId = id;
     if (window.unsubscribeProject) window.unsubscribeProject();
@@ -2547,6 +2584,7 @@ window.openProject = (id) => {
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
             const renameBtn = document.getElementById('btn-rename-project');
             if(renameBtn) renameBtn.style.display = 'inline-flex';
+            window.updateSupervisorNavBadge();
 
             if (firstLoad) {
                 // First snapshot: data is ready — now it's safe to navigate
@@ -3049,6 +3087,12 @@ async function saveUserProfileToFirestore(uid, email, displayName) {
     } catch (e) {
         console.warn('[Register] Failed to save user profile to Firestore:', e);
     }
+    // Audit trail: log every role claimed at sign-up (esp. supervisor/qip_lead —
+    // these are self-service, unverified claims today, so Jake asked for a log
+    // he can audit). Best-effort — never blocks account creation.
+    _regSelectedRoles.forEach(role => {
+        logRoleAuditEvent(db, { uid, email, displayName, role, action: 'added', source: 'registration' });
+    });
 }
 
 window.submitRegister = async function() {
@@ -3313,6 +3357,140 @@ async function loadMasterAdminDashboard() {
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// ROLE & ACCESS AUDIT LOG — Master Admin only. Shows every self-service role
+// claim (esp. Supervisor/QIP Lead, which are unverified today) and every time
+// a QIP Lead or Supervisor opened someone else's project.
+// ─────────────────────────────────────────────────────────────────────────────
+window.showRoleAuditLog = async function() {
+    if (!state.isMasterAdmin || !db) return;
+
+    const listEl = document.getElementById('project-list');
+    if (!listEl) return;
+    document.getElementById('admin-bar-audit-btn')?.classList.add('hidden');
+    document.getElementById('admin-bar-projects-btn')?.classList.remove('hidden');
+
+    const h1 = document.querySelector('#view-projects header h1');
+    if (h1) h1.textContent = 'Master Admin — Role & Access Audit Log';
+    const sub = document.querySelector('#view-projects header p');
+    if (sub) sub.textContent = 'Every self-service role claim and every cross-account project view, most recent first.';
+
+    listEl.className = 'w-full';
+    listEl.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-16 text-center">
+            <div class="animate-spin rounded-full h-10 w-10 border-4 border-rcem-purple border-t-transparent mb-4"></div>
+            <p class="text-slate-500 font-medium">Loading audit log&hellip;</p>
+        </div>`;
+
+    // Best-effort ordered fetch; fall back to unordered + client-side sort if the
+    // orderBy query fails (e.g. rules not yet updated, or index still building).
+    async function fetchAuditCollection(name) {
+        try {
+            const { query, orderBy, limit } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
+            const snap = await getDocs(query(collection(db, name), orderBy('createdAtIso', 'desc'), limit(300)));
+            return snap.docs.map(d => d.data());
+        } catch (e) {
+            console.warn(`[Audit] Ordered fetch of ${name} failed, falling back:`, e);
+            try {
+                const snap = await getDocs(collection(db, name));
+                return snap.docs.map(d => d.data()).sort((a, b) => (b.createdAtIso || '').localeCompare(a.createdAtIso || ''));
+            } catch (e2) {
+                console.warn(`[Audit] Fallback fetch of ${name} also failed:`, e2);
+                return null; // null = permission/connection error, distinct from an empty log
+            }
+        }
+    }
+
+    try {
+        const [roleEvents, accessEvents] = await Promise.all([
+            fetchAuditCollection('roleAuditLog'),
+            fetchAuditCollection('projectAccessLog')
+        ]);
+
+        if (roleEvents === null && accessEvents === null) {
+            listEl.innerHTML = `
+                <div class="p-8 bg-red-50 rounded-xl border border-red-200 text-center">
+                    <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-red-500 mb-3"></i>
+                    <h3 class="font-bold text-red-700 mb-1">Could not load the audit log</h3>
+                    <p class="text-slate-500 text-sm">This usually means the Firestore security rules for roleAuditLog / projectAccessLog haven't been added yet — see the comment at the top of audit-log.js for the exact rules to add.</p>
+                </div>`;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+            return;
+        }
+
+        const roleRows = roleEvents || [];
+        const accessRows = accessEvents || [];
+        const supervisorClaims = roleRows.filter(r => r.role === 'supervisor' && r.action === 'added').length;
+        const leadClaims = roleRows.filter(r => r.role === 'qip_lead' && r.action === 'added').length;
+
+        let html = `
+            <div class="mb-6 grid grid-cols-3 gap-4">
+                <div class="bg-rcem-purple text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${roleRows.length}</div>
+                    <div class="text-xs opacity-80 mt-1">Total Role Events</div>
+                </div>
+                <div class="bg-teal-600 text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${supervisorClaims}</div>
+                    <div class="text-xs opacity-80 mt-1">Supervisor Claims</div>
+                </div>
+                <div class="bg-indigo-600 text-white rounded-xl p-4 text-center">
+                    <div class="text-2xl font-bold">${leadClaims}</div>
+                    <div class="text-xs opacity-80 mt-1">QIP Lead Claims</div>
+                </div>
+            </div>
+
+            <h3 class="font-bold text-slate-800 mb-2">Role claims (registration + Settings)</h3>
+            <div class="overflow-x-auto mb-8">
+                <table class="w-full text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                        <tr><th class="p-2 text-left">When</th><th class="p-2 text-left">Email</th><th class="p-2 text-left">Role</th><th class="p-2 text-left">Action</th><th class="p-2 text-left">Source</th></tr>
+                    </thead>
+                    <tbody>
+                        ${roleRows.length === 0 ? '<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No role events logged yet.</td></tr>' : roleRows.map(r => `
+                        <tr class="border-t border-slate-100 ${(r.role === 'supervisor' || r.role === 'qip_lead') && r.action === 'added' ? 'bg-amber-50' : ''}">
+                            <td class="p-2 whitespace-nowrap">${r.createdAtIso ? new Date(r.createdAtIso).toLocaleString('en-GB') : '?'}</td>
+                            <td class="p-2">${escapeHtml(r.email || r.uid || '?')}</td>
+                            <td class="p-2 font-semibold">${escapeHtml(r.role || '?')}</td>
+                            <td class="p-2">${r.action === 'added' ? '<span class="text-emerald-600 font-semibold">Added</span>' : '<span class="text-red-500 font-semibold">Removed</span>'}</td>
+                            <td class="p-2 text-slate-400">${escapeHtml(r.source || '?')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 class="font-bold text-slate-800 mb-2">Cross-account project access (QIP Lead / Supervisor)</h3>
+            <div class="overflow-x-auto">
+                <table class="w-full text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
+                    <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                        <tr><th class="p-2 text-left">When</th><th class="p-2 text-left">Viewer</th><th class="p-2 text-left">Via role</th><th class="p-2 text-left">Action</th><th class="p-2 text-left">Project</th></tr>
+                    </thead>
+                    <tbody>
+                        ${accessRows.length === 0 ? '<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No cross-account project views logged yet.</td></tr>' : accessRows.map(r => `
+                        <tr class="border-t border-slate-100">
+                            <td class="p-2 whitespace-nowrap">${r.createdAtIso ? new Date(r.createdAtIso).toLocaleString('en-GB') : '?'}</td>
+                            <td class="p-2">${escapeHtml(r.viewerEmail || r.viewerUid || '?')}</td>
+                            <td class="p-2 font-semibold">${escapeHtml(r.viaRole || '?')}</td>
+                            <td class="p-2">${escapeHtml(r.action || 'viewed')}</td>
+                            <td class="p-2">${escapeHtml(r.projectTitle || r.projectId || '?')}</td>
+                        </tr>`).join('')}
+                    </tbody>
+                </table>
+            </div>`;
+
+        listEl.innerHTML = html;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    } catch (e) {
+        console.error('[Audit] showRoleAuditLog error:', e);
+        listEl.innerHTML = `<div class="p-8 bg-red-50 rounded-xl border border-red-200 text-center text-red-600 text-sm">${escapeHtml(e.message)}</div>`;
+    }
+};
+
+window.showMasterAdminProjects = function() {
+    document.getElementById('admin-bar-audit-btn')?.classList.remove('hidden');
+    document.getElementById('admin-bar-projects-btn')?.classList.add('hidden');
+    loadMasterAdminDashboard();
+};
+
 window.adminViewProject = async function(uid, projectId) {
     if (!state.isMasterAdmin) return;
     try {
@@ -3428,6 +3606,17 @@ window.toggleSettingsRole = async function(role, btnEl) {
             email: state.currentUser.email || '',
             roles
         }, { merge: true });
+
+        // Audit trail: log every role add/remove made from Settings, same reason
+        // as the registration-time logging above. Best-effort, non-blocking.
+        logRoleAuditEvent(db, {
+            uid: state.currentUser.uid,
+            email: state.currentUser.email || '',
+            displayName: state.currentUser.displayName || '',
+            role,
+            action: wasActive ? 'removed' : 'added',
+            source: 'settings'
+        });
 
         // Refresh the role list UI
         await loadRolesIntoSettings();
@@ -3668,7 +3857,7 @@ window.showSupervisorOverview = function() {
 };
 
 // Shared setup when a supervisor opens one of their supervised projects (already fetched/enriched in checkSupervisorStatus)
-function enterSupervisedProject(idx) {
+function enterSupervisedProject(idx, action) {
     const p = (state.supervisorProjects || [])[idx];
     if (!p || !p._data || Object.keys(p._data).length === 0) { showToast('Project data not available', 'error'); return null; }
     state.currentProjectId = p.projectId;
@@ -3681,12 +3870,22 @@ function enterSupervisedProject(idx) {
     state.isReadOnly = true;
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
+    // Audit trail: a Clinical/Educational Supervisor opening a trainee's project.
+    logProjectAccessEvent(db, {
+        viewerUid: state.currentUser?.uid,
+        viewerEmail: state.currentUser?.email,
+        viaRole: 'supervisor',
+        ownerUid: p.ownerUid,
+        projectId: p.projectId,
+        projectTitle: data.meta?.title || p.projectTitle || 'Untitled QIP',
+        action: action || 'viewed'
+    });
     return p;
 }
 
 // "View Full Project" — browse the trainee's entire QIP read-only, across every tab
 window.viewSupervisedProjectReadOnly = function(idx) {
-    const p = enterSupervisedProject(idx);
+    const p = enterSupervisedProject(idx, 'viewed');
     if (!p) return;
     const title = p._data.meta?.title || p.projectTitle || 'QIP';
     const headerTitle = document.getElementById('project-header-title');
@@ -3698,7 +3897,7 @@ window.viewSupervisedProjectReadOnly = function(idx) {
 
 // "Review & Sign Off" — go straight to the SLO 11 assessment/sign-off form
 window.reviewSupervisedProject = function(idx) {
-    const p = enterSupervisedProject(idx);
+    const p = enterSupervisedProject(idx, 'reviewed');
     if (!p) return;
     const title = p._data.meta?.title || p.projectTitle || 'QIP';
     const headerTitle = document.getElementById('project-header-title');

@@ -71,14 +71,27 @@ export async function removeQIPLeadFromProject(db, ownerUid, projectId, leadEmai
 export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
     if (!container) return;
     const leads = state.projectData?.qipLeads || [];
+    const hidden = !!(state.projectData?.visibility && state.projectData.visibility.hideFromDeptQIPLead === true);
 
     container.innerHTML = `
+        <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+            <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <i data-lucide="eye-off" class="w-4 h-4 text-slate-500"></i>
+                Departmental QIP Lead Visibility
+            </h3>
+            <p class="text-xs text-slate-500 mb-3">Anyone with the Departmental QIP Lead role can currently see every QIP project across every user, not just ones they were individually invited to. If you'd rather this project wasn't included in that blanket view, turn it off here — you can still add individual QIP Leads below regardless of this setting. All QIP Lead / Supervisor access to this project is logged for audit.</p>
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                <input type="checkbox" ${hidden ? 'checked' : ''} onchange="window.toggleHideFromDeptLead(this.checked)">
+                <span class="text-slate-700">Hide this project from the blanket Departmental QIP Lead view</span>
+            </label>
+        </div>
+
         <div class="bg-white rounded-xl border border-slate-200 p-5">
             <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2">
                 <i data-lucide="users" class="w-4 h-4 text-indigo-500"></i>
                 Departmental QIP Leads
             </h3>
-            <p class="text-xs text-slate-500 mb-4">Add a Departmental QIP Lead by email. Anyone with the QIP Lead role can already see every QIP project in their dashboard — use this only to flag your project to a specific lead's attention, e.g. for sign-off.</p>
+            <p class="text-xs text-slate-500 mb-4">Add a Departmental QIP Lead by email. Use this to flag your project to a specific lead's attention, e.g. for sign-off.</p>
 
             <div class="flex gap-2 mb-4">
                 <input id="qip-lead-email-input" type="email" placeholder="lead@hospital.nhs.uk"

@@ -2,6 +2,7 @@
 // UHB-style A3 problem-solving summary — opens a print-ready landscape page.
 
 import { state } from "./state.js";
+import { getProjectExportGaps } from "./utils.js";
 
 function escapeHtml(value) {
     if (value === null || value === undefined) return '';
@@ -89,6 +90,22 @@ async function captureFishboneImage() {
 }
 
 export async function exportToA3() {
+    const gapCheckData = state.projectData || window.projectData || {};
+    const gaps = getProjectExportGaps(gapCheckData);
+    if (gaps.length > 0 && window.showConfirmDialog) {
+        return new Promise((resolve) => {
+            window.showConfirmDialog(
+                'This project is missing some information that would normally appear in the A3 export — ' + gaps.join(' ') + ' You can still export now, or go back and add them first.',
+                () => runA3Export().then(resolve),
+                'Export Anyway',
+                'Some sections look incomplete'
+            );
+        });
+    }
+    return runA3Export();
+}
+
+async function runA3Export() {
     const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
     const charter = data.charter || {};

@@ -7,6 +7,7 @@
 // into the matching boxes.
 
 import { state } from "./state.js";
+import { getProjectExportGaps } from "./utils.js";
 
 function esc(value) {
     if (value === null || value === undefined) return '';
@@ -24,6 +25,21 @@ function stageLabel(trainingStage) {
 }
 
 export function exportToKaizen() {
+    const data = state.projectData || window.projectData || {};
+    const gaps = getProjectExportGaps(data);
+    if (gaps.length > 0 && window.showConfirmDialog) {
+        window.showConfirmDialog(
+            'This project is missing some information that would normally appear in the QIAT export — ' + gaps.join(' ') + ' You can still export now and fill those sections in on the live Kaizen form yourself, or go back and add them first.',
+            () => runKaizenExport(),
+            'Export Anyway',
+            'Some sections look incomplete'
+        );
+        return;
+    }
+    runKaizenExport();
+}
+
+function runKaizenExport() {
     const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
     const pdsa = Array.isArray(data.pdsa) ? data.pdsa : [];

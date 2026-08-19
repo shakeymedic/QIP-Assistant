@@ -20,6 +20,36 @@ export function escapeHtml(str) {
 }
 
 /**
+ * Checks a project's data for common gaps before it gets exported (Kaizen
+ * QIAT / A3), so incomplete sections get flagged at export time instead of
+ * only being caught by a manual review later. Returns a plain list of
+ * human-readable gap descriptions — an empty array means no gaps found.
+ * This is intentionally a soft/advisory check: callers should let the export
+ * proceed even if gaps are found, just warn first.
+ */
+export function getProjectExportGaps(data) {
+    if (!data) return ['No project data loaded.'];
+    const gaps = [];
+    const checklist = data.checklist || {};
+    const charter = data.charter || {};
+
+    if (!checklist.problem_desc) gaps.push('Problem description (Analysis of Problem) is empty.');
+    if (!(charter.aim || checklist.aim)) gaps.push('Project aim is empty.');
+    if (!checklist.outcome_measure) gaps.push('Outcome measure is empty.');
+
+    const changeIdeas = Array.isArray(data.changeIdeas) ? data.changeIdeas : [];
+    const pdsa = Array.isArray(data.pdsa) ? data.pdsa : [];
+    if (changeIdeas.length === 0 && pdsa.length === 0) gaps.push('No Change Ideas or PDSA cycles recorded yet.');
+
+    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
+    if (!team || team.length === 0) gaps.push('No team members listed.');
+
+    if (!checklist.results_analysis && !checklist.results_text) gaps.push('Results analysis is empty.');
+
+    return gaps;
+}
+
+/**
  * Auto-resize textarea based on content
  */
 export function autoResizeTextarea(element) {

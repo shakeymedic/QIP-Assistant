@@ -160,11 +160,27 @@ export function renderSupervisorDashboard() {
             supervisorComments: '',
             signedOff: false,
             signedOffBy: '',
-            signedOffDate: ''
+            signedOffDate: '',
+            lastSupervisorActivityAt: '',
+            traineeSeenAt: ''
         };
     }
 
     const assessment = projectData.assessment;
+    if (assessment.lastSupervisorActivityAt === undefined) assessment.lastSupervisorActivityAt = '';
+    if (assessment.traineeSeenAt === undefined) assessment.traineeSeenAt = '';
+
+    // Trainee (not the supervisor) is opening this tab — if the supervisor has
+    // left new comments or changed sign-off status since the trainee last looked,
+    // show a banner and mark it seen so the sidebar badge clears.
+    const hasUnseenSupervisorActivity = !state.isSupervisorViewing
+        && assessment.lastSupervisorActivityAt
+        && assessment.lastSupervisorActivityAt > assessment.traineeSeenAt;
+    if (hasUnseenSupervisorActivity) {
+        assessment.traineeSeenAt = new Date().toISOString();
+        if (window.saveData) window.saveData();
+    }
+    if (window.updateSupervisorNavBadge) window.updateSupervisorNavBadge();
 
     const coreChecked = assessment.traineeLevel === 'core' ? 'checked' : '';
     const intChecked = assessment.traineeLevel === 'intermediate' ? 'checked' : '';
@@ -191,7 +207,13 @@ export function renderSupervisorDashboard() {
             </button>
         </div>` : '';
 
-    container.innerHTML = reviewingBanner + `
+    const traineeActivityBanner = hasUnseenSupervisorActivity ? `
+        <div class="bg-amber-50 border border-amber-200 text-amber-800 px-5 py-3 rounded-xl mb-5 flex items-center gap-3 text-sm">
+            <i data-lucide="bell" class="w-5 h-5 flex-shrink-0"></i>
+            <span>Your supervisor has left new comments or updated the sign-off status on this project since you last checked.</span>
+        </div>` : '';
+
+    container.innerHTML = reviewingBanner + traineeActivityBanner + `
         <div class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
             <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-4">SLO 11 Mapping and Supervisor Sign-off</h2>
             <p class="text-slate-600 mb-6 text-sm md:text-base">Use this dashboard to map your project to the RCEM Key Capabilities. Your Educational or Clinical Supervisor must review and sign off on this section before your ARCP.</p>
@@ -271,6 +293,11 @@ export function renderSupervisorDashboard() {
 // their own self-assessment) it goes through the normal save.
 function persistAssessment() {
     if (state.isSupervisorViewing) {
+        // Stamp the activity timestamp BEFORE saving so the trainee sees a banner
+        // and sidebar badge next time they open their own project.
+        if (state.projectData && state.projectData.assessment) {
+            state.projectData.assessment.lastSupervisorActivityAt = new Date().toISOString();
+        }
         window.saveSupervisorAssessment();
     } else {
         window.saveData();
