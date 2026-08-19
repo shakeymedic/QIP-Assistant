@@ -2177,6 +2177,9 @@ async function checkQIPLeadStatus(user) {
             console.log('[QIPLead] roles from qipUsers:', userRoles, 'hasLeadRole:', hasLeadRole);
         } catch (roleErr) {
             console.warn('[QIPLead] Could not read qipUsers role:', roleErr);
+            if (roleErr?.code === 'permission-denied') {
+                showToast('Could not check QIP Lead role — Firestore permission denied on qipUsers. This usually means the qipUsers security rule needs updating.', 'error');
+            }
         }
 
         // Get projects they've been individually invited to as QIP Lead
@@ -3524,8 +3527,16 @@ async function checkSupervisorStatus() {
         if (!email) return;
 
         // Check role on account (stored in qipUsers collection)
-        const roleSnap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
-        const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+        let userRoles = [];
+        try {
+            const roleSnap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
+            userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+        } catch (roleErr) {
+            console.warn('[Supervisor] Could not read qipUsers role:', roleErr);
+            if (roleErr?.code === 'permission-denied') {
+                showToast('Could not check Supervisor role — Firestore permission denied on qipUsers. This usually means the qipUsers security rule needs updating.', 'error');
+            }
+        }
         const hasSupervisorRole = userRoles.includes('supervisor');
 
         const snap = await getDoc(doc(db, 'supervisorInvites', email));
