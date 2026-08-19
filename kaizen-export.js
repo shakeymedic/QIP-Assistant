@@ -25,6 +25,7 @@ export function exportToKaizen() {
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>Kaizen QIAT Export</title>
             <style>
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; padding: 40px; max-width: 800px; margin: 0 auto; }
