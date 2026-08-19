@@ -69,9 +69,10 @@
     </div>
 
     <div id="readonly-indicator" class="hidden bg-amber-500 text-white px-4 py-2 text-xs font-bold text-center z-50 shadow-md">
-        <div class="flex items-center justify-center gap-2">
+        <div class="flex items-center justify-center gap-3 flex-wrap">
             <i data-lucide="eye" class="w-3 h-3"></i>
-            <span>Read-Only Mode</span>
+            <span id="readonly-indicator-label">Read-Only Mode</span>
+            <button id="readonly-indicator-exit" onclick="window.exitReadOnlyReview()" class="hidden bg-white/20 hover:bg-white/30 px-2.5 py-0.5 rounded-full text-[11px] font-bold transition-colors">Exit</button>
         </div>
     </div>
 
@@ -394,9 +395,14 @@
                         </button>
                         <div class="nav-group-items space-y-1" id="nav-group-items-review">
                             <button id="nav-lead-dashboard" onclick="window.showQIPLeadDashboard()"
-                                    class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all" title="QIP Lead Dashboard">
+                                    class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all" title="QIP Lead Overview">
                                 <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0 text-indigo-400"></i>
-                                <span class="truncate text-sm">Lead Dashboard</span>
+                                <span class="truncate text-sm">QIP Lead Overview</span>
+                            </button>
+                            <button id="nav-supervisor-overview" onclick="window.showSupervisorOverview()"
+                                    class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-teal-300 hover:bg-teal-500/20 hover:text-white transition-all" title="Supervisor Overview">
+                                <i data-lucide="shield-check" class="w-4 h-4 flex-shrink-0 text-teal-400"></i>
+                                <span class="truncate text-sm">Supervisor Overview</span>
                             </button>
                             <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
                                 <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
@@ -428,23 +434,18 @@
                 <div class="p-3 border-t border-white/10 overflow-y-auto">
                     <div id="user-display" class="text-xs text-slate-400 mb-2 px-2 truncate"></div>
 
-                    <!-- Supervisor / Lead access button — shown first, prominently, whenever role is active -->
-                    <button id="sidebar-supervisor-access" onclick="window.openSupervisorOrLeadView()" class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-2 border border-teal-500/50 shadow-sm">
-                        <i data-lucide="shield-check" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-supervisor-access-label">Supervisor / Lead View</span>
-                    </button>
-
-                    <!-- Role-specific home buttons — shown/hidden by JS -->
+                    <!-- Role-specific home buttons — shown/hidden by JS based on the roles a person has -->
                     <button id="sidebar-admin-home" onclick="window.returnToProjects()"
                         class="hidden w-full flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-2 py-2 rounded text-xs font-bold mb-2">
                         <i data-lucide="eye" class="w-3 h-3"></i> Admin Dashboard
                     </button>
                     <button id="sidebar-lead-home" onclick="window.showQIPLeadDashboard()"
-                        class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-2 rounded text-xs font-bold mb-2">
-                        <i data-lucide="layout-dashboard" class="w-3 h-3"></i> Lead Dashboard
+                        class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-2 border border-indigo-500/50 shadow-sm">
+                        <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-lead-home-label">QIP Lead Overview</span>
                     </button>
-                    <button id="sidebar-supervisor-home"
-                        class="hidden w-full flex items-center gap-2 bg-teal-700 hover:bg-teal-600 text-white px-2 py-2 rounded text-xs font-bold mb-2">
-                        <i data-lucide="user-check" class="w-3 h-3"></i> My Supervised QIPs
+                    <button id="sidebar-supervisor-home" onclick="window.showSupervisorOverview()"
+                        class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-2 border border-teal-500/50 shadow-sm">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-supervisor-home-label">Supervisor Overview</span>
                     </button>
 
                     <button id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
@@ -528,8 +529,8 @@
                                         <p class="text-teal-100 text-xs" id="supervisor-badge-text"></p>
                                     </div>
                                 </div>
-                                <button onclick="window.showSupervisorProjectList()" class="bg-white text-teal-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-teal-50 transition-colors flex items-center gap-2 shadow-sm">
-                                    <i data-lucide="eye" class="w-4 h-4"></i> View Supervised QIPs
+                                <button onclick="window.showSupervisorOverview()" class="bg-white text-teal-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-teal-50 transition-colors flex items-center gap-2 shadow-sm">
+                                    <i data-lucide="eye" class="w-4 h-4"></i> Open Supervisor Overview
                                 </button>
                             </div>
                             <!-- QIP Lead banner — shown when user is a Departmental QIP Lead -->

@@ -525,19 +525,43 @@ const _legacyLearnModal = `
         `;
 */
 
-// ─── Supervisor / QIP Lead View dispatcher ───────────────────────────────────
-window.openSupervisorOrLeadView = function() {
-    // Always navigate to projects view first so the banners are visible
-    window.router('projects');
-    // Then open the appropriate view after a tick
-    setTimeout(() => {
-        if (state.isQIPLead && state.qipLeadProjects?.length > 0) {
-            window.showQIPLeadDashboard();
-        } else if (state.supervisorProjects?.length > 0) {
-            window.showSupervisorProjectList();
-        }
-    }, 100);
+// ─── Read-only review exit dispatcher ─────────────────────────────────────────
+// Called by the Exit button in the amber read-only banner (works from any page)
+window.exitReadOnlyReview = function() {
+    if (state.isSupervisorViewing) {
+        window.returnFromSupervisorView();
+    } else if (state.isLeadViewing) {
+        window.returnFromLeadView();
+    } else {
+        window.returnToProjects();
+    }
 };
+
+// Shows the amber read-only banner with a contextual Exit button.
+// context: 'lead' | 'supervisor' | null (null = no exit target, e.g. public share link)
+function showReadOnlyBanner(projectTitle, context) {
+    const ind = document.getElementById('readonly-indicator');
+    const lbl = document.getElementById('readonly-indicator-label');
+    const exitBtn = document.getElementById('readonly-indicator-exit');
+    if (!ind) return;
+    ind.classList.remove('hidden');
+    document.body.classList.add('readonly-mode');
+    if (lbl) {
+        lbl.textContent = projectTitle ? `Read-Only Mode — ${projectTitle}` : 'Read-Only Mode';
+    }
+    if (exitBtn) {
+        if (context === 'lead') {
+            exitBtn.textContent = 'Exit to QIP Lead Overview';
+            exitBtn.classList.remove('hidden');
+        } else if (context === 'supervisor') {
+            exitBtn.textContent = 'Exit to Supervisor Overview';
+            exitBtn.classList.remove('hidden');
+        } else {
+            exitBtn.classList.add('hidden');
+        }
+    }
+}
+
 
 // ─── Rename Project ───────────────────────────────────────────────────────────
 window.renameProject = function() {
@@ -1733,6 +1757,11 @@ window.updateSurveyTitle = updateSurveyTitle;
 window.aiAnalyseSurvey = aiAnalyseSurvey;
 
 window.saveData = async function(skipHistory = false) {
+    // Blanket block on any write while browsing read-only (Lead view, Supervisor
+    // "View Full Project", or a public share link). This intentionally also blocks
+    // the supervisor's own sign-off actions when isReadOnly is set for browsing —
+    // those go through the dedicated window.saveSupervisorAssessment() path instead,
+    // which is only reachable from the "Review & Sign Off" entry point.
     if (state.isReadOnly) return;
     
     if (state.isDemoMode) { 
@@ -1783,6 +1812,33 @@ window.saveData = async function(skipHistory = false) {
                     if(typeof lucide !== 'undefined') lucide.createIcons();
                 }, 60000);
             }
+        }
+    } catch (e) {
+        showToast("Save failed: " + e.message, "error");
+    }
+};
+
+// Dedicated save path for a supervisor's SLO 11 sign-off/comments (supervisor.js).
+// Bypasses the isReadOnly guard in saveData() by design — it is the one legitimate
+// write a reviewing supervisor makes, and it only ever persists the `assessment`
+// field, never the trainee's checklist/PDSA/chart content, so browsing the rest of
+// the project in "View Full Project" mode stays genuinely read-only.
+window.saveSupervisorAssessment = async function() {
+    if (!state.isSupervisorViewing || !state.supervisorTargetUid || !state.currentProjectId || !state.projectData) return;
+    if (!db) { showToast("Database not connected. Changes not saved.", "warning"); return; }
+    try {
+        await setDoc(
+            doc(db, 'users/' + state.supervisorTargetUid + '/projects', state.currentProjectId),
+            { assessment: state.projectData.assessment },
+            { merge: true }
+        );
+        const s = document.getElementById('save-status');
+        if (s) {
+            window._lastSavedAt = Date.now();
+            s.innerHTML = `<i data-lucide="check-circle" class="w-4 h-4"></i> Saved`;
+            s.classList.remove('opacity-0', 'text-slate-400');
+            s.classList.add('text-emerald-600', 'flex', 'items-center', 'gap-1', 'text-xs', 'font-medium');
+            if (typeof lucide !== 'undefined') lucide.createIcons();
         }
     } catch (e) {
         showToast("Save failed: " + e.message, "error");
@@ -1988,15 +2044,17 @@ if (auth) {
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
 
-            // Show supervisor/lead button immediately from localStorage cache
+            // Show role-specific sidebar buttons immediately from localStorage cache
             // (will be confirmed/hidden by Firestore check below)
             const cachedLead = localStorage.getItem('rcem_is_qip_lead');
             const cachedSupervisor = localStorage.getItem('rcem_is_supervisor');
-            const earlyBtn = document.getElementById('sidebar-supervisor-access');
-            if (earlyBtn && (cachedLead || cachedSupervisor)) {
-                earlyBtn.classList.remove('hidden');
-                const lbl = document.getElementById('sidebar-supervisor-access-label');
-                if (lbl) lbl.textContent = cachedLead ? 'QIP Lead Dashboard' : 'My Supervised QIPs';
+            if (cachedLead) {
+                const leadBtn = document.getElementById('sidebar-lead-home');
+                if (leadBtn) leadBtn.classList.remove('hidden');
+            }
+            if (cachedSupervisor) {
+                const supBtn = document.getElementById('sidebar-supervisor-home');
+                if (supBtn) supBtn.classList.remove('hidden');
             }
             // Hide register screen if somehow visible
             const rs = document.getElementById('register-screen');
@@ -2135,18 +2193,13 @@ async function checkQIPLeadStatus(user) {
                     badgeText.textContent = 'Departmental QIP Lead — no projects have been shared with you yet';
                 }
             }
-            // Show Lead Dashboard nav button + sidebar home button
+            // Show QIP Lead Overview nav button + sidebar home button
             const navBtn = document.getElementById('nav-lead-dashboard');
             if (navBtn) navBtn.classList.remove('hidden');
             const leadHomeBtn = document.getElementById('sidebar-lead-home');
             if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
-            // Show the prominent supervisor/lead access button in sidebar
-            const accessBtn = document.getElementById('sidebar-supervisor-access');
-            if (accessBtn) {
-                accessBtn.classList.remove('hidden');
-                const lbl = document.getElementById('sidebar-supervisor-access-label');
-                if (lbl) lbl.textContent = enriched.length > 0 ? 'QIP Lead Dashboard' : 'Lead Dashboard';
-            }
+            const leadHomeLbl = document.getElementById('sidebar-lead-home-label');
+            if (leadHomeLbl) leadHomeLbl.textContent = enriched.length > 0 ? `QIP Lead Overview (${enriched.length})` : 'QIP Lead Overview';
             if (enriched.length > 0) {
                 const panel = document.getElementById('qip-lead-panel');
                 if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
@@ -2190,6 +2243,9 @@ window.viewLeadProject = async function(idx) {
     state.isLeadViewing = true;
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
+    const headerTitle = document.getElementById('project-header-title');
+    if (headerTitle) headerTitle.textContent = (proj._data.meta?.title || proj.projectTitle || 'QIP') + ' — QIP Lead View';
+    showReadOnlyBanner(proj._data.meta?.title || proj.projectTitle || 'Trainee QIP', 'lead');
     window.router('dashboard');
     showToast('Viewing in read-only mode', 'info');
 };
@@ -2198,6 +2254,9 @@ window.returnFromLeadView = function() {
     state.isReadOnly = false;
     state.isLeadViewing = false;
     state.projectData = null;
+    const ind = document.getElementById('readonly-indicator');
+    if (ind) ind.classList.add('hidden');
+    document.body.classList.remove('readonly-mode');
     window.showQIPLeadDashboard();
 };
 
@@ -3444,7 +3503,7 @@ async function checkSupervisorStatus() {
         const snap = await getDoc(doc(db, 'supervisorInvites', email));
         const projects = snap.exists() ? (snap.data().projects || []) : [];
 
-        // Show button if they have the role OR have invited projects
+        // Show buttons if they have the role OR have invited projects
         if (!hasSupervisorRole && projects.length === 0) {
             localStorage.removeItem('rcem_is_supervisor');
             return;
@@ -3452,97 +3511,115 @@ async function checkSupervisorStatus() {
 
         // Cache to localStorage for instant show on next load
         localStorage.setItem('rcem_is_supervisor', '1');
-        state.supervisorProjects = projects;
 
-        // Show the access button even if no projects yet
-        const accessBtn = document.getElementById('sidebar-supervisor-access');
-        if (accessBtn) {
-            accessBtn.classList.remove('hidden');
-            const lbl = document.getElementById('sidebar-supervisor-access-label');
-            if (lbl) lbl.textContent = projects.length > 0 ? 'My Supervised QIPs' : 'Supervisor View';
+        // Enrich each invited project with progress/sign-off status, mirroring the QIP Lead dashboard
+        const enriched = [];
+        for (const proj of projects) {
+            try {
+                const pSnap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
+                if (pSnap.exists()) {
+                    const d = pSnap.data();
+                    const c = d.checklist || {};
+                    const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k => c[k]).length;
+                    const hasPdsa = (d.pdsa || []).length > 0;
+                    const hasData = (d.chartData || []).length > 0 || (Array.isArray(d.measures) && d.measures.some(m => (m.chartData || []).length > 0));
+                    const progress = Math.round(((filled / 6) * 50) + (hasPdsa ? 25 : 0) + (hasData ? 25 : 0));
+                    enriched.push({ ...proj, _data: d, _progress: progress, _signedOff: !!d.assessment?.signedOff, _signedOffBy: d.assessment?.signedOffBy || '', _signedOffDate: d.assessment?.signedOffDate || '' });
+                } else {
+                    enriched.push({ ...proj, _data: {}, _progress: 0, _signedOff: false });
+                }
+            } catch (e) { enriched.push({ ...proj, _data: {}, _progress: 0, _signedOff: false }); }
         }
+        state.supervisorProjects = enriched;
+
         const badge = document.getElementById('supervisor-badge');
         const badgeText = document.getElementById('supervisor-badge-text');
         if (badge) badge.classList.remove('hidden');
         if (badgeText) {
-            badgeText.textContent = projects.length > 0
-                ? 'You are supervising ' + projects.length + ' QIP project' + (projects.length !== 1 ? 's' : '') + ' — click to review and sign off'
+            badgeText.textContent = enriched.length > 0
+                ? 'You are supervising ' + enriched.length + ' QIP project' + (enriched.length !== 1 ? 's' : '') + ' — click to review and sign off'
                 : 'Clinical Supervisor — no projects have been shared with you yet';
         }
 
-        if (projects.length === 0) { if (typeof lucide !== 'undefined') lucide.createIcons(); return; }
-        // Show supervisor home button in sidebar (for projects with invites)
-        const btn = document.getElementById('sidebar-supervisor-home');
-        if (btn) {
-            btn.classList.remove('hidden');
-            btn.onclick = () => window.showSupervisorProjectList();
-        }
+        // Show Supervisor Overview nav button + sidebar home button (shown for the role even before any project is shared, matching QIP Lead behaviour)
+        const navBtn = document.getElementById('nav-supervisor-overview');
+        if (navBtn) navBtn.classList.remove('hidden');
+        const supHomeBtn = document.getElementById('sidebar-supervisor-home');
+        if (supHomeBtn) supHomeBtn.classList.remove('hidden');
+        const supHomeLbl = document.getElementById('sidebar-supervisor-home-label');
+        if (supHomeLbl) supHomeLbl.textContent = enriched.length > 0 ? `Supervisor Overview (${enriched.length})` : 'Supervisor Overview';
+
         if (typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         console.warn('[Supervisor] checkSupervisorStatus error:', e);
     }
 }
 
-// Show a picker so the supervisor can choose which project to review
-window.showSupervisorProjectList = function() {
-    const projects = state.supervisorProjects || [];
-    if (projects.length === 0) { showToast('No supervised projects found', 'info'); return; }
-    if (projects.length === 1) {
-        loadSupervisedProject(projects[0]);
-        return;
-    }
-    // Multiple projects — show a simple modal-style picker
-    window.showInputModal(
-        'Select Supervised Project',
-        projects.map((p, i) => ({ id: `proj_${i}`, label: `${p.projectTitle || 'Untitled'} (${p.traineeName || p.ownerUid})`, type: 'hidden', value: String(i) })),
-        () => {}
+// Called from sidebar, nav, or the projects-page banner to show the Supervisor Overview dashboard
+window.showSupervisorOverview = function() {
+    const container = document.getElementById('qip-lead-dashboard-container');
+    if (!container) return;
+    const inner = document.getElementById('project-list-inner');
+    if (inner) inner.classList.add('hidden');
+    container.classList.remove('hidden');
+
+    renderSupervisorOverview(
+        container,
+        state.supervisorProjects || [],
+        (i) => window.viewSupervisedProjectReadOnly(i),
+        (i) => window.reviewSupervisedProject(i)
     );
-    // Override: show a list instead of inputs
-    const fieldsEl = document.getElementById('input-modal-fields');
-    if (fieldsEl) {
-        fieldsEl.innerHTML = projects.map((p, i) => `
-            <button onclick="window.loadSupervisedProjectByIndex(${i})" class="w-full text-left bg-slate-50 hover:bg-indigo-50 border border-slate-200 rounded-lg px-4 py-3 transition-colors">
-                <div class="font-semibold text-slate-800">${p.projectTitle || 'Untitled QIP'}</div>
-                <div class="text-xs text-slate-500">Trainee: ${p.traineeName || p.ownerUid}</div>
-            </button>`).join('');
-    }
-    const btn = document.getElementById('input-modal-submit');
-    if (btn) btn.style.display = 'none';
 };
 
-window.loadSupervisedProjectByIndex = function(i) {
-    const p = (state.supervisorProjects || [])[i];
-    if (p) loadSupervisedProject(p);
-    window.hideInputModal();
-};
-
-async function loadSupervisedProject(p) {
-    try {
-        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const snap = await getDoc(doc(db, 'users', p.ownerUid, 'projects', p.projectId));
-        if (!snap.exists()) { showToast('Project not found', 'error'); return; }
-        state.currentProjectId = p.projectId;
-        state.supervisorTargetUid = p.ownerUid;
-        const _snapData = snap.data();
-        migrateProjectData(_snapData);
-        state.projectData = _snapData;
-        state.isLeadViewing = true;
-        state.isSupervisorViewing = true;
-        // Show top bar so supervisor can navigate
-        const topBar = document.getElementById('top-bar');
-        if (topBar) topBar.classList.remove('hidden');
-        const headerTitle = document.getElementById('project-header-title');
-        if (headerTitle) headerTitle.textContent = (p.projectTitle || 'QIP') + ' — Supervisor Review';
-        showToast('Supervisor Review: ' + (p.projectTitle || 'Trainee QIP'), 'success');
-        window.router('supervisor');
-    } catch (e) {
-        showToast('Could not load project: ' + e.message, 'error');
-        console.error('[Supervisor] loadSupervisedProject error:', e);
-    }
+// Shared setup when a supervisor opens one of their supervised projects (already fetched/enriched in checkSupervisorStatus)
+function enterSupervisedProject(idx) {
+    const p = (state.supervisorProjects || [])[idx];
+    if (!p || !p._data || Object.keys(p._data).length === 0) { showToast('Project data not available', 'error'); return null; }
+    state.currentProjectId = p.projectId;
+    state.supervisorTargetUid = p.ownerUid;
+    const data = p._data;
+    migrateProjectData(data);
+    state.projectData = data;
+    state.isLeadViewing = true;
+    state.isSupervisorViewing = true;
+    state.isReadOnly = true;
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.classList.remove('hidden');
+    return p;
 }
+
+// "View Full Project" — browse the trainee's entire QIP read-only, across every tab
+window.viewSupervisedProjectReadOnly = function(idx) {
+    const p = enterSupervisedProject(idx);
+    if (!p) return;
+    const title = p._data.meta?.title || p.projectTitle || 'QIP';
+    const headerTitle = document.getElementById('project-header-title');
+    if (headerTitle) headerTitle.textContent = title + ' — Supervisor View';
+    showReadOnlyBanner(title, 'supervisor');
+    window.router('dashboard');
+    showToast('Viewing read-only: ' + title, 'info');
+};
+
+// "Review & Sign Off" — go straight to the SLO 11 assessment/sign-off form
+window.reviewSupervisedProject = function(idx) {
+    const p = enterSupervisedProject(idx);
+    if (!p) return;
+    const title = p._data.meta?.title || p.projectTitle || 'QIP';
+    const headerTitle = document.getElementById('project-header-title');
+    if (headerTitle) headerTitle.textContent = title + ' — Supervisor Review';
+    showReadOnlyBanner(title, 'supervisor');
+    showToast('Supervisor Review: ' + title, 'success');
+    window.router('supervisor');
+};
 
 window.returnFromSupervisorView = function() {
     state.isSupervisorViewing = false;
     state.isLeadViewing = false;
-    window.returnToProjects();
+    state.isReadOnly = false;
+    state.supervisorTargetUid = null;
+    state.projectData = null;
+    const ind = document.getElementById('readonly-indicator');
+    if (ind) ind.classList.add('hidden');
+    document.body.classList.remove('readonly-mode');
+    window.showSupervisorOverview();
 };
