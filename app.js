@@ -20,7 +20,7 @@ import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 import { startOnboarding } from "./onboarding.js";
 import { exportToKaizen } from "./kaizen-export.js";
-import { renderSupervisorDashboard } from "./supervisor.js";
+import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
