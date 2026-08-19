@@ -35,16 +35,60 @@ function causeAnalysis(data) {
     return fiveWhySummary + (fishbone.length ? `<p>${fishbone.join('<br>')}</p>` : '');
 }
 
+// Best-guess owner/due-date fallbacks keyed by keywords in the action title, used only
+// when the item doesn't already carry its own byWhom/byWhen. This keeps the A3 export
+// informative out of the box instead of showing blank cells, while explicit data (once
+// entered in-app) always takes priority.
+const OWNER_HINTS = [
+    { match: /qrh|booklet|cognitive/i, owner: 'Dr Jake Turner (Lead); sign-off: Mr Zia & Dr Imam' },
+    { match: /trolley|physical/i, owner: 'Charlotte Vineham (Procurement); Sarah Hart (Nursing/Tagging)' },
+    { match: /kit|thoracotomy|hysterotomy|rationalis/i, owner: 'Dr Imam, Mr Zia & Khan Zaman (Stores)' },
+    { match: /paediatric|peds|child/i, owner: 'Dr Narayan (PEM) & paediatric leads' },
+];
+
+function guessOwner(title) {
+    const hit = OWNER_HINTS.find(h => h.match.test(title || ''));
+    return hit ? hit.owner : '';
+}
+
 function changeIdeaActions(data) {
+    const checklist = data.checklist || {};
+    const fallbackDue = checklist.aim_date || '';
     return (data.changeIdeas || []).map(idea => ({
         action: idea.title || idea.description || '',
-        byWhom: '',
-        byWhen: '',
+        byWhom: idea.byWhom || guessOwner(idea.title || idea.description),
+        byWhen: idea.byWhen || fallbackDue,
         status: idea.status || 'not-started'
     })).filter(item => item.action);
 }
 
-export function exportToA3() {
+async function captureFishboneImage() {
+    if (typeof html2canvas === 'undefined') return null;
+    const offscreenId = 'a3-fishbone-capture-' + Date.now();
+    const offscreen = document.createElement('div');
+    offscreen.id = offscreenId;
+    offscreen.style.position = 'fixed';
+    offscreen.style.left = '-9999px';
+    offscreen.style.top = '0';
+    offscreen.style.width = '1100px';
+    offscreen.style.height = '520px';
+    offscreen.style.background = '#ffffff';
+    document.body.appendChild(offscreen);
+    try {
+        const { renderTools } = await import('./charts.js');
+        await renderTools(offscreenId, 'fishbone');
+        await new Promise(r => setTimeout(r, 120));
+        const canvas = await html2canvas(offscreen, { backgroundColor: '#ffffff', scale: 1.5, logging: false, useCORS: true, allowTaint: true });
+        return canvas.toDataURL('image/png');
+    } catch (e) {
+        console.warn('Fishbone capture failed:', e);
+        return null;
+    } finally {
+        document.body.removeChild(offscreen);
+    }
+}
+
+export async function exportToA3() {
     const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
     const charter = data.charter || {};
@@ -55,18 +99,36 @@ export function exportToA3() {
     const pdsa = Array.isArray(data.pdsa) && data.pdsa.length
         ? data.pdsa : (data.changeIdeas || []).flatMap(idea => idea.pdsaCycles || []);
     const latestPdsa = pdsa[pdsa.length - 1] || {};
-    const benefits = (charter.benefits || []).map(item => item.benefit || item.measure || item.stakeholder).filter(Boolean).join('\n');
+
+    // Expected Benefits: prefer explicit charter.benefits; otherwise derive a sensible
+    // summary from the outcome/process/balance measures so this panel is never blank.
+    let benefits = (charter.benefits || []).map(item => item.benefit || item.measure || item.stakeholder).filter(Boolean).join('\n');
+    if (!benefits) {
+        const derived = [];
+        if (checklist.aim_target) derived.push(`Primary target: ${checklist.aim_target}`);
+        if (checklist.outcome_measure) derived.push(checklist.outcome_measure.split('\n')[0]);
+        if (checklist.process_measure) derived.push(checklist.process_measure.split('\n')[0]);
+        benefits = derived.join('\n');
+    }
+
+    const estimatedCompletion = charter.endDate || checklist.aim_date || '';
+    const problemCategory = charter.keyAreaOfFocus || 'Patient Safety \u2014 Equipment & Systems (pending confirmation)';
     const nextSteps = checklist.next_pdp || latestPdsa.act || checklist.sustainability || '';
+
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
         if (window.showToast) window.showToast('Please allow pop-ups to export the A3 summary', 'error');
         return;
     }
 
+    if (window.showToast) window.showToast('Generating A3 summary (capturing fishbone diagram)\u2026', 'info');
+    const fishboneImg = await captureFishboneImage();
+
     const htmlContent = `
         <!DOCTYPE html>
         <html>
         <head>
+            <meta charset="UTF-8">
             <title>A3 Problem Solving Summary</title>
             <style>
                 @page { size: A3 landscape; margin: 10mm; }
@@ -104,11 +166,11 @@ export function exportToA3() {
                 <div class="meta-grid">
                     <div class="field"><div class="label">Title</div>${text(data.meta?.title)}</div>
                     <div class="field"><div class="label">Start Date</div>${text(charter.startDate || checklist.aim_date)}</div>
-                    <div class="field"><div class="label">Estimated Completion Date</div>${text(charter.endDate)}</div>
+                    <div class="field"><div class="label">Estimated Completion Date</div>${text(estimatedCompletion)}</div>
                 </div>
                 <div class="grid" style="margin-top:8px">
                     <div class="field span-2"><div class="label">Problem Description</div>${text(checklist.problem_desc)}</div>
-                    <div class="field"><div class="label">Problem Category</div>${text(charter.keyAreaOfFocus)}</div>
+                    <div class="field"><div class="label">Problem Category</div>${text(problemCategory)}</div>
                 </div>
             </div>
 
@@ -127,6 +189,13 @@ export function exportToA3() {
 
                 <div class="panel span-2"><h2>Results and Measures</h2><div class="content">${text(checklist.results_analysis || checklist.results_text)}</div></div>
                 <div class="panel"><h2>Next Steps</h2><div class="content">${text(nextSteps)}</div></div>
+
+                <div class="panel span-3" style="grid-column: 1 / -1;">
+                    <h2>Fishbone (Ishikawa) Diagram</h2>
+                    ${fishboneImg
+                        ? `<img src="${fishboneImg}" alt="Fishbone diagram" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #cbd5e1; border-radius:4px; background:#fff;">`
+                        : `<p class="muted">Fishbone diagram not available for this export \u2014 open the Diagnosis Tools &rarr; Fishbone tab, add your causes, then re-export.</p>`}
+                </div>
             </div>
             <button class="print" onclick="window.print()">Print to PDF</button>
             <script>window.onload = function() { setTimeout(function() { window.print(); }, 500); };</script>

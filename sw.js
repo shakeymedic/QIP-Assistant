@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.18.2';
-const STATIC_CACHE = 'rcem-qip-static-v3.18.2';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.18.2';
+const CACHE_NAME = 'rcem-qip-v3.18.3';
+const STATIC_CACHE = 'rcem-qip-static-v3.18.3';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.18.3';
 
 const STATIC_ASSETS = [
     '/',
@@ -18,6 +18,7 @@ const STATIC_ASSETS = [
     '/supervisor.js',
     '/surveys.js',
     '/kaizen-export.js',
+    '/a3-export.js',
     '/qip-lead.js',
     '/learn.js',
     '/patient-tracker.js',
