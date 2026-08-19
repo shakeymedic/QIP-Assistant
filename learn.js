@@ -229,7 +229,7 @@ function tabRCEM() {
         );
 
     var uhbPartnership = card(
-        sectionHead('heart-handshake', 'UHB's Improvement Partnership', 'teal') +
+        sectionHead('heart-handshake', "UHB's Improvement Partnership", 'teal') +
         '<p class="text-sm text-slate-600 leading-relaxed">UHB has a three-year partnership with the Institute for Healthcare Improvement (IHI) to embed continuous quality improvement across the Trust. This is supported by an in-house Improvement Team, helping colleagues use improvement methods in day-to-day care.</p>' +
         '<p class="text-xs text-slate-500 mt-3"><a href="https://qehb.sharepoint.com/sites/UHBImprove" target="_blank" rel="noopener" class="font-semibold text-teal-700 hover:underline">Improvement at UHB (intranet)</a> <span class="text-slate-400">— this link works only on the UHB network/intranet.</span></p>',
         'border-teal-200'
