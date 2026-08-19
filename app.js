@@ -1782,7 +1782,6 @@ window.importSurveyCSV = importSurveyCSV;
 window.updateSurveySummary = updateSurveySummary;
 window.updateSurveyTitle = updateSurveyTitle;
 window.aiAnalyseSurvey = aiAnalyseSurvey;
-window.exportToKaizen = exportToKaizen;
 window.exportToA3 = exportToA3;
 
 window.saveData = async function(skipHistory = false) {
