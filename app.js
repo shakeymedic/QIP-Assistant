@@ -2165,6 +2165,45 @@ async function checkShareLink() {
     return false;
 }
 
+// ─── Shared helper: fetch + enrich EVERY project across every user ───────────
+// Used by both the Master Admin dashboard and (below) the QIP Lead dashboard,
+// since a Departmental QIP Lead should be able to see every QIP anyone has
+// started, not just ones they were individually invited to.
+async function fetchAllProjectsEnriched() {
+    const snap = await getDocs(collectionGroup(db, 'projects'));
+    const rows = [];
+    const ownerUids = new Set();
+
+    snap.forEach(docSnap => {
+        const pathParts = docSnap.ref.path.split('/');
+        if (pathParts.length < 4 || pathParts[0] !== 'users' || pathParts[2] !== 'projects') return;
+        const ownerUid = pathParts[1];
+        const projectId = docSnap.id;
+        const d = docSnap.data() || {};
+        const c = d.checklist || {};
+        const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k => c[k]).length;
+        const hasPdsa = (d.pdsa || []).length > 0;
+        const hasData = (d.chartData || []).length > 0;
+        const progress = Math.round(((filled / 6) * 50) + (hasPdsa ? 25 : 0) + (hasData ? 25 : 0));
+        ownerUids.add(ownerUid);
+        rows.push({ ownerUid, projectId, projectTitle: d.meta?.title || 'Untitled QIP', traineeName: null, _data: d, _progress: progress });
+    });
+
+    // Resolve owner display names from qipUsers (falls back to a short uid if unknown)
+    const nameByUid = {};
+    for (const uid of ownerUids) {
+        try {
+            const uSnap = await getDoc(doc(db, 'qipUsers', uid));
+            const ud = uSnap.exists() ? uSnap.data() : null;
+            nameByUid[uid] = ud?.displayName || ud?.email || `User (${uid.substring(0, 8)}\u2026)`;
+        } catch (e) {
+            nameByUid[uid] = `User (${uid.substring(0, 8)}\u2026)`;
+        }
+    }
+    rows.forEach(r => { r.traineeName = nameByUid[r.ownerUid]; });
+    return rows;
+}
+
 // ─── QIP Lead status check ───────────────────────────────────────────────────
 async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db) return;
@@ -2183,29 +2222,44 @@ async function checkQIPLeadStatus(user) {
             }
         }
 
-        // Get projects they've been individually invited to as QIP Lead
-        const projects = await getQIPLeadProjects(db, user.email);
-        console.log('[QIPLead] invited projects:', projects.length, 'hasLeadRole:', hasLeadRole);
+        let enriched = [];
+        if (hasLeadRole) {
+            // Interim behaviour (per Jake, 2026-08-19): any account with the qip_lead
+            // role sees EVERY QIP anyone has started, not just individually-invited
+            // ones. This will later be narrowed to a site/region-based link instead.
+            try {
+                enriched = await fetchAllProjectsEnriched();
+                console.log('[QIPLead] all-projects fetch:', enriched.length);
+            } catch (allErr) {
+                console.warn('[QIPLead] Could not fetch all projects:', allErr);
+                if (allErr?.code === 'permission-denied') {
+                    showToast('Could not load all QIP projects — Firestore permission denied on the projects collection group.', 'error');
+                }
+            }
+        } else {
+            // No general role — fall back to the legacy per-project invite list
+            // (qipLeadInvites/{email}) so anyone invited that way still sees theirs.
+            const projects = await getQIPLeadProjects(db, user.email);
+            console.log('[QIPLead] invited projects:', projects.length);
+            for (const proj of projects) {
+                try {
+                    const snap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
+                    if (snap.exists()) {
+                        const d = snap.data();
+                        const c = d.checklist || {};
+                        const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k=>c[k]).length;
+                        const hasPdsa = (d.pdsa||[]).length > 0;
+                        const hasData = (d.chartData||[]).length > 0;
+                        const progress = Math.round(((filled/6)*50) + (hasPdsa?25:0) + (hasData?25:0));
+                        enriched.push({ ...proj, _data: d, _progress: progress });
+                    }
+                } catch(e) { enriched.push({ ...proj, _data: {}, _progress: 0 }); }
+            }
+        }
 
         // If no role and no invites, nothing to do
-        if (!hasLeadRole && !projects.length) return;
+        if (!hasLeadRole && !enriched.length) return;
 
-        // Load data for each individually invited project
-        const enriched = [];
-        for (const proj of projects) {
-            try {
-                const snap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
-                if (snap.exists()) {
-                    const d = snap.data();
-                    const c = d.checklist || {};
-                    const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k=>c[k]).length;
-                    const hasPdsa = (d.pdsa||[]).length > 0;
-                    const hasData = (d.chartData||[]).length > 0;
-                    const progress = Math.round(((filled/6)*50) + (hasPdsa?25:0) + (hasData?25:0));
-                    enriched.push({ ...proj, _data: d, _progress: progress });
-                }
-            } catch(e) { enriched.push({ ...proj, _data: {}, _progress: 0 }); }
-        }
         state.qipLeadProjects = enriched;
         state.isQIPLead = hasLeadRole || enriched.length > 0;
 
@@ -2219,10 +2273,12 @@ async function checkQIPLeadStatus(user) {
             const badgeText = document.getElementById('qip-lead-badge-text');
             if (badge) badge.classList.remove('hidden');
             if (badgeText) {
-                if (enriched.length > 0) {
+                if (hasLeadRole && enriched.length > 0) {
+                    badgeText.textContent = `You have access to all ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} across the department as Departmental QIP Lead`;
+                } else if (enriched.length > 0) {
                     badgeText.textContent = `You have access to ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
                 } else {
-                    badgeText.textContent = 'Departmental QIP Lead — no projects have been shared with you yet';
+                    badgeText.textContent = 'Departmental QIP Lead — no QIP projects exist yet';
                 }
             }
             // Show QIP Lead Overview nav button + sidebar home button

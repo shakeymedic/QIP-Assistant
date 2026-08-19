@@ -1,6 +1,6 @@
-const CACHE_NAME = 'rcem-qip-v3.18.4';
-const STATIC_CACHE = 'rcem-qip-static-v3.18.4';
-const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.18.4';
+const CACHE_NAME = 'rcem-qip-v3.19.0';
+const STATIC_CACHE = 'rcem-qip-static-v3.19.0';
+const DYNAMIC_CACHE = 'rcem-qip-dynamic-v3.19.0';
 
 const STATIC_ASSETS = [
     '/',
