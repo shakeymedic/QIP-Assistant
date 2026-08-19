@@ -39,6 +39,7 @@ export function renderAll(view) {
             if (typeof renderPatientTracker === 'function' && state.projectData) renderPatientTracker(state.projectData, window.saveData);
             break; 
         case 'team': renderTeam(); break;
+        case 'charter': renderCharter(); break;
         case 'tools': renderTools(); break;
         case 'data': renderDataView(); break;       
         case 'results': renderResultsView(); break;
@@ -46,6 +47,7 @@ export function renderAll(view) {
         case 'surveys': renderSurveys(); break;
         case 'stakeholders': renderStakeholders(); break;
         case 'gantt': renderGantt(); break;
+        case 'action-plan': renderActionPlan(); break;
         case 'green': 
             if (typeof renderGreenCalculator === 'function') renderGreenCalculator(); 
             break;         
@@ -61,7 +63,7 @@ export function renderAll(view) {
 function updateNavigationUI(currentView) {
     // Grey out project nav items when no project is loaded
     // 'learn' intentionally excluded — always accessible regardless of project state
-    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'tools', 'pdsa', 'data', 'results', 'publish', 'surveys', 'stakeholders', 'gantt', 'supervisor', 'green', 'full'];
+    const allProjectNavIds = ['dashboard', 'checklist', 'team', 'charter', 'tools', 'pdsa', 'data', 'results', 'publish', 'surveys', 'stakeholders', 'gantt', 'action-plan', 'supervisor', 'green', 'full'];
     const hasProject = !!state.projectData;
     allProjectNavIds.forEach(id => {
         const btn = document.getElementById(`nav-${id}`);
@@ -2350,7 +2352,270 @@ export function toggleStakeView() {
 window.renderStakeholders = renderStakeholders;
 
 // ==========================================
-// 8. GANTT VIEW
+// 8. PROJECT CHARTER
+// ==========================================
+
+const CHARTER_PHASES = [
+    'Start Out', 'Define & Scope', 'Measure & Understand',
+    'Design & Plan', 'Pilot & Implement', 'Sustain & Share'
+];
+
+function ensureCharter(d) {
+    if (!d.charter || typeof d.charter !== 'object') d.charter = {};
+    const c = d.charter;
+    const defaults = {
+        preparedBy: '', date: '', execSponsor: '', aim: '', rationale: '', keyAreaOfFocus: '',
+        startDate: '', endDate: '', objectives: '', scopeIn: '', scopeOut: '', benefits: [], costs: [],
+        milestones: CHARTER_PHASES.map(phase => ({ phase, targetDate: '' })),
+        team: [], additionalResources: '', lineManagerName: '', lineManagerSignatureDate: ''
+    };
+    Object.keys(defaults).forEach(key => {
+        if (c[key] === undefined || c[key] === null) c[key] = defaults[key];
+    });
+    if (!Array.isArray(c.benefits)) c.benefits = [];
+    if (!Array.isArray(c.costs)) c.costs = [];
+    if (!Array.isArray(c.team)) c.team = [];
+    if (!Array.isArray(c.milestones) || c.milestones.length !== CHARTER_PHASES.length) {
+        c.milestones = defaults.milestones;
+    } else {
+        c.milestones = CHARTER_PHASES.map((phase, index) => ({
+            phase,
+            targetDate: c.milestones[index]?.targetDate || ''
+        }));
+    }
+    if (!c.aim && d.checklist?.aim) c.aim = d.checklist.aim;
+    if (!c.rationale && d.checklist?.problem_desc) c.rationale = d.checklist.problem_desc;
+    if (c.team.length === 0 && Array.isArray(d.teamMembers) && d.teamMembers.length > 0) {
+        c.team = d.teamMembers.map(member => ({
+            name: member.name || '',
+            role: member.role || member.grade || '',
+            timeCommitment: ''
+        }));
+    }
+    return c;
+}
+
+function charterInput(label, field, value, type = 'text', placeholder = '') {
+    return `
+        <label class="block">
+            <span class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">${label}</span>
+            <input type="${type}" value="${escapeHtml(value || '')}" placeholder="${escapeHtml(placeholder)}"
+                onchange="window.updateCharterField('${field}', this.value)"
+                class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-rcem-purple focus:border-rcem-purple">
+        </label>
+    `;
+}
+
+function charterTextarea(label, field, value, placeholder = '', extraClass = '') {
+    return `
+        <label class="block ${extraClass}">
+            <span class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">${label}</span>
+            <textarea onchange="window.updateCharterField('${field}', this.value)" placeholder="${escapeHtml(placeholder)}"
+                class="w-full p-2.5 border border-slate-300 rounded-lg text-sm min-h-[100px] focus:ring-2 focus:ring-rcem-purple focus:border-rcem-purple">${escapeHtml(value || '')}</textarea>
+        </label>
+    `;
+}
+
+export function renderCharter() {
+    const d = state.projectData;
+    const container = document.getElementById('charter-container');
+    if (!d || !container) return;
+    const c = ensureCharter(d);
+    const teamSyncAvailable = Array.isArray(d.teamMembers) && d.teamMembers.length > 0;
+
+    container.innerHTML = `
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                    <i data-lucide="file-signature" class="text-rcem-purple"></i> Project Charter
+                </h2>
+                <p class="text-slate-500 text-sm mt-1">Define the purpose, scope, benefits, resources and governance for your QIP.</p>
+            </div>
+            <button onclick="window.printCharter()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors">
+                <i data-lucide="printer" class="w-4 h-4"></i> Print / Export Charter
+            </button>
+        </header>
+
+        <div class="space-y-6">
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="clipboard-pen-line" class="w-4 h-4 text-indigo-500"></i> Project Details</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    ${charterInput('Prepared by', 'preparedBy', c.preparedBy, 'text', 'Name')}
+                    ${charterInput('Date', 'date', c.date, 'date')}
+                    ${charterInput('Executive sponsor', 'execSponsor', c.execSponsor, 'text', 'Name / role')}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    ${charterTextarea('Aim', 'aim', c.aim, 'SMART aim statement')}
+                    ${charterTextarea('Rationale', 'rationale', c.rationale, 'Why is this work needed?')}
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                    ${charterInput('Key area of focus', 'keyAreaOfFocus', c.keyAreaOfFocus, 'text', 'e.g. patient safety')}
+                    ${charterInput('Start date', 'startDate', c.startDate, 'date')}
+                    ${charterInput('End date', 'endDate', c.endDate, 'date')}
+                </div>
+                <div class="mt-4">${charterTextarea('Objectives', 'objectives', c.objectives, 'Enter SMART objectives, one per line')}</div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="scan-line" class="w-4 h-4 text-cyan-500"></i> Project Scope</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    ${charterTextarea('Project Scope – IN', 'scopeIn', c.scopeIn, 'Included services, patients, processes and locations')}
+                    ${charterTextarea('Project Scope – OUT', 'scopeOut', c.scopeOut, 'Explicit exclusions and boundaries')}
+                </div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-center gap-4 mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="sparkles" class="w-4 h-4 text-emerald-500"></i> Benefits</h3><p class="text-xs text-slate-500 mt-1">What value will the project deliver and for whom?</p></div>
+                    <button onclick="window.addCharterBenefit()" class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-emerald-600"><i data-lucide="plus" class="w-4 h-4"></i> Add benefit</button>
+                </div>
+                ${c.benefits.length ? `
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Benefit</th><th class="px-3 py-2 text-left">Measure</th><th class="px-3 py-2 text-left">Stakeholder</th><th class="px-2 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100">${c.benefits.map((row, index) => `<tr><td class="p-1"><input value="${escapeHtml(row.benefit || '')}" onchange="window.updateCharterBenefit(${index}, 'benefit', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Expected benefit"></td><td class="p-1"><input value="${escapeHtml(row.measure || '')}" onchange="window.updateCharterBenefit(${index}, 'measure', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="How it will be measured"></td><td class="p-1"><input value="${escapeHtml(row.stakeholder || '')}" onchange="window.updateCharterBenefit(${index}, 'stakeholder', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Who benefits"></td><td class="p-1 text-center"><button onclick="window.removeCharterBenefit(${index})" class="text-slate-300 hover:text-red-500 p-1" title="Remove benefit"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>
+                ` : '<p class="text-sm text-slate-500 italic">No benefits added yet.</p>'}
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-center gap-4 mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="wallet-cards" class="w-4 h-4 text-amber-500"></i> Costs</h3><p class="text-xs text-slate-500 mt-1">Record estimated costs and accountable stakeholders.</p></div>
+                    <button onclick="window.addCharterCost()" class="bg-amber-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-amber-600"><i data-lucide="plus" class="w-4 h-4"></i> Add cost</button>
+                </div>
+                ${c.costs.length ? `
+                    <div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Description</th><th class="px-3 py-2 text-left">Estimated cost</th><th class="px-3 py-2 text-left">Stakeholder</th><th class="px-2 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100">${c.costs.map((row, index) => `<tr><td class="p-1"><input value="${escapeHtml(row.description || '')}" onchange="window.updateCharterCost(${index}, 'description', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Item / resource"></td><td class="p-1"><input value="${escapeHtml(row.estimatedCost || '')}" onchange="window.updateCharterCost(${index}, 'estimatedCost', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="e.g. £250"></td><td class="p-1"><input value="${escapeHtml(row.stakeholder || '')}" onchange="window.updateCharterCost(${index}, 'stakeholder', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Budget holder"></td><td class="p-1 text-center"><button onclick="window.removeCharterCost(${index})" class="text-slate-300 hover:text-red-500 p-1" title="Remove cost"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>
+                ` : '<p class="text-sm text-slate-500 italic">No costs added yet.</p>'}
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="milestone" class="w-4 h-4 text-violet-500"></i> QSIR Milestones</h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${c.milestones.map((milestone, index) => `<label class="bg-slate-50 border border-slate-200 rounded-lg p-3"><span class="block text-sm font-medium text-slate-700 mb-2">${escapeHtml(milestone.phase)}</span><input type="date" value="${escapeHtml(milestone.targetDate || '')}" onchange="window.updateCharterMilestone(${index}, this.value)" class="w-full p-2 border border-slate-300 rounded text-sm"></label>`).join('')}</div>
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4"><div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users-round" class="w-4 h-4 text-pink-500"></i> Project Team</h3><p class="text-xs text-slate-500 mt-1">Team members and their planned contribution.</p></div><div class="flex gap-2"><button onclick="window.addCharterTeamMember()" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-indigo-700"><i data-lucide="plus" class="w-4 h-4"></i> Add member</button>${teamSyncAvailable ? '<button onclick="window.syncCharterTeam()" class="bg-pink-50 text-pink-700 border border-pink-200 px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-pink-100"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync QI Team</button>' : ''}</div></div>
+                ${c.team.length ? `<div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Name</th><th class="px-3 py-2 text-left">Role</th><th class="px-3 py-2 text-left">Time commitment</th><th class="px-2 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100">${c.team.map((member, index) => `<tr><td class="p-1"><input value="${escapeHtml(member.name || '')}" onchange="window.updateCharterTeamMember(${index}, 'name', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Name"></td><td class="p-1"><input value="${escapeHtml(member.role || '')}" onchange="window.updateCharterTeamMember(${index}, 'role', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Role"></td><td class="p-1"><input value="${escapeHtml(member.timeCommitment || '')}" onchange="window.updateCharterTeamMember(${index}, 'timeCommitment', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="e.g. 2 hours/week"></td><td class="p-1 text-center"><button onclick="window.removeCharterTeamMember(${index})" class="text-slate-300 hover:text-red-500 p-1" title="Remove team member"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-slate-500 italic">No team members added yet.</p>'}
+            </section>
+
+            <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="badge-check" class="w-4 h-4 text-emerald-500"></i> Resources and Approval</h3>
+                ${charterTextarea('Additional resources', 'additionalResources', c.additionalResources, 'Equipment, facilities, training, data support or other resources required')}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    ${charterInput('Line manager name', 'lineManagerName', c.lineManagerName, 'text', 'Name')}
+                    ${charterInput('Line manager signature date', 'lineManagerSignatureDate', c.lineManagerSignatureDate, 'date')}
+                </div>
+            </section>
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+function saveCharter() { if (window.saveData) window.saveData(); }
+
+export function updateCharterField(field, value) {
+    const c = ensureCharter(state.projectData);
+    c[field] = value;
+    saveCharter();
+}
+export function addCharterBenefit() { const c = ensureCharter(state.projectData); c.benefits.push({ benefit: '', measure: '', stakeholder: '' }); saveCharter(); renderCharter(); }
+export function updateCharterBenefit(index, field, value) { const row = ensureCharter(state.projectData).benefits[index]; if (row) { row[field] = value; saveCharter(); } }
+export function removeCharterBenefit(index) { ensureCharter(state.projectData).benefits.splice(index, 1); saveCharter(); renderCharter(); }
+export function addCharterCost() { const c = ensureCharter(state.projectData); c.costs.push({ description: '', estimatedCost: '', stakeholder: '' }); saveCharter(); renderCharter(); }
+export function updateCharterCost(index, field, value) { const row = ensureCharter(state.projectData).costs[index]; if (row) { row[field] = value; saveCharter(); } }
+export function removeCharterCost(index) { ensureCharter(state.projectData).costs.splice(index, 1); saveCharter(); renderCharter(); }
+export function updateCharterMilestone(index, value) { const row = ensureCharter(state.projectData).milestones[index]; if (row) { row.targetDate = value; saveCharter(); } }
+export function addCharterTeamMember() { const c = ensureCharter(state.projectData); c.team.push({ name: '', role: '', timeCommitment: '' }); saveCharter(); renderCharter(); }
+export function updateCharterTeamMember(index, field, value) { const row = ensureCharter(state.projectData).team[index]; if (row) { row[field] = value; saveCharter(); } }
+export function removeCharterTeamMember(index) { ensureCharter(state.projectData).team.splice(index, 1); saveCharter(); renderCharter(); }
+export function syncCharterTeam() {
+    const d = state.projectData;
+    const c = ensureCharter(d);
+    const existingCommitments = new Map(c.team.map(member => [`${member.name}|${member.role}`, member.timeCommitment || '']));
+    c.team = (d.teamMembers || []).map(member => ({
+        name: member.name || '', role: member.role || member.grade || '',
+        timeCommitment: existingCommitments.get(`${member.name || ''}|${member.role || member.grade || ''}`) || ''
+    }));
+    saveCharter(); renderCharter(); showToast('Charter team synced from QI Team', 'success');
+}
+
+export function printCharter() {
+    const d = state.projectData;
+    if (!d) return;
+    const c = ensureCharter(d);
+    const section = (title, content) => `<section><h2>${title}</h2><div class="box">${content || 'Not specified.'}</div></section>`;
+    const text = value => escapeHtml(value || '').replace(/\n/g, '<br>');
+    const rows = (items, fields) => items.length ? `<table><thead><tr>${fields.map(field => `<th>${field.label}</th>`).join('')}</tr></thead><tbody>${items.map(item => `<tr>${fields.map(field => `<td>${text(item[field.key])}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>Not specified.</p>';
+    const popup = window.open('', '_blank');
+    if (!popup) { showToast('Please allow pop-ups to export the project charter', 'error'); return; }
+    popup.document.write(`<!DOCTYPE html><html><head><title>Project Charter</title><style>body{font-family:Arial,sans-serif;color:#1e293b;line-height:1.45;padding:32px;max-width:1000px;margin:auto}.header{border-bottom:3px solid #2d2e83;padding-bottom:16px;margin-bottom:24px}h1{color:#2d2e83;margin:0 0 6px;font-size:26px}h2{color:#2d2e83;font-size:16px;margin:22px 0 8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.meta{background:#f8fafc;border:1px solid #cbd5e1;padding:10px;border-radius:4px}.label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:bold}.box{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:4px;min-height:28px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}th{background:#eef2ff;color:#312e81}.print{display:block;margin:20px auto;padding:10px 18px;background:#2d2e83;color:white;border:0;border-radius:4px;cursor:pointer}@media print{body{padding:0}.print{display:none}.grid{grid-template-columns:repeat(3,1fr)}section{break-inside:avoid}}</style></head><body><div class="header"><h1>Project Charter</h1><p><strong>${text(d.meta?.title || 'Untitled QIP')}</strong></p></div><div class="grid"><div class="meta"><div class="label">Prepared by</div>${text(c.preparedBy)}</div><div class="meta"><div class="label">Date</div>${text(c.date)}</div><div class="meta"><div class="label">Executive sponsor</div>${text(c.execSponsor)}</div></div>${section('Aim', text(c.aim))}${section('Rationale', text(c.rationale))}<div class="grid"><div class="meta"><div class="label">Key area of focus</div>${text(c.keyAreaOfFocus)}</div><div class="meta"><div class="label">Start date</div>${text(c.startDate)}</div><div class="meta"><div class="label">End date</div>${text(c.endDate)}</div></div>${section('Objectives', text(c.objectives))}<div class="grid">${section('Project Scope – IN', text(c.scopeIn))}${section('Project Scope – OUT', text(c.scopeOut))}</div>${section('Benefits', rows(c.benefits, [{ key: 'benefit', label: 'Benefit' }, { key: 'measure', label: 'Measure' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('Costs', rows(c.costs, [{ key: 'description', label: 'Description' }, { key: 'estimatedCost', label: 'Estimated cost' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('QSIR Milestones', rows(c.milestones, [{ key: 'phase', label: 'Phase' }, { key: 'targetDate', label: 'Target completion date' }]))}${section('Team', rows(c.team, [{ key: 'name', label: 'Name' }, { key: 'role', label: 'Role' }, { key: 'timeCommitment', label: 'Time commitment' }]))}${section('Additional resources', text(c.additionalResources))}<div class="grid"><div class="meta"><div class="label">Line manager name</div>${text(c.lineManagerName)}</div><div class="meta"><div class="label">Signature date</div>${text(c.lineManagerSignatureDate)}</div></div><button class="print" onclick="window.print()">Print to PDF</button><script>window.onload=function(){setTimeout(function(){window.print()},500)}</script></body></html>`);
+    popup.document.close();
+}
+
+// ==========================================
+// 9. ACTION PLAN
+// ==========================================
+
+export function renderActionPlan() {
+    const d = state.projectData;
+    const container = document.getElementById('action-plan-container');
+    if (!d || !container) return;
+    if (!Array.isArray(d.actionPlan)) d.actionPlan = [];
+    const changeIdeas = Array.isArray(d.changeIdeas) ? d.changeIdeas : [];
+    const statusOptions = [
+        ['not-started', 'Not started'], ['in-progress', 'In progress'], ['done', 'Done']
+    ];
+
+    container.innerHTML = `
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div><h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="list-todo" class="text-cyan-500"></i> Action Plan</h2><p class="text-slate-500 text-sm mt-1">Turn objectives and change ideas into visible, owned actions.</p></div>
+            <button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"><i data-lucide="plus" class="w-4 h-4"></i> Add action</button>
+        </header>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select onchange="window.updateActionPlanRow('${row.id}', 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow('${row.id}', 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow('${row.id}', 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select onchange="window.updateActionPlanRow('${row.id}', 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow('${row.id}')" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
+        </div>
+    `;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
+export function addActionPlanRow() {
+    const d = state.projectData;
+    if (!Array.isArray(d.actionPlan)) d.actionPlan = [];
+    d.actionPlan.push({ id: `action_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, objective: '', action: '', byWhom: '', byWhen: '', possibleIssues: '', status: 'not-started', changeIdeaId: null });
+    if (window.saveData) window.saveData();
+    renderActionPlan();
+}
+export function updateActionPlanRow(id, field, value) {
+    const row = (state.projectData.actionPlan || []).find(action => action.id === id);
+    if (row) { row[field] = value; if (window.saveData) window.saveData(); }
+}
+export function deleteActionPlanRow(id) {
+    window.showConfirmDialog('Delete this action from the plan?', () => {
+        state.projectData.actionPlan = (state.projectData.actionPlan || []).filter(action => action.id !== id);
+        if (window.saveData) window.saveData();
+        renderActionPlan();
+        showToast('Action deleted', 'info');
+    }, 'Delete', 'Delete Action');
+}
+
+window.renderCharter = renderCharter;
+window.updateCharterField = updateCharterField;
+window.addCharterBenefit = addCharterBenefit;
+window.updateCharterBenefit = updateCharterBenefit;
+window.removeCharterBenefit = removeCharterBenefit;
+window.addCharterCost = addCharterCost;
+window.updateCharterCost = updateCharterCost;
+window.removeCharterCost = removeCharterCost;
+window.updateCharterMilestone = updateCharterMilestone;
+window.addCharterTeamMember = addCharterTeamMember;
+window.updateCharterTeamMember = updateCharterTeamMember;
+window.removeCharterTeamMember = removeCharterTeamMember;
+window.syncCharterTeam = syncCharterTeam;
+window.printCharter = printCharter;
+window.renderActionPlan = renderActionPlan;
+window.addActionPlanRow = addActionPlanRow;
+window.updateActionPlanRow = updateActionPlanRow;
+window.deleteActionPlanRow = deleteActionPlanRow;
+
+
+// ==========================================
+// 10. GANTT VIEW
 // ==========================================
 
 let ganttZoomLevel = 'weeks';

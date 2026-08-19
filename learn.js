@@ -228,7 +228,15 @@ function tabRCEM() {
             'mb-6'
         );
 
+    var uhbPartnership = card(
+        sectionHead('heart-handshake', 'UHB's Improvement Partnership', 'teal') +
+        '<p class="text-sm text-slate-600 leading-relaxed">UHB has a three-year partnership with the Institute for Healthcare Improvement (IHI) to embed continuous quality improvement across the Trust. This is supported by an in-house Improvement Team, helping colleagues use improvement methods in day-to-day care.</p>' +
+        '<p class="text-xs text-slate-500 mt-3"><a href="https://qehb.sharepoint.com/sites/UHBImprove" target="_blank" rel="noopener" class="font-semibold text-teal-700 hover:underline">Improvement at UHB (intranet)</a> <span class="text-slate-400">— this link works only on the UHB network/intranet.</span></p>',
+        'border-teal-200'
+    );
+
     return '<div class="space-y-6">' +
+        uhbPartnership +
         card(sectionHead('layers', 'What is Expected at Each Stage?', 'blue') + stages) +
         slo11 + arcp +
         infoBox('indigo',
@@ -465,7 +473,7 @@ function tabMethods() {
     var measures = card(
         sectionHead('bar-chart-2', 'Measurement Framework', 'orange') +
         '<p class="text-sm text-slate-600 mb-3 leading-relaxed">Every QIP needs all three types of measure tracked over time. Plotted on a run chart or SPC chart, ' +
-        'they tell you whether your change is working, whether the process is being followed, and whether you are causing unintended harm.</p>' +
+        'they tell you whether your change is working, whether the process is being followed, and whether you are causing unintended harm. The SPC chart checks four UHB special-cause rules: control-limit breaches, 8-point runs, 2 of 3 points beyond 2σ on one side, and unusually large moving ranges.</p>' +
         '<div class="grid grid-cols-1 sm:grid-cols-3 gap-3">' +
         '<div class="bg-blue-50 border border-blue-200 rounded-xl p-4">' +
         '<div class="font-bold text-sm text-blue-800 mb-1">Outcome Measure</div>' +
@@ -536,10 +544,10 @@ function tabTools() {
         },
         {
             icon: 'activity', color: 'indigo', name: 'SPC Chart (Statistical Process Control)',
-            what: 'A run chart with statistically calculated control limits (UCL/LCL, ±3σ). Points outside control limits represent "special cause variation" — strong statistical evidence of real change in your process.',
+            what: 'A run chart with statistically calculated control limits (UCL/LCL, ±3σ). The app checks four UHB SPC signals: a point outside limits, 8 points on one side of the mean, 2 of 3 points beyond 2σ on the same side, and a moving range greater than 3.27 × the average moving range.',
             when: 'When you have ≥15–20 data points and want to demonstrate statistical evidence of improvement for your FRCEM write-up.',
             nav: 'Data → Chart type → SPC',
-            tips: 'For FRCEM Excellent, you need annotated run or SPC charts. SPC charts are particularly persuasive. Aim for data collected at regular intervals throughout your project.'
+            tips: 'For FRCEM Excellent, you need annotated run or SPC charts. SPC charts are particularly persuasive. Aim for data collected at regular intervals throughout your project and investigate every special-cause signal in context.'
         },
         {
             icon: 'users', color: 'teal', name: 'Stakeholder Analysis',
@@ -697,6 +705,7 @@ function tabResources() {
             head: 'IHI (Institute for Healthcare Improvement)', icon: 'flask-conical', color: 'blue',
             links: [
                 ['https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx', 'blue', 'IHI Open School — Free QI Courses', 'Free online certificate in Quality Improvement and Patient Safety. Includes QI 101–103 (Model for Improvement, PDSA cycles, run charts). Highly recommended for all trainees.', 'Free'],
+                ['https://www.ihi.org/', 'blue', 'IHI Open School', 'Free online courses in improvement science, including practical learning on the Model for Improvement, PDSA cycles, measurement and patient safety.', 'Free'],
                 ['https://www.ihi.org/library/model-for-improvement', 'blue', 'IHI Model for Improvement', 'The three foundational questions and PDSA cycle methodology explained in detail with examples.', 'Reference'],
                 ['https://www.ihi.org/library/tools/plan-do-study-act-pdsa-worksheet', 'blue', 'IHI PDSA Worksheet', 'Downloadable PDSA cycle documentation worksheet. Use to structure each cycle in your QIP.', 'Tool'],
                 ['https://www.ihi.org/library/model-for-improvement/testing-changes', 'blue', 'Testing Changes with PDSA', 'IHI guidance on running effective PDSA tests of change, including scaling, timing, and iteration strategy.', 'Guide'],
@@ -754,7 +763,7 @@ function tabGlossary() {
         ['Audit Cycle', 'A baseline measurement against a standard, followed by an intervention, followed by a re-measurement. Distinguished from QIP in that it does not require iterative PDSA testing. Required as the baseline data for a QIP but not sufficient on its own.'],
         ['Balancing Measure', 'A metric that monitors unintended consequences of your change. Answers: "What might get worse as a result of our improvement?" e.g. If you improve sepsis treatment time, does overall triage throughput decrease?'],
         ['Change Idea', 'A specific intervention to be tested through a PDSA cycle. Linked to a secondary driver in the driver diagram. Multiple change ideas can be tested within one project, each with their own iterative cycles.'],
-        ['Control Chart (SPC Chart)', 'A run chart with statistically calculated upper and lower control limits (UCL/LCL at ±3σ). Points outside these limits represent "special cause variation" — statistical evidence of a genuine change in the process.'],
+        ['Control Chart (SPC Chart)', 'A run chart with statistically calculated upper and lower control limits (UCL/LCL at ±3σ). The app checks four special-cause rules: a point outside limits, 8 points on one side of the mean, 2 of 3 consecutive points beyond 2σ on the same side, and a moving range greater than 3.27 × the average moving range.'],
         ['Driver Diagram', 'A visual map connecting the project Aim to Primary Drivers (main categories), Secondary Drivers (specific contributing factors), and Change Ideas (interventions). The backbone of any well-structured QIP.'],
         ['FMEA', 'Failure Mode and Effects Analysis. A proactive risk assessment tool identifying what could go wrong with a proposed change, scored by Likelihood × Severity × Detectability to produce a Risk Priority Number (RPN).'],
         ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (People, Process, Environment, Equipment, Policy) to identify why a problem exists.'],

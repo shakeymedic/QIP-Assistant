@@ -992,28 +992,64 @@ function renderSPCChart(ctx, canvasId) {
     const ucl = avg + (2.66 * avgMR);
     const lcl = Math.max(0, avg - (2.66 * avgMR));
 
-    // Detect 8-in-a-row above or below mean
-    const spcSignals = new Array(data.length).fill(null);
+    // UHB SPC tool rules: (1) point outside control limits, (2) 8 in a row
+    // on one side of the mean, (3) 2 of 3 consecutive points beyond the 2σ
+    // line on the same side, and (4) moving range greater than 3.27 × average MR.
+    const spcSignals = Array.from({ length: data.length }, () => []);
+    const addSignal = (index, signal) => {
+        if (!spcSignals[index].includes(signal)) spcSignals[index].push(signal);
+    };
+
+    // Rule 2 — 8 consecutive points above or below the mean.
     let spcRunSide = null, spcRunStart = 0, spcRunLen = 0;
     for (let i = 0; i < data.length; i++) {
         const side = data[i] > avg ? 'above' : data[i] < avg ? 'below' : null;
         if (side && side === spcRunSide) {
             spcRunLen++;
-            if (spcRunLen >= 8) { for (let j = spcRunStart; j <= i; j++) { if (!spcSignals[j]) spcSignals[j] = 'run'; } }
+            if (spcRunLen >= 8) {
+                for (let j = spcRunStart; j <= i; j++) addSignal(j, 'run');
+            }
         } else {
             spcRunSide = side || spcRunSide;
             if (side) { spcRunStart = i; spcRunLen = 1; }
         }
     }
-    // Mark out-of-control points
-    data.forEach((v, i) => { if (v > ucl || v < lcl) spcSignals[i] = 'ooc'; });
 
-    const spcPointColors = data.map((v, i) => {
-        if (spcSignals[i] === 'ooc') return '#ef4444';
-        if (spcSignals[i] === 'run') return '#f59e0b';
+    // Rule 1 — outside UCL/LCL.
+    data.forEach((value, index) => {
+        if (value > ucl || value < lcl) addSignal(index, 'ooc');
+    });
+
+    // Rule 3 — 2 of any 3 consecutive points beyond 2σ (zone A) on the
+    // same side of the mean. sigma = avgMR / 1.128 for an individuals chart;
+    // the equivalent 2σ boundary is mean ± 1.77 × avgMR.
+    const sigma = avgMR / 1.128;
+    const upperTwoSigma = avg + (2 * sigma);
+    const lowerTwoSigma = avg - (2 * sigma);
+    for (let i = 0; i <= data.length - 3; i++) {
+        const windowPoints = [i, i + 1, i + 2];
+        const upper = windowPoints.filter(index => data[index] > upperTwoSigma);
+        const lower = windowPoints.filter(index => data[index] < lowerTwoSigma);
+        if (upper.length >= 2) upper.forEach(index => addSignal(index, 'twoOfThree'));
+        if (lower.length >= 2) lower.forEach(index => addSignal(index, 'twoOfThree'));
+    }
+
+    // Rule 4 — unusually large moving range. mR[i] corresponds to the
+    // change from point i - 1 to point i, so the signal is attached to i.
+    const movingRanges = data.map((value, index) => index === 0 ? null : Math.abs(value - data[index - 1]));
+    const movingRangeLimit = 3.27 * avgMR;
+    movingRanges.forEach((range, index) => {
+        if (range !== null && range > movingRangeLimit) addSignal(index, 'movingRange');
+    });
+
+    const spcPointColors = spcSignals.map(signals => {
+        if (signals.includes('ooc')) return '#ef4444';
+        if (signals.includes('run')) return '#f59e0b';
+        if (signals.includes('twoOfThree')) return '#8b5cf6';
+        if (signals.includes('movingRange')) return '#0f766e';
         return '#64748b';
     });
-    const spcPointRadii = spcSignals.map(s => s ? 8 : 5);
+    const spcPointRadii = spcSignals.map(signals => signals.length ? 8 : 5);
 
     let annotations = {
         uclBand: {
@@ -1070,17 +1106,33 @@ function renderSPCChart(ctx, canvasId) {
             maintainAspectRatio: false, 
             plugins: { 
                 title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 20 } }, 
-                legend: { display: false },
+                legend: {
+                    display: true,
+                    onClick: () => {},
+                    labels: {
+                        usePointStyle: true,
+                        boxWidth: 9,
+                        padding: 14,
+                        font: { size: 10 },
+                        generateLabels: () => [
+                            { text: 'Rule 1: outside limits', fillStyle: '#ef4444', strokeStyle: '#ef4444', pointStyle: 'circle' },
+                            { text: 'Rule 2: 8-point run', fillStyle: '#f59e0b', strokeStyle: '#f59e0b', pointStyle: 'circle' },
+                            { text: 'Rule 3: 2 of 3 beyond 2σ', fillStyle: '#8b5cf6', strokeStyle: '#8b5cf6', pointStyle: 'circle' },
+                            { text: 'Rule 4: moving range', fillStyle: '#0f766e', strokeStyle: '#0f766e', pointStyle: 'circle' }
+                        ]
+                    }
+                },
                 annotation: { annotations: annotations },
                 tooltip: {
                     callbacks: {
                         afterLabel: function(context) {
-                            const sig = spcSignals[context.dataIndex];
-                            const v = data[context.dataIndex];
+                            const signals = spcSignals[context.dataIndex];
                             const lines = [];
-                            if (sig === 'ooc') lines.push('\u26a0 Special cause: outside control limits');
-                            if (sig === 'run') lines.push('\u26a0 Special cause: 8+ consecutive on same side of mean');
-                            if (!sig) lines.push('\u2713 Common cause variation');
+                            if (signals.includes('ooc')) lines.push('\u26a0 Rule 1: outside control limits');
+                            if (signals.includes('run')) lines.push('\u26a0 Rule 2: 8+ consecutive on one side of mean');
+                            if (signals.includes('twoOfThree')) lines.push('\u26a0 Rule 3: 2 of 3 beyond 2σ on one side');
+                            if (signals.includes('movingRange')) lines.push(`\u26a0 Rule 4: moving range > 3.27 × average MR (${movingRanges[context.dataIndex].toFixed(1)} > ${movingRangeLimit.toFixed(1)})`);
+                            if (!signals.length) lines.push('\u2713 Common cause variation');
                             lines.push(`UCL: ${ucl.toFixed(1)}  |  Mean: ${avg.toFixed(1)}  |  LCL: ${lcl.toFixed(1)}`);
                             return lines;
                         }

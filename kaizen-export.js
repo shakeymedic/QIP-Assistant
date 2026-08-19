@@ -6,8 +6,11 @@ export function exportToKaizen() {
     const data = state.projectData || window.projectData || {};
     const checklist = data.checklist || {};
     const pdsa = data.pdsa || [];
-    const team = data.teamMembers || [];
+    const charter = data.charter || {};
+    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
     const meta = data.meta || {};
+    const projectAim = charter.aim || checklist.aim || '';
+    const charterObjectives = charter.objectives || '';
 
     const printWindow = window.open('', '_blank');
     
@@ -65,7 +68,7 @@ export function exportToKaizen() {
 
                 <h3>1.3 What was the aim of the project?</h3>
                 <div class="content-box">
-                    ${checklist.aim || 'No SMART aim defined.'}
+                    ${projectAim || 'No SMART aim defined.'}${charterObjectives ? '<br><br><strong>Objectives:</strong><br>' + charterObjectives.replace(/\n/g, '<br>') : ''}
                 </div>
 
                 <h3>1.4 Measurement of outcomes</h3>

@@ -20,6 +20,7 @@ import * as R from "./renderers.js";
 import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 import { startOnboarding } from "./onboarding.js";
 import { exportToKaizen } from "./kaizen-export.js";
+import { exportToA3 } from "./a3-export.js";
 import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
@@ -33,6 +34,32 @@ const ADMIN_EMAIL = 'emevidence999@gmail.com';
 // ─── Project data migration ───────────────────────────────────────────────────
 function migrateProjectData(d) {
     if (!d) return;
+    // Charter and action-plan fields were added after early projects existed.
+    // Keep migration additive so users' existing project data is untouched.
+    if (!d.charter || typeof d.charter !== 'object') d.charter = {};
+    const charterDefaults = {
+        preparedBy: '', date: '', execSponsor: '', aim: '', rationale: '', keyAreaOfFocus: '',
+        startDate: '', endDate: '', objectives: '', scopeIn: '', scopeOut: '', benefits: [], costs: [],
+        milestones: [
+            { phase: 'Start Out', targetDate: '' },
+            { phase: 'Define & Scope', targetDate: '' },
+            { phase: 'Measure & Understand', targetDate: '' },
+            { phase: 'Design & Plan', targetDate: '' },
+            { phase: 'Pilot & Implement', targetDate: '' },
+            { phase: 'Sustain & Share', targetDate: '' }
+        ],
+        team: [], additionalResources: '', lineManagerName: '', lineManagerSignatureDate: ''
+    };
+    Object.keys(charterDefaults).forEach(key => {
+        if (d.charter[key] === undefined || d.charter[key] === null) d.charter[key] = charterDefaults[key];
+    });
+    if (!Array.isArray(d.charter.benefits)) d.charter.benefits = [];
+    if (!Array.isArray(d.charter.costs)) d.charter.costs = [];
+    if (!Array.isArray(d.charter.team)) d.charter.team = [];
+    if (!Array.isArray(d.charter.milestones) || d.charter.milestones.length !== 6) {
+        d.charter.milestones = charterDefaults.milestones;
+    }
+    if (!Array.isArray(d.actionPlan)) d.actionPlan = [];
     // Ensure changeIdeas exists
     if (!Array.isArray(d.changeIdeas)) d.changeIdeas = [];
     // One-time migration: move any flat d.pdsa cycles into a default change idea
@@ -255,8 +282,8 @@ Object.defineProperty(window, 'projectData', { get: () => state.projectData, set
 // contains, so we can auto-expand the right group whenever the user
 // navigates to a view inside a currently-collapsed section.
 const NAV_GROUP_VIEWS = {
-    define: ['dashboard', 'intro', 'full', 'checklist', 'team'],
-    diagnose: ['tools', 'stakeholders', 'gantt'],
+    define: ['dashboard', 'intro', 'full', 'checklist', 'team', 'charter'],
+    diagnose: ['tools', 'stakeholders', 'gantt', 'action-plan'],
     test: ['data', 'results', 'aireview', 'learn', 'pdsa', 'surveys'],
     review: ['supervisor'],
     share: ['publish', 'green']
@@ -1755,6 +1782,8 @@ window.importSurveyCSV = importSurveyCSV;
 window.updateSurveySummary = updateSurveySummary;
 window.updateSurveyTitle = updateSurveyTitle;
 window.aiAnalyseSurvey = aiAnalyseSurvey;
+window.exportToKaizen = exportToKaizen;
+window.exportToA3 = exportToA3;
 
 window.saveData = async function(skipHistory = false) {
     // Blanket block on any write while browsing read-only (Lead view, Supervisor
