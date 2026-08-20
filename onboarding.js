@@ -32,11 +32,19 @@ function renderOnboardingStep() {
     let html = '';
 
     if (currentStep === 1) {
+        const stage = state.projectData?.meta?.trainingStage || '';
         html = `
             <div class="space-y-4 animate-fade-in">
                 <div class="flex items-center gap-3 text-rcem-purple mb-4">
                     <div class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold shadow">1</div>
                     <h4 class="text-xl font-bold">Define the Problem</h4>
+                </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5">Training stage — this changes what “good” looks like throughout the app</label>
+                    <div class="flex gap-3">
+                        <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-accs" value="accs" ${stage==='accs'?'checked':''} class="text-rcem-purple"> ACCS <span class="text-xs text-slate-400">(participation)</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-higher" value="higher" ${stage==='higher'?'checked':''} class="text-rcem-purple"> Higher (ST4–ST6) <span class="text-xs text-slate-400">(leadership)</span></label>
+                    </div>
                 </div>
                 <p class="text-sm text-slate-600 leading-relaxed">Every great QIP starts with a clear problem. What is the specific issue in the Emergency Department you want to solve?</p>
                 <textarea id="onboarding-problem" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-rcem-purple outline-none" placeholder="e.g. Only 40% of patients receive antibiotics within 60 minutes for Red Flag Sepsis, leading to...">${escapeHtml(d.problem_desc || '')}</textarea>
@@ -120,6 +128,10 @@ function renderOnboardingStep() {
                         <textarea id="onboarding-pdsa-plan" class="w-full p-3 border border-slate-300 rounded text-sm min-h-[100px] focus:ring-2 focus:ring-emerald-500 outline-none" placeholder="What exactly will you do? What do you PREDICT will happen?"></textarea>
                     </div>
                 </div>
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-3 flex items-start gap-2">
+                    <i data-lucide="git-branch" class="w-4 h-4 text-indigo-500 flex-shrink-0 mt-0.5"></i>
+                    <p class="text-xs text-indigo-800 leading-relaxed"><strong>After this setup:</strong> before diving into more PDSA cycles, it's worth building a <strong>Driver Diagram</strong> (and optionally a Fishbone or 5-Whys) in the <strong>Tools</strong> section of the sidebar — that's where you map out root causes and change ideas systematically, rather than guessing at fixes.</p>
+                </div>
             </div>
         `;
     }
@@ -162,6 +174,11 @@ function saveCurrentStepData() {
     if (currentStep === 1) {
         const el = document.getElementById('onboarding-problem');
         if (el) state.projectData.checklist.problem_desc = el.value;
+        const stageEl = document.querySelector('input[name="onboarding-stage"]:checked');
+        if (stageEl) {
+            if (!state.projectData.meta) state.projectData.meta = {};
+            state.projectData.meta.trainingStage = stageEl.value;
+        }
     } else if (currentStep === 2) {
         const el = document.getElementById('onboarding-aim');
         if (el) state.projectData.checklist.aim = el.value;

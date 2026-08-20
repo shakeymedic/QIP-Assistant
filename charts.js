@@ -300,13 +300,16 @@ function renderFishboneVisual(container, enableInteraction = false) {
         container.appendChild(el);
     };
 
+    // Right-side X kept clear of the fixed "Effect" label (anchored to the
+    // right edge, vertically centered, ~150px wide) so the middle-right
+    // category never renders underneath it.
     const categoryPositions = [
         { x: 18, y: 15 },   
-        { x: 82, y: 15 },   
+        { x: 70, y: 15 },   
         { x: 18, y: 50 },   
-        { x: 82, y: 50 },   
+        { x: 66, y: 50 },   
         { x: 18, y: 85 },   
-        { x: 82, y: 85 }    
+        { x: 70, y: 85 }    
     ];
 
     if (!state.projectData.fishbone) {
@@ -328,8 +331,10 @@ function renderFishboneVisual(container, enableInteraction = false) {
     
     categories.forEach((cat, i) => {
         const defaultPos = categoryPositions[i] || { x: 50, y: 50 };
-        const catX = cat.x !== undefined ? cat.x : defaultPos.x;
-        const catY = cat.y !== undefined ? cat.y : defaultPos.y;
+        // Clamp so a previously-dragged/saved position can never land under
+        // the spine arrowhead or the fixed "Effect" label on the right edge.
+        const catX = Math.max(4, Math.min(78, cat.x !== undefined ? cat.x : defaultPos.x));
+        const catY = Math.max(4, Math.min(96, cat.y !== undefined ? cat.y : defaultPos.y));
         
         createLabel(cat.text, catX, catY, true, i);
         
@@ -339,11 +344,17 @@ function renderFishboneVisual(container, enableInteraction = false) {
                 const causeText = isString ? cause : cause.text;
                 
                 const isLeft = catX < 50;
-                const offsetX = isLeft ? (j % 2 === 0 ? -8 : 8) : (j % 2 === 0 ? -8 : 8);
+                // Zig-zag perpendicular-ish to the bone line.
+                const offsetX = j % 2 === 0 ? -8 : 8;
                 const offsetY = (j + 1) * 6 * (catY < 50 ? 1 : -1);
                 
-                const causeX = isString ? (catX + offsetX) : (cause.x || catX + offsetX);
-                const causeY = isString ? (catY + offsetY) : (cause.y || catY + offsetY);
+                const rawX = isString ? (catX + offsetX) : (cause.x !== undefined ? cause.x : catX + offsetX);
+                const rawY = isString ? (catY + offsetY) : (cause.y !== undefined ? cause.y : catY + offsetY);
+                // Clamp so nothing can land under the spine arrowhead (right
+                // edge) or the fixed "Effect" label, regardless of stored
+                // custom drag positions from older saved projects.
+                const causeX = Math.max(4, Math.min(78, rawX));
+                const causeY = Math.max(4, Math.min(96, rawY));
                 
                 createLabel(causeText, causeX, causeY, false, i, j);
             });

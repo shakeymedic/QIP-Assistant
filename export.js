@@ -181,20 +181,116 @@ export async function exportPPTX() {
     }
 
     // =======================================
+    // SLIDE 3B: SWOT / PEST ANALYSIS (conditional)
+    // =======================================
+    const swot = c.swot || {};
+    const pest = c.pest || {};
+    const hasSwot = Object.values(swot).some(v => v && String(v).trim());
+    const hasPest = Object.values(pest).some(v => v && String(v).trim());
+    if (hasSwot || hasPest) {
+        slide = pres.addSlide();
+        addHeader(slide, hasSwot ? "SWOT Analysis" : "PEST Analysis");
+        const quads = hasSwot
+            ? [
+                { label: "Strengths", text: swot.strengths, x: 0.5, y: 1.0, fill: "ECFDF5", border: "A7F3D0" },
+                { label: "Weaknesses", text: swot.weaknesses, x: 5.1, y: 1.0, fill: "FEF2F2", border: "FECACA" },
+                { label: "Opportunities", text: swot.opportunities, x: 0.5, y: 3.0, fill: "EFF6FF", border: "BFDBFE" },
+                { label: "Threats", text: swot.threats, x: 5.1, y: 3.0, fill: "FFFBEB", border: "FDE68A" },
+              ]
+            : [
+                { label: "Political", text: pest.political, x: 0.5, y: 1.0, fill: "F5F3FF", border: "DDD6FE" },
+                { label: "Economic", text: pest.economic, x: 5.1, y: 1.0, fill: "F0FDFA", border: "99F6E4" },
+                { label: "Social", text: pest.social, x: 0.5, y: 3.0, fill: "FDF2F8", border: "FBCFE8" },
+                { label: "Technological", text: pest.technological, x: 5.1, y: 3.0, fill: "ECFEFF", border: "A5F3FC" },
+              ];
+        quads.forEach(q => {
+            slide.addText(q.label, { x: q.x, y: q.y, fontSize: 13, bold: true, color: RCEM_PURPLE });
+            slide.addText(q.text || '(not completed)', {
+                x: q.x, y: q.y + 0.35, w: 4.3, h: 1.5, fontSize: 10, color: SLATE_DARK, valign: 'top',
+                fill: q.fill, shape: pres.ShapeType.rect, border: { pt: 1, color: q.border }
+            });
+        });
+    }
+
+    // =======================================
+    // SLIDE 3C: RISK ANALYSIS (FMEA, conditional)
+    // =======================================
+    const fmea = d.fmea || [];
+    if (fmea.length > 0) {
+        slide = pres.addSlide();
+        addHeader(slide, "Risk Analysis — FMEA");
+        const fmeaRows = fmea.slice(0, 8).map(row => {
+            const rpn = (parseInt(row.likelihood)||1) * (parseInt(row.severity)||1) * (parseInt(row.detectability)||1);
+            return [
+                row.step || '', row.failureMode || '', String(rpn), (row.mitigation || '').substring(0, 90)
+            ];
+        });
+        fmeaRows.unshift(["Process Step", "Failure Mode", "RPN", "Mitigation"]);
+        slide.addTable(fmeaRows, {
+            x: 0.5, y: 1.2, w: 9,
+            colW: [2, 2.5, 1, 3.5],
+            fontSize: 9,
+            border: { pt: 1, color: BORDER_COLOR },
+            fill: { color: "FFFFFF" },
+            headerStyles: { fill: { color: RCEM_PURPLE }, color: "FFFFFF", bold: true },
+            rowH: 0.55,
+            valign: 'top'
+        });
+        slide.addText("RPN = Likelihood × Severity × Detectability (1–25 low, 25–50 medium, 50+ high risk)", {
+            x: 0.5, y: 1.2 + Math.min(fmeaRows.length, 9) * 0.55 + 0.2, fontSize: 9, italic: true, color: "64748B"
+        });
+    }
+
+    // =======================================
+    // SLIDE 3D: PROJECT TIMELINE (Gantt, conditional)
+    // =======================================
+    const ganttTasks = d.gantt || [];
+    if (ganttTasks.length > 0) {
+        slide = pres.addSlide();
+        addHeader(slide, "Project Timeline");
+        const sortedTasks = [...ganttTasks].sort((a, b) => new Date(a.start||0) - new Date(b.start||0));
+        const timelineRows = sortedTasks.slice(0, 12).map(t => [
+            t.name || 'Untitled',
+            t.start ? new Date(t.start).toLocaleDateString('en-GB') : '',
+            t.end ? new Date(t.end).toLocaleDateString('en-GB') : '',
+            t.milestone ? 'Milestone' : (t.type || '')
+        ]);
+        timelineRows.unshift(["Task", "Start", "End", "Type"]);
+        slide.addTable(timelineRows, {
+            x: 0.5, y: 1.2, w: 9,
+            colW: [4, 1.8, 1.8, 1.4],
+            fontSize: 9,
+            border: { pt: 1, color: BORDER_COLOR },
+            fill: { color: "FFFFFF" },
+            headerStyles: { fill: { color: RCEM_PURPLE }, color: "FFFFFF", bold: true },
+            rowH: 0.4,
+            valign: 'top'
+        });
+        if (ganttTasks.length > 12) {
+            slide.addText(`+ ${ganttTasks.length - 12} more tasks not shown — see the full Timeline in-app for the complete Gantt view.`, {
+                x: 0.5, y: 1.2 + 13 * 0.4 + 0.1, fontSize: 9, italic: true, color: "64748B"
+            });
+        }
+    }
+
+    // =======================================
     // SLIDE 4: PDSA CYCLES SUMMARY
     // =======================================
     if (d.pdsa && d.pdsa.length > 0) {
         slide = pres.addSlide();
         addHeader(slide, `3. Testing Changes: PDSA Cycles (${d.pdsa.length})`);
         
+        // Truncation limits raised well beyond the old 100-150 chars so a
+        // thorough write-up isn't cut mid-sentence without the trainee
+        // knowing — a footnote below also points to the untruncated version.
         const rows = d.pdsa.map((p, i) => {
-            const planText = p.plan ? p.plan.substring(0, 120) + (p.plan.length > 120 ? '...' : '') : 'No plan';
-            const predText = p.prediction ? `\nPrediction: ${p.prediction.substring(0, 80)}${p.prediction.length > 80 ? '...' : ''}` : '';
+            const planText = p.plan ? p.plan.substring(0, 260) + (p.plan.length > 260 ? '\u2026' : '') : 'No plan';
+            const predText = p.prediction ? `\nPrediction: ${p.prediction.substring(0, 160)}${p.prediction.length > 160 ? '\u2026' : ''}` : '';
             return [
                 `Cycle ${i + 1}:\n${p.title || 'Untitled'}${p.startDate ? '\n' + p.startDate : ''}`,
                 planText + predText,
-                p.study ? p.study.substring(0, 150) + (p.study.length > 150 ? '...' : '') : 'No study',
-                p.act ? p.act.substring(0, 100) + (p.act.length > 100 ? '...' : '') : 'No act'
+                p.study ? p.study.substring(0, 320) + (p.study.length > 320 ? '\u2026' : '') : 'No study',
+                p.act ? p.act.substring(0, 220) + (p.act.length > 220 ? '\u2026' : '') : 'No act'
             ];
         });
         
@@ -203,12 +299,16 @@ export async function exportPPTX() {
         slide.addTable(rows, {
             x: 0.5, y: 1.2, w: 9,
             colW: [1.5, 3, 3, 1.5],
-            fontSize: 9,
+            fontSize: 8,
             border: { pt: 1, color: BORDER_COLOR },
             fill: { color: "FFFFFF" },
             headerStyles: { fill: { color: RCEM_PURPLE }, color: "FFFFFF", bold: true },
             rowH: 0.8,
-            valign: 'top'
+            valign: 'top',
+            autoPage: true
+        });
+        slide.addText("Summarised for slide space — see the Full Report PDF (Export Center) for each cycle written out in full.", {
+            x: 0.5, y: 6.9, w: 9, fontSize: 8, italic: true, color: "94A3B8"
         });
     }
 
@@ -240,6 +340,7 @@ export async function exportPPTX() {
     // =======================================
     slide = pres.addSlide();
     addHeader(slide, "4. Results & Data Analysis");
+    const resultsSlide = slide; // keep a handle — the loop below reassigns `slide` per extra measure
     
     const canvas = document.getElementById('mainChart');
     const dataView = document.getElementById('view-data');
@@ -254,44 +355,56 @@ export async function exportPPTX() {
             dataView.classList.remove('hidden');
         }
 
-        // The deck always charts the PRIMARY measure regardless of which
-        // measure tab is active in the Data view, to stay consistent with
-        // the results narrative below (which also describes the primary
-        // measure). Temporarily re-render #mainChart with the primary
-        // measure's data before capturing, then restore the active measure.
         const d = state.projectData;
         const measures = Array.isArray(d?.measures) ? d.measures : [];
         const multiMeasure = measures.length > 1 && typeof window.getPrimaryMeasure === 'function';
-        let savedChartData, savedChartSettings;
-        if (multiMeasure) {
-            const primary = window.getPrimaryMeasure(d);
-            savedChartData = d.chartData; savedChartSettings = d.chartSettings;
-            d.chartData = primary.chartData; d.chartSettings = primary.chartSettings;
+        const savedChartData = d.chartData, savedChartSettings = d.chartSettings, savedActiveMeasureId = d.activeMeasureId;
+
+        // Capture every tracked measure (not just the primary one) so a
+        // multi-measure project's secondary/balancing measures actually show
+        // up in the deck — previously only measures[0] was ever charted.
+        // Bounded to 4 measures so the deck can't grow unboundedly.
+        const toCapture = multiMeasure ? measures.slice(0, 4) : [window.getPrimaryMeasure ? window.getPrimaryMeasure(d) : { chartData: d.chartData, chartSettings: d.chartSettings }];
+
+        for (let mi = 0; mi < toCapture.length; mi++) {
+            const m = toCapture[mi];
+            if (mi > 0) {
+                slide = pres.addSlide();
+                addHeader(slide, `Additional Measure: ${m.name || 'Measure ' + (mi + 1)}`);
+            }
+            d.chartData = m.chartData; d.chartSettings = m.chartSettings;
+            if (m.id) d.activeMeasureId = m.id;
             if (window.renderChart) window.renderChart('mainChart');
+            try {
+                await new Promise(r => setTimeout(r, 100)); // Small wait for chart render
+                const liveCanvas = document.getElementById('mainChart'); // renderChart replaces the node, so re-fetch it
+                const dataUrl = liveCanvas.toDataURL('image/png', 1.0);
+                slide.addImage({ data: dataUrl, x: 0.5, y: 1.2, w: 5.5, h: 4.0 });
+            } catch (e) {
+                console.error(e);
+                slide.addText("[Chart image capture failed]", { x: 0.5, y: 2, color: "red" });
+            }
+        }
+        if (multiMeasure && measures.length > 4) {
+            slide.addText(`+ ${measures.length - 4} more tracked measure(s) not shown here — see the Data page in-app.`, {
+                x: 0.5, y: 5.3, w: 5.5, fontSize: 9, italic: true, color: "94A3B8"
+            });
         }
 
-        try {
-            await new Promise(r => setTimeout(r, 100)); // Small wait for chart render
-            const liveCanvas = document.getElementById('mainChart'); // renderChart replaces the node, so re-fetch it
-            const dataUrl = liveCanvas.toDataURL('image/png', 1.0);
-            slide.addImage({ data: dataUrl, x: 0.5, y: 1.2, w: 5.5, h: 4.0 });
-        } catch (e) {
-            console.error(e);
-            slide.addText("[Chart image capture failed]", { x: 0.5, y: 2, color: "red" });
-        } finally {
-            if (multiMeasure) {
-                d.chartData = savedChartData; d.chartSettings = savedChartSettings;
-                if (window.renderChart) window.renderChart('mainChart'); // restore the active measure's chart on screen
-            }
-            if (wasHidden) {
-                dataView.classList.add('hidden');
-                dataView.style.position = '';
-                dataView.style.left = '';
-            }
+        // Restore whichever measure the trainee actually had open on screen.
+        d.chartData = savedChartData; d.chartSettings = savedChartSettings; d.activeMeasureId = savedActiveMeasureId;
+        if (window.renderChart) window.renderChart('mainChart');
+
+        if (wasHidden) {
+            dataView.classList.add('hidden');
+            dataView.style.position = '';
+            dataView.style.left = '';
         }
     }
 
-    // Results Analysis Text
+    // Results Analysis Text — goes on the original results slide, not
+    // whichever "Additional Measure" slide the loop above last created.
+    slide = resultsSlide;
     slide.addText("Data Interpretation", { x: 6.2, y: 1.2, fontSize: 14, bold: true, color: RCEM_PURPLE });
     slide.addText(c.results_analysis || c.results_text || "No analysis provided.", {
         x: 6.2, y: 1.6, w: 3.3, h: 3.6,

@@ -168,10 +168,10 @@ const CLINICAL_TEMPLATES = [
     {
         id: 'mental-health-self-harm',
         title: 'Mental Health: Self-Harm',
-        year: '2025–2026',
+        year: '2025 — check 2026 status',
         stage: 'All stages',
         color: 'rose',
-        description: 'Risk assessment, safety planning, and early referral pathways for patients presenting with self-harm or suicidal ideation.',
+        description: 'Risk assessment, safety planning, and early referral pathways for patients presenting with self-harm or suicidal ideation. Ran as an RCEM national QIP through 2025 (its final year); RCEM\u2019s 2026 national topics are Care of Older People, Adolescent Mental Health, and Time Critical Medications \u2014 double-check rcem.ac.uk/quality-improvement if you want this one to count as national-programme evidence rather than a locally-relevant topic.',
         checklist: {
             problem_desc: 'Inconsistent risk assessment and safety planning documentation for patients presenting to the ED with self-harm or suicidal ideation.',
             aim: 'To improve compliance with RCEM self-harm standards by 30% within 12 months, ensuring all patients presenting with self-harm receive a documented risk assessment and safety plan before discharge.',
@@ -244,10 +244,10 @@ const CLINICAL_TEMPLATES = [
     {
         id: 'paracetamol-overdose',
         title: 'Paracetamol Overdose Management',
-        year: '2025–2026 (from Jan 2026)',
+        year: 'Not a national QIP',
         stage: 'All stages',
         color: 'emerald',
-        description: 'Standardise blood testing timelines and treatment regimens for paracetamol overdose presentations.',
+        description: 'Standardise blood testing timelines and treatment regimens for paracetamol overdose presentations. This is a genuinely useful clinical topic, but it doesn\u2019t currently carry RCEM national-programme status like the other starters here \u2014 good as your own locally-led QIP, just don\u2019t badge it as a national one on your ARCP paperwork.',
         checklist: {
             problem_desc: 'Variation in blood test timing and treatment decision-making in paracetamol overdose presentations to the ED.',
             aim: 'To achieve 90% compliance with RCEM paracetamol overdose blood testing timelines and treatment protocols, reducing variation in clinical management.',
@@ -820,8 +820,8 @@ window.showEMQIATModal = function() {
                     <div class="flex items-center gap-3">
                         <i data-lucide="file-badge" class="w-6 h-6"></i>
                         <div>
-                            <h2 class="text-lg font-bold">EM-QIAT Journal</h2>
-                            <p class="text-xs text-emerald-100">SLO 11 &amp; 12 — Quality Improvement Assessment Tool (August 2025 v1.5)</p>
+                            <h2 class="text-lg font-bold">PDP &amp; QI Journey Log</h2>
+                            <p class="text-xs text-emerald-100">SLO 11 &amp; 12 development tracker — PDP goals, QI-journey maturity ratings, education log, and CCT summary. This feeds suggestions into the EM-QIAT form under “SLO 11 Sign-off”, but is a separate journal, not the sign-off form itself.</p>
                         </div>
                     </div>
                     <button onclick="document.getElementById('emqiat-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -1093,6 +1093,12 @@ window.showFRCEMReadinessChecker = function() {
                         <div>✓ Run chart annotated at the point changes were introduced</div>
                     </div>
                 </div>
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-500">
+                    This checks the same underlying project data as the Dashboard's "Portfolio Readiness" card and the
+                    <button onclick="document.getElementById('frcem-readiness-modal').remove(); window.openGoldenThreadValidator()" class="font-bold text-rcem-purple hover:underline">Golden Thread Validator</button>,
+                    just broken down against the 8 FRCEM marking domains specifically. For the real EM-QIAT (2025 Update) form your supervisor signs off on, see
+                    <button onclick="document.getElementById('frcem-readiness-modal').remove(); window.router('supervisor')" class="font-bold text-rcem-purple hover:underline">SLO 11 Sign-off</button>.
+                </div>
             </div>
             <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50">
                 <button onclick="document.getElementById('frcem-readiness-modal').remove()" class="w-full py-2 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors">Close</button>
@@ -1288,7 +1294,7 @@ window.setSWOTMode = function(mode) {
     if (toggleEl) toggleEl.innerHTML = `<button onclick="event.stopPropagation(); window.setSWOTMode('swot')" class="px-2 py-1 text-[10px] font-bold rounded-l ${mode==='swot' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">SWOT</button><button onclick="event.stopPropagation(); window.setSWOTMode('pest')" class="px-2 py-1 text-[10px] font-bold rounded-r ${mode==='pest' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">PEST</button>`;
 };
 window.toggleSWOTPESTPanel = function() {
-    const content = document.getElementById('swot-pest-content');
+    const content = document.getElementById('swot-pest-body');
     const chevron = document.getElementById('swot-chevron');
     const d = state.projectData;
     if (content) {
@@ -2105,7 +2111,7 @@ function setButtonLoading(button, isLoading, loadingText = 'Loading...', origina
 
 if (auth) {
     onAuthStateChanged(auth, async (user) => {
-        const isShared = await checkShareLink();
+        const isShared = await checkShareLink(user);
         if (isShared) return;
 
         state.currentUser = user;
@@ -2173,7 +2179,7 @@ if (auth) {
     });
 }
 
-async function checkShareLink() {
+async function checkShareLink(viewerUser) {
     const urlParams = new URLSearchParams(window.location.search);
     const sharePid = urlParams.get('share');
     const shareUid = urlParams.get('uid');
@@ -2197,6 +2203,20 @@ async function checkShareLink() {
                 state.currentProjectId = sharePid;
                 document.getElementById('project-header-title').textContent = state.projectData.meta.title + " (Shared)";
                 window.router('dashboard');
+                // Log this the same way qip_lead/supervisor cross-account views are
+                // logged, so a plain share link can't view a trainee's project
+                // invisibly to the audit trail. Best-effort: never blocks the view,
+                // and still logs even if the visitor isn't signed in at all (a raw
+                // link needs no account), recording what identity IS available.
+                logProjectAccessEvent(db, {
+                    viewerUid: viewerUser?.uid || '(unauthenticated)',
+                    viewerEmail: viewerUser?.email || '(unauthenticated)',
+                    viaRole: 'share_link',
+                    ownerUid: shareUid,
+                    projectId: sharePid,
+                    projectTitle: state.projectData?.meta?.title || '',
+                    action: 'viewed'
+                });
             } else {
                 showToast("Shared project not found.", "error");
             }
@@ -2467,14 +2487,23 @@ async function loadProjectList() {
     const listEl = document.getElementById('project-list');
     
     if (state.isDemoMode) {
+        // Compute the stat chips from the actual demo dataset rather than
+        // hardcoding numbers, so this card can never drift out of sync with
+        // what the project itself contains (e.g. after editing pdsa cycles).
+        const demo = getDemoData();
+        const demoDataPoints = (demo.chartData || []).length;
+        const demoPdsaCycles = Array.isArray(demo.changeIdeas)
+            ? demo.changeIdeas.reduce((sum, idea) => sum + (idea.pdsaCycles || []).length, 0)
+            : (demo.pdsa || []).length;
+        const demoTeamMembers = (demo.teamMembers || []).length;
         listEl.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple relative cursor-pointer group hover:shadow-md transition-all" onclick="window.openDemoProject()">
              <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-bl">Gold Standard</div>
              <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery in the ED</h3>
              <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ST6 Emergency Medicine)</p>
              <div class="flex gap-2 text-xs font-medium text-slate-500 flex-wrap">
-                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> 52 Data Points</span>
-                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> 5 PDSA Cycles</span>
-                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="users" class="w-3 h-3"></i> 6 Team Members</span>
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> ${demoDataPoints} Data Points</span>
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> ${demoPdsaCycles} PDSA Cycles</span>
+                <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="users" class="w-3 h-3"></i> ${demoTeamMembers} Team Members</span>
             </div>
         </div>`;
         if(typeof lucide !== 'undefined') lucide.createIcons();
@@ -2860,7 +2889,7 @@ window.openDemoProject = () => {
 window.shareProject = () => {
     if(state.isDemoMode) { showToast("Cannot share demo projects.", "error"); return; }
     const url = `${window.location.origin}${window.location.pathname}?share=${state.currentProjectId}&uid=${state.currentUser.uid}`;
-    navigator.clipboard.writeText(url).then(() => showToast("Share Link copied!", "success"));
+    navigator.clipboard.writeText(url).then(() => showToast("Share Link copied — anyone with this link can view the project (view is logged).", "success"));
 };
 
 document.addEventListener('keydown', (e) => {

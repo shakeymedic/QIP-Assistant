@@ -195,7 +195,7 @@ export function renderDashboard() {
         };
         
         const b = badges[quality];
-        aimBadge.innerHTML = `<span class="px-2 py-0.5 rounded-full text-xs font-bold ${b.color}">${b.text}</span>`;
+        aimBadge.innerHTML = `<span class="px-2 py-0.5 rounded-full text-xs font-bold ${b.color}" title="A rough keyword check (does it mention a %, a number, and a timeframe?) — not a real assessment. Use your own judgement, or ask your supervisor.">${b.text} <i data-lucide="info" class="w-2.5 h-2.5 inline opacity-60"></i></span>`;
     } else if (aimBadge) {
         aimBadge.innerHTML = '';
     }
@@ -271,9 +271,14 @@ function updatePortfolioReadiness() {
                 `).join('')}
             </div>
             ${percent < 100 ? `
-                <button onclick="window.openGoldenThreadValidator()" class="w-full mt-4 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
-                    <i data-lucide="shield-check" class="w-4 h-4"></i> Validate Golden Thread
-                </button>
+                <div class="flex gap-2 mt-4">
+                    <button onclick="window.openGoldenThreadValidator()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i> Golden Thread
+                    </button>
+                    <button onclick="window.showFRCEMReadinessChecker()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="clipboard-check" class="w-4 h-4"></i> FRCEM Domains
+                    </button>
+                </div>
             ` : ''}
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -618,7 +623,7 @@ export function renderChecklist() {
                 <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
                     <button onclick="window.toggleSWOTPESTPanel()" class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-all">
                         <span class="flex items-center gap-2"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i> SWOT / PEST Analysis</span>
-                        <i data-lucide="${swotOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-400"></i>
+                        <i id="swot-chevron" data-lucide="${swotOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-400"></i>
                     </button>
                     <div id="swot-pest-body" class="${swotOpen ? '' : 'hidden'} p-4">
                         <!-- Mode toggle -->
@@ -2618,7 +2623,7 @@ window.deleteActionPlanRow = deleteActionPlanRow;
 // 10. GANTT VIEW
 // ==========================================
 
-let ganttZoomLevel = 'weeks';
+let ganttZoomLevel = 'fit';
 
 export function renderGantt() {
     const d = state.projectData;
@@ -2661,10 +2666,17 @@ export function renderGantt() {
     maxDate.setDate(maxDate.getDate() + padding);
     
     const totalDays = Math.ceil((maxDate - minDate) / (1000 * 60 * 60 * 24));
-    const dayWidth = ganttZoomLevel === 'days' ? 40 : ganttZoomLevel === 'weeks' ? 20 : 8;
+    // "Fit" scales dayWidth so the WHOLE timeline is visible without scrolling
+    // (previously the default view only showed the first couple of tasks and
+    // you had to know to scroll right to find the rest). Falls back to the
+    // same granularity as the explicit zoom levels for the header labels.
+    const FIT_TARGET_WIDTH = 860;
+    const fitDayWidth = Math.max(2, Math.min(40, FIT_TARGET_WIDTH / Math.max(totalDays, 1)));
+    const dayWidth = ganttZoomLevel === 'days' ? 40 : ganttZoomLevel === 'weeks' ? 20 : ganttZoomLevel === 'fit' ? fitDayWidth : 8;
+    const headerMode = ganttZoomLevel !== 'fit' ? ganttZoomLevel : (totalDays <= 45 ? 'days' : totalDays <= 200 ? 'weeks' : 'months');
     
     let timeHeaders = '';
-    if (ganttZoomLevel === 'days') {
+    if (headerMode === 'days') {
         let currentDate = new Date(minDate);
         while (currentDate <= maxDate) {
             const dayNum = currentDate.getDate();
@@ -2672,7 +2684,7 @@ export function renderGantt() {
             timeHeaders += `<div class="text-xs text-slate-500 text-center ${isWeekend ? 'bg-slate-100' : ''}" style="width: ${dayWidth}px">${dayNum}</div>`;
             currentDate.setDate(currentDate.getDate() + 1);
         }
-    } else if (ganttZoomLevel === 'weeks') {
+    } else if (headerMode === 'weeks') {
         let currentDate = new Date(minDate);
         while (currentDate <= maxDate) {
             const weekStart = currentDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -2706,6 +2718,7 @@ export function renderGantt() {
             <div class="flex items-center gap-2">
                 <span class="text-xs text-slate-500">Zoom:</span>
                 <div class="flex bg-slate-100 rounded-lg p-1">
+                    <button onclick="window.setGanttZoom('fit')" class="px-3 py-1 text-xs font-medium rounded ${ganttZoomLevel === 'fit' ? 'bg-white shadow text-rcem-purple' : 'text-slate-600 hover:bg-slate-200'}" title="Fit the whole timeline on screen">Fit All</button>
                     <button onclick="window.setGanttZoom('days')" class="px-3 py-1 text-xs font-medium rounded ${ganttZoomLevel === 'days' ? 'bg-white shadow text-rcem-purple' : 'text-slate-600 hover:bg-slate-200'}">Days</button>
                     <button onclick="window.setGanttZoom('weeks')" class="px-3 py-1 text-xs font-medium rounded ${ganttZoomLevel === 'weeks' ? 'bg-white shadow text-rcem-purple' : 'text-slate-600 hover:bg-slate-200'}">Weeks</button>
                     <button onclick="window.setGanttZoom('months')" class="px-3 py-1 text-xs font-medium rounded ${ganttZoomLevel === 'months' ? 'bg-white shadow text-rcem-purple' : 'text-slate-600 hover:bg-slate-200'}">Months</button>
@@ -2745,12 +2758,20 @@ export function renderGantt() {
                                 </button>
                             </div>
                             <div class="flex-1 relative py-2" style="min-height: 32px;">
+                                ${t.milestone ? `
+                                <div class="absolute w-6 h-6 rounded-sm ${barColor} shadow-sm flex items-center justify-center text-white hover:shadow-md transition-shadow"
+                                     style="left: ${Math.max(0, startOffset * dayWidth - 12)}px; top: 4px; transform: rotate(45deg);"
+                                     title="Milestone: ${escapeHtml(t.name)} (${t.start})${t.owner ? ' \u2014 ' + escapeHtml(t.owner) : ''}">
+                                    <i data-lucide="flag" class="w-3 h-3" style="transform: rotate(-45deg)"></i>
+                                </div>
+                                <span class="absolute text-[10px] font-medium text-slate-600 whitespace-nowrap" style="left: ${startOffset * dayWidth + 16}px; top: 8px;">${escapeHtml(t.name)}</span>
+                                ` : `
                                 <div class="absolute h-6 rounded ${barColor} shadow-sm flex items-center px-2 text-white text-[10px] font-medium overflow-hidden hover:shadow-md transition-shadow"
                                      style="left: ${startOffset * dayWidth}px; width: ${duration * dayWidth}px;"
                                      title="${escapeHtml(t.name)}: ${t.start} to ${t.end}${t.owner ? ' (' + t.owner + ')' : ''}">
-                                    ${t.milestone ? '<i data-lucide="flag" class="w-3 h-3 mr-1"></i>' : ''}
                                     <span class="truncate">${duration > 3 ? escapeHtml(t.name) : ''}</span>
                                 </div>
+                                `}
                             </div>
                         </div>
                     `;
@@ -3141,8 +3162,13 @@ export function renderFullProject() {
                 ${(d.stakeholders?.length > 0) ? (() => {
                     // Stakeholders use s.x (interest, left→right) and s.y (power, 0=bottom, 100=top)
                     // CSS top = 100 - s.y  (matching the interactive view)
-                    // De-overlap: bucket to nearest 5% grid and spiral-spread clashes
-                    const offsets = [[0,0],[5,-5],[5,5],[-5,5],[-5,-5],[0,-8],[8,0],[0,8],[-8,0],[3,-8],[-3,-8],[3,8],[-3,8]];
+                    // De-overlap: bucket to nearest 5% grid and spiral-spread clashes.
+                    // Offsets are wider than the 30px avatar diameter needs at typical
+                    // card sizes, and the outer clamp keeps every avatar a few percent
+                    // clear of the corners/edges, where the quadrant labels live —
+                    // avoids 3+ stakeholders in the same corner collapsing back onto
+                    // each other and onto the "Manage Closely" label after clamping.
+                    const offsets = [[0,0],[9,-9],[9,9],[-9,9],[-9,-9],[0,-14],[14,0],[0,14],[-14,0],[6,-14],[-6,-14],[6,14],[-6,14]];
                     const buckets = {};
                     d.stakeholders.forEach((s, idx) => {
                         const bx = Math.round((s.x||50) / 5) * 5;
@@ -3153,13 +3179,13 @@ export function renderFullProject() {
                     });
                     const finalPos = d.stakeholders.map((s, idx) => {
                         // cssLeft = s.x, cssTop = 100 - s.y
-                        const baseLeft = Math.max(5, Math.min(95, s.x||50));
-                        const baseTop  = Math.max(5, Math.min(95, 100-(s.y||50)));
+                        const baseLeft = Math.max(8, Math.min(92, s.x||50));
+                        const baseTop  = Math.max(8, Math.min(92, 100-(s.y||50)));
                         const bx = Math.round(baseLeft/5)*5, by = Math.round(baseTop/5)*5;
                         const key = `${bx}_${by}`;
                         const slot = buckets[key].indexOf(idx);
                         const [ox, oy] = offsets[slot % offsets.length];
-                        return { left: Math.max(4, Math.min(96, baseLeft + ox)), top: Math.max(4, Math.min(96, baseTop + oy)) };
+                        return { left: Math.max(10, Math.min(90, baseLeft + ox)), top: Math.max(10, Math.min(90, baseTop + oy)) };
                     });
                     const dots = d.stakeholders.map((s, idx) => {
                         const { left, top } = finalPos[idx];
@@ -3185,11 +3211,11 @@ export function renderFullProject() {
                                 <div class="absolute inset-x-0 -bottom-5 flex justify-center pointer-events-none">
                                     <span class="text-[10px] font-bold text-slate-500 tracking-widest">INTEREST &rarr;</span>
                                 </div>
-                                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
-                                    <div class="border-r border-b border-slate-200 bg-amber-50/60 p-2 flex flex-col justify-start"><span class="text-[9px] font-bold text-amber-700">KEEP SATISFIED</span><span class="text-[8px] text-amber-500">High Power / Low Interest</span></div>
-                                    <div class="border-b border-slate-200 bg-red-50/60 p-2 flex flex-col items-end"><span class="text-[9px] font-bold text-red-700">MANAGE CLOSELY</span><span class="text-[8px] text-red-500">High Power / High Interest</span></div>
-                                    <div class="border-r border-slate-200 bg-slate-50 p-2 flex flex-col justify-end"><span class="text-[9px] font-bold text-slate-500">MONITOR</span><span class="text-[8px] text-slate-400">Low Power / Low Interest</span></div>
-                                    <div class="bg-blue-50/60 p-2 flex flex-col items-end justify-end"><span class="text-[9px] font-bold text-blue-700">KEEP INFORMED</span><span class="text-[8px] text-blue-500">Low Power / High Interest</span></div>
+                                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-40">
+                                    <div class="border-r border-b border-slate-200 bg-amber-50/60 p-2 flex flex-col justify-start"><span class="text-[9px] font-bold text-amber-700 bg-white/85 px-1 rounded">KEEP SATISFIED</span><span class="text-[8px] text-amber-500 bg-white/85 px-1 rounded mt-0.5">High Power / Low Interest</span></div>
+                                    <div class="border-b border-slate-200 bg-red-50/60 p-2 flex flex-col items-end"><span class="text-[9px] font-bold text-red-700 bg-white/85 px-1 rounded">MANAGE CLOSELY</span><span class="text-[8px] text-red-500 bg-white/85 px-1 rounded mt-0.5">High Power / High Interest</span></div>
+                                    <div class="border-r border-slate-200 bg-slate-50 p-2 flex flex-col justify-end"><span class="text-[9px] font-bold text-slate-500 bg-white/85 px-1 rounded">MONITOR</span><span class="text-[8px] text-slate-400 bg-white/85 px-1 rounded mt-0.5">Low Power / Low Interest</span></div>
+                                    <div class="bg-blue-50/60 p-2 flex flex-col items-end justify-end"><span class="text-[9px] font-bold text-blue-700 bg-white/85 px-1 rounded">KEEP INFORMED</span><span class="text-[8px] text-blue-500 bg-white/85 px-1 rounded mt-0.5">Low Power / High Interest</span></div>
                                 </div>
                                 <div class="absolute inset-y-0 left-1/2 border-l border-slate-300 pointer-events-none"></div>
                                 <div class="absolute inset-x-0 top-1/2 border-t border-slate-300 pointer-events-none"></div>
@@ -3427,12 +3453,23 @@ function renderQIATForm(d) {
             <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 text-white p-6">
                 <h2 class="text-xl font-bold flex items-center gap-2">
                     <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-                    RCEM QIAT (2025) - EM Quality Improvement Assessment Tool
+                    QIAT Draft — quick auto-generated summary
                 </h2>
-                <p class="text-indigo-200 text-sm mt-1">Auto-generated from your project data for risr/advance portfolio</p>
+                <p class="text-indigo-200 text-sm mt-1">A rough draft assembled from your project data, useful for copying quick text into other documents.</p>
             </div>
             
             <div class="p-6 space-y-6">
+                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
+                    <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                    <div class="text-sm text-amber-800">
+                        <strong>This is not the form your supervisor reviews.</strong> It's a rough, auto-generated draft —
+                        useful for copying quick text into other documents, but it doesn't follow the real EM-QIAT (2025 Update)
+                        field structure and isn't linked to your sign-off. For the actual field-by-field EM-QIAT form that your
+                        supervisor sees and signs off on, go to
+                        <button onclick="window.router('supervisor')" class="font-bold underline hover:no-underline">SLO 11 Sign-off</button>
+                        in the sidebar — that's the one to complete and rely on for your portfolio.
+                    </div>
+                </div>
                 <div class="flex justify-end gap-2">
                     <button onclick="window.copyReport('qiat')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
                         <i data-lucide="copy" class="w-4 h-4"></i> Copy All Text
@@ -4023,6 +4060,11 @@ export async function openGoldenThreadValidator() {
                         ${renderRow('PDSA tests change ideas', result.pdsaTestsChangeIdeas)}
                         ${renderRow('Data adequate for rules', result.dataAdequate)}
                         ${renderRow('Sustainability planned', result.sustainabilityPlan)}
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400">
+                        This is an AI coherence check on your project's logic (does A lead to B). For a checklist-style
+                        breakdown against FRCEM marking domains, see the
+                        <button onclick="document.getElementById('golden-thread-modal').classList.add('hidden'); window.showFRCEMReadinessChecker()" class="font-bold text-rcem-purple hover:underline">FRCEM Readiness Checker</button>.
                     </div>
                 `;
             } else {

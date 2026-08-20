@@ -34,14 +34,39 @@ function listJsFiles() {
 }
 
 // ── 1. Every top-level JS file must be syntactically valid ────────────────
+//
+// `node --check` alone is NOT sufficient: it gave a false pass on a real bug
+// this project shipped to production (a doubled backslash inside a template
+// literal's nested string expression — `trainee\\\\'s` — which browsers
+// correctly rejected as `Unexpected identifier 's'` at module-load time,
+// silently breaking demo mode and most onclick handlers for every user).
+// esbuild does a full, real parse and catches this; prefer it when available
+// and fall back to a warning (not a failure) if npx/esbuild can't run at all
+// (e.g. fully offline), so this script still degrades gracefully.
 function checkSyntax() {
     const files = listJsFiles();
+    let esbuildAvailable = true;
     files.forEach(f => {
         try {
             execFileSync(process.execPath, ['--check', path.join(ROOT, f)], { stdio: 'pipe' });
         } catch (e) {
-            fail(`Syntax error in ${f}:\n${e.stderr?.toString() || e.message}`);
+            fail(`Syntax error in ${f} (node --check):\n${e.stderr?.toString() || e.message}`);
             return;
+        }
+        if (esbuildAvailable) {
+            try {
+                execFileSync('npx', ['--yes', 'esbuild', path.join(ROOT, f), '--bundle=false', '--format=esm', '--outfile=' + (process.platform === 'win32' ? 'NUL' : '/dev/null')], { stdio: 'pipe' });
+            } catch (e) {
+                const out = (e.stdout?.toString() || '') + (e.stderr?.toString() || '');
+                if (/ERROR/.test(out)) {
+                    fail(`Syntax error in ${f} (esbuild, node --check missed this):\n${out}`);
+                    return;
+                }
+                // npx/esbuild itself couldn't run (offline, not installed) — degrade
+                // to a one-time warning rather than failing every file.
+                esbuildAvailable = false;
+                warn(`Could not run esbuild for a stronger syntax check (falling back to node --check only): ${e.message}`);
+            }
         }
         pass(`${f} parses`);
     });
@@ -116,7 +141,10 @@ function checkDuplicateWindowAssignments() {
     const seenIn = {}; // name -> Set of files
     files.forEach(f => {
         const content = fs.readFileSync(path.join(ROOT, f), 'utf8');
-        const matches = content.matchAll(/window\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=\s*(?!window\.\1)/g);
+        // Negative lookahead/lookbehind exclude comparisons (===, !==, ==) so
+        // e.g. `typeof window.getPrimaryMeasure === 'function'` (a read, not
+        // an assignment) doesn't get misread as an assignment.
+        const matches = content.matchAll(/window\.([A-Za-z_$][A-Za-z0-9_$]*)\s*=(?!=)(?<!!=)\s*(?!window\.\1)/g);
         for (const m of matches) {
             const name = m[1];
             if (!seenIn[name]) seenIn[name] = new Set();
