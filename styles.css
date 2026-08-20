@@ -152,6 +152,12 @@ body {
     user-select: none;
     transition: box-shadow 0.2s ease, border-color 0.2s ease;
     z-index: 10;
+    /* Without a cap, a long cause/category label could visually extend far
+       past its left-anchor position and run into the fixed "Effect" box on
+       the right regardless of how carefully that anchor is clamped. */
+    max-width: 150px;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
 }
 
 .fishbone-label:hover {

@@ -2050,14 +2050,31 @@ function resolveStakeholderOverlap(stakes) {
             for (let j = i + 1; j < positions.length; j++) {
                 const dx = positions[i].x - positions[j].x;
                 const dy = positions[i].y - positions[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < minDist && dist > 0) {
+                let dist = Math.sqrt(dx * dx + dy * dy);
+                // Exact duplicates (e.g. several freshly-added stakeholders that
+                // all default to x:50,y:50 before being dragged) previously
+                // never separated at all, since dist===0 skipped the nx/ny
+                // divide-by-zero branch entirely and just stayed stacked.
+                // Give them a deterministic tiny nudge based on index so the
+                // normal repulsion below has a direction to push them apart in.
+                if (dist === 0) {
+                    const angle = (i * 47 + j * 91) % 360 * (Math.PI / 180);
+                    positions[j].x += Math.cos(angle) * 0.5;
+                    positions[j].y += Math.sin(angle) * 0.5;
+                    dist = 0.5;
+                }
+                if (dist < minDist) {
                     const overlap = (minDist - dist) / 2;
                     const nx = dx / dist, ny = dy / dist;
-                    positions[i].x = Math.max(5, Math.min(95, positions[i].x + nx * overlap));
-                    positions[i].y = Math.max(5, Math.min(95, positions[i].y + ny * overlap));
-                    positions[j].x = Math.max(5, Math.min(95, positions[j].x - nx * overlap));
-                    positions[j].y = Math.max(5, Math.min(95, positions[j].y - ny * overlap));
+                    // Tighter clamp than the [5,95] used elsewhere — corners are
+                    // exactly where high-power/high-interest stakeholders (the
+                    // ones you're told to "manage closely") tend to cluster,
+                    // and clamping right back to a wide bound there undoes the
+                    // separation this loop just computed.
+                    positions[i].x = Math.max(10, Math.min(90, positions[i].x + nx * overlap));
+                    positions[i].y = Math.max(10, Math.min(90, positions[i].y + ny * overlap));
+                    positions[j].x = Math.max(10, Math.min(90, positions[j].x - nx * overlap));
+                    positions[j].y = Math.max(10, Math.min(90, positions[j].y - ny * overlap));
                     moved = true;
                 }
             }
@@ -2097,22 +2114,22 @@ export function renderStakeholders() {
             </header>
             
             <div id="stakeholder-matrix" class="relative w-full aspect-square max-w-2xl mx-auto border-2 border-slate-200 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100">
-                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none">
+                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-20">
                     <div class="border-r border-b border-slate-200 p-3">
-                        <span class="text-xs text-slate-400 font-medium bg-white/80 px-1 rounded">Keep Satisfied</span>
-                        <span class="block text-[10px] text-slate-300 mt-1">High Power / Low Interest</span>
+                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Keep Satisfied</span>
+                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">High Power / Low Interest</span>
                     </div>
                     <div class="border-b border-slate-200 p-3 text-right">
-                        <span class="text-xs text-slate-400 font-medium bg-white/80 px-1 rounded">Manage Closely</span>
-                        <span class="block text-[10px] text-slate-300 mt-1">High Power / High Interest</span>
+                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Manage Closely</span>
+                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">High Power / High Interest</span>
                     </div>
                     <div class="border-r border-slate-200 p-3">
-                        <span class="text-xs text-slate-400 font-medium bg-white/80 px-1 rounded">Monitor</span>
-                        <span class="block text-[10px] text-slate-300 mt-1">Low Power / Low Interest</span>
+                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Monitor</span>
+                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">Low Power / Low Interest</span>
                     </div>
                     <div class="p-3 text-right">
-                        <span class="text-xs text-slate-400 font-medium bg-white/80 px-1 rounded">Keep Informed</span>
-                        <span class="block text-[10px] text-slate-300 mt-1">Low Power / High Interest</span>
+                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Keep Informed</span>
+                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">Low Power / High Interest</span>
                     </div>
                 </div>
                 

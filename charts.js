@@ -229,6 +229,12 @@ function renderFishboneVisual(container, enableInteraction = false) {
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%"); 
     svg.setAttribute("height", "100%"); 
+    // viewBox 0-100 lets every coordinate below be a plain number equal to
+    // its old percentage value — <polygon points=".."> requires real numbers
+    // (percentages there are invalid SVG and silently failed to render the
+    // arrowhead, throwing a console error on every Fishbone view).
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
     svg.style.position = 'absolute'; 
     svg.style.top = '0'; 
     svg.style.left = '0'; 
@@ -238,16 +244,16 @@ function renderFishboneVisual(container, enableInteraction = false) {
     const problem = state.projectData.checklist?.problem_desc?.substring(0, 50) || 'Problem';
     
     svg.innerHTML = `
-        <line x1="8%" y1="50%" x2="92%" y2="50%" stroke="#2d2e83" stroke-width="4" stroke-linecap="round"/>
-        <polygon points="92%,47% 98%,50% 92%,53%" fill="#2d2e83"/>
+        <line x1="8" y1="50" x2="92" y2="50" stroke="#2d2e83" stroke-width="0.4" stroke-linecap="round"/>
+        <polygon points="92,47 98,50 92,53" fill="#2d2e83"/>
         
-        <line x1="22%" y1="20%" x2="30%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="50%" y1="20%" x2="50%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="78%" y1="20%" x2="70%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="22" y1="20" x2="30" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
+        <line x1="50" y1="20" x2="50" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
+        <line x1="78" y1="20" x2="70" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
         
-        <line x1="22%" y1="80%" x2="30%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="50%" y1="80%" x2="50%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
-        <line x1="78%" y1="80%" x2="70%" y2="50%" stroke="#94a3b8" stroke-width="2"/>
+        <line x1="22" y1="80" x2="30" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
+        <line x1="50" y1="80" x2="50" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
+        <line x1="78" y1="80" x2="70" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
     `;
     container.appendChild(svg);
 
@@ -333,7 +339,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
         const defaultPos = categoryPositions[i] || { x: 50, y: 50 };
         // Clamp so a previously-dragged/saved position can never land under
         // the spine arrowhead or the fixed "Effect" label on the right edge.
-        const catX = Math.max(4, Math.min(78, cat.x !== undefined ? cat.x : defaultPos.x));
+        const catX = Math.max(4, Math.min(68, cat.x !== undefined ? cat.x : defaultPos.x));
         const catY = Math.max(4, Math.min(96, cat.y !== undefined ? cat.y : defaultPos.y));
         
         createLabel(cat.text, catX, catY, true, i);
@@ -353,7 +359,7 @@ function renderFishboneVisual(container, enableInteraction = false) {
                 // Clamp so nothing can land under the spine arrowhead (right
                 // edge) or the fixed "Effect" label, regardless of stored
                 // custom drag positions from older saved projects.
-                const causeX = Math.max(4, Math.min(78, rawX));
+                const causeX = Math.max(4, Math.min(68, rawX));
                 const causeY = Math.max(4, Math.min(96, rawY));
                 
                 createLabel(causeText, causeX, causeY, false, i, j);
@@ -361,9 +367,17 @@ function renderFishboneVisual(container, enableInteraction = false) {
         }
     });
 
+    // Positioned in the SAME percentage coordinate system as the category/
+    // cause labels below (rather than mixing in fixed pixel right/max-width),
+    // so it scales consistently with container width instead of encroaching
+    // further into the diagram on narrower screens. Categories/causes are
+    // clamped to x<=78 with this box starting at 85%, leaving a real margin
+    // regardless of container width.
     const effectLabel = document.createElement('div');
-    effectLabel.className = 'absolute right-2 top-1/2 -translate-y-1/2 bg-red-600 text-white px-4 py-2 rounded-lg font-bold text-sm max-w-[150px] text-center shadow-lg';
-    effectLabel.innerHTML = `<div class="text-[10px] uppercase opacity-75">Effect</div>${escapeHtml(problem)}...`;
+    effectLabel.className = 'absolute top-1/2 -translate-y-1/2 bg-red-600 text-white px-3 py-2 rounded-lg font-bold text-xs text-center shadow-lg z-10';
+    effectLabel.style.left = '85%';
+    effectLabel.style.width = '14%';
+    effectLabel.innerHTML = `<div class="text-[9px] uppercase opacity-75">Effect</div>${escapeHtml(problem)}...`;
     container.appendChild(effectLabel);
     
     if (enableInteraction && !state.isReadOnly) {
