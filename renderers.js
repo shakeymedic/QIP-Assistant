@@ -2040,7 +2040,14 @@ export function deletePDSA(index) {
 
 function resolveStakeholderOverlap(stakes) {
     // Apply light jitter to separate bubbles that are too close (<35px on a 100×100 grid)
-    const minDist = 12; // percent units
+    // 12 was tuned as if labels were small dots, but each rendered card is
+    // up to 140px wide (max-w-[140px], centred on its point) in a container
+    // that's at most 672px (max-w-2xl) — two cards need roughly 20% of
+    // container width apart center-to-center before their edges stop
+    // touching, not 12%. Confirmed via live testing that 12 still let two
+    // adjacent cards' rounded rectangles visibly overlap even once they
+    // were no longer at the exact same point.
+    const minDist = 22; // percent units
     const MAX_ITER = 60;
     const positions = stakes.map(s => ({ x: s.x || 50, y: s.y || 50 }));
     
