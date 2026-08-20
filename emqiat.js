@@ -108,7 +108,7 @@ export function renderEMQIATForm(container, opts = {}) {
             <div class="flex items-start justify-between gap-3 mb-4 flex-wrap">
                 <div>
                     <h3 class="text-lg font-bold text-slate-800">EM-QIAT (2025 Update)</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">Mirrors the real RCEM form field-for-field so this is what your supervisor reviews \u2014 not a separate summary. ${readOnly ? 'Read-only \u2014 you are viewing the trainee\\'s actual answers.' : 'Fill this in yourself, or click \u201cSuggest from project data\u201d for a derived starting draft you can edit.'}</p>
+                    <p class="text-xs text-slate-500 mt-0.5">Mirrors the real RCEM form field-for-field so this is what your supervisor reviews \u2014 not a separate summary. ${readOnly ? 'Read-only \u2014 you are viewing the trainee\'s actual answers.' : 'Fill this in yourself, or click \u201cSuggest from project data\u201d for a derived starting draft you can edit.'}</p>
                 </div>
                 ${!readOnly ? `<button onclick="window.exportToKaizen()" class="text-xs bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded-lg font-semibold hover:bg-indigo-100 flex items-center gap-1 whitespace-nowrap"><i data-lucide="file-output" class="w-3.5 h-3.5"></i> Export copy/paste version</button>` : ''}
             </div>
