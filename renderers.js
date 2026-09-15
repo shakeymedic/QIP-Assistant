@@ -396,9 +396,26 @@ function renderMiniChart() {
     const chartW = W - ML - MR;
     const chartH = H - MT - MB;
     
-    // Calculate median from first 12 baseline points
-    const baseVals = [...values.slice(0, 12)].sort((a, b) => a - b);
-    const median = baseVals[Math.floor(baseVals.length / 2)] || 0;
+    // Calculate median from the baseline phase, using the same Phase/"grade"
+    // grouping logic as the Before/After chart and Results view (charts.js
+    // renderBeforeAfter, _resultsBeforeAfterStats) so this figure always
+    // matches those. Falls back to the classic run-chart convention (first
+    // 10-12 chronological points) only when points carry no Phase tag at all.
+    const gradedPoints = sorted.filter(p => p.grade);
+    let baseVals;
+    if (gradedPoints.length > 0) {
+        const phaseEarliestDate = {};
+        sorted.forEach(p => {
+            const g = p.grade || 'Ungraded';
+            const t = new Date(p.date).getTime() || 0;
+            if (!(g in phaseEarliestDate) || t < phaseEarliestDate[g]) phaseEarliestDate[g] = t;
+        });
+        const baselinePhase = Object.keys(phaseEarliestDate).sort((a, b) => phaseEarliestDate[a] - phaseEarliestDate[b])[0];
+        baseVals = sorted.filter(p => (p.grade || 'Ungraded') === baselinePhase).map(p => p.value);
+    } else {
+        baseVals = values.slice(0, Math.min(12, values.length));
+    }
+    const median = _resultsMedian(baseVals) || 0;
     const medianY = MT + chartH - ((median - min) / range) * chartH;
     
     const points = values.map((v, i) => {

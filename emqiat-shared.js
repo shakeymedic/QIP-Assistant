@@ -55,10 +55,16 @@ export function deriveOverview(data) {
 }
 
 export function deriveSharingResults(data) {
+    // Pull out just the dissemination-relevant sentence(s) from the
+    // sustainability plan rather than dumping the whole plan (which also
+    // covers unrelated governance-handover / induction-embedding content
+    // that does not answer "how and when were results shared").
     const checklist = data.checklist || {};
-    return checklist.sustainability && /governance meeting|consultant meeting|presented/i.test(checklist.sustainability)
-        ? checklist.sustainability
-        : '';
+    const sustainability = checklist.sustainability || '';
+    if (!sustainability) return '';
+    const lines = sustainability.split(/\n+/).filter(Boolean);
+    const disseminationLines = lines.filter(l => /disseminat|consultant meeting|governance meeting|present|spread|submission|network|publicat/i.test(l));
+    return disseminationLines.length ? disseminationLines.join('\n') : '';
 }
 
 export function deriveReflections(data) {
