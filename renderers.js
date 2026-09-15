@@ -3193,21 +3193,28 @@ export function renderFullProject() {
                     // avoids 3+ stakeholders in the same corner collapsing back onto
                     // each other and onto the "Manage Closely" label after clamping.
                     const offsets = [[0,0],[9,-9],[9,9],[-9,9],[-9,-9],[0,-14],[14,0],[0,14],[-14,0],[6,-14],[-6,-14],[6,14],[-6,14]];
+                    // Bucket keys MUST be derived from the same clamped coordinates in both
+                    // passes below — otherwise a stakeholder placed outside the [8,92] clamp
+                    // range (e.g. x=95, y=95) buckets differently the second time round and
+                    // `buckets[key]` is undefined, crashing the whole report render.
+                    const clampedPos = d.stakeholders.map(s => ({
+                        baseLeft: Math.max(8, Math.min(92, s.x||50)),
+                        baseTop: Math.max(8, Math.min(92, 100-(s.y||50)))
+                    }));
                     const buckets = {};
-                    d.stakeholders.forEach((s, idx) => {
-                        const bx = Math.round((s.x||50) / 5) * 5;
-                        const by = Math.round((100-(s.y||50)) / 5) * 5; // CSS top bucket
+                    clampedPos.forEach(({ baseLeft, baseTop }, idx) => {
+                        const bx = Math.round(baseLeft / 5) * 5;
+                        const by = Math.round(baseTop / 5) * 5;
                         const key = `${bx}_${by}`;
                         if (!buckets[key]) buckets[key] = [];
                         buckets[key].push(idx);
                     });
                     const finalPos = d.stakeholders.map((s, idx) => {
                         // cssLeft = s.x, cssTop = 100 - s.y
-                        const baseLeft = Math.max(8, Math.min(92, s.x||50));
-                        const baseTop  = Math.max(8, Math.min(92, 100-(s.y||50)));
+                        const { baseLeft, baseTop } = clampedPos[idx];
                         const bx = Math.round(baseLeft/5)*5, by = Math.round(baseTop/5)*5;
                         const key = `${bx}_${by}`;
-                        const slot = buckets[key].indexOf(idx);
+                        const slot = (buckets[key] || [idx]).indexOf(idx);
                         const [ox, oy] = offsets[slot % offsets.length];
                         return { left: Math.max(10, Math.min(90, baseLeft + ox)), top: Math.max(10, Math.min(90, baseTop + oy)) };
                     });
