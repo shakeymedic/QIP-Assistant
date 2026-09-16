@@ -1663,6 +1663,95 @@ window.toggleAddCycleForm = function(ideaIdx) {
     }
 };
 
+/**
+ * Flat, cross-idea view of every PDSA cycle in the project in one table —
+ * lets Jake review all cycles across all change ideas without opening each
+ * idea card individually. Mirrors the stakeholder Matrix/List toggle
+ * pattern (`toggleStakeView`): swaps the same container's contents and
+ * offers a button back to the grouped-by-idea view.
+ */
+export function renderAllPDSACycles() {
+    const d = state.projectData;
+    if (!d) return;
+    const container = document.getElementById('pdsa-container');
+    if (!container) return;
+
+    const ideas = d.changeIdeas || [];
+    const rows = [];
+    ideas.forEach((idea, ideaIdx) => {
+        (idea.pdsaCycles || []).forEach((cycle, cycleIdx) => {
+            rows.push({ idea, ideaIdx, cycle, cycleIdx });
+        });
+    });
+    // Most recent first; cycles without a date sort to the bottom.
+    rows.sort((a, b) => {
+        const ad = a.cycle.startDate || a.cycle.start || '';
+        const bd = b.cycle.startDate || b.cycle.start || '';
+        if (!ad && !bd) return 0;
+        if (!ad) return 1;
+        if (!bd) return -1;
+        return bd.localeCompare(ad);
+    });
+
+    const statusColors = { active: 'bg-emerald-100 text-emerald-700', planning: 'bg-blue-100 text-blue-700', completed: 'bg-slate-100 text-slate-600', abandoned: 'bg-red-100 text-red-700' };
+
+    container.innerHTML = `
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
+            <header class="flex justify-between items-center mb-6 flex-wrap gap-2">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                        <i data-lucide="list-checks" class="text-indigo-500"></i> All PDSA Cycles
+                    </h2>
+                    <p class="text-slate-500 text-sm">Every cycle across every change idea, newest first — ${rows.length} cycle${rows.length !== 1 ? 's' : ''} across ${ideas.length} idea${ideas.length !== 1 ? 's' : ''}</p>
+                </div>
+                <button onclick="window.R.renderPDSA()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                    <i data-lucide="layout-grid" class="w-4 h-4"></i> Grouped by Idea
+                </button>
+            </header>
+
+            ${rows.length === 0 ? `
+                <p class="text-slate-500 text-center py-8">No PDSA cycles added yet — add a change idea, then add cycles to it, to see them listed here.</p>
+            ` : `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead class="bg-slate-50">
+                            <tr class="text-xs text-slate-500 uppercase">
+                                <th class="px-4 py-3 text-left">Cycle</th>
+                                <th class="px-4 py-3 text-left">Change Idea</th>
+                                <th class="px-4 py-3 text-left">Start Date</th>
+                                <th class="px-4 py-3 text-left">Owner</th>
+                                <th class="px-4 py-3 text-left">Status</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            ${rows.map(({ idea, ideaIdx, cycle, cycleIdx }) => {
+                                const statusCls = statusColors[cycle.status] || statusColors.planning;
+                                return `
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="px-4 py-3 font-medium text-slate-800">${escapeHtml(cycle.title || 'Untitled cycle')}</td>
+                                        <td class="px-4 py-3 text-slate-500">${escapeHtml(idea.title || 'Untitled idea')}</td>
+                                        <td class="px-4 py-3 text-slate-500">${escapeHtml(cycle.startDate || cycle.start || '—')}</td>
+                                        <td class="px-4 py-3 text-slate-500">${escapeHtml(cycle.owner || '—')}</td>
+                                        <td class="px-4 py-3"><span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${statusCls}">${escapeHtml(cycle.status || 'planning')}</span></td>
+                                        <td class="px-4 py-3 text-right">
+                                            <button onclick="window.R.renderPDSA(); setTimeout(() => { const b = document.getElementById('ci-body-${ideaIdx}'); if (b) b.classList.remove('hidden'); document.getElementById('ci-card-${ideaIdx}')?.scrollIntoView({behavior:'smooth', block:'center'}); }, 50)" class="text-indigo-600 hover:text-indigo-800 text-xs font-bold">
+                                                View in idea →
+                                            </button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `}
+        </div>
+    `;
+
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+}
+
 export function renderPDSA() {
     const d = state.projectData;
     if (!d) return;
@@ -1739,6 +1828,9 @@ export function renderPDSA() {
                         <span class="text-sm text-slate-500">${(d.pdsa||[]).length} PDSA cycle${(d.pdsa||[]).length !== 1 ? 's' : ''} total</span>
                     </div>
                     <div class="flex items-center gap-2">
+                        <button onclick="window.renderAllPDSACycles()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 rounded-lg hover:bg-slate-200 transition-colors">
+                            <i data-lucide="list-checks" class="w-3.5 h-3.5"></i> All Cycles
+                        </button>
                         <button onclick="window.showTemplatesModal()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors">
                             <i data-lucide="layout-template" class="w-3.5 h-3.5"></i> Templates
                         </button>
@@ -2055,50 +2147,86 @@ export function deletePDSA(index) {
 // 7. STAKEHOLDER VIEW
 // ==========================================
 
-function resolveStakeholderOverlap(stakes) {
-    // Apply light jitter to separate bubbles that are too close (<35px on a 100×100 grid)
-    // 12 was tuned as if labels were small dots, but each rendered card is
-    // up to 140px wide (max-w-[140px], centred on its point) in a container
-    // that's at most 672px (max-w-2xl) — two cards need roughly 20% of
-    // container width apart center-to-center before their edges stop
-    // touching, not 12%. Confirmed via live testing that 12 still let two
-    // adjacent cards' rounded rectangles visibly overlap even once they
-    // were no longer at the exact same point.
-    const minDist = 22; // percent units
-    const MAX_ITER = 60;
-    const positions = stakes.map(s => ({ x: s.x || 50, y: s.y || 50 }));
-    
-    for (let iter = 0; iter < MAX_ITER; iter++) {
+// Cards are compact (max-w-[112px], 2-3 short lines) inside a max-w-3xl
+// (768px) square matrix — see the card markup below. MIN_DIST is the
+// minimum center-to-center percent distance two cards need to avoid
+// visibly touching; MARGIN keeps a card's center far enough from the
+// matrix edge that its translate(-50%,-50%) box never gets clipped by the
+// container boundary.
+const STAKEHOLDER_MIN_DIST = 18; // percent units
+const STAKEHOLDER_MARGIN = 9;    // percent units
+
+function clampToMatrix(v) {
+    return Math.max(STAKEHOLDER_MARGIN, Math.min(100 - STAKEHOLDER_MARGIN, v));
+}
+
+/**
+ * Push (x, y) away from every position in `fixed` until it clears
+ * STAKEHOLDER_MIN_DIST from all of them. Positions in `fixed` are never
+ * themselves moved — only the point being resolved. This is what makes
+ * dragging one stakeholder leave every other stakeholder exactly where it
+ * was, instead of the old mutual-repulsion pass reshuffling the whole board.
+ */
+function nudgeAwayFromFixed(x, y, fixed, minDist = STAKEHOLDER_MIN_DIST) {
+    let px = clampToMatrix(x), py = clampToMatrix(y);
+    for (let iter = 0; iter < 50; iter++) {
+        let moved = false;
+        for (const fp of fixed) {
+            const dx = px - fp.x, dy = py - fp.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            let nx, ny;
+            if (dist < 0.0001) {
+                // Landed exactly on another card (e.g. dropped right on top
+                // of it) — dx/dy give no direction to push in, so pick one
+                // instead of silently leaving the two stacked at dist 0.
+                const angle = Math.random() * Math.PI * 2;
+                nx = Math.cos(angle); ny = Math.sin(angle);
+                dist = 0;
+            } else {
+                nx = dx / dist; ny = dy / dist;
+            }
+            if (dist < minDist) {
+                const push = minDist - dist;
+                px = clampToMatrix(px + nx * push);
+                py = clampToMatrix(py + ny * push);
+                moved = true;
+            }
+        }
+        if (!moved) break;
+    }
+    return { x: px, y: py };
+}
+
+/**
+ * Full mutual separation across every stakeholder — used ONLY once, to
+ * migrate legacy/imported data that may have identical or overlapping
+ * coordinates (e.g. everything defaulted to 50,50). Once run, the results
+ * are persisted onto each stakeholder's own x/y and this never needs to
+ * run again for that project, so it can never "move other boxes around"
+ * on a later render.
+ */
+function resolveAllStakeholderOverlaps(stakes) {
+    const positions = stakes.map(s => ({ x: clampToMatrix(s.x ?? 50), y: clampToMatrix(s.y ?? 50) }));
+    for (let iter = 0; iter < 80; iter++) {
         let moved = false;
         for (let i = 0; i < positions.length; i++) {
             for (let j = i + 1; j < positions.length; j++) {
                 const dx = positions[i].x - positions[j].x;
                 const dy = positions[i].y - positions[j].y;
                 let dist = Math.sqrt(dx * dx + dy * dy);
-                // Exact duplicates (e.g. several freshly-added stakeholders that
-                // all default to x:50,y:50 before being dragged) previously
-                // never separated at all, since dist===0 skipped the nx/ny
-                // divide-by-zero branch entirely and just stayed stacked.
-                // Give them a deterministic tiny nudge based on index so the
-                // normal repulsion below has a direction to push them apart in.
                 if (dist === 0) {
                     const angle = (i * 47 + j * 91) % 360 * (Math.PI / 180);
                     positions[j].x += Math.cos(angle) * 0.5;
                     positions[j].y += Math.sin(angle) * 0.5;
                     dist = 0.5;
                 }
-                if (dist < minDist) {
-                    const overlap = (minDist - dist) / 2;
+                if (dist < STAKEHOLDER_MIN_DIST) {
+                    const overlap = (STAKEHOLDER_MIN_DIST - dist) / 2;
                     const nx = dx / dist, ny = dy / dist;
-                    // Tighter clamp than the [5,95] used elsewhere — corners are
-                    // exactly where high-power/high-interest stakeholders (the
-                    // ones you're told to "manage closely") tend to cluster,
-                    // and clamping right back to a wide bound there undoes the
-                    // separation this loop just computed.
-                    positions[i].x = Math.max(10, Math.min(90, positions[i].x + nx * overlap));
-                    positions[i].y = Math.max(10, Math.min(90, positions[i].y + ny * overlap));
-                    positions[j].x = Math.max(10, Math.min(90, positions[j].x - nx * overlap));
-                    positions[j].y = Math.max(10, Math.min(90, positions[j].y - ny * overlap));
+                    positions[i].x = clampToMatrix(positions[i].x + nx * overlap);
+                    positions[i].y = clampToMatrix(positions[i].y + ny * overlap);
+                    positions[j].x = clampToMatrix(positions[j].x - nx * overlap);
+                    positions[j].y = clampToMatrix(positions[j].y - ny * overlap);
                     moved = true;
                 }
             }
@@ -2116,7 +2244,20 @@ export function renderStakeholders() {
     if (!canvas) return;
     
     const stakes = d.stakeholders || [];
-    const resolvedPositions = resolveStakeholderOverlap(stakes);
+
+    // One-time migration: legacy/imported data can have identical or
+    // overlapping coordinates (e.g. everything defaulted to 50,50).
+    // Resolve once and persist the result onto each stakeholder's own
+    // x/y so this never has to run — and never has to move an already
+    // fine card — again on a later render.
+    if (stakes.length && !d._stakeholderLayoutResolved) {
+        const resolved = resolveAllStakeholderOverlaps(stakes);
+        stakes.forEach((s, i) => { s.x = resolved[i].x; s.y = resolved[i].y; });
+        d._stakeholderLayoutResolved = true;
+        if (window.saveData) window.saveData();
+    }
+
+    const resolvedPositions = stakes.map(s => ({ x: clampToMatrix(s.x ?? 50), y: clampToMatrix(s.y ?? 50) }));
     
     canvas.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full">
@@ -2137,7 +2278,7 @@ export function renderStakeholders() {
                 </div>
             </header>
             
-            <div id="stakeholder-matrix" class="relative w-full aspect-square max-w-2xl mx-auto border-2 border-slate-200 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100">
+            <div id="stakeholder-matrix" class="relative w-full aspect-square max-w-3xl mx-auto border-2 border-slate-200 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100">
                 <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-20">
                     <div class="border-r border-b border-slate-200 p-3">
                         <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Keep Satisfied</span>
@@ -2175,10 +2316,10 @@ export function renderStakeholders() {
                          style="left: ${rp.x.toFixed(1)}%; top: ${(100 - rp.y).toFixed(1)}%; transform: translate(-50%, -50%);"
                          data-index="${i}"
                          id="stake-${i}">
-                        <div class="${bgColor} text-white px-3 py-2 rounded-lg shadow-md hover:shadow-lg transition-all text-xs font-medium max-w-[140px] text-center leading-tight">
-                            <div class="font-bold">${escapeHtml(s.name || 'Unknown')}</div>
-                            ${s.role ? `<div class="text-[10px] opacity-80 mt-0.5">${escapeHtml(s.role)}</div>` : ''}
-                            ${s.organisation ? `<div class="text-[10px] opacity-70 mt-0.5">${escapeHtml(s.organisation)}</div>` : ''}
+                        <div class="${bgColor} text-white px-2 py-1.5 rounded-lg shadow-md hover:shadow-lg hover:z-30 transition-all text-[11px] font-medium max-w-[112px] text-center leading-tight">
+                            <div class="font-bold truncate">${escapeHtml(s.name || 'Unknown')}</div>
+                            ${s.role ? `<div class="text-[9px] opacity-80 mt-0.5 truncate">${escapeHtml(s.role)}</div>` : ''}
+                            ${s.organisation ? `<div class="text-[9px] opacity-70 mt-0.5 truncate">${escapeHtml(s.organisation)}</div>` : ''}
                         </div>
                         <button onclick="event.stopPropagation(); window.editStakeholder(${i})"
                                 class="absolute -top-2 -left-2 w-5 h-5 bg-indigo-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center hover:bg-indigo-600" title="Edit">
@@ -2225,8 +2366,8 @@ function initStakeholderDrag() {
             const rect = matrix.getBoundingClientRect();
             
             const onMove = (ev) => {
-                const x = Math.max(5, Math.min(95, ((ev.clientX - rect.left) / rect.width) * 100));
-                const y = Math.max(5, Math.min(95, 100 - ((ev.clientY - rect.top) / rect.height) * 100));
+                const x = clampToMatrix(((ev.clientX - rect.left) / rect.width) * 100);
+                const y = clampToMatrix(100 - ((ev.clientY - rect.top) / rect.height) * 100);
                 
                 label.style.left = `${x}%`;
                 label.style.top = `${100 - y}%`;
@@ -2236,10 +2377,18 @@ function initStakeholderDrag() {
                 document.removeEventListener('mousemove', onMove);
                 document.removeEventListener('mouseup', onUp);
                 
-                const x = Math.max(5, Math.min(95, ((ev.clientX - rect.left) / rect.width) * 100));
-                const y = Math.max(5, Math.min(95, 100 - ((ev.clientY - rect.top) / rect.height) * 100));
+                const rawX = clampToMatrix(((ev.clientX - rect.left) / rect.width) * 100);
+                const rawY = clampToMatrix(100 - ((ev.clientY - rect.top) / rect.height) * 100);
                 
                 if (state.projectData.stakeholders && state.projectData.stakeholders[index]) {
+                    // Only nudge THIS card away from every other stakeholder's
+                    // existing position — those positions are treated as fixed
+                    // and are never themselves moved, so dropping one card near
+                    // another no longer reshuffles the rest of the board.
+                    const others = state.projectData.stakeholders
+                        .filter((_, j) => j !== index)
+                        .map(s => ({ x: s.x ?? 50, y: s.y ?? 50 }));
+                    const { x, y } = nudgeAwayFromFixed(rawX, rawY, others);
                     state.projectData.stakeholders[index].x = x;
                     state.projectData.stakeholders[index].y = y;
                     if (window.saveData) window.saveData();
@@ -2263,12 +2412,15 @@ export function addStakeholder() {
         ],
         (data) => {
             if (!state.projectData.stakeholders) state.projectData.stakeholders = [];
+            // Land the new card in a free spot rather than dead-center at
+            // (50,50), where it would sit on top of anything already there.
+            const others = state.projectData.stakeholders.map(s => ({ x: s.x ?? 50, y: s.y ?? 50 }));
+            const { x, y } = nudgeAwayFromFixed(50, 50, others);
             state.projectData.stakeholders.push({
                 name: data.name,
                 role: data.role || '',
                 organisation: data.organisation || '',
-                x: 50,
-                y: 50
+                x, y
             });
             if (window.saveData) window.saveData();
             renderStakeholders();

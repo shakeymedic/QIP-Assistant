@@ -1753,6 +1753,7 @@ window.deleteChangeIdea = R.deleteChangeIdea;
 window.addCycleToIdea = R.addCycleToIdea;
 window.updateCycleInIdea = R.updateCycleInIdea;
 window.deleteCycleFromIdea = R.deleteCycleFromIdea;
+window.renderAllPDSACycles = R.renderAllPDSACycles;
 
 window.openGanttModal = R.openGanttModal;
 window.saveGanttTask = () => {
