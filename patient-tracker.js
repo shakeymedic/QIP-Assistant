@@ -1,5 +1,7 @@
 // patient-tracker.js
 
+import { escapeHtml } from './utils.js';
+
 export function renderPatientTracker(projectData, saveDataFunc) {
     const container = document.getElementById('patient-tracker-container');
     if (!container) return;
@@ -18,9 +20,9 @@ export function renderPatientTracker(projectData, saveDataFunc) {
                     <span class="text-xs font-bold text-rcem-purple bg-purple-50 px-2 py-1 rounded">${item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('en-GB') : ''}</span>
                     <button onclick="window.deletePatientFeedback(${index})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
                 </div>
-                <p class="text-sm text-slate-800 font-bold mb-1">Feedback: <span class="font-normal">${item.feedback}</span></p>
-                <p class="text-sm text-slate-800 font-bold mb-1">Action Taken: <span class="font-normal">${item.action}</span></p>
-                <p class="text-xs text-slate-500 mt-2">Mapped to PDSA Cycle: ${item.pdsaLink}</p>
+                <p class="text-sm text-slate-800 font-bold mb-1">Feedback: <span class="font-normal">${escapeHtml(item.feedback)}</span></p>
+                <p class="text-sm text-slate-800 font-bold mb-1">Action Taken: <span class="font-normal">${escapeHtml(item.action)}</span></p>
+                <p class="text-xs text-slate-500 mt-2">Mapped to PDSA Cycle: ${escapeHtml(item.pdsaLink)}</p>
             </div>
         `).join('');
     }

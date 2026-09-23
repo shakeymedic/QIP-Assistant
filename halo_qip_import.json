@@ -3,7 +3,7 @@
     "title": "HALO Procedures QIP — Improving Readiness for High Acuity Low Occurrence Procedures",
     "created": "2025-10-01T00:00:00.000Z",
     "updated": "2026-04-29T22:00:00.000Z",
-    "owner": "Dr Jake Turner",
+    "owner": "Dr Alex Morgan",
     "trainingStage": "higher"
   },
 
@@ -25,21 +25,21 @@
 
     "process_measure": "PROCESS MEASURE — Checklist Compliance %:\nMethod: Weekly audit of the 'Broken Tag Log'. Tag integrity checked twice daily at handover. Goal: >95% of broken tags have a corresponding staff signature and replacement within the same shift.",
 
-    "balance_measure": "BALANCING MEASURE — Stock Cost & Theft:\nMethod: Monthly procurement review with Stores Lead (Khan Zaman) and Charlotte Vineham (Ops Manager). Goal: <£100 loss per month.\n\nSECONDARY BALANCING — Staff Burden:\nGoal: Tag system and restocking protocol add <5 minutes per shift to nursing workload.",
+    "balance_measure": "BALANCING MEASURE — Stock Cost & Theft:\nMethod: Monthly procurement review with Stores Lead (Tariq Ahmed) and Laura Bennett (Ops Manager). Goal: <£100 loss per month.\n\nSECONDARY BALANCING — Staff Burden:\nGoal: Tag system and restocking protocol add <5 minutes per shift to nursing workload.",
 
     "ethics": "ETHICS & REGISTRATION:\nThis project is classified as a Quality Improvement initiative in accordance with the NHS Health Research Authority (HRA) decision tool and does not constitute research. No patient-identifiable data is collected at any stage. All timing data is anonymised at source and linked only to staff role. Staff participation in the 'Stopwatch Audit' and knowledge assessments is voluntary. No formal ethical approval from a Research Ethics Committee (REC) is required.\n\nThe project has been registered with the Trust Clinical Audit & Effectiveness Department in accordance with local governance requirements.\n\nNatSSIPs / LOCSSIPs COMPLIANCE:\nProject design, trolley layout, and IPC compliance have been reviewed in accordance with NatSSIPs. QRH guides serve as the immediate safety checklist required by LOCSSIPs. Trolley location vetted by the Infection Prevention Control Lead for cleaning compliance. Discrepancies in stock will be reported via Datix to the Patient Safety Team.\n\nSQUIRE 2.0 METHODOLOGY:\nThe project follows SQUIRE 2.0 reporting standards. Work as Done vs Work as Imagined addressed through qualitative questionnaire in baseline scoping phase.",
 
     "lit_review": "RCEM QUALITY STANDARDS FOR MAJOR TRAUMA (2024):\n• Emphasises the importance of immediately accessible procedural equipment for HALO emergency scenarios.\n• Cited as the primary standard supporting centralisation of HALO equipment.\n\nNATIONAL CONFIDENTIAL ENQUIRY INTO PATIENT OUTCOME AND DEATH (NCEPOD):\n• Repeatedly highlights equipment retrieval delays as a contributory factor in suboptimal care during emergency procedures.\n• Supports the 'Right Kit, Right Place, Right Time' patient safety framing of this project.\n\nCOGNITIVE OFFLOADING IN HIGH-RELIABILITY INDUSTRIES:\n• Well-established in aviation, military medicine, and Formula 1 pit-stop design.\n• In healthcare, the 'Resuscitation Trolley' model demonstrably reduces time-to-intervention in cardiac arrest scenarios.\n• The HALO Trolley replicates this proven 'Resuscitation Trolley' model for low-frequency high-risk procedures.\n\nQRH SYSTEM DESIGN (HALO Booklet v2.6, April 2026):\n• Draws on aviation checklist design principles (Gawande, The Checklist Manifesto, 2009).\n• Draws on NHS Emergency Department Checklist programme methodology.\n• Human factors design: Two-page system (Page A: Walkthrough/Preparation; Page B: Action/Flowchart).\n• Reader allocation to reduce cognitive load for the operator during high-stress procedures.\n\nGUIDELINES REFERENCED FOR QRH CONTENT VALIDATION (verified April 2026 v2.6):\n• DAS Guidelines — Surgical Airway (eFONA), Difficult Airway Society 2025\n• RCEM Clinical Standards — Thoracotomy (FPHC & RCEM Consensus 2018/2025)\n• Resuscitation Council UK 2021 — Resuscitative Hysterotomy (Perimortem C-Section)\n• RCOG Green-top 20b — Emergency Breech Delivery\n• BTS & RCEM Guidelines 2025 — Chest Drain (Open)\n• ESC Guidelines 2015/2025 — Pericardiocentesis & External Pacing\n• AAGBI Safety Guideline 2023 — LAST (Lipid Rescue)\n• LSEBN Guidelines 2025 — Escharotomy (Burns)\n• AAGBI Safe Vascular Access 2016 — Subclavian Central Line\n• RCOphth Guidelines — Lateral Canthotomy\n• RCEM Guidelines — Severe Max-Fax Bleed",
 
-    "results_text": "BASELINE PHASE RESULTS (as of April 2026):\n\nStopwatch Audit Baseline Data (N=13, Oct 2025 – Apr 2026):\n• Baseline Median 'Time to Kit': 245 seconds\n• High variation observed — range approximately 91s (centralized control) to >480s (dispersed HALO kit)\n• Pilot comparison (N=3): Central Line Trolley (centralised) = 91s vs Thoracotomy kit (dispersed) = >300s\n\nPre-intervention Staff Confidence Survey:\n• 9% of staff reported 'confident to assist/perform with guidance'\n\nPDSA 1 STATUS (April 2026):\nHALO Booklet v2.6 distributed to consultant and middle grade body. Feedback collection in progress.\n\nPDSA 2 STATUS (Pending):\nTrolley frame quote received (Charlotte Vineham, March 2026). Build pending. Nursing tag system agreed with Sarah Hart (26 April 2026).\n\nNOTE: Post-intervention data collection will commence upon trolley deployment. This section will be updated with post-PDSA 2 Stopwatch Audit timings and post-intervention confidence survey results.",
+    "results_text": "BASELINE PHASE RESULTS (as of April 2026):\n\nStopwatch Audit Baseline Data (N=13, Oct 2025 – Apr 2026):\n• Baseline Median 'Time to Kit': 245 seconds\n• High variation observed — range approximately 91s (centralized control) to >480s (dispersed HALO kit)\n• Pilot comparison (N=3): Central Line Trolley (centralised) = 91s vs Thoracotomy kit (dispersed) = >300s\n\nPre-intervention Staff Confidence Survey:\n• 9% of staff reported 'confident to assist/perform with guidance'\n\nPDSA 1 STATUS (April 2026):\nHALO Booklet v2.6 distributed to consultant and middle grade body. Feedback collection in progress.\n\nPDSA 2 STATUS (Pending):\nTrolley frame quote received (Laura Bennett, March 2026). Build pending. Nursing tag system agreed with Emma Clarke (26 April 2026).\n\nNOTE: Post-intervention data collection will commence upon trolley deployment. This section will be updated with post-PDSA 2 Stopwatch Audit timings and post-intervention confidence survey results.",
 
     "results_analysis": "ANALYSIS PLAN (to be completed post-intervention):\n\nRun Chart analysis will use IHI rules to identify non-random variation:\n• Rule 1 (Shift): 6+ consecutive points all above or below the baseline median of 245s\n• Rule 2 (Trend): 5+ consecutive points all consistently increasing or decreasing\n• Post-intervention: looking for a sustained downward shift below 245s median\n\nFor procedural knowledge: Wilcoxon signed-rank test (pre vs post QRH deployment scores)\n\nCURRENT BASELINE STATUS:\nBaseline median of 245s established (N=13). Run chart displays high variation consistent with a system dependent on memory and unfamiliar cupboard locations. No special cause variation detected in baseline phase — confirming an unpredictable, unstable process.",
 
-    "learning_points": "KEY LEARNING POINTS (updated as project progresses):\n\n1. DUAL-ARM STRATEGY — PDSA cycles were deliberately reordered to start with the cognitive aid booklet (PDSA 1) before introducing the physical trolley (PDSA 2). This builds familiarity with kit requirements before centralising equipment, ensuring staff know what to look for before the trolley exists.\n\n2. MOVING FROM 'WORK AS IMAGINED' TO 'WORK AS DONE' — I assumed staff knew where HALO kit was stored. The baseline Stopwatch Audit revealed a significant safety gap that was invisible until measured. Quantitative evidence was essential for stakeholder buy-in.\n\n3. STAKEHOLDER NAVIGATION REQUIRES TAILORED COMMUNICATION:\n• Matron/Ops Manager: Framed as 'Risk Reduction' and cost-neutral consolidation — not new spend\n• Consultant Leads: Data-driven conversations with pilot timing evidence and patient safety framing\n• Senior Sister: Focused on operational simplicity — agreed tag system that adds minimal workload\n\n4. DELEGATION WITH CLEAR ACCOUNTABILITY:\n• Dr Maida (SHO) — data collection, with clear output: '10 timings by Friday'\n• Jemma (EDP) — nursing dissemination, with defined scope\n• Portfolio evidence explicitly offered to junior team members as incentive\n\n5. SMALL PDSA CYCLES — PDSA 3 (Kit Update for Thoracotomy/Hysterotomy trays) was added iteratively after discovering theatre trays are unwieldy for emergency use — demonstrating genuine iterative QI methodology.\n\nLIMITATIONS:\n• Single-site design — generalisability limited, but underlying principle is transferable\n• Small sample (N=13) — mitigated by using Run Chart methodology (IHI-validated for small N)\n• Hawthorne effect — mitigated by scenario-based timing starting at 'Scenario Declaration'",
+    "learning_points": "KEY LEARNING POINTS (updated as project progresses):\n\n1. DUAL-ARM STRATEGY — PDSA cycles were deliberately reordered to start with the cognitive aid booklet (PDSA 1) before introducing the physical trolley (PDSA 2). This builds familiarity with kit requirements before centralising equipment, ensuring staff know what to look for before the trolley exists.\n\n2. MOVING FROM 'WORK AS IMAGINED' TO 'WORK AS DONE' — I assumed staff knew where HALO kit was stored. The baseline Stopwatch Audit revealed a significant safety gap that was invisible until measured. Quantitative evidence was essential for stakeholder buy-in.\n\n3. STAKEHOLDER NAVIGATION REQUIRES TAILORED COMMUNICATION:\n• Matron/Ops Manager: Framed as 'Risk Reduction' and cost-neutral consolidation — not new spend\n• Consultant Leads: Data-driven conversations with pilot timing evidence and patient safety framing\n• Senior Sister: Focused on operational simplicity — agreed tag system that adds minimal workload\n\n4. DELEGATION WITH CLEAR ACCOUNTABILITY:\n• Dr Shah (SHO) — data collection, with clear output: '10 timings by Friday'\n• Chloe (EDP) — nursing dissemination, with defined scope\n• Portfolio evidence explicitly offered to junior team members as incentive\n\n5. SMALL PDSA CYCLES — PDSA 3 (Kit Update for Thoracotomy/Hysterotomy trays) was added iteratively after discovering theatre trays are unwieldy for emergency use — demonstrating genuine iterative QI methodology.\n\nLIMITATIONS:\n• Single-site design — generalisability limited, but underlying principle is transferable\n• Small sample (N=13) — mitigated by using Run Chart methodology (IHI-validated for small N)\n• Hawthorne effect — mitigated by scenario-based timing starting at 'Scenario Declaration'",
 
-    "sustainability": "SUSTAINABILITY PLAN — Transition from 'Project' to 'Business as Usual':\n\nSTRUCTURAL:\n• Tag system embedded: Team that uses the kit replaces drawer contents immediately post-case\n• Twice-daily visual tag integrity check at handover (Senior Sister Sarah Hart as lead)\n• Stock discrepancies reported via Datix — formally embedded in governance\n• Trolley maintenance added to standard departmental checking schedule\n\nCLINICAL CREDIBILITY:\n• QRH guides peer-reviewed by consultant body before deployment (Mr Nadeem Zia, Dr Safdar Imam)\n• Annual Q4 review of QRH content against updated national guidelines\n\nMONITORING — QUARTERLY AUDIT SCHEDULE (2026/27):\n• Q1: Compliance Check — audit the Daily Checklist for completion\n• Q2: Staff Survey — re-run confidence survey for new rotation of Junior Doctors\n• Q3: Spot Check — random Stopwatch Audit (N=5) to ensure 'Time to Kit' remains low\n• Q4: Annual Review — update HALO QRH Guides to match any changes in national guidelines\n\nIMPLEMENTATION PLAYBOOK:\n1. MATRON PITCH — Frame as 'Risk Reduction' not 'New Equipment':\n   'While there is a small initial setup cost for the trolley frame, this project generates long-term savings. Centralising stock reduces waste costs significantly while bridging a critical patient safety gap.'\n\n2. TAG SYSTEM (Nursing Lead: Sarah Hart, Senior Sister):\n   Step 1 — Clinical Staff: Break tag and use kit. Team that uses the kit replaces drawer contents immediately post-case.\n   Step 2 — Integrity Check: Twice daily at handover, visual tag check only (no item count needed if tag intact).\n   Step 3 — If Broken: Shift Coordinator alerts Stores Team (Khan Zaman) if items missing.\n\n3. JUNIOR LEADERSHIP PROTOCOL (SHO Lead: Dr Maida):\n   Define the output: 'I need 10 timings by Friday.'\n   Weekly Friday review of data sheets together.\n   Portfolio QIP participation assessment offered upon completion.",
+    "sustainability": "SUSTAINABILITY PLAN — Transition from 'Project' to 'Business as Usual':\n\nSTRUCTURAL:\n• Tag system embedded: Team that uses the kit replaces drawer contents immediately post-case\n• Twice-daily visual tag integrity check at handover (Senior Sister Emma Clarke as lead)\n• Stock discrepancies reported via Datix — formally embedded in governance\n• Trolley maintenance added to standard departmental checking schedule\n\nCLINICAL CREDIBILITY:\n• QRH guides peer-reviewed by consultant body before deployment (Mr Rajesh Patel, Dr Michael Chen)\n• Annual Q4 review of QRH content against updated national guidelines\n\nMONITORING — QUARTERLY AUDIT SCHEDULE (2026/27):\n• Q1: Compliance Check — audit the Daily Checklist for completion\n• Q2: Staff Survey — re-run confidence survey for new rotation of Junior Doctors\n• Q3: Spot Check — random Stopwatch Audit (N=5) to ensure 'Time to Kit' remains low\n• Q4: Annual Review — update HALO QRH Guides to match any changes in national guidelines\n\nIMPLEMENTATION PLAYBOOK:\n1. MATRON PITCH — Frame as 'Risk Reduction' not 'New Equipment':\n   'While there is a small initial setup cost for the trolley frame, this project generates long-term savings. Centralising stock reduces waste costs significantly while bridging a critical patient safety gap.'\n\n2. TAG SYSTEM (Nursing Lead: Emma Clarke, Senior Sister):\n   Step 1 — Clinical Staff: Break tag and use kit. Team that uses the kit replaces drawer contents immediately post-case.\n   Step 2 — Integrity Check: Twice daily at handover, visual tag check only (no item count needed if tag intact).\n   Step 3 — If Broken: Shift Coordinator alerts Stores Team (Tariq Ahmed) if items missing.\n\n3. JUNIOR LEADERSHIP PROTOCOL (SHO Lead: Dr Shah):\n   Define the output: 'I need 10 timings by Friday.'\n   Weekly Friday review of data sheets together.\n   Portfolio QIP participation assessment offered upon completion.",
 
-    "next_pdp": "PROFESSIONAL DEVELOPMENT PLANS FOLLOWING THIS PROJECT:\n\n1. DISSEMINATION:\n   Present findings at the Regional RCEM meeting and submit for publication in EMJ or RCEM Learning platform. The HALO Trolley and QRH system methodology is potentially transferable to other departments and Trusts — the underlying principle generalises even if specific timings do not.\n\n2. SYSTEMATIC REVIEW:\n   Conduct a formal systematic review of equipment centralisation interventions in emergency medicine settings, building a stronger evidence base for this model and contributing to the national evidence base.\n\n3. LEADERSHIP DEVELOPMENT:\n   This project has developed negotiation and stakeholder engagement skills across multiple professional groups (consultants, nursing, operations, pharmacy). I aim to apply these skills to a cross-specialty QIP at the ED/ITU interface in my next training post.\n\n4. RCEM PORTFOLIO:\n   Use this project to fulfil the FRCEM QIP portfolio domain requirement and complete QIAT sign-off with Educational Supervisor. Provide portfolio evidence for Dr Maida (SHO) and Jemma (EDP) as junior team members.\n\n5. QRH PROGRAMME:\n   Explore whether the WMEBEM HALO QRH Booklet (v2.6) can be adopted more widely across West Midlands EDs, potentially as a regional resource."
+    "next_pdp": "PROFESSIONAL DEVELOPMENT PLANS FOLLOWING THIS PROJECT:\n\n1. DISSEMINATION:\n   Present findings at the Regional RCEM meeting and submit for publication in EMJ or RCEM Learning platform. The HALO Trolley and QRH system methodology is potentially transferable to other departments and Trusts — the underlying principle generalises even if specific timings do not.\n\n2. SYSTEMATIC REVIEW:\n   Conduct a formal systematic review of equipment centralisation interventions in emergency medicine settings, building a stronger evidence base for this model and contributing to the national evidence base.\n\n3. LEADERSHIP DEVELOPMENT:\n   This project has developed negotiation and stakeholder engagement skills across multiple professional groups (consultants, nursing, operations, pharmacy). I aim to apply these skills to a cross-specialty QIP at the ED/ITU interface in my next training post.\n\n4. RCEM PORTFOLIO:\n   Use this project to fulfil the FRCEM QIP portfolio domain requirement and complete QIAT sign-off with Educational Supervisor. Provide portfolio evidence for Dr Shah (SHO) and Chloe (EDP) as junior team members.\n\n5. QRH PROGRAMME:\n   Explore whether the WMEBEM HALO QRH Booklet (v2.6) can be adopted more widely across West Midlands EDs, potentially as a regional resource."
   },
 
   "drivers": {
@@ -60,7 +60,7 @@
       "PDSA 1: HALO QRH Booklet — Peer-reviewed cognitive aid for 12 HALO procedures",
       "PDSA 2: HALO Trolley — Centralise 8 core HALO procedure kits in dedicated Resus trolley",
       "PDSA 3: Kit Update — Streamline Thoracotomy & Hysterotomy theatre trays for ED use",
-      "Tag system for stock integrity checks (agreed with Senior Sister Sarah Hart, 26 Apr 2026)",
+      "Tag system for stock integrity checks (agreed with Senior Sister Emma Clarke, 26 Apr 2026)",
       "Pre/Post Knowledge Assessment to measure QRH educational impact",
       "Stopwatch Audit (In-situ sim) for objective 'Time to Kit' measurement"
     ]
@@ -148,9 +148,9 @@
       "startDate": "2026-05-01",
       "start": "2026-05-01",
       "status": "planned",
-      "plan": "PLAN: Use the confirmed trolley frame quote (Charlotte Vineham, March 2026) to procure and build a dedicated HALO Trolley. Stock with 8 core HALO procedure kits. Implement the agreed tag system with Senior Sister Sarah Hart (26 April 2026). Deploy in the Resus bay.\n\nPREDICTION: Centralising all HALO kit into one clearly labelled trolley will reduce mean 'Time to Kit' by ≥50% from the baseline median of 245 seconds. We predict this will be the highest-impact single intervention.",
-      "do": "DO (Planned — pending trolley frame procurement completion):\nTrolley frame to be ordered via Charlotte Vineham (Operations Manager) and Khan Zaman (Stores Lead).\nKit to be loaded using the Master Stock List (Appendix 5 of QIP paperwork).\nTag system implemented as agreed with Sarah Hart.\nTrolley sited in Resus bay at agreed location.\nDr Maida (SHO) briefed to collect post-intervention Stopwatch Audit timings.",
-      "study": "STUDY (Planned):\nDr Maida (SHO) to collect minimum 10 post-intervention Stopwatch Audit timings using same scenario-based protocol.\nCompare against baseline N=13 dataset (median 245s).\nApply IHI Run Chart rules — looking specifically for Rule 1 (Shift: 6+ consecutive points below baseline median of 245s) to confirm sustained improvement.\nCollect post-intervention staff confidence survey for comparison against baseline (9%).",
+      "plan": "PLAN: Use the confirmed trolley frame quote (Laura Bennett, March 2026) to procure and build a dedicated HALO Trolley. Stock with 8 core HALO procedure kits. Implement the agreed tag system with Senior Sister Emma Clarke (26 April 2026). Deploy in the Resus bay.\n\nPREDICTION: Centralising all HALO kit into one clearly labelled trolley will reduce mean 'Time to Kit' by ≥50% from the baseline median of 245 seconds. We predict this will be the highest-impact single intervention.",
+      "do": "DO (Planned — pending trolley frame procurement completion):\nTrolley frame to be ordered via Laura Bennett (Operations Manager) and Tariq Ahmed (Stores Lead).\nKit to be loaded using the Master Stock List (Appendix 5 of QIP paperwork).\nTag system implemented as agreed with Emma Clarke.\nTrolley sited in Resus bay at agreed location.\nDr Shah (SHO) briefed to collect post-intervention Stopwatch Audit timings.",
+      "study": "STUDY (Planned):\nDr Shah (SHO) to collect minimum 10 post-intervention Stopwatch Audit timings using same scenario-based protocol.\nCompare against baseline N=13 dataset (median 245s).\nApply IHI Run Chart rules — looking specifically for Rule 1 (Shift: 6+ consecutive points below baseline median of 245s) to confirm sustained improvement.\nCollect post-intervention staff confidence survey for comparison against baseline (9%).",
       "act": "ACT (Planned):\nIf improvement confirmed: ADOPT and report at ED Governance meeting. Begin quarterly monitoring schedule.\nAdjust drawer dividers if any specific kit is difficult to extract quickly.\nIf improvement insufficient: Review specific procedures causing ongoing delays and target for PDSA 3 adaptation."
     },
     {
@@ -160,8 +160,8 @@
       "status": "planned",
       "plan": "PLAN: Review the current standard theatre procedure trays for Resuscitative Thoracotomy and Resuscitative Hysterotomy, which are large, heavy, and unwieldy for emergency ED use. These trays were designed for theatre settings and contain items that are redundant in the ED emergency context.\n\nPREDICTION: Streamlining tray contents will further reduce 'Time to Kit' for these specific high-stakes procedures and reduce cognitive clutter and confusion under maximum stress conditions.",
       "do": "DO (Planned):\nAudit the current Thoracotomy and Hysterotomy tray contents against RCEM recommendations and WMEBEM QRH Booklet v2.6 equipment lists.\nIdentify redundant items not required for ED emergency use (theatre-specific items).\nDocument tray weight, setup time, and accessibility compared to streamlined alternatives.",
-      "study": "STUDY (Planned):\nDocument all redundant items identified.\nCompare Stopwatch Audit times for Thoracotomy and Hysterotomy specifically before and after tray modification.\nReview with Nadeem Zia (Trauma Lead) and Charlotte Vineham (Procurement) for clinical and cost sign-off.",
-      "act": "ACT (Planned):\nCreate a formal proposal for bespoke, streamlined ED procedural trays for Resuscitative Thoracotomy and Hysterotomy.\nPresent to Stores Team (Khan Zaman) and Procurement (Charlotte Vineham).\nIf approved: Commission bespoke trays. If cost-prohibitive: Identify which theatre tray items can be pre-removed to create a 'lite' ED version."
+      "study": "STUDY (Planned):\nDocument all redundant items identified.\nCompare Stopwatch Audit times for Thoracotomy and Hysterotomy specifically before and after tray modification.\nReview with Rajesh Patel (Trauma Lead) and Laura Bennett (Procurement) for clinical and cost sign-off.",
+      "act": "ACT (Planned):\nCreate a formal proposal for bespoke, streamlined ED procedural trays for Resuscitative Thoracotomy and Hysterotomy.\nPresent to Stores Team (Tariq Ahmed) and Procurement (Laura Bennett).\nIf approved: Commission bespoke trays. If cost-prohibitive: Identify which theatre tray items can be pre-removed to create a 'lite' ED version."
     }
   ],
 
@@ -193,15 +193,15 @@
   },
 
   "stakeholders": [
-    { "name": "Dr Jake Turner — Project Lead", "x": 95, "y": 95, "role": "ST6 EM Registrar" },
-    { "name": "Mr Nadeem Zia — Trauma Lead", "x": 95, "y": 85, "role": "Consultant — Clinical Sign-off" },
-    { "name": "Dr Safdar Imam — Resus Lead", "x": 90, "y": 90, "role": "Consultant — Authorisation" },
-    { "name": "Sarah Hart — Senior Sister", "x": 88, "y": 82, "role": "Nursing Lead — Tag System" },
-    { "name": "Charlotte Vineham — Ops Manager", "x": 80, "y": 70, "role": "Operations — Procurement" },
+    { "name": "Dr Alex Morgan — Project Lead", "x": 95, "y": 95, "role": "ST6 EM Registrar" },
+    { "name": "Mr Rajesh Patel — Trauma Lead", "x": 95, "y": 85, "role": "Consultant — Clinical Sign-off" },
+    { "name": "Dr Michael Chen — Resus Lead", "x": 90, "y": 90, "role": "Consultant — Authorisation" },
+    { "name": "Emma Clarke — Senior Sister", "x": 88, "y": 82, "role": "Nursing Lead — Tag System" },
+    { "name": "Laura Bennett — Ops Manager", "x": 80, "y": 70, "role": "Operations — Procurement" },
     { "name": "[ES Name] — Educational Supervisor", "x": 85, "y": 60, "role": "Educational Oversight / QIAT" },
-    { "name": "Dr Maida — SHO Lead", "x": 70, "y": 60, "role": "Data Collection Lead" },
-    { "name": "Jemma — EDP", "x": 65, "y": 55, "role": "Nursing Dissemination" },
-    { "name": "Khan Zaman — Stores Lead", "x": 50, "y": 45, "role": "Procurement / Restocking" },
+    { "name": "Dr Shah — SHO Lead", "x": 70, "y": 60, "role": "Data Collection Lead" },
+    { "name": "Chloe — EDP", "x": 65, "y": 55, "role": "Nursing Dissemination" },
+    { "name": "Tariq Ahmed — Stores Lead", "x": 50, "y": 45, "role": "Procurement / Restocking" },
     { "name": "Band 6 Nurses & EDPs", "x": 55, "y": 40, "role": "Daily Tag System Users" },
     { "name": "Governance / Patient Safety", "x": 45, "y": 30, "role": "Datix Alignment" },
     { "name": "Domestics", "x": 20, "y": 20, "role": "Monitor — Do Not Move Trolley" }
@@ -210,58 +210,58 @@
   "teamMembers": [
     {
       "id": "1",
-      "name": "Dr Jake Turner",
+      "name": "Dr Alex Morgan",
       "role": "Project Lead",
       "grade": "ST6 Emergency Medicine Registrar",
-      "initials": "JT",
+      "initials": "AM",
       "responsibilities": "Overall project design, stakeholder engagement, implementation, data analysis, and reporting. RCEM QIP portfolio lead."
     },
     {
       "id": "2",
-      "name": "Mr Nadeem Zia",
+      "name": "Mr Rajesh Patel",
       "role": "Consultant Sponsor — Trauma Lead",
       "grade": "ED Consultant",
-      "initials": "NZ",
+      "initials": "RP",
       "responsibilities": "Clinical sign-off of trolley contents and QRH guides. Recommended and coordinated consultant peer review. Approved 18 Feb 2026."
     },
     {
       "id": "3",
-      "name": "Dr Safdar Imam",
+      "name": "Dr Michael Chen",
       "role": "Consultant Sponsor — Resus Lead",
       "grade": "ED Consultant",
-      "initials": "SI",
+      "initials": "MC",
       "responsibilities": "Clinical endorsement and authorisation to re-allocate stock from Resus cupboards to the HALO Trolley. Approved April 2026."
     },
     {
       "id": "4",
-      "name": "Sarah Hart",
+      "name": "Emma Clarke",
       "role": "Nursing Lead — Senior Sister",
       "grade": "Senior Sister",
-      "initials": "SH",
+      "initials": "EC",
       "responsibilities": "Trolley location agreement. Broken tag policy and nursing team compliance oversight. Tag system and restock rule agreed 26 April 2026."
     },
     {
       "id": "5",
-      "name": "Charlotte Vineham",
+      "name": "Laura Bennett",
       "role": "Operations Manager",
       "grade": "Operations Manager",
-      "initials": "CV",
-      "responsibilities": "Project operational approval. Trolley frame procurement and budget. Quote received March 2026. Stores coordination with Khan Zaman."
+      "initials": "LB",
+      "responsibilities": "Project operational approval. Trolley frame procurement and budget. Quote received March 2026. Stores coordination with Tariq Ahmed."
     },
     {
       "id": "6",
-      "name": "Dr Maida",
+      "name": "Dr Shah",
       "role": "SHO — Junior Doctor Data Lead",
       "grade": "SHO (Emergency Medicine)",
-      "initials": "DM",
+      "initials": "PS",
       "responsibilities": "Stopwatch Audit data collection. Pre/post knowledge assessment delivery. Weekly Friday data review with project lead. Portfolio QIP assessment offered. Allocated 27 Jan 2026."
     },
     {
       "id": "7",
-      "name": "Jemma",
+      "name": "Chloe",
       "role": "Emergency Department Practitioner",
       "grade": "EDP",
-      "initials": "JE",
+      "initials": "CL",
       "responsibilities": "Kit review and nursing dissemination. Checking process coordination. Allocated 20 Feb 2026."
     }
   ],
@@ -273,23 +273,23 @@
     },
     {
       "date": "2026-01-27",
-      "note": "Dr Maida (SHO) allocated as Junior Doctor Lead for Stopwatch Audit data collection. Clear expectations set: '10 timings by Friday each week.' Weekly Friday data review meetings scheduled. Portfolio QIP participation assessment offered on completion."
+      "note": "Dr Shah (SHO) allocated as Junior Doctor Lead for Stopwatch Audit data collection. Clear expectations set: '10 timings by Friday each week.' Weekly Friday data review meetings scheduled. Portfolio QIP participation assessment offered on completion."
     },
     {
       "date": "2026-02-18",
-      "note": "Mr Nadeem Zia (Consultant, Trauma Lead) — Clinical sign-off meeting. Approved trolley contents and QRH guide content. Recommended consultant peer review of all guides before deployment. Key stakeholder secured for clinical credibility."
+      "note": "Mr Rajesh Patel (Consultant, Trauma Lead) — Clinical sign-off meeting. Approved trolley contents and QRH guide content. Recommended consultant peer review of all guides before deployment. Key stakeholder secured for clinical credibility."
     },
     {
       "date": "2026-02-20",
-      "note": "Jemma (EDP) allocated as Nursing Dissemination Lead. Responsible for coordinating kit review and supporting the checking/restocking process design."
+      "note": "Chloe (EDP) allocated as Nursing Dissemination Lead. Responsible for coordinating kit review and supporting the checking/restocking process design."
     },
     {
       "date": "2026-03-01",
-      "note": "Charlotte Vineham (Operations Manager) — TROLLEY QUOTE RECEIVED. Charlotte formally sent the trolley frame quote, removing the key operational and financial barrier to physical implementation. Cleared to proceed with build plans."
+      "note": "Laura Bennett (Operations Manager) — TROLLEY QUOTE RECEIVED. Laura formally sent the trolley frame quote, removing the key operational and financial barrier to physical implementation. Cleared to proceed with build plans."
     },
     {
       "date": "2026-04-01",
-      "note": "Dr Safdar Imam (Consultant, Resus Lead) — CLINICAL ENDORSEMENT CONFIRMED. Authorised re-allocation of stock from existing Resus cupboards to the HALO Trolley. Key approval for stock movement secured."
+      "note": "Dr Michael Chen (Consultant, Resus Lead) — CLINICAL ENDORSEMENT CONFIRMED. Authorised re-allocation of stock from existing Resus cupboards to the HALO Trolley. Key approval for stock movement secured."
     },
     {
       "date": "2026-04-01",
@@ -297,7 +297,7 @@
     },
     {
       "date": "2026-04-26",
-      "note": "Sarah Hart (Senior Sister) — NURSING TAG SYSTEM & RESTOCK RULE AGREED. Met with Sarah Hart to finalise operational trolley plan. AGREED: (1) Drawers tagged with visual seals for quick integrity check. (2) Team that uses the kit is responsible for replacing drawer contents immediately post-case. (3) Twice-daily visual tag check at handover. (4) Broken tag triggers alert to Stores Team (Khan Zaman) if items missing."
+      "note": "Emma Clarke (Senior Sister) — NURSING TAG SYSTEM & RESTOCK RULE AGREED. Met with Emma Clarke to finalise operational trolley plan. AGREED: (1) Drawers tagged with visual seals for quick integrity check. (2) Team that uses the kit is responsible for replacing drawer contents immediately post-case. (3) Twice-daily visual tag check at handover. (4) Broken tag triggers alert to Stores Team (Tariq Ahmed) if items missing."
     }
   ],
 
@@ -308,7 +308,7 @@
       "start": "2025-10-01",
       "end": "2025-10-31",
       "type": "study",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -317,7 +317,7 @@
       "start": "2025-11-01",
       "end": "2026-04-13",
       "type": "study",
-      "owner": "DM",
+      "owner": "PS",
       "milestone": false
     },
     {
@@ -326,7 +326,7 @@
       "start": "2025-10-01",
       "end": "2026-04-26",
       "type": "plan",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -335,7 +335,7 @@
       "start": "2026-03-01",
       "end": "2026-05-01",
       "type": "pdsa",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -344,7 +344,7 @@
       "start": "2026-03-01",
       "end": "2026-05-15",
       "type": "plan",
-      "owner": "CV",
+      "owner": "LB",
       "milestone": false
     },
     {
@@ -353,7 +353,7 @@
       "start": "2026-05-15",
       "end": "2026-06-01",
       "type": "do",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -362,7 +362,7 @@
       "start": "2026-06-01",
       "end": "2026-06-30",
       "type": "sustain",
-      "owner": "SH",
+      "owner": "EC",
       "milestone": false
     },
     {
@@ -371,7 +371,7 @@
       "start": "2026-06-01",
       "end": "2026-06-30",
       "type": "study",
-      "owner": "DM",
+      "owner": "PS",
       "milestone": false
     },
     {
@@ -380,7 +380,7 @@
       "start": "2026-06-01",
       "end": "2026-06-30",
       "type": "act",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -389,7 +389,7 @@
       "start": "2026-06-01",
       "end": "2026-06-15",
       "type": "study",
-      "owner": "DM",
+      "owner": "PS",
       "milestone": false
     },
     {
@@ -398,7 +398,7 @@
       "start": "2026-06-15",
       "end": "2026-06-30",
       "type": "study",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": false
     },
     {
@@ -407,7 +407,7 @@
       "start": "2026-06-30",
       "end": "2026-07-01",
       "type": "sustain",
-      "owner": "JT",
+      "owner": "AM",
       "milestone": true
     }
   ],
