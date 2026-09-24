@@ -23,9 +23,16 @@ const QI_JOURNEY_LABELS = {
     measurement: 'Measurement'
 };
 
+// Escapes HTML special characters. Only ever apply this to genuine user/derived
+// text — never to a string that already contains deliberate structural markup
+// (e.g. a static hint paragraph, or a value built by concatenating an already
+// nl2br()'d fragment with raw HTML), or that markup will be escaped too and show
+// up as visible tag soup instead of rendering.
 function esc(value) {
     if (value === null || value === undefined) return '';
-    return String(value);
+    return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+    })[character]);
 }
 
 function nl2br(value) {
@@ -62,9 +69,14 @@ function runKaizenExport() {
     // if the trainee hasn't filled it in yet. This keeps the export and the
     // in-app form from ever drifting apart.
     const stage = emqiatForm.stageOfTraining || deriveStageLabel(meta.trainingStage) || '[Add your stage of training, e.g. ST6]';
-    const placement = emqiatForm.placement || '[Add your placement/rotation for this training year, e.g. "ST6 year at &lt;hospital&gt;"]';
+    const placement = emqiatForm.placement || '[Add your placement/rotation for this training year, e.g. "ST6 year at <hospital>"]';
     const dateOfCompletion = emqiatForm.dateOfCompletion || '[Add the date you expect to complete/submit this QIAT form]';
-    const pdp = emqiatForm.pdp || derivePdpFromJournal(data) || `This year's QI PDP centred on leading a full-cycle, trainee-initiated Quality Improvement Project (see Section 3 below).<p class="hint">[No PDP text entered yet on the EM-QIAT tab — add your own, or use "Suggest from project data" there.]</p>`;
+    // pdpEntered is real trainee/derived text and must be escaped; pdpFallback is a
+    // static developer-authored hint (with a deliberate embedded <p class="hint">)
+    // and must never be passed through esc()/nl2br(), or its markup would render as
+    // literal text instead of a styled hint.
+    const pdpEntered = emqiatForm.pdp || derivePdpFromJournal(data);
+    const pdpFallback = 'This year\'s QI PDP centred on leading a full-cycle, trainee-initiated Quality Improvement Project (see Section 3 below).<p class="hint">[No PDP text entered yet on the EM-QIAT tab — add your own, or use "Suggest from project data" there.]</p>';
     const qiEducationInvolvement = emqiatForm.qiEducationInvolvement || deriveEducationInvolvementFromJournal(data) || '[No data available for this — add any online learning, courses, or conference attendance related to QI here.]';
     const qiEducationLearning = emqiatForm.qiEducationLearning || '[No data available for this — describe what formal QI education contributed, separate from what you learned by doing the project itself.]';
     const involvedAnswer = emqiatForm.involvedInProject === 'yes' ? 'Yes'
@@ -92,10 +104,15 @@ function runKaizenExport() {
 
     const roleGuess = emqiatForm.role || deriveRole(data) || '[Describe your role — Lead / Co-lead / Team member]';
 
+    // teamStakeholders / deriveTeam text is real user/derived text and must be
+    // escaped via nl2br(); "Additional stakeholders engaged: …" is a static label
+    // we add ourselves, kept out of nl2br() so it isn't escaped, with the actual
+    // stakeholder names escaped separately via esc().
     const teamDerived = deriveTeam(data);
-    const stakeholderNarrative = emqiatForm.teamStakeholders || (teamDerived
-        ? `${teamDerived}${data.stakeholders?.length ? '<br><br>Additional stakeholders engaged: ' + data.stakeholders.map(s => s.name || s).filter(Boolean).join(', ') : ''}`
-        : '[List your team members and how you engaged stakeholders]');
+    const stakeholderNarrativeText = emqiatForm.teamStakeholders || teamDerived || '[List your team members and how you engaged stakeholders]';
+    const additionalStakeholders = (!emqiatForm.teamStakeholders && teamDerived && data.stakeholders?.length)
+        ? data.stakeholders.map(s => s.name || s).filter(Boolean).join(', ')
+        : '';
 
     const sharingGuess = emqiatForm.sharingResults || deriveSharingResults(data) || '[Add details of any poster, presentation, or meeting where you shared this work]';
 
@@ -112,10 +129,15 @@ function runKaizenExport() {
     // 4.4 End of training QI development journey — this is a personal narrative
     // and should not be fabricated. Prefer the trainee's own text; only fall
     // back to a clearly-marked draft skeleton if they haven't written anything.
+    // journeyEntered is escaped once at the render site below. journeyDraftHtml is
+    // built here from an already-escaped/nl2br'd fragment plus static markup, so it
+    // must be rendered as-is at the render site rather than passed through nl2br()
+    // again (which would double-escape the <br> tags it already contains).
     const journeyDraftParts = [checklist.sustainability, checklist.learning_points].filter(Boolean);
-    const journeyDraft = emqiatForm.endOfTrainingJourney || deriveEndOfTrainingFromJournal(data) || (journeyDraftParts.length
+    const journeyEntered = emqiatForm.endOfTrainingJourney || deriveEndOfTrainingFromJournal(data);
+    const journeyDraftHtml = journeyDraftParts.length
         ? `${nl2br(journeyDraftParts.join('\n\n'))}<p style="color:#b45309;"><em>[DRAFT — this field asks for your longitudinal QI/leadership journey across your whole EM training with specific examples from earlier years. The text above is drawn only from this project's sustainability/learning notes — personalise it before submitting.]</em></p>`
-        : '[Add a summary of your QI/leadership development across your whole EM training, with specific examples from earlier training years]');
+        : '';
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -170,7 +192,7 @@ function runKaizenExport() {
                 <span class="part-label">Part A</span>
                 <h2>1. QI Personal Development Plan &mdash; Current year</h2>
                 <h3>1.1 PDP &mdash; summarise your QI PDP for this year and list specific objectives</h3>
-                <div class="content-box">${nl2br(pdp)}</div>
+                <div class="content-box">${pdpEntered ? nl2br(pdpEntered) : pdpFallback}</div>
             </div>
 
             <div class="section">
@@ -196,7 +218,7 @@ function runKaizenExport() {
                 <div class="content-box hint">Attach your driver diagram, fishbone diagram, and run chart as files &mdash; use the PNG/SVG export buttons on the Diagnosis Tools and Data pages, then upload them to this field on the live form.</div>
 
                 <h3>3.3 Team working and Stakeholders</h3>
-                <div class="content-box">${nl2br(stakeholderNarrative)}</div>
+                <div class="content-box">${nl2br(stakeholderNarrativeText)}${additionalStakeholders ? `<br><br>Additional stakeholders engaged: ${esc(additionalStakeholders)}` : ''}</div>
 
                 <h3>3.4 Sharing of results</h3>
                 <div class="content-box">${nl2br(sharingGuess)}</div>
@@ -217,7 +239,7 @@ function runKaizenExport() {
                 <div class="content-box">${nl2br(nextYearPdp)}</div>
 
                 <h3>4.4 End of training &mdash; QI development journey</h3>
-                <div class="content-box">${nl2br(journeyDraft)}</div>
+                <div class="content-box">${journeyEntered ? nl2br(journeyEntered) : (journeyDraftHtml || '[Add a summary of your QI/leadership development across your whole EM training, with specific examples from earlier training years]')}</div>
             </div>
 
             <script>

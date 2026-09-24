@@ -36,28 +36,12 @@ function causeAnalysis(data) {
     return fiveWhySummary + (fishbone.length ? `<p>${fishbone.join('<br>')}</p>` : '');
 }
 
-// Best-guess owner/due-date fallbacks keyed by keywords in the action title, used only
-// when the item doesn't already carry its own byWhom/byWhen. This keeps the A3 export
-// informative out of the box instead of showing blank cells, while explicit data (once
-// entered in-app) always takes priority.
-const OWNER_HINTS = [
-    { match: /qrh|booklet|cognitive/i, owner: 'Dr Jake Turner (Lead); sign-off: Mr Zia & Dr Imam' },
-    { match: /trolley|physical/i, owner: 'Charlotte Vineham (Procurement); Sarah Hart (Nursing/Tagging)' },
-    { match: /kit|thoracotomy|hysterotomy|rationalis/i, owner: 'Dr Imam, Mr Zia & Khan Zaman (Stores)' },
-    { match: /paediatric|peds|child/i, owner: 'Dr Narayan (PEM) & paediatric leads' },
-];
-
-function guessOwner(title) {
-    const hit = OWNER_HINTS.find(h => h.match.test(title || ''));
-    return hit ? hit.owner : '';
-}
-
 function changeIdeaActions(data) {
     const checklist = data.checklist || {};
     const fallbackDue = checklist.aim_date || '';
     return (data.changeIdeas || []).map(idea => ({
         action: idea.title || idea.description || '',
-        byWhom: idea.byWhom || guessOwner(idea.title || idea.description),
+        byWhom: idea.byWhom || '',
         byWhen: idea.byWhen || fallbackDue,
         status: idea.status || 'not-started'
     })).filter(item => item.action);
@@ -129,7 +113,7 @@ async function runA3Export() {
     }
 
     const estimatedCompletion = charter.endDate || checklist.aim_date || '';
-    const problemCategory = charter.keyAreaOfFocus || 'Patient Safety \u2014 Equipment & Systems (pending confirmation)';
+    const problemCategory = charter.keyAreaOfFocus || 'Patient Safety — Equipment & Systems (pending confirmation)';
     const nextSteps = checklist.next_pdp || latestPdsa.act || checklist.sustainability || '';
 
     const printWindow = window.open('', '_blank');
@@ -138,7 +122,7 @@ async function runA3Export() {
         return;
     }
 
-    if (window.showToast) window.showToast('Generating A3 summary (capturing fishbone diagram)\u2026', 'info');
+    if (window.showToast) window.showToast('Generating A3 summary (capturing fishbone diagram)…', 'info');
     const fishboneImg = await captureFishboneImage();
 
     const htmlContent = `
@@ -211,7 +195,7 @@ async function runA3Export() {
                     <h2>Fishbone (Ishikawa) Diagram</h2>
                     ${fishboneImg
                         ? `<img src="${fishboneImg}" alt="Fishbone diagram" style="width:100%; max-height:340px; object-fit:contain; border:1px solid #cbd5e1; border-radius:4px; background:#fff;">`
-                        : `<p class="muted">Fishbone diagram not available for this export \u2014 open the Diagnosis Tools &rarr; Fishbone tab, add your causes, then re-export.</p>`}
+                        : `<p class="muted">Fishbone diagram not available for this export — open the Diagnosis Tools &rarr; Fishbone tab, add your causes, then re-export.</p>`}
                 </div>
             </div>
             <button class="print" onclick="window.print()">Print to PDF</button>
