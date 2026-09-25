@@ -10,18 +10,8 @@ import { renderPatientTracker } from "./patient-tracker.js";
 import { runFullAIAssessment, runSectionAI } from "./ai-review.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
 import { renderSurveys } from "./surveys.js";
-
-// Returns the primary/first measure's chartData array. QIAT scoring,
-// dashboard status ticks, and auto-generated report text always assess
-// the PRIMARY outcome measure, regardless of which measure tab the user
-// currently has open in the Data view (that uses d.chartData directly).
-function primaryChartData(d) {
-    if (!d) return [];
-    if (Array.isArray(d.measures) && d.measures[0] && Array.isArray(d.measures[0].chartData)) {
-        return d.measures[0].chartData;
-    }
-    return d.chartData || [];
-}
+import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withUnit } from "./project-metrics.js";
+import { renderDataTable, refreshEntryForm } from "./data-entry.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -227,29 +217,9 @@ export function renderDashboard() {
 }
 
 function updatePortfolioReadiness() {
-    const d = state.projectData;
-    const c = d.checklist || {};
-    const pdsa = d.pdsa || [];
-    const isHigher = d.meta?.trainingStage === 'higher';
-    
-    const criteria = [
-        { label: 'Clear Problem Statement', met: !!c.problem_desc },
-        { label: 'SMART Aim', met: !!c.aim },
-        { label: 'Measures Defined', met: !!(c.outcome_measure || c.process_measure) },
-        { label: 'Driver Diagram', met: (d.drivers?.primary?.length > 0) },
-        { label: isHigher ? '3+ PDSA Cycles' : '1+ PDSA Cycle', met: isHigher ? pdsa.length >= 3 : pdsa.length >= 1 },
-        { label: 'Data Chart with Analysis', met: (primaryChartData(d).length >= 5 && !!c.results_analysis) },
-        { label: 'Learning Reflections', met: !!c.learning_points },
-        { label: 'Sustainability Plan', met: !!c.sustainability },
-        { label: 'QI Team Defined', met: (d.teamMembers?.length >= 1) },
-        { label: 'Stakeholder Map Completed', met: (d.stakeholders?.length >= 1) },
-        { label: 'Project Timeline Populated', met: (d.gantt?.length >= 1 || d.timeline?.length >= 1) },
-        { label: 'Supervisor Signed Off', met: !!(d.assessment?.signedOffBy) }
-    ];
-    
-    const metCount = criteria.filter(cr => cr.met).length;
-    const percent = Math.round((metCount / criteria.length) * 100);
-    
+    // Same scoring the QIP Lead and Supervisor overviews show (project-metrics.js).
+    const { criteria, metCount, percent, isHigher } = computeReadiness(state.projectData);
+
     const container = document.getElementById('readiness-content');
     if (container) {
         container.innerHTML = `
@@ -396,26 +366,8 @@ function renderMiniChart() {
     const chartW = W - ML - MR;
     const chartH = H - MT - MB;
     
-    // Calculate median from the baseline phase, using the same Phase/"grade"
-    // grouping logic as the Before/After chart and Results view (charts.js
-    // renderBeforeAfter, _resultsBeforeAfterStats) so this figure always
-    // matches those. Falls back to the classic run-chart convention (first
-    // 10-12 chronological points) only when points carry no Phase tag at all.
-    const gradedPoints = sorted.filter(p => p.grade);
-    let baseVals;
-    if (gradedPoints.length > 0) {
-        const phaseEarliestDate = {};
-        sorted.forEach(p => {
-            const g = p.grade || 'Ungraded';
-            const t = new Date(p.date).getTime() || 0;
-            if (!(g in phaseEarliestDate) || t < phaseEarliestDate[g]) phaseEarliestDate[g] = t;
-        });
-        const baselinePhase = Object.keys(phaseEarliestDate).sort((a, b) => phaseEarliestDate[a] - phaseEarliestDate[b])[0];
-        baseVals = sorted.filter(p => (p.grade || 'Ungraded') === baselinePhase).map(p => p.value);
-    } else {
-        baseVals = values.slice(0, Math.min(12, values.length));
-    }
-    const median = _resultsMedian(baseVals) || 0;
+    // Same baseline median as the run chart (project-metrics.js chooseBaseline).
+    const median = baselineMedian(sorted, d.pdsa) ?? 0;
     const medianY = MT + chartH - ((median - min) / range) * chartH;
     
     const points = values.map((v, i) => {
@@ -1027,55 +979,58 @@ function renderSignalPanel() {
     if (!panel) return;
 
     const mode = state.projectData?.chartSettings?.mode || 'run';
-    if (mode !== 'run') { panel.innerHTML = ''; return; }
-
     const sig = window.lastRunChartSignals;
-    if (!sig || sig.data.length < 8) { panel.innerHTML = ''; return; }
+    if (mode !== 'run' || !sig || !sig.data || sig.data.length < 2) { panel.innerHTML = ''; return; }
 
-    const { rule1, rule2, rule3, data, median } = sig;
+    const { rule1, rule2, rule3, data, median, baseline, unit } = sig;
+    const medText = median === null || median === undefined ? '–' : withUnit(median, unit);
+    const n = data.length;
+    const fewBaseline = baseline && baseline.count < 10;
+    const baselineNote = baseline ? `Median ${escapeHtml(medText)} from ${escapeHtml(baseline.text)}.` : '';
+    const cautions = [];
+    if (n < 10) cautions.push(`With ${n} points the run chart rules can't say much yet — keep collecting (10+ is a good start).`);
+    else if (fewBaseline) cautions.push('Your baseline has fewer than 10 points, so treat the median (and any signals) with some caution.');
+    const cautionHtml = cautions.length ? `<p class="text-xs text-slate-500 mt-2">${cautions.join(' ')}</p>` : '';
 
     if (!rule1 && !rule2 && !rule3) {
         panel.innerHTML = `
-            <div class="mt-3 flex items-center gap-3 p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-sm">
-                <i data-lucide="check-circle" class="w-5 h-5 text-emerald-500 flex-shrink-0"></i>
-                <span class="text-emerald-800"><strong>No signals detected</strong> — the process appears stable with only common cause variation (n=${data.length} points, median=${median.toFixed(1)}).</span>
+            <div class="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm">
+                <div class="flex items-start gap-3">
+                    <i data-lucide="activity" class="w-5 h-5 text-slate-400 flex-shrink-0 mt-0.5"></i>
+                    <div>
+                        <p class="text-slate-700"><strong>No run chart signals yet</strong> — no shift, trend or unusual point in ${n} points. Variation so far looks random around the median.</p>
+                        <p class="text-xs text-slate-500 mt-1">${baselineNote}</p>
+                        ${cautionHtml}
+                    </div>
+                </div>
             </div>`;
     } else {
+        const item = (tag, colour, title, text) => `
+            <div class="flex gap-3">
+                <span class="w-6 h-6 rounded-full ${colour} flex items-center justify-center text-[10px] font-bold flex-shrink-0">${tag}</span>
+                <div><p class="text-sm font-bold text-slate-800">${title}</p><p class="text-xs text-slate-600 mt-0.5">${text}</p></div>
+            </div>`;
         const items = [];
-        if (rule1) items.push(`
-            <div class="flex gap-3">
-                <span class="w-6 h-6 rounded-full bg-red-100 text-red-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R1</span>
-                <div><p class="text-sm font-bold text-red-800">Rule 1: Astronomical point</p>
-                <p class="text-xs text-red-700 mt-0.5">One or more data points lie far outside the expected range (>3×IQR from quartiles) — warrants <strong>immediate investigation</strong>. Red points on chart.</p></div>
-            </div>`);
-        if (rule2) items.push(`
-            <div class="flex gap-3">
-                <span class="w-6 h-6 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R2</span>
-                <div><p class="text-sm font-bold text-amber-800">Rule 2: Shift detected</p>
-                <p class="text-xs text-amber-700 mt-0.5">8+ consecutive points on same side of the median — suggests a <strong>sustained process change</strong>. Amber points on chart.</p></div>
-            </div>`);
-        if (rule3) items.push(`
-            <div class="flex gap-3">
-                <span class="w-6 h-6 rounded-full bg-orange-100 text-orange-700 flex items-center justify-center text-xs font-bold flex-shrink-0">R3</span>
-                <div><p class="text-sm font-bold text-orange-800">Rule 3: Trend detected</p>
-                <p class="text-xs text-orange-700 mt-0.5">6+ consecutive points all going in the same direction — suggests a <strong>directional process shift</strong>. Orange points on chart.</p></div>
-            </div>`);
+        if (rule2) items.push(item('S', 'bg-amber-100 text-amber-700', 'Shift', '6 or more points in a row on one side of the median (amber points). This is the classic sign that the process has changed — check whether it lines up with one of your PDSA cycles.'));
+        if (rule3) items.push(item('T', 'bg-orange-100 text-orange-700', 'Trend', '5 or more points in a row all rising or all falling (orange points). Suggests a gradual, sustained change.'));
+        if (rule1) items.push(item('!', 'bg-red-100 text-red-700', 'Unusual point', 'A value much further from the rest than normal (red point). Check it was entered correctly, then look for a special cause on that date.'));
         panel.innerHTML = `
             <div class="mt-3 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-                <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center justify-between mb-3 gap-2">
                     <h4 class="text-sm font-bold text-amber-900 flex items-center gap-2">
-                        <i data-lucide="alert-triangle" class="w-4 h-4"></i> Run Chart Signals (NHS Improvement Rules)
+                        <i data-lucide="sparkle" class="w-4 h-4"></i> Non-random variation detected
                     </h4>
-                    ${window.hasAI && window.hasAI() ? `
+                    ${window.hasAI && window.hasAI() && !state.isReadOnly ? `
                     <button onclick="window.aiAnalyseChart()" class="text-xs bg-gradient-to-r from-purple-500 to-indigo-500 text-white px-3 py-1 rounded-full flex items-center gap-1 hover:shadow-md transition-all">
                         <i data-lucide="sparkles" class="w-3 h-3"></i> AI Interpret
                     </button>` : ''}
                 </div>
                 <div class="space-y-3">${items.join('')}</div>
-                <p class="text-xs text-amber-600 mt-3 pt-3 border-t border-amber-200">These signals suggest the process is <strong>not in statistical control</strong> — document your explanation in Results Interpretation above.</p>
+                <p class="text-xs text-amber-800 mt-3 pt-3 border-t border-amber-200">${baselineNote} A signal tells you something changed, not whether it's an improvement — say what you think caused it in Results Interpretation.</p>
+                ${cautionHtml}
             </div>`;
     }
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [panel] });
 }
 
 // Renders the measure tab bar in the Data view, letting the user switch
@@ -1127,7 +1082,7 @@ export function renderMeasureTabs() {
     const label = document.getElementById('active-measure-label');
     if (label) {
         const active = measures.find(m => m.id === activeId) || measures[0];
-        label.textContent = `— ${active.name}${active.unit ? ' (' + active.unit + ')' : ''}`;
+        label.textContent = measures.length > 1 ? `Adding to: ${active.name}${active.unit ? ' (' + active.unit + ')' : ''}` : '';
     }
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -1141,8 +1096,8 @@ export function renderDataView() {
     renderMeasureTabs();
     if (window.renderChart) window.renderChart();
     renderSignalPanel();
-    if (window.initBatchEntry) window.initBatchEntry();
-    
+    refreshEntryForm();
+
     const resultsText = document.getElementById('results-text');
     if (resultsText && d.checklist) {
         resultsText.value = d.checklist.results_analysis || '';
@@ -1153,42 +1108,8 @@ export function renderDataView() {
     if (opDefEl && d.checklist) {
         opDefEl.value = d.checklist.operational_definition || '';
     }
-    
-    const historyContainer = document.getElementById('data-history');
-    if (historyContainer) {
-        if (!d.chartData || d.chartData.length === 0) {
-            historyContainer.innerHTML = `<div class="text-center text-slate-400 py-4 text-sm">No data points yet. Add your first data point above.</div>`;
-        } else {
-            const sorted = [...d.chartData].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 15);
-            historyContainer.innerHTML = `
-                <table class="w-full text-left border-collapse">
-                    <thead>
-                        <tr class="text-xs uppercase text-slate-500 border-b border-slate-200">
-                            <th class="pb-2">Date</th>
-                            <th class="pb-2">Value</th>
-                            <th class="pb-2">Phase</th>
-                            <th class="pb-2 text-right"></th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-xs text-slate-700">
-                        ${sorted.map(item => `
-                            <tr class="border-b border-slate-50 hover:bg-slate-50" title="${escapeHtml(item.note || '')}">
-                                <td class="py-2 font-mono">${formatDate(item.date)}</td>
-                                <td class="py-2 font-bold text-rcem-purple">${item.value}</td>
-                                <td class="py-2 text-slate-400">${escapeHtml(item.grade || '-')}</td>
-                                <td class="py-2 text-right">
-                                    <button onclick="window.deleteDataPoint('${item.id}')" class="text-slate-300 hover:text-red-500 transition-colors">
-                                        <i data-lucide="trash-2" class="w-3 h-3"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        `).join('')}
-                    </tbody>
-                </table>
-            `;
-        }
-    }
-    
+
+    renderDataTable();
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 

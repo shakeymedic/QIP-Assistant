@@ -561,6 +561,31 @@ textarea {
     }
 }
 
+/* Pages designed for small screens opt out of the blanket mobile rules
+   above (stacked flex rows, full-width buttons, single-column grids,
+   600px-wide tables): Data & charts, QIP Lead and Supervisor overviews. */
+@media (max-width: 768px) {
+    .mobile-keep .flex.gap-2,
+    .mobile-keep.flex.gap-2 {
+        flex-direction: row;
+    }
+    .mobile-keep .flex.gap-2 button,
+    .mobile-keep.flex.gap-2 button {
+        width: auto;
+    }
+    .mobile-keep .grid.grid-cols-2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.5rem !important;
+    }
+    .mobile-keep .grid.grid-cols-3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+        gap: 0.5rem !important;
+    }
+    .mobile-keep table {
+        min-width: 0;
+    }
+}
+
 @media (max-width: 640px) {
     #toast-container {
         left: 16px;
@@ -631,3 +656,7 @@ details > summary::-webkit-details-marker {
 details[open] .details-chevron {
     transform: rotate(90deg);
 }
+
+/* Read-only review (QIP Lead, supervisor, admin, share link): hide the
+   widgets whose only job is to change the project. */
+body.readonly-mode .readonly-hide { display: none !important; }

@@ -563,7 +563,7 @@
                             <div id="project-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
                         </div>
                         <!-- QIP Lead dashboard panel — shown instead of project-list-inner -->
-                        <div id="qip-lead-dashboard-container" class="hidden w-full"></div>
+                        <div id="qip-lead-dashboard-container" class="hidden w-full mobile-keep"></div>
                     </div>
 
                     <div id="view-intro" class="view-section hidden max-w-5xl mx-auto">
@@ -651,7 +651,7 @@
                                     <div id="dash-mini-chart" class="min-h-[100px]"></div>
                                 </div>
                                 <!-- Quick-add data point widget -->
-                                <div class="bg-white rounded-xl shadow-sm p-5 border border-dashed border-emerald-300">
+                                <div class="bg-white rounded-xl shadow-sm p-5 border border-dashed border-emerald-300 readonly-hide">
                                     <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2 text-sm">
                                         <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Quick Add Data Point
                                     </h3>
@@ -685,7 +685,7 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div id="arcp-countdown-widget" class="bg-white rounded-xl shadow-sm p-6">
+                                <div id="arcp-countdown-widget" class="bg-white rounded-xl shadow-sm p-6 readonly-hide">
                                     <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
                                         <i data-lucide="calendar-clock" class="w-4 h-4 text-amber-500"></i> ARCP Countdown
                                     </h3>
@@ -737,7 +737,7 @@
                         </div>
                     </div>
 
-                    <div id="view-data" class="view-section hidden max-w-6xl mx-auto">
+                    <div id="view-data" class="view-section hidden max-w-6xl mx-auto mobile-keep">
                         <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
                             <div>
                                 <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
@@ -745,14 +745,13 @@
                                 </h2>
                                 <p class="text-slate-500 text-sm mt-1">Track your measurements over time.</p>
                             </div>
-                            <div class="flex gap-2">
-                                <button aria-label="Download CSV Template" onclick="window.downloadCSVTemplate()" class="bg-slate-200 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
-                                    <i data-lucide="download" class="w-4 h-4"></i> CSV Template
+                            <div class="flex gap-2 readonly-hide">
+                                <button aria-label="Download CSV Template" onclick="window.downloadCSVTemplate()" class="bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-3 py-1.5 rounded-lg text-sm flex items-center gap-1.5" title="A spreadsheet with the right columns to fill in">
+                                    <i data-lucide="download" class="w-4 h-4"></i> Template
                                 </button>
-                                <label aria-label="Import CSV File" class="bg-emerald-500 text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 cursor-pointer hover:bg-emerald-600">
-                                    <i data-lucide="upload" class="w-4 h-4"></i> Import CSV
-                                    <input type="file" id="csv-upload" accept=".csv" onchange="window.importCSV(this)" class="hidden">
-                                </label>
+                                <button aria-label="Paste or import data" onclick="window.setDataEntryTab('paste'); document.getElementById('paste-data')?.focus()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-lg text-sm font-semibold flex items-center gap-1.5">
+                                    <i data-lucide="clipboard-paste" class="w-4 h-4"></i> Paste / Import
+                                </button>
                             </div>
                         </header>
 
@@ -761,8 +760,8 @@
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                             <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                <div class="flex justify-between items-center mb-4">
-                                    <div class="flex bg-slate-100 p-1 rounded-lg" id="chart-mode-controls">
+                                <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+                                    <div class="flex flex-wrap bg-slate-100 p-1 rounded-lg gap-0.5" id="chart-mode-controls">
                                         <button aria-label="View Run Chart" onclick="window.setChartMode('run')" data-mode="run" id="btn-chart-run" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white shadow">Run</button>
                                         <button aria-label="View SPC Chart" onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
                                         <button aria-label="View Histogram" onclick="window.setChartMode('histogram')" data-mode="histogram" id="btn-chart-histogram" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
@@ -770,19 +769,10 @@
                                         <button aria-label="View Before/After Chart" onclick="window.setChartMode('beforeafter')" data-mode="beforeafter" id="btn-chart-beforeafter" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Before/After</button>
                                     </div>
                                     <div class="flex items-center gap-1 pl-2 ml-1 border-l border-slate-200" title="Chart utilities">
-                                        <button aria-label="Zoom Out Chart" onclick="window.zoomOut()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom Out">
-                                            <i data-lucide="zoom-out" class="w-4 h-4"></i>
-                                        </button>
-                                        <button aria-label="Reset Chart Zoom" onclick="window.resetZoom()" class="text-slate-400 hover:text-slate-700 p-1" title="Reset Zoom">
-                                            <i data-lucide="maximize-2" class="w-4 h-4"></i>
-                                        </button>
-                                        <button aria-label="Zoom In Chart" onclick="window.zoomIn()" class="text-slate-400 hover:text-slate-700 p-1" title="Zoom In">
-                                            <i data-lucide="zoom-in" class="w-4 h-4"></i>
-                                        </button>
-                                        <button aria-label="Open Chart Settings" onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1" title="Chart Settings">
+                                        <button aria-label="Open Chart Settings" onclick="window.openChartSettings()" class="text-slate-400 hover:text-slate-700 p-1 readonly-hide" title="Chart title, axis label and target">
                                             <i data-lucide="settings" class="w-4 h-4"></i>
                                         </button>
-                                        <button aria-label="Event Markers" onclick="window.showEventMarkersPanel()" class="text-teal-500 hover:text-teal-700 p-1" title="Event Markers">
+                                        <button aria-label="Event Markers" onclick="window.showEventMarkersPanel()" class="text-teal-500 hover:text-teal-700 p-1" title="Mark events on the chart">
                                             <i data-lucide="flag" class="w-4 h-4"></i>
                                         </button>
                                         <button aria-label="Copy Chart Image" onclick="window.copyChartImage()" class="text-slate-400 hover:text-slate-700 p-1" title="Copy to Clipboard">
@@ -793,79 +783,67 @@
                                         </button>
                                     </div>
                                 </div>
-                                <div class="relative min-h-[300px]" id="chart-wrapper">
+                                <div class="relative h-[340px] sm:h-[400px]" id="chart-wrapper">
                                     <canvas id="mainChart"></canvas>
                                 </div>
-                                <div id="chart-education-panel" class="mt-4 p-4 bg-slate-50 rounded-lg border border-slate-200"></div>
+                                <div id="chart-education-panel" class="mt-4 px-4 py-3 bg-slate-50 rounded-lg border border-slate-200"></div>
                                 <div id="signal-panel"></div>
                             </div>
                             
                             <div class="space-y-6">
-                                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                        <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Add Data Point
-                                        <span id="active-measure-label" class="text-xs font-normal text-slate-400 normal-case"></span>
-                                    </h3>
-                                    <div class="space-y-3">
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
-                                            <input type="date" id="chart-date" class="w-full p-2 border rounded text-sm">
+                                <div id="data-entry-card" class="bg-white rounded-xl shadow-sm border border-slate-200 readonly-hide scroll-mt-24">
+                                    <div class="px-5 pt-4">
+                                        <h3 class="font-bold text-slate-800 flex items-center gap-2">
+                                            <i data-lucide="plus-circle" class="w-4 h-4 text-emerald-500"></i> Add Data
+                                        </h3>
+                                        <p id="active-measure-label" class="text-xs text-slate-400 mt-0.5 truncate"></p>
+                                    </div>
+                                    <div class="flex gap-4 px-5 mt-2 border-b border-slate-100 text-xs font-bold" role="tablist">
+                                        <button id="entry-tab-single" role="tab" aria-selected="true" onclick="window.setDataEntryTab('single')" class="pb-2 border-b-2 text-rcem-purple border-rcem-purple">One point</button>
+                                        <button id="entry-tab-paste" role="tab" aria-selected="false" onclick="window.setDataEntryTab('paste')" class="pb-2 border-b-2 text-slate-500 border-transparent">Paste / import</button>
+                                    </div>
+                                    <div id="entry-panel-single" class="p-5 space-y-3" role="tabpanel">
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label for="chart-date" class="block text-xs font-bold text-slate-500 uppercase mb-1">Date</label>
+                                                <input type="date" id="chart-date" onkeydown="window.onDataEntryKey(event)" class="w-full p-2 border border-slate-300 rounded-lg text-sm">
+                                            </div>
+                                            <div>
+                                                <label for="chart-value" class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
+                                                <div class="relative">
+                                                    <input type="text" inputmode="decimal" id="chart-value" onkeydown="window.onDataEntryKey(event)" class="w-full p-2 pr-10 border border-slate-300 rounded-lg text-sm" placeholder="e.g. 45" autocomplete="off">
+                                                    <span id="chart-value-unit" class="hidden absolute right-2 top-1/2 -translate-y-1/2 text-xs text-slate-400 pointer-events-none"></span>
+                                                </div>
+                                            </div>
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Value</label>
-                                            <input type="number" id="chart-value" class="w-full p-2 border rounded text-sm" placeholder="e.g. 45" step="any">
+                                            <label for="chart-grade" class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase <span class="font-normal normal-case text-slate-400">— e.g. Baseline, PDSA 1</span></label>
+                                            <input type="text" id="chart-grade" list="phase-options" onkeydown="window.onDataEntryKey(event)" class="w-full p-2 border border-slate-300 rounded-lg text-sm" placeholder="Baseline" autocomplete="off">
+                                            <datalist id="phase-options"></datalist>
                                         </div>
                                         <div>
-                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Phase/Cycle</label>
-                                            <select id="chart-grade" class="w-full p-2 border rounded text-sm">
-                                                <option value="">Select phase...</option>
-                                                <option value="Baseline">Baseline</option>
-                                                <option value="PDSA 1">PDSA 1</option>
-                                                <option value="PDSA 2">PDSA 2</option>
-                                                <option value="PDSA 3">PDSA 3</option>
-                                                <option value="PDSA 4">PDSA 4</option>
-                                                <option value="PDSA 5">PDSA 5</option>
-                                                <option value="PDSA 6">PDSA 6</option>
-                                                <option value="Sustain">Sustain</option>
-                                            </select>
+                                            <label for="chart-note" class="block text-xs font-bold text-slate-500 uppercase mb-1">Note <span class="font-normal normal-case text-slate-400">(optional)</span></label>
+                                            <input type="text" id="chart-note" onkeydown="window.onDataEntryKey(event)" class="w-full p-2 border border-slate-300 rounded-lg text-sm" placeholder="Any context — no patient identifiers" autocomplete="off">
                                         </div>
-                                        <div>
-                                            <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Note (optional)</label>
-                                            <input type="text" id="chart-note" class="w-full p-2 border rounded text-sm" placeholder="Any context...">
-                                        </div>
-                                        <button aria-label="Add Data Point" onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-700">
-                                            Add Point
+                                        <button aria-label="Add Data Point" onclick="window.addDataPoint()" class="w-full bg-rcem-purple text-white py-2 rounded-lg font-bold hover:bg-indigo-800 transition-colors">
+                                            Add point
                                         </button>
+                                        <p class="text-[11px] text-slate-400 text-center">Press Enter to add — the date and phase stay filled in for the next one.</p>
+                                    </div>
+                                    <div id="entry-panel-paste" class="p-5 hidden" role="tabpanel">
+                                        <p class="text-xs text-slate-500 mb-2">Copy the columns from Excel or Google Sheets — <strong>Date, Value</strong>, and optionally <strong>Phase</strong> and <strong>Note</strong> — and paste them here. A header row is fine.</p>
+                                        <textarea id="paste-data" rows="6" oninput="window.previewPastedData()" class="w-full p-2 border border-slate-300 rounded-lg text-xs font-mono" placeholder="Date&#9;Value&#9;Phase&#10;06/01/2025&#9;312&#9;Baseline&#10;13/01/2025&#9;285&#9;Baseline"></textarea>
+                                        <div class="flex items-center gap-2 mt-2">
+                                            <label class="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-lg cursor-pointer flex items-center gap-1.5">
+                                                <i data-lucide="file-up" class="w-3.5 h-3.5"></i> Choose CSV file
+                                                <input type="file" id="csv-upload" accept=".csv,.tsv,.txt,text/csv,text/plain" onchange="window.importCSV(this)" class="hidden">
+                                            </label>
+                                            <button onclick="window.clearPastedData()" class="text-xs text-slate-400 hover:text-slate-600 ml-auto">Clear</button>
+                                        </div>
+                                        <div id="paste-preview"></div>
+                                        <button id="paste-submit" onclick="window.submitPastedData()" disabled class="mt-3 w-full bg-emerald-600 text-white py-2 rounded-lg text-sm font-bold hover:bg-emerald-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Add points</button>
                                     </div>
                                 </div>
-                                
-                                <!-- Rapid batch entry card (collapsed by default to reduce visual clutter) -->
-                                <details class="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                                    <summary class="flex justify-between items-center cursor-pointer list-none">
-                                        <h3 class="font-bold text-slate-800 text-sm flex items-center gap-2">
-                                            <i data-lucide="table" class="w-4 h-4 text-blue-500"></i> Rapid Entry
-                                            <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-400 details-chevron"></i>
-                                        </h3>
-                                        <button onclick="event.preventDefault(); event.stopPropagation(); window.addBatchEntryRow();" class="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Row</button>
-                                    </summary>
-                                    <p class="text-xs text-slate-400 mb-2 mt-2">Enter several points at once — great for retrospective data.</p>
-                                    <div class="overflow-x-auto">
-                                        <table class="w-full text-xs">
-                                            <thead>
-                                                <tr class="text-slate-400 uppercase border-b border-slate-100">
-                                                    <th class="pb-1 text-left font-medium">Date</th>
-                                                    <th class="pb-1 text-left font-medium">Value</th>
-                                                    <th class="pb-1 text-left font-medium">Phase</th>
-                                                    <th class="pb-1"></th>
-                                                </tr>
-                                            </thead>
-                                            <tbody id="batch-entry-tbody"></tbody>
-                                        </table>
-                                    </div>
-                                    <button onclick="window.submitBatchEntry()" class="mt-3 w-full bg-blue-600 text-white py-1.5 rounded-lg text-xs font-bold hover:bg-blue-700 transition-colors">
-                                        Add All to Chart
-                                    </button>
-                                </details>
 
                                 <!-- Operational definition card (8A-5), collapsed by default to reduce visual clutter -->
                                 <details class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -888,10 +866,10 @@
                                 </div>
                                 
                                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-                                    <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                                        <i data-lucide="history" class="w-4 h-4 text-slate-500"></i> Recent Data
+                                    <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                        <i data-lucide="table-2" class="w-4 h-4 text-slate-500"></i> Your Data <span id="data-table-count" class="text-xs font-normal text-slate-400"></span>
                                     </h3>
-                                    <div id="data-history" class="max-h-64 overflow-y-auto"></div>
+                                    <div id="data-history" class="max-h-[28rem] overflow-y-auto"></div>
                                 </div>
                             </div>
                         </div>
@@ -1336,19 +1314,25 @@
 
     <div id="chart-settings-modal" class="hidden fixed inset-0 bg-black/50 z-50 items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Chart Settings</h3>
+            <h3 class="text-lg font-bold text-slate-800 mb-1">Chart Settings</h3>
+            <p class="text-xs text-slate-500 mb-4">These apply to the measure you are viewing.</p>
             <div class="space-y-4">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Chart Title</label>
-                    <input type="text" id="chart-setting-title" class="w-full p-2 border rounded" placeholder="Door-to-Antibiotic Time (minutes)">
+                    <input type="text" id="chart-setting-title" class="w-full p-2 border rounded" placeholder="e.g. Door-to-antibiotic time">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Y-Axis Label</label>
-                    <input type="text" id="chart-setting-yaxis" class="w-full p-2 border rounded" placeholder="Time (minutes)">
+                    <input type="text" id="chart-setting-yaxis" class="w-full p-2 border rounded" placeholder="e.g. Minutes">
+                </div>
+                <div>
+                    <label for="chart-setting-target" class="block text-sm font-medium text-slate-700 mb-1">Target</label>
+                    <input type="text" inputmode="decimal" id="chart-setting-target" class="w-full p-2 border rounded" placeholder="e.g. 90">
+                    <p id="chart-setting-target-hint" class="text-xs text-slate-400 mt-1"></p>
                 </div>
                 <div class="flex items-center gap-2">
                     <input type="checkbox" id="chart-setting-annotations" class="rounded">
-                    <label for="chart-setting-annotations" class="text-sm text-slate-700">Show PDSA Annotations</label>
+                    <label for="chart-setting-annotations" class="text-sm text-slate-700">Show PDSA cycles and event markers on the chart</label>
                 </div>
             </div>
             <div class="flex justify-end gap-2 mt-6">
