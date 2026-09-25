@@ -1,5 +1,9 @@
 import { state } from "./state.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
+import {
+    chooseBaseline, median as medianOf, runChartSignals, spcCalc, histogramBins, paretoData,
+    dateToAxisPosition, formatUkDate, formatValue, withUnit, parseNumericInput
+} from "./project-metrics.js";
 
 export let toolMode = 'driver'; 
 export let chartMode = 'run';   
@@ -31,23 +35,23 @@ const TOOL_HELP = {
 const CHART_EDUCATION = {
     run: {
         title: "Run Chart Guidance",
-        desc: "A run chart plots your data chronologically. It adds a median line calculated from your baseline data to help you visualise improvement. Add at least 10 to 12 data points before implementing your first PDSA cycle. Record each data point regularly to establish an accurate baseline.",
+        desc: "A run chart plots your data in date order against the median of your baseline. The baseline is your earliest Phase if you tag points with phases, otherwise the points before your first PDSA cycle, otherwise your first 12 points. The median is drawn solid over the baseline and dashed where it is extended. Aim for 10 to 12 baseline points before your first change.",
         rules: [
-            "Shift: Six or more consecutive points fall above or below the median line. This indicates a non-random change.",
-            "Trend: Five or more consecutive points consistently go up or down.",
-            "Astronomical point: An unusually high or low value that warrants immediate investigation.",
-            "Record your baseline data first. Add interventions using the phase dropdown."
+            "Shift: 6 or more consecutive points all above or all below the median. Points exactly on the median neither count nor break the run.",
+            "Trend: 5 or more consecutive points all going up or all going down. A repeated value neither counts nor breaks it.",
+            "Astronomical point: a value obviously different from the rest. This is a judgement call; the app highlights values far outside the spread of your data as a prompt to look.",
+            "PDSA cycles (orange) and your own event markers are drawn at their dates, between points where needed."
         ]
     },
     spc: {
-        title: "Statistical Process Control Chart Guidance",
-        desc: "SPC charts plot data against a calculated mean and establish Upper and Lower Control Limits. They help distinguish between common cause variation and special cause variation.",
+        title: "Statistical Process Control (XmR) Chart Guidance",
+        desc: "An XmR (individuals) chart plots your data against the mean with upper and lower control limits (mean ± 2.66 × the average moving range). It helps separate common cause variation from special cause variation. Limits are provisional until you have around 15 points.",
         rules: [
-            "Rule 1: A single point falls outside the control limits.",
-            "Rule 2: Eight consecutive points fall on the same side of the mean line.",
-            "Rule 3: Six consecutive points steadily increase or decrease.",
-            "Use this chart to confirm your intervention caused a statistically significant improvement.",
-            "Caveat: if your measure is a proportion or percentage (e.g. '% compliance'), these control limits use a continuous-data formula. Technically a p-chart (which accounts for varying sample sizes) is more statistically correct for proportion data — treat SPC signals on percentage measures as indicative rather than definitive."
+            "Rule 1: a single point outside the control limits.",
+            "Rule 2: 8 or more consecutive points on the same side of the mean.",
+            "Rule 3: 2 out of 3 consecutive points beyond 2 sigma on the same side of the mean.",
+            "Rule 4: a moving range (jump between consecutive points) more than 3.27 × the average moving range.",
+            "Caveat: for proportions (e.g. '% compliance') with varying denominators a p-chart is more statistically correct. Treat XmR signals on percentage measures as indicative rather than definitive."
         ]
     },
     histogram: {
@@ -61,11 +65,11 @@ const CHART_EDUCATION = {
     },
     pareto: {
         title: "Pareto Chart Guidance",
-        desc: "A Pareto chart combines a bar chart with a cumulative line graph. It highlights the 80/20 rule, showing that 80 percent of problems often stem from 20 percent of causes. Use this chart to determine which issues to tackle first for maximum impact.",
+        desc: "A Pareto chart ranks causes or categories from most to least frequent, with a cumulative percentage line. It shows the 'vital few' categories that usually account for most of the problem. Enter one row per category: the category in the Note and how many times it happened in the Value (or one row per occurrence with a value of 1). Keep this in its own measure so it doesn't mix with your run chart data.",
         rules: [
-            "Focus your initial PDSA cycles on the tallest bars on the left.",
-            "The orange line shows the cumulative percentage.",
-            "Re-run this chart after interventions to observe shifting priorities."
+            "Focus your first PDSA cycles on the tallest bars on the left (darker bars are the 'vital few' up to 80%).",
+            "The orange line is the cumulative percentage; the red dashed line marks 80%.",
+            "Re-collect and re-chart after your changes to see whether priorities have shifted."
         ]
     },
     beforeafter: {
@@ -643,6 +647,183 @@ export function setChartMode(m) {
     updateChartEducation();
 }
 
+// ── Shared chart plumbing ────────────────────────────────────────────────────
+
+const CHART_FONT = "Inter, system-ui, -apple-system, 'Segoe UI', sans-serif";
+const PHASE_PALETTE = ['#64748b', '#4f46e5', '#0891b2', '#db2777', '#ca8a04', '#16a34a', '#9333ea', '#ea580c'];
+const SIGNAL_COLOURS = { astronomical: '#dc2626', shift: '#f59e0b', trend: '#f97316' };
+
+// The measure whose data is currently being charted. renderFullViewChart
+// temporarily points d.chartData at the primary measure, so match by array
+// identity first rather than trusting activeMeasureId.
+function chartedMeasure() {
+    const d = state.projectData || {};
+    const measures = Array.isArray(d.measures) ? d.measures : [];
+    const m = measures.find(x => x.chartData === d.chartData)
+        || measures.find(x => x.id === d.activeMeasureId)
+        || measures[0] || null;
+    return { measure: m, isPrimary: !measures.length || m === measures[0] };
+}
+
+// Unit, target and labels for the charted measure. The SMART-aim target on
+// the checklist belongs to the primary measure only; any measure can have its
+// own target in Chart Settings.
+function chartContext() {
+    const d = state.projectData || {};
+    const settings = d.chartSettings || {};
+    const { measure, isPrimary } = chartedMeasure();
+    const aimTargetRaw = d.checklist?.aim_target;
+    let unit = (measure?.unit || '').trim();
+    if (!unit && isPrimary && /^\s*[<>≤≥=]*\s*\d+(\.\d+)?\s*%\s*$/.test(String(aimTargetRaw || ''))) unit = '%';
+    if (!unit && measure?.measureType === 'proportion') unit = '%';
+    let target = null;
+    if (settings.target !== undefined && settings.target !== null && settings.target !== '') {
+        target = parseNumericInput(settings.target);
+    } else if (isPrimary && aimTargetRaw !== undefined && aimTargetRaw !== null && aimTargetRaw !== '') {
+        target = parseNumericInput(aimTargetRaw);
+    }
+    if (isNaN(target)) target = null;
+    return {
+        settings, unit, target,
+        yLabel: settings.yAxisLabel || unit || '',
+        isPercent: unit === '%' || measure?.measureType === 'proportion',
+        showMarkers: settings.showAnnotations !== false
+    };
+}
+
+function sortedPoints() {
+    return [...(state.projectData?.chartData || [])]
+        .filter(p => p && p.date && p.value !== '' && p.value !== null && p.value !== undefined && !isNaN(Number(p.value)))
+        .map(p => ({ ...p, value: Number(p.value) }))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+function baseOptions(ctxInfo) {
+    return {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 350 },
+        layout: { padding: { top: 4, right: 12, bottom: 0, left: 4 } },
+        font: { family: CHART_FONT },
+        interaction: { mode: 'nearest', intersect: false },
+        plugins: {
+            title: {
+                display: !!ctxInfo.settings.title, text: ctxInfo.settings.title || '',
+                font: { size: 15, weight: 'bold', family: CHART_FONT }, color: '#1e293b', padding: { bottom: 4 }
+            },
+            subtitle: { display: false },
+            legend: { display: false },
+            tooltip: {
+                backgroundColor: 'rgba(15, 23, 42, 0.92)', padding: 10, cornerRadius: 8,
+                titleFont: { family: CHART_FONT, weight: 'bold' }, bodyFont: { family: CHART_FONT }, footerFont: { family: CHART_FONT, weight: 'normal' },
+                displayColors: false
+            }
+        }
+    };
+}
+
+// y-axis range that always shows the data, the median/mean and the target line.
+function yRange(values, extras, isPercent) {
+    const all = values.concat(extras.filter(v => v !== null && v !== undefined && !isNaN(v)));
+    let lo = Math.min(...all), hi = Math.max(...all);
+    const pad = (hi - lo) * 0.1 || Math.abs(hi) * 0.1 || 1;
+    let min = lo - pad, max = hi + pad;
+    if (lo >= 0 && min < 0) min = 0;
+    if (isPercent && hi <= 100 && max > 100) max = 100;
+    return { suggestedMin: min, suggestedMax: max };
+}
+
+function valueTick(unit) {
+    return (v) => unit === '%' ? `${formatValue(v, 1)}%` : formatValue(v, 2);
+}
+
+// PDSA cycles and custom event markers, positioned by date between points on
+// the category axis. Dates outside the charted range are counted, not drawn.
+function dateMarkers(dates) {
+    const d = state.projectData || {};
+    const ann = {};
+    let outside = 0;
+    (d.pdsa || []).forEach((p, i) => {
+        const start = p && (p.startDate || p.start);
+        if (!start) return;
+        const x = dateToAxisPosition(dates, start);
+        if (x === null) { outside++; return; }
+        const name = p.title ? (p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title) : `Cycle ${i + 1}`;
+        ann[`pdsa_${i}`] = {
+            type: 'line', xMin: x, xMax: x, borderColor: 'rgba(243, 111, 33, 0.85)', borderWidth: 2, borderDash: [5, 4],
+            label: {
+                display: true, content: `PDSA ${i + 1}: ${name}`, position: 'start', yAdjust: -(i % 3) * 22,
+                backgroundColor: 'rgba(243, 111, 33, 0.92)', color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
+                font: { size: 10, weight: 'bold', family: CHART_FONT }
+            }
+        };
+    });
+    (d.chartEvents || []).forEach((ev, i) => {
+        if (!ev || !ev.date) return;
+        const x = dateToAxisPosition(dates, ev.date);
+        if (x === null) { outside++; return; }
+        const colour = /^#[0-9a-f]{3,8}$/i.test(ev.color || '') ? ev.color : '#14b8a6';
+        ann[`event_${i}`] = {
+            type: 'line', xMin: x, xMax: x, borderColor: colour, borderWidth: 2, borderDash: [2, 3],
+            label: {
+                display: true, content: ev.label || 'Event', position: 'end', yAdjust: (i % 3) * 22,
+                backgroundColor: colour, color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
+                font: { size: 10, weight: 'bold', family: CHART_FONT }
+            }
+        };
+    });
+    return { ann, outside };
+}
+
+function phaseColours(points) {
+    const order = [];
+    points.forEach(p => { const g = p.grade || ''; if (g && !order.includes(g)) order.push(g); });
+    const map = {};
+    order.forEach((g, i) => { map[g] = PHASE_PALETTE[i % PHASE_PALETTE.length]; });
+    return { map, order };
+}
+
+// Friendly message in place of a chart (no data yet, not enough data, wrong
+// kind of data). On the Data page it's an overlay with an action; elsewhere
+// (report, exports) a blank chart carrying the message as its title.
+function showChartMessage(ctx, title, detail, action) {
+    const wrap = ctx.parentElement;
+    if (wrap && wrap.id === 'chart-wrapper') {
+        clearChartMessage(ctx);
+        ctx.style.visibility = 'hidden';
+        const ov = document.createElement('div');
+        ov.className = 'chart-empty absolute inset-0 flex flex-col items-center justify-center text-center px-6';
+        ov.innerHTML = `
+            <div class="w-12 h-12 rounded-2xl bg-indigo-50 text-rcem-purple flex items-center justify-center mb-3"><i data-lucide="${action?.icon || 'line-chart'}" class="w-6 h-6"></i></div>
+            <p class="font-bold text-slate-700">${escapeHtml(title)}</p>
+            ${detail ? `<p class="text-sm text-slate-500 mt-1 max-w-md">${escapeHtml(detail)}</p>` : ''}
+            ${action && !state.isReadOnly ? `<button type="button" class="chart-empty-action mt-4 bg-rcem-purple text-white text-sm font-bold px-4 py-2 rounded-lg hover:bg-indigo-800">${escapeHtml(action.label)}</button>` : ''}`;
+        wrap.appendChild(ov);
+        const btn = ov.querySelector('.chart-empty-action');
+        if (btn && action.run) btn.addEventListener('click', action.run);
+        if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [ov] });
+        return;
+    }
+    ctx.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false }, title: { display: true, text: title, color: '#94a3b8', font: { weight: 'normal', size: 14 } } },
+            scales: { x: { display: false }, y: { display: false } }
+        }
+    });
+}
+
+function clearChartMessage(ctx) {
+    const wrap = ctx && ctx.parentElement;
+    if (wrap) wrap.querySelectorAll('.chart-empty').forEach(el => el.remove());
+    if (ctx) ctx.style.visibility = '';
+}
+
+const addFirstPoint = { label: 'Add your first data point', icon: 'plus-circle', run: () => { if (window.setDataEntryTab) window.setDataEntryTab('single'); document.getElementById('chart-value')?.focus(); } };
+const pasteData = { label: 'Paste data from a spreadsheet', icon: 'clipboard-paste', run: () => { if (window.setDataEntryTab) window.setDataEntryTab('paste'); document.getElementById('paste-data')?.focus(); } };
+
 export function renderChart(canvasId = 'mainChart') {
     const oldCtx = document.getElementById(canvasId);
     if (!oldCtx) return;
@@ -655,739 +836,353 @@ export function renderChart(canvasId = 'mainChart') {
     const newCtx = oldCtx.cloneNode(true);
     oldCtx.parentNode.replaceChild(newCtx, oldCtx);
     const ctx = newCtx;
+    clearChartMessage(ctx);
+    if (canvasId === 'mainChart') window.lastRunChartSignals = null;
 
-    const d = state.projectData?.chartData || [];
-
-    // Pick up whichever chart mode is saved against the ACTIVE measure (falls
-    // back to whatever mode is already selected if this measure has none set
-    // yet), and keep the mode-selector buttons in sync.
+    // Pick up whichever chart mode is saved against the ACTIVE measure.
     const savedMode = state.projectData?.chartSettings?.mode;
-    if (savedMode && savedMode !== chartMode) {
-        chartMode = savedMode;
-    }
+    if (savedMode && savedMode !== chartMode) chartMode = savedMode;
     syncChartModeButtons(chartMode);
 
-    if (d.length === 0) {
-        const context = ctx.getContext('2d');
-        context.clearRect(0, 0, ctx.width, ctx.height);
-        
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: ['No Data'], datasets: [{ data: [] }] },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'No Data Yet - Add points to see your chart', color: '#94a3b8', font: { weight: 'normal' } }
-                },
-                scales: {
-                    x: { display: true },
-                    y: { display: true, min: 0, max: 100 }
-                }
-            }
-        });
-        ctx.chartInstance = chart;
+    if (sortedPoints().length === 0) {
+        showChartMessage(ctx, 'No data yet', 'Add points one at a time, or paste a column of dates and values from Excel. Your run chart, median and signals appear automatically.', window.innerWidth < 640 ? addFirstPoint : pasteData);
         return;
     }
-    
+
     try {
         if (chartMode === 'run') renderRunChart(ctx, canvasId);
         else if (chartMode === 'spc') renderSPCChart(ctx, canvasId);
         else if (chartMode === 'histogram') renderHistogram(ctx, canvasId);
         else if (chartMode === 'pareto') renderPareto(ctx, canvasId);
         else if (chartMode === 'beforeafter') renderBeforeAfter(ctx, canvasId);
+        else renderRunChart(ctx, canvasId);
     } catch (error) {
         console.error("[renderChart] Error drawing chart:", error);
+        showChartMessage(ctx, 'This chart could not be drawn', 'Check the data table for a value or date that looks wrong.');
     }
+    if (canvasId === 'mainChart') updateChartEducation();
 }
 
-function getPDSAAnnotations() {
-    const annotations = {};
-    if (state.projectData.pdsa && state.projectData.pdsa.length > 0) {
-        state.projectData.pdsa.forEach((p, i) => {
-            const startDate = p.startDate || p.start;
-            if (startDate) {
-                // Short label: cycle number + first 20 chars of title
-                const title = p.title ? p.title.substring(0, 20) + (p.title.length > 20 ? '…' : '') : `Cycle ${i + 1}`;
-                annotations[`pdsa_${i}`] = {
-                    type: 'line',
-                    xMin: startDate,
-                    xMax: startDate,
-                    borderColor: '#f36f21',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    label: {
-                        display: true,
-                        content: `C${i + 1}: ${title}`,
-                        position: 'start',
-                        backgroundColor: 'rgba(243, 111, 33, 0.9)',
-                        color: 'white',
-                        font: { size: 10, weight: 'bold' }
-                    }
-                };
-            }
-        });
-    }
-    return annotations;
-}
-
-function getEventMarkerAnnotations() {
-    const annotations = {};
-    if (state.projectData?.chartEvents && state.projectData.chartEvents.length > 0) {
-        state.projectData.chartEvents.forEach((ev, i) => {
-            annotations['event_' + i] = {
-                type: 'line',
-                xMin: ev.date,
-                xMax: ev.date,
-                borderColor: ev.color || '#14b8a6',
-                borderWidth: 2,
-                borderDash: [3, 3],
-                label: {
-                    display: true,
-                    content: ev.label || 'Event',
-                    position: 'end',
-                    backgroundColor: ev.color || '#14b8a6',
-                    color: 'white',
-                    font: { size: 9, weight: 'bold' }
-                }
-            };
-        });
-    }
-    return annotations;
-}
-
-// Helper: detect NHS Improvement run chart signals
-function detectRunChartSignals(data, median) {
-    const n = data.length;
-    const signals = new Array(n).fill(null); // null=none, 1=astronomical, 2=shift, 3=trend
-
-    // Rule 1: Astronomical point — IQR-based outlier detection
-    const sorted = [...data].sort((a, b) => a - b);
-    const q1 = sorted[Math.floor(sorted.length * 0.25)];
-    const q3 = sorted[Math.floor(sorted.length * 0.75)];
-    const iqr = q3 - q1;
-    const lowerFence = q1 - 3 * iqr;
-    const upperFence = q3 + 3 * iqr;
-    for (let i = 0; i < n; i++) {
-        if (data[i] < lowerFence || data[i] > upperFence) signals[i] = 1;
-    }
-
-    // Rule 2: 8+ consecutive points on same side of median (ignore points ON the median)
-    let runSide = null, runStart = 0, runLen = 0;
-    for (let i = 0; i < n; i++) {
-        const side = data[i] > median ? 'above' : data[i] < median ? 'below' : null;
-        if (side && side === runSide) {
-            runLen++;
-            if (runLen >= 8) {
-                for (let j = runStart; j <= i; j++) {
-                    if (!signals[j]) signals[j] = 2;
-                }
-            }
-        } else {
-            runSide = side || runSide; // ignore on-median points for continuity
-            if (side) { runStart = i; runLen = 1; }
-        }
-    }
-
-    // Rule 3: 6+ consecutive points all going up OR all going down
-    let trendLen = 1, trendDir = 0, trendStart = 0;
-    for (let i = 1; i < n; i++) {
-        const diff = data[i] - data[i - 1];
-        const dir = diff > 0 ? 1 : diff < 0 ? -1 : 0;
-        if (dir !== 0 && dir === trendDir) {
-            trendLen++;
-        } else {
-            if (trendLen >= 6 && trendDir !== 0) {
-                for (let j = trendStart; j < trendStart + trendLen; j++) {
-                    if (!signals[j]) signals[j] = 3;
-                }
-            }
-            trendDir = dir;
-            trendStart = i - 1;
-            trendLen = 2;
-        }
-    }
-    if (trendLen >= 6 && trendDir !== 0) {
-        for (let j = trendStart; j < trendStart + trendLen; j++) {
-            if (!signals[j]) signals[j] = 3;
-        }
-    }
-
-    return signals;
+function baselineSummary(b) {
+    if (b.source === 'phase') return `${b.count} "${b.phase}" point${b.count !== 1 ? 's' : ''}`;
+    if (b.source === 'pre-pdsa') return `${b.count} point${b.count !== 1 ? 's' : ''} before the first PDSA cycle`;
+    return `the first ${b.count} point${b.count !== 1 ? 's' : ''}`;
 }
 
 function renderRunChart(ctx, canvasId) {
-    const d = state.projectData.chartData;
-    if(d.length === 0) return;
-    
-    const settings = state.projectData.chartSettings || {};
-    const sortedD = [...d].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const labels = sortedD.map(x => x.date);
-    const data = sortedD.map(x => x.value);
-    
-    let baselineData = data.slice(0, Math.min(12, data.length));
-    let sortedBase = [...baselineData].sort((a, b) => a - b);
-    let median = sortedBase.length ? sortedBase[Math.floor(sortedBase.length / 2)] : 0;
+    const pts = sortedPoints();
+    const info = chartContext();
+    const dates = pts.map(p => p.date);
+    const values = pts.map(p => p.value);
+    const labels = dates.map(dt => formatUkDate(dt, true));
 
-    // Detect run chart signals and expose globally for signal panel
-    const signals = detectRunChartSignals(data, median);
-    window.lastRunChartSignals = { signals, median, data, labels,
-        rule1: signals.some(s => s === 1),
-        rule2: signals.some(s => s === 2),
-        rule3: signals.some(s => s === 3) };
+    const baseline = chooseBaseline(pts, state.projectData.pdsa);
+    const med = medianOf(baseline.values);
+    const sig = runChartSignals(values, med);
 
-    let annotations = {
-        medianLine: { 
-            type: 'line', 
-            yMin: median, 
-            yMax: median, 
-            borderColor: '#94a3b8', 
-            borderDash: [5, 5],
-            borderWidth: 2,
-            label: {
-                display: true,
-                content: `Median: ${median.toFixed(1)}`,
-                position: 'end',
-                backgroundColor: 'rgba(148, 163, 184, 0.9)',
-                font: { size: 10, weight: 'bold' }
-            }
+    // Last index of the baseline period, for drawing the median solid over
+    // the baseline and dashed (extended) beyond it.
+    let baselineEnd = baseline.count - 1;
+    if (baseline.source === 'phase') {
+        pts.forEach((p, i) => { if ((p.grade || 'Ungraded') === baseline.phase) baselineEnd = i; });
+    }
+
+    if (canvasId === 'mainChart' || !window.lastRunChartSignals) {
+        window.lastRunChartSignals = {
+            flags: sig.flags, median: med, data: values, labels: dates,
+            rule1: sig.astronomical, rule2: sig.shift, rule3: sig.trend,
+            baseline: { count: baseline.count, source: baseline.source, phase: baseline.phase, text: baselineSummary(baseline) },
+            unit: info.unit
+        };
+    }
+
+    let annotations = {};
+    if (med !== null) {
+        const medLabel = {
+            display: true, content: `Median ${withUnit(med, info.unit)}`, position: 'end',
+            backgroundColor: 'rgba(71, 85, 105, 0.9)', color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
+            font: { size: 10, weight: 'bold', family: CHART_FONT }
+        };
+        if (baselineEnd < pts.length - 1 && baselineEnd >= 0) {
+            annotations.medianBaseline = { type: 'line', yMin: med, yMax: med, xMin: 0, xMax: baselineEnd, borderColor: '#475569', borderWidth: 2 };
+            annotations.medianExtended = { type: 'line', yMin: med, yMax: med, xMin: baselineEnd, xMax: pts.length - 1, borderColor: '#94a3b8', borderWidth: 2, borderDash: [6, 5], label: medLabel };
+        } else {
+            annotations.medianLine = { type: 'line', yMin: med, yMax: med, borderColor: '#475569', borderWidth: 2, label: medLabel };
         }
-    };
-    
-    const target = parseFloat(state.projectData.checklist?.aim_target);
-    if (!isNaN(target)) {
+    }
+    if (info.target !== null) {
         annotations.targetLine = {
-            type: 'line',
-            yMin: target,
-            yMax: target,
-            borderColor: '#22c55e',
-            borderWidth: 2,
-            borderDash: [10, 5],
+            type: 'line', yMin: info.target, yMax: info.target, borderColor: '#16a34a', borderWidth: 2, borderDash: [10, 5],
             label: {
-                display: true,
-                content: `Target: ${target}%`,
-                position: 'start',
-                backgroundColor: 'rgba(34, 197, 94, 0.9)',
-                font: { size: 10, weight: 'bold' }
+                display: true, content: `Target ${withUnit(info.target, info.unit)}`, position: 'start',
+                backgroundColor: 'rgba(22, 163, 74, 0.9)', color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
+                font: { size: 10, weight: 'bold', family: CHART_FONT }
             }
         };
     }
 
-    // Baseline / intervention zone shading — split at first PDSA with a start date
-    const pdsaWithDates = (state.projectData.pdsa || [])
-        .filter(p => p.startDate || p.start)
-        .sort((a, b) => new Date(a.startDate || a.start) - new Date(b.startDate || b.start));
-    
-    if (pdsaWithDates.length > 0) {
-        const firstPDSA = pdsaWithDates[0].startDate || pdsaWithDates[0].start;
-        const splitIdx = labels.findIndex(l => l >= firstPDSA);
-        if (splitIdx > 0 && splitIdx < labels.length) {
-            annotations.baselineZone = {
-                type: 'box', xMin: labels[0], xMax: labels[splitIdx - 1],
-                backgroundColor: 'rgba(148,163,184,0.10)', borderWidth: 0,
-                label: { display: true, content: 'Baseline', position: { x: 'start', y: 'end' },
-                    font: { size: 10 }, color: '#94a3b8', backgroundColor: 'transparent', padding: 2 }
-            };
-            annotations.interventionZone = {
-                type: 'box', xMin: labels[splitIdx], xMax: labels[labels.length - 1],
-                backgroundColor: 'rgba(34,197,94,0.06)', borderWidth: 0,
-                label: { display: true, content: 'Post-Intervention', position: { x: 'start', y: 'end' },
-                    font: { size: 10 }, color: '#16a34a', backgroundColor: 'transparent', padding: 2 }
-            };
-        }
+    // Shade baseline vs after the first PDSA cycle, split where it started.
+    const firstStart = (state.projectData.pdsa || []).map(p => p && (p.startDate || p.start)).filter(Boolean).sort()[0];
+    const split = firstStart ? dateToAxisPosition(dates, firstStart) : null;
+    if (split !== null && split > 0 && split < pts.length - 1) {
+        annotations.baselineZone = { type: 'box', xMin: 0, xMax: split, backgroundColor: 'rgba(148,163,184,0.08)', borderWidth: 0 };
+        annotations.interventionZone = { type: 'box', xMin: split, xMax: pts.length - 1, backgroundColor: 'rgba(34,197,94,0.05)', borderWidth: 0 };
     }
-    
-    // PDSA vertical lines — always shown when cycles have start dates
-    const hasPDSADates = pdsaWithDates.length > 0;
-    if (hasPDSADates) {
-        const pdsaAnnotations = getPDSAAnnotations();
-        annotations = { ...annotations, ...pdsaAnnotations };
-    }
-    // Event marker annotations
-    annotations = { ...annotations, ...getEventMarkerAnnotations() };
 
-    const gradeColors = {
-        'Baseline': '#64748b', 'Cycle 1': '#3b82f6', 'Cycle 2': '#8b5cf6',
-        'Cycle 3': '#ec4899', 'Cycle 4': '#f59e0b', 'Sustain': '#22c55e', 'Intervention': '#f36f21'
+    let markersOutside = 0;
+    if (info.showMarkers) {
+        const m = dateMarkers(dates);
+        annotations = { ...annotations, ...m.ann };
+        markersOutside = m.outside;
+    }
+
+    const phases = phaseColours(pts);
+    const pointColours = pts.map((p, i) => {
+        const f = sig.flags[i];
+        if (f.includes('astronomical')) return SIGNAL_COLOURS.astronomical;
+        if (f.includes('shift')) return SIGNAL_COLOURS.shift;
+        if (f.includes('trend')) return SIGNAL_COLOURS.trend;
+        return phases.map[p.grade || ''] || '#2d2e83';
+    });
+    const pointRadii = sig.flags.map(f => f.length ? 7 : (pts.length > 40 ? 3 : 5));
+
+    const legendItems = [];
+    phases.order.forEach(g => legendItems.push({ text: g, fillStyle: phases.map[g], strokeStyle: phases.map[g], pointStyle: 'circle' }));
+    if (sig.shift) legendItems.push({ text: 'Shift (6+ one side)', fillStyle: SIGNAL_COLOURS.shift, strokeStyle: SIGNAL_COLOURS.shift, pointStyle: 'circle' });
+    if (sig.trend) legendItems.push({ text: 'Trend (5+ rising/falling)', fillStyle: SIGNAL_COLOURS.trend, strokeStyle: SIGNAL_COLOURS.trend, pointStyle: 'circle' });
+    if (sig.astronomical) legendItems.push({ text: 'Unusual point', fillStyle: SIGNAL_COLOURS.astronomical, strokeStyle: SIGNAL_COLOURS.astronomical, pointStyle: 'circle' });
+
+    const subtitleBits = [];
+    if (med !== null) subtitleBits.push(`Median from ${baselineSummary(baseline)}`);
+    if (markersOutside) subtitleBits.push(`${markersOutside} marker${markersOutside !== 1 ? 's' : ''} outside the data range not shown`);
+
+    const opts = baseOptions(info);
+    opts.plugins.subtitle = { display: subtitleBits.length > 0, text: subtitleBits.join(' · '), color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 } };
+    opts.plugins.legend = {
+        display: legendItems.length > 0, position: 'bottom', onClick: () => {},
+        labels: { usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11, family: CHART_FONT }, generateLabels: () => legendItems }
     };
-    
-    // Signal points get distinctive colors + larger radius
-    const pointColors = sortedD.map((x, i) => {
-        if (signals[i] === 1) return '#ef4444'; // red — astronomical (Rule 1)
-        if (signals[i] === 2) return '#f59e0b'; // amber — shift (Rule 2)
-        if (signals[i] === 3) return '#f97316'; // orange — trend (Rule 3)
-        return gradeColors[x.grade] || '#2d2e83';
-    });
-    const pointRadii = signals.map(s => s ? 8 : 6);
-
-    const chart = new Chart(ctx, {
-        type: 'line',
-        data: { 
-            labels: labels, 
-            datasets: [{
-                label: settings.yAxisLabel || 'Measure', 
-                data: data, 
-                borderColor: '#2d2e83', 
-                backgroundColor: '#2d2e83',
-                pointBackgroundColor: pointColors,
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: pointRadii,
-                pointHoverRadius: 9,
-                tension: 0.1,
-                fill: false
-            }] 
-        },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { 
-                title: { 
-                    display: !!settings.title, 
-                    text: settings.title || '', 
-                    font: { size: 16, weight: 'bold' }, 
-                    color: '#1e293b',
-                    padding: { bottom: 20 }
-                },
-                legend: { display: false },
-                annotation: { annotations: annotations },
-                tooltip: {
-                    callbacks: {
-                        afterLabel: function(context) {
-                            const point = sortedD[context.dataIndex];
-                            const sig = signals[context.dataIndex];
-                            const lines = [];
-                            if (point.grade) lines.push(`Phase: ${point.grade}`);
-                            if (sig === 2) lines.push('⚠ Rule 2: Shift signal');
-                            if (sig === 3) lines.push('⚠ Rule 3: Trend signal');
-                            return lines;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: { 
-                    title: { display: true, text: 'Date', font: { weight: 'bold' } },
-                    ticks: { maxRotation: 45, minRotation: 45 },
-                    grid: { color: 'rgba(148,163,184,0.12)' }
-                },
-                y: { 
-                    title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } }, 
-                    beginAtZero: false,
-                    suggestedMin: Math.min(...data) - 5,
-                    suggestedMax: Math.max(...data) + 5,
-                    grid: { color: 'rgba(148,163,184,0.12)' }
-                }
-            }
+    opts.plugins.annotation = { annotations, clip: false };
+    opts.plugins.tooltip.callbacks = {
+        title: (items) => items.length ? formatUkDate(pts[items[0].dataIndex].date) : '',
+        label: (c) => withUnit(c.parsed.y, info.unit, 6),
+        afterLabel: (c) => {
+            const p = pts[c.dataIndex], f = sig.flags[c.dataIndex], lines = [];
+            if (p.grade) lines.push(`Phase: ${p.grade}`);
+            if (p.note) lines.push(p.note.length > 80 ? p.note.slice(0, 79) + '…' : p.note);
+            if (f.includes('shift')) lines.push('Part of a shift (6+ points one side of the median)');
+            if (f.includes('trend')) lines.push('Part of a trend (5+ points rising or falling)');
+            if (f.includes('astronomical')) lines.push('Unusually far from the rest — worth checking');
+            return lines;
         }
+    };
+    opts.scales = {
+        x: { ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 12, font: { size: 11, family: CHART_FONT }, color: '#64748b' }, grid: { display: false } },
+        y: {
+            title: { display: !!info.yLabel, text: info.yLabel, font: { weight: 'bold', family: CHART_FONT }, color: '#475569' },
+            ...yRange(values, [med, info.target], info.isPercent),
+            ticks: { callback: valueTick(info.unit), font: { size: 11, family: CHART_FONT }, color: '#64748b' },
+            grid: { color: 'rgba(148,163,184,0.18)' }
+        }
+    };
+
+    ctx.chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [{
+                label: info.settings.yAxisLabel || 'Measure',
+                data: values,
+                borderColor: '#2d2e83', borderWidth: 2,
+                backgroundColor: '#2d2e83',
+                pointBackgroundColor: pointColours, pointBorderColor: '#fff', pointBorderWidth: 2,
+                pointRadius: pointRadii, pointHoverRadius: 8,
+                tension: 0, fill: false
+            }]
+        },
+        options: opts
     });
-    ctx.chartInstance = chart;
 }
 
 function renderSPCChart(ctx, canvasId) {
-    const d = state.projectData.chartData;
-    if(d.length < 2) {
-        const chart = new Chart(ctx, {
-            type: 'line',
-            data: { labels: ['Need more data'], datasets: [{ data: [] }] },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    title: { display: true, text: 'SPC chart needs at least 2 data points — add more in the Data tab', color: '#94a3b8', font: { weight: 'normal', size: 14 } }
-                },
-                scales: { x: { display: false }, y: { display: false } }
-            }
-        });
-        ctx.chartInstance = chart;
+    const pts = sortedPoints();
+    const info = chartContext();
+    if (pts.length < 2) {
+        showChartMessage(ctx, 'An SPC chart needs at least 2 data points', 'Add more points — control limits are only provisional until you have about 15.', addFirstPoint);
         return;
     }
-    
-    const settings = state.projectData.chartSettings || {};
-    const sortedD = [...d].sort((a, b) => new Date(a.date) - new Date(b.date));
-    const data = sortedD.map(x => x.value);
-    const labels = sortedD.map(x => x.date);
-    
-    const avg = data.reduce((a, b) => a + b, 0) / data.length;
-    let mRSum = 0; 
-    for(let i = 1; i < data.length; i++) { mRSum += Math.abs(data[i] - data[i - 1]); }
-    const avgMR = mRSum / (data.length - 1) || 1;
-    
-    const ucl = avg + (2.66 * avgMR);
-    const lcl = Math.max(0, avg - (2.66 * avgMR));
+    const dates = pts.map(p => p.date);
+    const values = pts.map(p => p.value);
+    const labels = dates.map(dt => formatUkDate(dt, true));
+    const allNonNegative = values.every(v => v >= 0);
+    const spc = spcCalc(values, { floor: allNonNegative ? 0 : null, ceiling: info.isPercent && values.every(v => v <= 100) ? 100 : null });
+    const { mean, ucl, lcl, flags, movingRanges, mrLimit } = spc;
 
-    // UHB SPC tool rules: (1) point outside control limits, (2) 8 in a row
-    // on one side of the mean, (3) 2 of 3 consecutive points beyond the 2σ
-    // line on the same side, and (4) moving range greater than 3.27 × average MR.
-    const spcSignals = Array.from({ length: data.length }, () => []);
-    const addSignal = (index, signal) => {
-        if (!spcSignals[index].includes(signal)) spcSignals[index].push(signal);
-    };
-
-    // Rule 2 — 8 consecutive points above or below the mean.
-    let spcRunSide = null, spcRunStart = 0, spcRunLen = 0;
-    for (let i = 0; i < data.length; i++) {
-        const side = data[i] > avg ? 'above' : data[i] < avg ? 'below' : null;
-        if (side && side === spcRunSide) {
-            spcRunLen++;
-            if (spcRunLen >= 8) {
-                for (let j = spcRunStart; j <= i; j++) addSignal(j, 'run');
-            }
-        } else {
-            spcRunSide = side || spcRunSide;
-            if (side) { spcRunStart = i; spcRunLen = 1; }
-        }
-    }
-
-    // Rule 1 — outside UCL/LCL.
-    data.forEach((value, index) => {
-        if (value > ucl || value < lcl) addSignal(index, 'ooc');
-    });
-
-    // Rule 3 — 2 of any 3 consecutive points beyond 2σ (zone A) on the
-    // same side of the mean. sigma = avgMR / 1.128 for an individuals chart;
-    // the equivalent 2σ boundary is mean ± 1.77 × avgMR.
-    const sigma = avgMR / 1.128;
-    const upperTwoSigma = avg + (2 * sigma);
-    const lowerTwoSigma = avg - (2 * sigma);
-    for (let i = 0; i <= data.length - 3; i++) {
-        const windowPoints = [i, i + 1, i + 2];
-        const upper = windowPoints.filter(index => data[index] > upperTwoSigma);
-        const lower = windowPoints.filter(index => data[index] < lowerTwoSigma);
-        if (upper.length >= 2) upper.forEach(index => addSignal(index, 'twoOfThree'));
-        if (lower.length >= 2) lower.forEach(index => addSignal(index, 'twoOfThree'));
-    }
-
-    // Rule 4 — unusually large moving range. mR[i] corresponds to the
-    // change from point i - 1 to point i, so the signal is attached to i.
-    const movingRanges = data.map((value, index) => index === 0 ? null : Math.abs(value - data[index - 1]));
-    const movingRangeLimit = 3.27 * avgMR;
-    movingRanges.forEach((range, index) => {
-        if (range !== null && range > movingRangeLimit) addSignal(index, 'movingRange');
-    });
-
-    const spcPointColors = spcSignals.map(signals => {
-        if (signals.includes('ooc')) return '#ef4444';
-        if (signals.includes('run')) return '#f59e0b';
-        if (signals.includes('twoOfThree')) return '#8b5cf6';
-        if (signals.includes('movingRange')) return '#0f766e';
-        return '#64748b';
-    });
-    const spcPointRadii = spcSignals.map(signals => signals.length ? 8 : 5);
+    const colourFor = (f) => f.includes('ooc') ? '#ef4444' : f.includes('run') ? '#f59e0b' : f.includes('twoOfThree') ? '#8b5cf6' : f.includes('movingRange') ? '#0f766e' : '#64748b';
+    const lineLabel = (text, pos, bg) => ({ display: true, content: text, position: pos, backgroundColor: bg, color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4, font: { size: 10, weight: 'bold', family: CHART_FONT } });
 
     let annotations = {
-        uclBand: {
-            type: 'box', yMin: lcl, yMax: ucl,
-            backgroundColor: 'rgba(239, 68, 68, 0.04)', borderWidth: 0
-        },
-        ucl: { 
-            type: 'line', yMin: ucl, yMax: ucl, 
-            borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, 
-            label: { display: true, content: `UCL: ${ucl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
-        }, 
-        lcl: { 
-            type: 'line', yMin: lcl, yMax: lcl, 
-            borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, 
-            label: { display: true, content: `LCL: ${lcl.toFixed(1)}`, position: 'end', backgroundColor: 'rgba(239, 68, 68, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
-        }, 
-        avg: { 
-            type: 'line', yMin: avg, yMax: avg, 
-            borderColor: '#22c55e', borderWidth: 2, 
-            label: { display: true, content: `Mean: ${avg.toFixed(1)}`, position: 'start', backgroundColor: 'rgba(34, 197, 94, 0.9)', color: 'white', font: { size: 10, weight: 'bold' } } 
+        band: { type: 'box', yMin: lcl, yMax: ucl, backgroundColor: 'rgba(99, 102, 241, 0.05)', borderWidth: 0 },
+        ucl: { type: 'line', yMin: ucl, yMax: ucl, borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, label: lineLabel(`UCL ${withUnit(ucl, info.unit)}`, 'end', 'rgba(239, 68, 68, 0.9)') },
+        lcl: { type: 'line', yMin: lcl, yMax: lcl, borderColor: '#ef4444', borderDash: [4, 4], borderWidth: 2, label: lineLabel(`LCL ${withUnit(lcl, info.unit)}`, 'end', 'rgba(239, 68, 68, 0.9)') },
+        avg: { type: 'line', yMin: mean, yMax: mean, borderColor: '#16a34a', borderWidth: 2, label: lineLabel(`Mean ${withUnit(mean, info.unit)}`, 'start', 'rgba(22, 163, 74, 0.9)') }
+    };
+    if (info.target !== null) {
+        annotations.targetLine = { type: 'line', yMin: info.target, yMax: info.target, borderColor: '#0f766e', borderWidth: 1.5, borderDash: [10, 5], label: lineLabel(`Target ${withUnit(info.target, info.unit)}`, 'center', 'rgba(15, 118, 110, 0.85)') };
+    }
+    if (info.showMarkers) annotations = { ...annotations, ...dateMarkers(dates).ann };
+
+    const present = new Set(flags.flat());
+    const legendItems = [
+        present.has('ooc') && { text: 'Outside the limits', fillStyle: '#ef4444', strokeStyle: '#ef4444', pointStyle: 'circle' },
+        present.has('run') && { text: '8+ one side of the mean', fillStyle: '#f59e0b', strokeStyle: '#f59e0b', pointStyle: 'circle' },
+        present.has('twoOfThree') && { text: '2 of 3 near a limit', fillStyle: '#8b5cf6', strokeStyle: '#8b5cf6', pointStyle: 'circle' },
+        present.has('movingRange') && { text: 'Unusually big jump', fillStyle: '#0f766e', strokeStyle: '#0f766e', pointStyle: 'circle' }
+    ].filter(Boolean);
+
+    const opts = baseOptions(info);
+    opts.plugins.subtitle = {
+        display: true,
+        text: pts.length < 15
+            ? `XmR chart · limits are provisional with fewer than 15 points (you have ${pts.length})`
+            : `XmR chart · limits from all ${pts.length} points`,
+        color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 }
+    };
+    opts.plugins.legend = {
+        display: legendItems.length > 0, position: 'bottom', onClick: () => {},
+        labels: { usePointStyle: true, boxWidth: 8, padding: 12, font: { size: 11, family: CHART_FONT }, generateLabels: () => legendItems }
+    };
+    opts.plugins.annotation = { annotations, clip: false };
+    opts.plugins.tooltip.callbacks = {
+        title: (items) => items.length ? formatUkDate(pts[items[0].dataIndex].date) : '',
+        label: (c) => withUnit(c.parsed.y, info.unit, 6),
+        afterLabel: (c) => {
+            const f = flags[c.dataIndex], lines = [];
+            const p = pts[c.dataIndex];
+            if (p.grade) lines.push(`Phase: ${p.grade}`);
+            if (f.includes('ooc')) lines.push('Outside the control limits');
+            if (f.includes('run')) lines.push('Part of 8+ points on one side of the mean');
+            if (f.includes('twoOfThree')) lines.push('2 of 3 points beyond 2 sigma on one side');
+            if (f.includes('movingRange')) lines.push(`Jump of ${formatValue(movingRanges[c.dataIndex])} is more than 3.27 × the average moving range (${formatValue(mrLimit)})`);
+            if (!f.length) lines.push('Common cause variation');
+            return lines;
+        }
+    };
+    opts.scales = {
+        x: { ticks: { maxRotation: 0, autoSkip: true, autoSkipPadding: 12, font: { size: 11, family: CHART_FONT }, color: '#64748b' }, grid: { display: false } },
+        y: {
+            title: { display: !!info.yLabel, text: info.yLabel, font: { weight: 'bold', family: CHART_FONT }, color: '#475569' },
+            ...yRange(values, [ucl, lcl, mean, info.target], info.isPercent),
+            ticks: { callback: valueTick(info.unit), font: { size: 11, family: CHART_FONT }, color: '#64748b' },
+            grid: { color: 'rgba(148,163,184,0.18)' }
         }
     };
 
-    // Show PDSA annotations by default if any cycles have start dates
-    const hasPDSADatesSPC = (state.projectData.pdsa || []).some(p => p.startDate || p.start);
-    if (settings.showAnnotations !== false && hasPDSADatesSPC) {
-        const pdsaAnnotations = getPDSAAnnotations();
-        annotations = { ...annotations, ...pdsaAnnotations };
-    }
-    // Event marker annotations
-    annotations = { ...annotations, ...getEventMarkerAnnotations() };
-
-    const chart = new Chart(ctx, {
+    ctx.chartInstance = new Chart(ctx, {
         type: 'line',
-        data: { 
-            labels: labels, 
-            datasets: [{ 
-                label: settings.yAxisLabel || 'Measure', 
-                data: data, 
-                borderColor: '#64748b',
-                borderWidth: 2,
-                backgroundColor: 'transparent',
-                pointBackgroundColor: spcPointColors, 
-                pointBorderColor: '#fff', 
-                pointBorderWidth: 2, 
-                pointRadius: spcPointRadii,
-                pointHoverRadius: 9,
-                tension: 0, 
-                fill: false 
-            }] 
+        data: {
+            labels,
+            datasets: [{
+                label: info.settings.yAxisLabel || 'Measure', data: values,
+                borderColor: '#64748b', borderWidth: 2, backgroundColor: 'transparent',
+                pointBackgroundColor: flags.map(colourFor), pointBorderColor: '#fff', pointBorderWidth: 2,
+                pointRadius: flags.map(f => f.length ? 7 : (pts.length > 40 ? 3 : 5)), pointHoverRadius: 8,
+                tension: 0, fill: false
+            }]
         },
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { 
-                title: { display: !!settings.title, text: settings.title || '', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 20 } }, 
-                legend: {
-                    display: true,
-                    onClick: () => {},
-                    labels: {
-                        usePointStyle: true,
-                        boxWidth: 9,
-                        padding: 14,
-                        font: { size: 10 },
-                        generateLabels: () => [
-                            { text: 'Rule 1: outside limits', fillStyle: '#ef4444', strokeStyle: '#ef4444', pointStyle: 'circle' },
-                            { text: 'Rule 2: 8-point run', fillStyle: '#f59e0b', strokeStyle: '#f59e0b', pointStyle: 'circle' },
-                            { text: 'Rule 3: 2 of 3 beyond 2σ', fillStyle: '#8b5cf6', strokeStyle: '#8b5cf6', pointStyle: 'circle' },
-                            { text: 'Rule 4: moving range', fillStyle: '#0f766e', strokeStyle: '#0f766e', pointStyle: 'circle' }
-                        ]
-                    }
-                },
-                annotation: { annotations: annotations },
-                tooltip: {
-                    callbacks: {
-                        afterLabel: function(context) {
-                            const signals = spcSignals[context.dataIndex];
-                            const lines = [];
-                            if (signals.includes('ooc')) lines.push('\u26a0 Rule 1: outside control limits');
-                            if (signals.includes('run')) lines.push('\u26a0 Rule 2: 8+ consecutive on one side of mean');
-                            if (signals.includes('twoOfThree')) lines.push('\u26a0 Rule 3: 2 of 3 beyond 2σ on one side');
-                            if (signals.includes('movingRange')) lines.push(`\u26a0 Rule 4: moving range > 3.27 × average MR (${movingRanges[context.dataIndex].toFixed(1)} > ${movingRangeLimit.toFixed(1)})`);
-                            if (!signals.length) lines.push('\u2713 Common cause variation');
-                            lines.push(`UCL: ${ucl.toFixed(1)}  |  Mean: ${avg.toFixed(1)}  |  LCL: ${lcl.toFixed(1)}`);
-                            return lines;
-                        }
-                    }
-                }
-            }, 
-            scales: { 
-                x: { ticks: { maxRotation: 45, minRotation: 45 }, grid: { color: 'rgba(148,163,184,0.15)' } },
-                y: { 
-                    title: { display: !!settings.yAxisLabel, text: settings.yAxisLabel || '', font: { weight: 'bold' } },
-                    grid: { color: 'rgba(148,163,184,0.15)' }
-                } 
-            } 
-        }
+        options: opts
     });
-    ctx.chartInstance = chart;
 }
 
 function renderHistogram(ctx, canvasId) {
-    const d = state.projectData.chartData.map(x => x.value);
-    if(d.length < 2) { 
-        showToast("Need at least 2 data points for histogram", "info"); 
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: ['No Data'], datasets: [{ data: [] }] },
-            options: { plugins: { title: { display: true, text: 'Add more data for histogram' } } }
-        });
-        ctx.chartInstance = chart;
-        return; 
+    const pts = sortedPoints();
+    const info = chartContext();
+    const values = pts.map(p => p.value);
+    if (values.length < 5) {
+        showChartMessage(ctx, 'A histogram needs at least 5 data points', `You have ${values.length}. It shows how your values are spread, so it only becomes useful with more data.`, addFirstPoint);
+        return;
     }
-    
-    const settings = state.projectData.chartSettings || {};
-    const min = Math.min(...d); 
-    const max = Math.max(...d);
-    const range = max - min || 1;
-    const bins = Math.max(3, Math.min(10, Math.ceil(Math.log2(d.length) + 1)));
-    const step = range / bins || 1;
-    
-    const buckets = new Array(bins).fill(0); 
-    const labels = [];
-    
-    for(let i = 0; i < bins; i++) {
-        const low = min + (i * step); 
-        const high = low + step;
-        labels.push(`${Math.round(low)}-${Math.round(high)}`);
-        buckets[i] = d.filter(v => {
-            if (i === bins - 1) return v >= low && v <= high;
-            return v >= low && v < high;
-        }).length;
-    }
-    
-    const mean = d.reduce((a, b) => a + b, 0) / d.length;
-    const sortedForMedian = [...d].sort((a, b) => a - b);
-    const histMedian = sortedForMedian[Math.floor(sortedForMedian.length / 2)];
+    const bins = histogramBins(values);
+    const step = bins.length > 1 ? bins[0].high - bins[0].low : 0;
+    const dp = step && step < 1 ? 2 : step && step < 10 ? 1 : 0;
+    const f = (v) => formatValue(v, dp);
+    const labels = bins.map(b => bins.length === 1 ? f(b.low) : `${f(b.low)}–${f(b.high)}`);
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const med = medianOf(values);
+    const min = bins[0].low;
+    const pos = (v) => step ? Math.min(bins.length - 0.5, Math.max(-0.5, (v - min) / step - 0.5)) : 0;
+    const lineLabel = (text, where, bg) => ({ display: true, content: text, position: where, backgroundColor: bg, color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4, font: { size: 10, weight: 'bold', family: CHART_FONT } });
 
-    // Find which bin the mean and median fall into (as fraction labels)
-    const meanBin = Math.min(bins - 1, Math.max(0, Math.floor((mean - min) / (step || 1))));
-    const medianBin = Math.min(bins - 1, Math.max(0, Math.floor((histMedian - min) / (step || 1))));
-
-    const barColors = buckets.map((_, i) => {
-        if (i === meanBin) return '#6366f1';
-        return '#8b5cf6';
-    });
-
-    const histAnnotations = {
-        meanLine: {
-            type: 'line', xMin: meanBin, xMax: meanBin,
-            borderColor: '#6366f1', borderWidth: 2, borderDash: [5, 5],
-            label: { display: true, content: `Mean: ${mean.toFixed(1)}`, position: 'start',
-                backgroundColor: 'rgba(99,102,241,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
-        },
-        medianLine: {
-            type: 'line', xMin: medianBin, xMax: medianBin,
-            borderColor: '#a855f7', borderWidth: 2, borderDash: [3, 3],
-            label: { display: meanBin !== medianBin, content: `Median: ${histMedian.toFixed(1)}`, position: 'end',
-                backgroundColor: 'rgba(168,85,247,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
+    const opts = baseOptions(info);
+    opts.plugins.title = { display: true, text: info.settings.title || 'How your values are spread', font: { size: 15, weight: 'bold', family: CHART_FONT }, color: '#1e293b', padding: { bottom: 4 } };
+    opts.plugins.subtitle = { display: true, text: `n = ${values.length} · mean ${withUnit(mean, info.unit)} · median ${withUnit(med, info.unit)}`, color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 } };
+    opts.plugins.annotation = {
+        annotations: {
+            meanLine: { type: 'line', xMin: pos(mean), xMax: pos(mean), borderColor: '#4f46e5', borderWidth: 2, borderDash: [5, 5], label: lineLabel(`Mean ${withUnit(mean, info.unit)}`, 'end', 'rgba(79,70,229,0.9)') },
+            medianLine: { type: 'line', xMin: pos(med), xMax: pos(med), borderColor: '#c026d3', borderWidth: 2, borderDash: [2, 3], label: lineLabel(`Median ${withUnit(med, info.unit)}`, 'start', 'rgba(192,38,211,0.9)') }
         }
     };
+    opts.plugins.tooltip.callbacks = {
+        title: (items) => items.length ? `${labels[items[0].dataIndex]}${info.unit && info.unit !== '%' ? ' ' + info.unit : info.unit}` : '',
+        label: (c) => `${c.parsed.y} point${c.parsed.y !== 1 ? 's' : ''}`
+    };
+    opts.scales = {
+        x: { title: { display: true, text: info.yLabel || 'Value', font: { weight: 'bold', family: CHART_FONT }, color: '#475569' }, grid: { display: false }, ticks: { font: { size: 11, family: CHART_FONT }, color: '#64748b' } },
+        y: { title: { display: true, text: 'Number of points', font: { weight: 'bold', family: CHART_FONT }, color: '#475569' }, beginAtZero: true, ticks: { precision: 0, font: { size: 11, family: CHART_FONT }, color: '#64748b' }, grid: { color: 'rgba(148,163,184,0.18)' } }
+    };
 
-    const chart = new Chart(ctx, { 
-        type: 'bar', 
-        data: { 
-            labels: labels, 
-            datasets: [{ 
-                label: 'Frequency', 
-                data: buckets, 
-                backgroundColor: barColors,
-                borderColor: '#7c3aed', 
-                borderWidth: 1,
-                borderRadius: 4
-            }] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { 
-                title: { display: true, text: settings.title || 'Data Distribution', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 16 } },
-                legend: { display: false },
-                annotation: { annotations: histAnnotations },
-                tooltip: {
-                    callbacks: {
-                        afterBody: function() {
-                            return [`Mean: ${mean.toFixed(2)}`, `Median: ${histMedian.toFixed(2)}`, `n = ${d.length}`];
-                        }
-                    }
-                }
-            }, 
-            scales: { 
-                x: { 
-                    title: { display: true, text: settings.yAxisLabel || 'Value Range', font: { weight: 'bold' } },
-                    grid: { display: false }
-                }, 
-                y: { 
-                    title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, 
-                    beginAtZero: true, 
-                    ticks: { stepSize: 1 },
-                    grid: { color: 'rgba(148,163,184,0.15)' }
-                } 
-            } 
-        } 
+    ctx.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: { labels, datasets: [{ label: 'Points', data: bins.map(b => b.count), backgroundColor: 'rgba(79, 70, 229, 0.75)', hoverBackgroundColor: '#4f46e5', borderRadius: 6, categoryPercentage: 0.96, barPercentage: 0.96 }] },
+        options: opts
     });
-    ctx.chartInstance = chart;
 }
 
 function renderPareto(ctx, canvasId) {
-    const d = state.projectData.chartData;
-    if(d.length === 0) return;
-    
-    const settings = state.projectData.chartSettings || {};
-    const counts = {}; 
-    d.forEach(x => { const cat = x.grade || x.category || "Uncategorised"; counts[cat] = (counts[cat] || 0) + 1; });
-    
-    const sortedCats = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    const values = sortedCats.map(c => counts[c]);
-    const total = values.reduce((a, b) => a + b, 0);
-    
-    let cum = 0; 
-    const cumulative = values.map(v => { cum += v; return (cum / total) * 100; });
+    const info = chartContext();
+    const type = chartedMeasure().measure?.measureType || '';
+    const usesNotes = !type || type === 'categorical' || type === 'count';
+    const pd = paretoData((state.projectData.chartData || []).map(p => usesNotes ? p : { ...p, note: '' }));
+    if (pd.categories.length < 2) {
+        showChartMessage(ctx, 'A Pareto chart needs categories', 'Add one row per category: put the category (e.g. "Kit missing") in the Note and how many times it happened in the Value. Tip: a separate measure keeps these apart from your run chart data.', state.isReadOnly ? null : { label: 'Add a measure for categories', icon: 'bar-chart-3', run: () => window.addMeasure && window.addMeasure() });
+        return;
+    }
+    const { categories, values, cumulative, total } = pd;
+    const vital = cumulative.findIndex(c => c >= 80);
+    const colours = categories.map((_, i) => i <= vital ? 'rgba(45, 46, 131, 0.9)' : 'rgba(45, 46, 131, 0.35)');
 
-    // Build gradient colours — darkest for tallest bar
-    const paretoColors = sortedCats.map((_, i) => {
-        const opacity = 1 - (i / sortedCats.length) * 0.5;
-        return `rgba(45, 46, 131, ${opacity})`;
-    });
-
-    const paretoAnnotations = {
-        eightyPct: {
-            type: 'line', yMin: 80, yMax: 80, yScaleID: 'y1',
-            borderColor: '#ef4444', borderWidth: 1.5, borderDash: [6, 3],
-            label: { display: true, content: '80%', position: 'start',
-                backgroundColor: 'rgba(239,68,68,0.85)', color: 'white', font: { size: 10, weight: 'bold' } }
+    const opts = baseOptions(info);
+    opts.plugins.title = { display: true, text: info.settings.title || 'Pareto: where to focus first', font: { size: 15, weight: 'bold', family: CHART_FONT }, color: '#1e293b', padding: { bottom: 4 } };
+    opts.plugins.subtitle = { display: true, text: `${vital + 1} of ${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'} account for ${Math.round(cumulative[vital])}% of ${formatValue(total)} in total`, color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 } };
+    opts.plugins.legend = { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11, family: CHART_FONT } } };
+    opts.plugins.annotation = {
+        annotations: {
+            eighty: { type: 'line', yMin: 80, yMax: 80, yScaleID: 'y1', borderColor: '#ef4444', borderWidth: 1.5, borderDash: [6, 3], label: { display: true, content: '80%', position: 'start', backgroundColor: 'rgba(239,68,68,0.85)', color: '#fff', padding: { x: 5, y: 2 }, borderRadius: 4, font: { size: 10, weight: 'bold', family: CHART_FONT } } }
         }
     };
+    opts.plugins.tooltip.callbacks = {
+        label: (c) => c.datasetIndex === 0
+            ? `Cumulative ${formatValue(c.parsed.y)}%`
+            : `${formatValue(c.parsed.y)} (${formatValue((values[c.dataIndex] / total) * 100)}% of total)`,
+        afterLabel: (c) => c.datasetIndex === 1 && c.dataIndex <= vital ? 'In the "vital few" — tackle these first' : ''
+    };
+    opts.scales = {
+        x: { grid: { display: false }, ticks: { font: { size: 11, family: CHART_FONT }, color: '#475569', callback: function(v) { const l = this.getLabelForValue(v); return l.length > 18 ? l.slice(0, 17) + '…' : l; } } },
+        y: { title: { display: true, text: info.yLabel || 'Count', font: { weight: 'bold', family: CHART_FONT }, color: '#475569' }, beginAtZero: true, grid: { color: 'rgba(148,163,184,0.18)' }, ticks: { font: { size: 11, family: CHART_FONT }, color: '#64748b' } },
+        y1: { position: 'right', min: 0, max: 100, title: { display: true, text: 'Cumulative %', font: { weight: 'bold', family: CHART_FONT }, color: '#475569' }, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%', font: { size: 11, family: CHART_FONT }, color: '#64748b' } }
+    };
 
-    const chart = new Chart(ctx, { 
-        type: 'bar', 
-        data: { 
-            labels: sortedCats, 
-            datasets: [ 
-                { 
-                    type: 'line', 
-                    label: 'Cumulative %', 
-                    data: cumulative, 
-                    borderColor: '#f36f21', 
-                    backgroundColor: 'rgba(243, 111, 33, 0.08)', 
-                    pointBackgroundColor: '#f36f21', 
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointRadius: 5, 
-                    pointHoverRadius: 7,
-                    yAxisID: 'y1', 
-                    tension: 0.2, 
-                    fill: true,
-                    order: 1
-                }, 
-                { 
-                    type: 'bar', 
-                    label: 'Frequency', 
-                    data: values, 
-                    backgroundColor: paretoColors,
-                    borderColor: '#1e1f5c', 
-                    borderWidth: 1,
-                    borderRadius: 4,
-                    yAxisID: 'y',
-                    order: 2
-                } 
-            ] 
-        }, 
-        options: { 
-            responsive: true, 
-            maintainAspectRatio: false, 
-            plugins: { 
-                title: { display: true, text: settings.title || 'Pareto Analysis', font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 16 } },
-                legend: {
-                    display: true,
-                    position: 'top',
-                    labels: { usePointStyle: true, pointStyle: 'circle', font: { size: 11 } }
-                },
-                annotation: { annotations: paretoAnnotations },
-                tooltip: {
-                    callbacks: {
-                        afterLabel: function(context) {
-                            if (context.datasetIndex === 0) {
-                                const idx = context.dataIndex;
-                                return cumulative[idx] <= 80 ? '\u2605 Within 80% — prioritise these' : '';
-                            }
-                            const idx = context.dataIndex;
-                            const pct = ((values[idx] / total) * 100).toFixed(1);
-                            return [`${pct}% of total`, `Cumulative: ${cumulative[idx].toFixed(1)}%`];
-                        }
-                    }
-                }
-            }, 
-            scales: { 
-                x: { grid: { display: false } },
-                y: { 
-                    title: { display: true, text: 'Frequency', font: { weight: 'bold' } }, 
-                    beginAtZero: true,
-                    grid: { color: 'rgba(148,163,184,0.15)' }
-                }, 
-                y1: { 
-                    position: 'right', max: 100, 
-                    title: { display: true, text: 'Cumulative %', font: { weight: 'bold' } }, 
-                    grid: { drawOnChartArea: false },
-                    ticks: { callback: v => v + '%' }
-                } 
-            } 
-        } 
+    ctx.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: categories,
+            datasets: [
+                { type: 'line', label: 'Cumulative %', data: cumulative, borderColor: '#f36f21', backgroundColor: '#f36f21', pointBackgroundColor: '#f36f21', pointBorderColor: '#fff', pointBorderWidth: 2, pointRadius: 4, yAxisID: 'y1', tension: 0, order: 1 },
+                { type: 'bar', label: info.yLabel || 'Count', data: values, backgroundColor: colours, borderRadius: 6, yAxisID: 'y', order: 2 }
+            ]
+        },
+        options: opts
     });
-    ctx.chartInstance = chart;
 }
 
 // Extracts a short pairing label from the start of a data point's note field,
@@ -1428,14 +1223,9 @@ function renderBeforeAfter(ctx, canvasId) {
     const raw = state.projectData.chartData || [];
     const settings = state.projectData.chartSettings || {};
 
+    const info = chartContext();
     if (raw.length < 2) {
-        showToast("Need at least 2 data points (before and after) for this chart", "info");
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: ['No Data'], datasets: [{ data: [] }] },
-            options: { plugins: { title: { display: true, text: 'Add pre- and post-intervention data points to compare' } } }
-        });
-        ctx.chartInstance = chart;
+        showChartMessage(ctx, 'Before / After needs data from two phases', 'Tag your points with a Phase, e.g. "Baseline" and "Post-intervention".', addFirstPoint);
         return;
     }
 
@@ -1450,13 +1240,7 @@ function renderBeforeAfter(ctx, canvasId) {
     const phaseOrder = Object.keys(phaseEarliestDate).sort((a, b) => phaseEarliestDate[a] - phaseEarliestDate[b]);
 
     if (phaseOrder.length < 2) {
-        showToast("Tag your data points with a Phase (e.g. 'Baseline' vs 'Post-Intervention') to use the Before/After view", "info");
-        const chart = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: ['Only one Phase found'], datasets: [{ data: [] }] },
-            options: { plugins: { title: { display: true, text: 'Add a Phase tag to compare Before vs After' } } }
-        });
-        ctx.chartInstance = chart;
+        showChartMessage(ctx, 'Only one phase found', `All your points are in "${phaseOrder[0]}". Set a different Phase on the points collected after your change (edit them in the data table below), and this chart compares the two.`);
         return;
     }
 
@@ -1471,6 +1255,14 @@ function renderBeforeAfter(ctx, canvasId) {
     const beforeMap = {}; beforePts.forEach((p, i) => beforeMap[beforeLabels[i]] = p.value);
     const afterMap = {}; afterPts.forEach((p, i) => afterMap[afterLabels[i]] = p.value);
     const labelsMatch = beforeLabels.length === afterLabels.length && beforeLabels.every(l => l in afterMap);
+
+    // Different numbers of points and no matching IDs: this isn't paired
+    // data, so compare the two groups (median bar + every point) instead of
+    // inventing pairs.
+    if (!labelsMatch && beforePts.length !== afterPts.length) {
+        renderGroupComparison(ctx, info, beforePhase, afterPhase, beforePts.map(p => Number(p.value)), afterPts.map(p => Number(p.value)));
+        return;
+    }
 
     let pairedLabels, beforeValues, afterValues;
     if (labelsMatch) {
@@ -1502,7 +1294,7 @@ function renderBeforeAfter(ctx, canvasId) {
         baChartAnnotations.beforeMedianLine = {
             type: 'line', yMin: beforeMedian, yMax: beforeMedian,
             borderColor: '#94a3b8', borderWidth: 2, borderDash: [6, 4],
-            label: { display: true, content: `${beforePhase} median: ${beforeMedian}`, position: 'start',
+            label: { display: true, content: `${beforePhase} median ${withUnit(beforeMedian, info.unit)}`, position: 'start',
                 backgroundColor: 'rgba(100,116,139,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
         };
     }
@@ -1510,7 +1302,7 @@ function renderBeforeAfter(ctx, canvasId) {
         baChartAnnotations.afterMedianLine = {
             type: 'line', yMin: afterMedian, yMax: afterMedian,
             borderColor: '#10b981', borderWidth: 2, borderDash: [6, 4],
-            label: { display: true, content: `${afterPhase} median: ${afterMedian}`, position: 'end',
+            label: { display: true, content: `${afterPhase} median ${withUnit(afterMedian, info.unit)}`, position: 'end',
                 backgroundColor: 'rgba(16,185,129,0.9)', color: 'white', font: { size: 10, weight: 'bold' } }
         };
     }
@@ -1520,8 +1312,8 @@ function renderBeforeAfter(ctx, canvasId) {
         data: {
             labels: pairedLabels,
             datasets: [
-                { label: beforePhase, data: beforeValues, backgroundColor: '#94a3b8', borderColor: '#64748b', borderWidth: 1, borderRadius: 4 },
-                { label: afterPhase, data: afterValues, backgroundColor: '#10b981', borderColor: '#059669', borderWidth: 1, borderRadius: 4 }
+                { label: beforePhase, data: beforeValues, backgroundColor: '#94a3b8', borderRadius: 6 },
+                { label: afterPhase, data: afterValues, backgroundColor: '#10b981', borderRadius: 6 }
             ]
         },
         options: {
@@ -1546,105 +1338,48 @@ function renderBeforeAfter(ctx, canvasId) {
             },
             scales: {
                 x: { title: { display: true, text: 'Paired data points' }, grid: { display: false } },
-                y: { title: { display: true, text: settings.yAxisLabel || 'Value' }, beginAtZero: true, grid: { color: 'rgba(148,163,184,0.15)' } }
+                y: { title: { display: true, text: info.yLabel || 'Value' }, beginAtZero: true, ticks: { callback: valueTick(info.unit) }, grid: { color: 'rgba(148,163,184,0.18)' } }
             }
         }
     });
     ctx.chartInstance = chart;
 }
 
-export function addDataPoint() {
-    const dateInput = document.getElementById('chart-date');
-    const valueInput = document.getElementById('chart-value');
-    const gradeInput = document.getElementById('chart-grade');
-    
-    const d = dateInput ? dateInput.value : '';
-    const v = valueInput ? valueInput.value : '';
-    const g = gradeInput ? gradeInput.value : '';
-    
-    if(!d || v === '') { showToast("Date and Value are required", "error"); return; }
-    
-    const parsedValue = parseFloat(v);
-    if (isNaN(parsedValue)) { showToast("Value must be a number", "error"); return; }
-    
-    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-    if (!state.projectData.chartData) state.projectData.chartData = [];
-    state.projectData.chartData.push({ id: id, date: d, value: parsedValue, grade: g });
-    state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
-    
-    if (valueInput) valueInput.value = '';
-    window.saveData();
-    if(window.renderDataView) window.renderDataView();
-    showToast("Data point added", "success");
-}
+// Data entry lives in data-entry.js; re-exported so existing imports keep working.
+export { addDataPoint, deleteDataPoint, downloadCSVTemplate, importCSV } from "./data-entry.js";
 
-export function deleteDataPoint(idOrDate) {
-    window.showConfirmDialog('Delete this data point?', () => {
-        const idx = state.projectData.chartData.findIndex(x => x.id === idOrDate || x.date === idOrDate);
-        if (idx > -1) { 
-            state.projectData.chartData.splice(idx, 1); 
-            window.saveData(); 
-            if (window.renderDataView) window.renderDataView();
-            showToast('Data point deleted', 'info');
-        }
-    }, 'Delete', 'Delete Data Point');
-}
-
-export function downloadCSVTemplate() {
-    const csvContent = "data:text/csv;charset=utf-8,Date,Value,Context\n2025-01-01,10,Baseline\n2025-01-02,12,Baseline\n2025-01-08,15,Intervention";
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "qip_data_template.csv");
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-}
-
-export function importCSV(input) {
-    const file = input.files ? input.files[0] : null;
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => {
-        const text = e.target.result;
-        const lines = text.split('\n').filter(l => l.trim() !== '');
-        let count = 0;
-        if (!state.projectData.chartData) state.projectData.chartData = [];
-
-        const header = lines[0].toLowerCase();
-        let dateIdx = 0;
-        let valIdx = 1;
-        let gradeIdx = 2;
-
-        const isEHR = header.includes('arrival') || header.includes('epic') || header.includes('cerner');
-        if (isEHR) {
-            const parts = header.split(',');
-            dateIdx = parts.findIndex(p => p.includes('date') || p.includes('time') || p.includes('arrival'));
-            valIdx = parts.findIndex(p => p.includes('value') || p.includes('result') || p.includes('duration'));
-            if (dateIdx === -1) dateIdx = 0;
-            if (valIdx === -1) valIdx = 1;
-        }
-
-        lines.forEach((l, i) => {
-            if(i === 0) return;
-            const parts = l.split(',');
-            if(parts.length >= 2) {
-                const d = parts[dateIdx] ? parts[dateIdx].trim() : '';
-                const v = parseFloat(parts[valIdx] ? parts[valIdx].trim() : '');
-                if(d && !isNaN(v)) {
-                    const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-                    const g = parts[gradeIdx] ? parts[gradeIdx].trim() : 'Baseline';
-                    state.projectData.chartData.push({id: id, date: d, value: v, grade: g});
-                    count++;
-                }
-            }
-        });
-        window.saveData();
-        if(window.renderDataView) window.renderDataView();
-        showToast("Imported data points successfully", "success");
+// Unpaired Before/After: a bar for each phase's median with the individual
+// points drawn over it, so the spread is visible as well as the middle.
+function renderGroupComparison(ctx, info, beforePhase, afterPhase, before, after) {
+    const mb = medianOf(before), ma = medianOf(after);
+    let change = '';
+    if (mb !== null && ma !== null) {
+        change = mb === 0 ? (ma === 0 ? 'No change in median' : 'Median rose from 0')
+            : `${ma - mb > 0 ? '+' : ''}${Math.round(((ma - mb) / mb) * 100)}% change in median`;
+    }
+    const opts = baseOptions(info);
+    opts.plugins.title = { display: true, text: info.settings.title || `${beforePhase} vs ${afterPhase}`, font: { size: 15, weight: 'bold', family: CHART_FONT }, color: '#1e293b', padding: { bottom: 4 } };
+    opts.plugins.subtitle = { display: true, text: `${change} · ${before.length} vs ${after.length} points (not paired)`, color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 } };
+    opts.plugins.legend = { display: true, position: 'bottom', labels: { usePointStyle: true, boxWidth: 8, font: { size: 11, family: CHART_FONT } } };
+    opts.plugins.tooltip.callbacks = {
+        label: (c) => c.datasetIndex === 0 ? `Median ${withUnit(c.parsed.y, info.unit, 6)}` : withUnit(c.parsed.y, info.unit, 6)
     };
-    reader.readAsText(file);
-    input.value = '';
+    opts.scales = {
+        x: { grid: { display: false }, ticks: { font: { size: 12, weight: 'bold', family: CHART_FONT }, color: '#334155' } },
+        y: { title: { display: !!info.yLabel, text: info.yLabel, font: { weight: 'bold', family: CHART_FONT }, color: '#475569' }, beginAtZero: true, ticks: { callback: valueTick(info.unit) }, grid: { color: 'rgba(148,163,184,0.18)' } }
+    };
+    ctx.chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: [beforePhase, afterPhase],
+            datasets: [
+                { type: 'bar', label: 'Median', data: [mb, ma], backgroundColor: ['rgba(148,163,184,0.55)', 'rgba(16,185,129,0.55)'], borderRadius: 8, barPercentage: 0.55, order: 2 },
+                { type: 'scatter', label: 'Individual points', data: before.map(v => ({ x: beforePhase, y: v })).concat(after.map(v => ({ x: afterPhase, y: v }))),
+                  backgroundColor: 'rgba(45,46,131,0.55)', borderColor: '#fff', borderWidth: 1, pointRadius: 5, order: 1 }
+            ]
+        },
+        options: opts
+    });
 }
 
 window.addDriver = (type) => {
@@ -1834,26 +1569,49 @@ function applyZoom() {
     } 
 }
 
-export function openChartSettings() { 
-    const m = document.getElementById('chart-settings-modal'); 
-    if(m) {
-        const s = state.projectData.chartSettings || {};
-        const t = document.getElementById('chart-setting-title'); if(t) t.value = s.title || '';
-        const y = document.getElementById('chart-setting-yaxis'); if(y) y.value = s.yAxisLabel || '';
-        const a = document.getElementById('chart-setting-annotations'); if(a) a.checked = s.showAnnotations || false;
-        m.classList.remove('hidden'); 
-        m.classList.add('flex');
-    } 
+export function openChartSettings() {
+    const m = document.getElementById('chart-settings-modal');
+    if (!m || !state.projectData) return;
+    const s = state.projectData.chartSettings || {};
+    const { isPrimary } = chartedMeasure();
+    const aimTarget = state.projectData.checklist?.aim_target;
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('chart-setting-title', s.title || '');
+    set('chart-setting-yaxis', s.yAxisLabel || '');
+    set('chart-setting-target', s.target !== undefined && s.target !== null ? s.target : '');
+    const hint = document.getElementById('chart-setting-target-hint');
+    if (hint) {
+        hint.textContent = isPrimary && aimTarget
+            ? `Leave blank to use the target from your SMART aim (${aimTarget}).`
+            : 'Draws a dashed green line. Leave blank for no target line.';
+    }
+    const a = document.getElementById('chart-setting-annotations');
+    if (a) a.checked = s.showAnnotations !== false;
+    m.classList.remove('hidden');
+    m.classList.add('flex');
+    setTimeout(() => document.getElementById('chart-setting-title')?.focus(), 50);
 }
 
 export function saveChartSettings() {
+    if (!state.projectData) return;
+    if (state.isReadOnly) { showToast("You're viewing this project read-only — settings aren't saved.", 'info'); return; }
     if (!state.projectData.chartSettings) state.projectData.chartSettings = {};
-    const t = document.getElementById('chart-setting-title'); state.projectData.chartSettings.title = t ? t.value : '';
-    const y = document.getElementById('chart-setting-yaxis'); state.projectData.chartSettings.yAxisLabel = y ? y.value : '';
-    const a = document.getElementById('chart-setting-annotations'); state.projectData.chartSettings.showAnnotations = a ? a.checked : false;
+    const cs = state.projectData.chartSettings;
+    const val = (id) => (document.getElementById(id)?.value || '').trim();
+    const targetRaw = val('chart-setting-target');
+    if (targetRaw !== '' && isNaN(parseNumericInput(targetRaw))) {
+        showToast('Target must be a number (e.g. 90 or 120)', 'error');
+        return;
+    }
+    cs.title = val('chart-setting-title');
+    cs.yAxisLabel = val('chart-setting-yaxis');
+    cs.target = targetRaw === '' ? null : parseNumericInput(targetRaw);
+    const a = document.getElementById('chart-setting-annotations');
+    cs.showAnnotations = a ? a.checked : true;
     window.saveData();
-    document.getElementById('chart-settings-modal').classList.add('hidden');
-    document.getElementById('chart-settings-modal').classList.remove('flex');
+    const modal = document.getElementById('chart-settings-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
     renderChart();
     showToast("Chart settings saved", "success");
 }
@@ -2054,25 +1812,24 @@ export function updateChartEducation() {
     const p = document.getElementById('chart-education-panel');
     if (!p) return;
     const i = CHART_EDUCATION[chartMode];
-    if (i) {
-        p.innerHTML = `
-            <h4 class="font-bold text-slate-800 text-sm mb-2 flex items-center gap-2">
+    if (!i) { p.innerHTML = ''; return; }
+    // Open by default while a project is still getting going; tucked away once
+    // there's enough data that the chart speaks for itself.
+    const n = (state.projectData?.chartData || []).length;
+    const wasOpen = p.querySelector('details')?.dataset.mode === chartMode ? p.querySelector('details').open : n < 10;
+    p.innerHTML = `
+        <details data-mode="${chartMode}" ${wasOpen ? 'open' : ''}>
+            <summary class="font-bold text-slate-700 text-sm flex items-center gap-2 cursor-pointer list-none">
                 <i data-lucide="graduation-cap" class="w-4 h-4 text-rcem-purple"></i>
-                ${i.title}
-            </h4>
-            <p class="text-xs text-slate-600 mb-3 leading-relaxed">${i.desc}</p>
-            <div class="space-y-1.5">
-                <div class="text-xs font-bold text-slate-500 uppercase">Detection Rules:</div>
-                ${i.rules.map(r => `
-                    <div class="text-xs text-slate-600 flex items-start gap-2">
-                        <span class="text-rcem-purple mt-0.5">-</span>
-                        <span>${r}</span>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-    }
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+                How to read this: ${escapeHtml(i.title.replace(/ Guidance$/, ''))}
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400 ml-auto"></i>
+            </summary>
+            <p class="text-xs text-slate-600 my-3 leading-relaxed">${escapeHtml(i.desc)}</p>
+            <ul class="space-y-1.5">
+                ${i.rules.map(r => `<li class="text-xs text-slate-600 flex items-start gap-2"><span class="text-rcem-purple mt-0.5">•</span><span>${escapeHtml(r)}</span></li>`).join('')}
+            </ul>
+        </details>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [p] });
 }
 
 export function renderFullViewChart() {

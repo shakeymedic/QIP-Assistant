@@ -27,6 +27,7 @@ import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
+import { computeReadiness, allMeasurePoints, lastActivityDate, normaliseDateInput, parseNumericInput, formatUkDate } from "./project-metrics.js";
 import "./measures.js"; // multi-measure management (self-registers window.addMeasure etc.)
 import "./export-center.js"; // unified Export Center (self-registers window.openExportCenter etc.)
 
@@ -84,9 +85,7 @@ function migrateProjectData(d) {
     if (!Array.isArray(d.measures) || d.measures.length === 0) {
         d.measures = [{
             id: 'measure_default',
-            name: (d.checklist && d.checklist.outcome_measure)
-                ? String(d.checklist.outcome_measure).slice(0, 60)
-                : 'Primary Outcome Measure',
+            name: defaultMeasureName(d.checklist && d.checklist.outcome_measure),
             unit: '',
             role: 'outcome',
             chartData: Array.isArray(d.chartData) ? d.chartData : [],
@@ -151,6 +150,95 @@ function migrateProjectData(d) {
     });
     delete d.assessment.traineeLevel;
     delete d.assessment.capabilitiesMet;
+}
+
+// Short tab-friendly measure name from a free-text outcome measure, e.g.
+// "PRIMARY OUTCOME 1 — 'Time to Kit' (seconds):\nMethod: ..." -> "'Time to Kit' (seconds)".
+function defaultMeasureName(outcomeMeasure) {
+    let s = String(outcomeMeasure || '').split('\n')[0].trim();
+    s = s.replace(/^(primary|secondary)?\s*outcome(\s+measure)?\s*\d*\s*[—–:-]\s*/i, '');
+    if (s.includes(':')) s = s.split(':')[0].trim();
+    if (s.length > 48) s = s.slice(0, 48).replace(/\s+\S*$/, '') + '…';
+    return s || 'Primary Outcome Measure';
+}
+
+// Fills in every field the views expect, whichever way a project was opened
+// (own project, QIP Lead view, Supervisor view), so older or sparse projects
+// never crash a tab.
+function normaliseProjectData(d) {
+    if (!d) return d;
+    if (!d.meta || typeof d.meta !== 'object') d.meta = { title: 'Untitled QIP' };
+    if (!d.checklist) d.checklist = {};
+    if (!d.drivers) d.drivers = { primary: [], secondary: [], changes: [] };
+    ['primary', 'secondary', 'changes'].forEach(k => { if (!Array.isArray(d.drivers[k])) d.drivers[k] = []; });
+    if (!d.fishbone) d.fishbone = JSON.parse(JSON.stringify(emptyProject.fishbone));
+    if (!d.pdsa) d.pdsa = [];
+    if (!d.chartData) d.chartData = [];
+    if (!d.stakeholders) d.stakeholders = [];
+    if (!d.gantt) d.gantt = [];
+    if (!d.teamMembers) d.teamMembers = [];
+    if (!d.chartSettings) d.chartSettings = {};
+    if (!d.process) d.process = ["Start", "End"];
+    if (!d.leadershipLogs) d.leadershipLogs = [];
+    if (!d.patientFeedback) d.patientFeedback = [];
+    if (!d.surveys) d.surveys = [];
+    migrateProjectData(d);
+    return d;
+}
+
+// Summary figures shown on QIP Lead / Supervisor cards. Uses the same
+// readiness scoring as the trainee's own dashboard so the numbers agree.
+function summariseProject(d) {
+    d = d || {};
+    const readiness = computeReadiness(d);
+    const last = lastActivityDate(d);
+    return {
+        _progress: readiness.percent,
+        _readinessMet: readiness.metCount,
+        _readinessTotal: readiness.total,
+        _dataPoints: allMeasurePoints(d).length,
+        _pdsaCount: (d.pdsa || []).length,
+        _teamCount: (d.teamMembers || []).length,
+        _stage: d.meta?.trainingStage || '',
+        _lastActivity: last ? last.toISOString() : '',
+        _signedOff: !!d.assessment?.signedOff,
+        _signedOffBy: d.assessment?.signedOffBy || '',
+        _signedOffDate: d.assessment?.signedOffDate || ''
+    };
+}
+
+async function fetchProjectDoc(ownerUid, projectId) {
+    if (!db || !ownerUid || !projectId) return null;
+    try {
+        const snap = await getDoc(doc(db, `users/${ownerUid}/projects`, projectId));
+        return snap.exists() ? snap.data() : null;
+    } catch (e) {
+        console.warn('[Project] fresh fetch failed, using cached copy:', e);
+        return null;
+    }
+}
+
+// Leaves whatever project is open (own, lead-viewed or supervised) and
+// stops its live listener, so a later snapshot of the user's own project
+// can't overwrite a trainee project being reviewed.
+function leaveProjectContext() {
+    if (window.unsubscribeProject) { window.unsubscribeProject(); window.unsubscribeProject = null; }
+    state.currentProjectId = null;
+    state.projectData = null;
+    state.isReadOnly = false;
+    state.isLeadViewing = false;
+    state.isSupervisorViewing = false;
+    state.supervisorTargetUid = null;
+    state.leadTargetUid = null;
+    state._readOnlySnapshot = null;
+    stopReadOnlyLock();
+    const ind = document.getElementById('readonly-indicator');
+    if (ind) ind.classList.add('hidden');
+    document.body.classList.remove('readonly-mode');
+    const topBar = document.getElementById('top-bar');
+    if (topBar) topBar.classList.add('hidden');
+    const renameBtn = document.getElementById('btn-rename-project');
+    if (renameBtn) renameBtn.style.display = 'none';
 }
 
 // Returns the primary/first measure — used for QIAT scoring, dashboard
@@ -422,6 +510,10 @@ window.router = (view) => {
         sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
     }
 
+    if (state.isReadOnly && state.projectData && !state._readOnlySnapshot) {
+        state._readOnlySnapshot = JSON.stringify(state.projectData);
+    }
+
     if (view === 'supervisor') {
         renderSupervisorDashboard();
     } else if (view === 'learn') {
@@ -429,7 +521,90 @@ window.router = (view) => {
     } else {
         R.renderAll(view);
     }
+
+    if (state.isReadOnly) startReadOnlyLock();
 };
+
+// ─── Read-only lock ───────────────────────────────────────────────────────────
+// Anyone browsing someone else's project (QIP Lead, supervisor, admin, public
+// share link) sees every field locked. saveData() already refuses to write;
+// this stops the page looking editable. Controls inside [data-readonly-allow]
+// (the supervisor's own comment/sign-off form) stay usable.
+const READONLY_LOCK_SELECTOR = '.view-section input, .view-section textarea, .view-section select[data-edits], .view-section [contenteditable="true"]';
+const READONLY_SKIP_INPUTS = new Set(['search', 'range', 'button', 'submit', 'hidden', 'reset']);
+let readOnlyObserver = null;
+let readOnlyLockQueued = false;
+
+function lockReadOnlyControls() {
+    readOnlyLockQueued = false;
+    if (!state.isReadOnly) return;
+    document.querySelectorAll(READONLY_LOCK_SELECTOR).forEach(el => {
+        if (el.dataset.readonlyLocked || el.closest('[data-readonly-allow]')) return;
+        if (el.getAttribute('contenteditable') === 'true') {
+            el.setAttribute('contenteditable', 'false');
+        } else if (el.tagName === 'INPUT' && READONLY_SKIP_INPUTS.has(el.type)) {
+            return;
+        } else if (el.tagName === 'SELECT' || (el.tagName === 'INPUT' && ['checkbox', 'radio', 'file', 'date', 'color', 'month', 'week'].includes(el.type))) {
+            if (el.disabled) return;
+            el.disabled = true;
+        } else {
+            if (el.readOnly) return;
+            el.readOnly = true;
+        }
+        el.dataset.readonlyLocked = '1';
+    });
+}
+
+function queueReadOnlyLock() {
+    if (readOnlyLockQueued) return;
+    readOnlyLockQueued = true;
+    requestAnimationFrame(lockReadOnlyControls);
+}
+
+function startReadOnlyLock() {
+    queueReadOnlyLock();
+    if (readOnlyObserver) return;
+    const root = document.getElementById('view-dashboard')?.parentElement;
+    if (!root || typeof MutationObserver === 'undefined') return;
+    readOnlyObserver = new MutationObserver(() => { if (state.isReadOnly) queueReadOnlyLock(); });
+    readOnlyObserver.observe(root, { childList: true, subtree: true });
+}
+
+function stopReadOnlyLock() {
+    if (readOnlyObserver) { readOnlyObserver.disconnect(); readOnlyObserver = null; }
+    document.querySelectorAll('[data-readonly-locked]').forEach(el => {
+        if (el.getAttribute('contenteditable') === 'false') el.setAttribute('contenteditable', 'true');
+        else if ('disabled' in el && el.disabled) el.disabled = false;
+        if ('readOnly' in el) el.readOnly = false;
+        delete el.dataset.readonlyLocked;
+    });
+}
+
+// Called when saveData() is refused in read-only mode: put back the copy of
+// the project we opened, redraw, and say why nothing was saved.
+let lastReadOnlyToast = 0;
+let lastReadOnlyRedraw = 0;
+let revertingReadOnly = false;
+function revertReadOnlyEdit() {
+    const snap = state._readOnlySnapshot;
+    if (revertingReadOnly || !snap || !state.projectData) return;
+    if (JSON.stringify(state.projectData) === snap) return;
+    state.projectData = JSON.parse(snap);
+    if (window.syncActiveMeasureRefs) window.syncActiveMeasureRefs();
+    // Redraw so the screen matches the data again — but never in a loop, in
+    // case a page saves while it renders.
+    const current = document.querySelector('.view-section:not(.hidden)');
+    const view = current ? current.id.replace('view-', '') : 'dashboard';
+    if (view !== 'projects' && Date.now() - lastReadOnlyRedraw > 500) {
+        lastReadOnlyRedraw = Date.now();
+        revertingReadOnly = true;
+        try { window.router(view); } finally { revertingReadOnly = false; }
+    }
+    if (Date.now() - lastReadOnlyToast > 4000) {
+        lastReadOnlyToast = Date.now();
+        showToast("You're viewing this project read-only — changes aren't saved.", 'info');
+    }
+}
 
 // ==========================================
 // HOW-TO GUIDE MODAL
@@ -1126,7 +1301,7 @@ window.showEventMarkersPanel = function() {
             </div>
             <div class="p-5">
                 <p class="text-xs text-slate-500 mb-4">Annotate your run chart at the exact point a change was introduced. These appear as coloured vertical lines — distinct from the PDSA phase markers already shown.</p>
-                <div class="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4">
+                <div class="bg-teal-50 border border-teal-200 rounded-xl p-4 mb-4 readonly-hide">
                     <div class="font-bold text-sm text-teal-800 mb-3">Add New Marker</div>
                     <div class="grid grid-cols-2 gap-3 mb-3">
                         <div>
@@ -1150,10 +1325,10 @@ window.showEventMarkersPanel = function() {
                     ${d.chartEvents.length === 0 ? '<p class="text-xs text-slate-400 italic text-center py-2">No custom markers yet</p>' :
                     d.chartEvents.map((ev, i) => `
                     <div class="flex items-center gap-2 py-2 border-b border-slate-100 last:border-0">
-                        <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${ev.color}"></span>
-                        <span class="text-xs font-mono text-slate-500 flex-shrink-0">${ev.date}</span>
+                        <span class="w-3 h-3 rounded-full flex-shrink-0" style="background:${escapeHtml(String(ev.color || "#14b8a6"))}"></span>
+                        <span class="text-xs font-mono text-slate-500 flex-shrink-0">${escapeHtml(formatUkDate(ev.date))}</span>
                         <span class="text-xs text-slate-700 flex-1 truncate">${escapeHtml(ev.label)}</span>
-                        <button onclick="window.deleteEventMarker(${i})" class="text-red-400 hover:text-red-600 flex-shrink-0"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
+                        <button onclick="window.deleteEventMarker(${i})" class="text-red-400 hover:text-red-600 flex-shrink-0 readonly-hide"><i data-lucide="trash-2" class="w-3 h-3"></i></button>
                     </div>`).join('')}
                 </div>
             </div>
@@ -1363,17 +1538,8 @@ window.closeHowTo = function() {
 };
 
 window.returnToProjects = () => {
-    state.currentProjectId = null;
-    state.projectData = null;
-    state.isReadOnly = false;
-    state.isLeadViewing = false;
-    state.isSupervisorViewing = false;
-    state.supervisorTargetUid = null;
-    const ind = document.getElementById('readonly-indicator');
-    if (ind) ind.classList.add('hidden');
-    document.body.classList.remove('readonly-mode');
-
-    if (window.unsubscribeProject) window.unsubscribeProject();
+    leaveProjectContext();
+    window.switchToOwnProjects();
 
     if (state.isMasterAdmin) {
         loadMasterAdminDashboard();
@@ -1841,7 +2007,7 @@ window.saveData = async function(skipHistory = false) {
     // the supervisor's own sign-off actions when isReadOnly is set for browsing —
     // those go through the dedicated window.saveSupervisorAssessment() path instead,
     // which is only reachable from the "Review & Sign Off" entry point.
-    if (state.isReadOnly) return;
+    if (state.isReadOnly) { revertReadOnlyEdit(); return; }
     
     if (state.isDemoMode) { 
         if(!skipHistory) pushHistory();
@@ -1906,11 +2072,32 @@ window.saveSupervisorAssessment = async function() {
     if (!state.isSupervisorViewing || !state.supervisorTargetUid || !state.currentProjectId || !state.projectData) return;
     if (!db) { showToast("Database not connected. Changes not saved.", "warning"); return; }
     try {
+        // Only the supervisor-owned fields: traineeSeenAt belongs to the trainee,
+        // and writing our (possibly older) copy of it would resurrect their badge.
+        const a = state.projectData.assessment || {};
+        const supervisorFields = {};
+        ['supervisorComments', 'signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'lastSupervisorActivityAt']
+            .forEach(k => { if (a[k] !== undefined) supervisorFields[k] = a[k]; });
         await setDoc(
             doc(db, 'users/' + state.supervisorTargetUid + '/projects', state.currentProjectId),
-            { assessment: state.projectData.assessment },
+            { assessment: supervisorFields },
             { merge: true }
         );
+        // The read-only snapshot must include the sign-off too, or the next
+        // refused edit elsewhere would roll the screen back to before it.
+        if (state._readOnlySnapshot) {
+            try {
+                const snap = JSON.parse(state._readOnlySnapshot);
+                snap.assessment = { ...(snap.assessment || {}), ...supervisorFields };
+                state._readOnlySnapshot = JSON.stringify(snap);
+            } catch (e) { state._readOnlySnapshot = JSON.stringify(state.projectData); }
+        }
+        // Keep the Supervisor Overview card in step without waiting for a refetch.
+        const cached = (state.supervisorProjects || []).find(p => p.ownerUid === state.supervisorTargetUid && p.projectId === state.currentProjectId);
+        if (cached) {
+            cached._data = { ...(cached._data || {}), assessment: { ...((cached._data || {}).assessment || {}), ...supervisorFields } };
+            Object.assign(cached, summariseProject(cached._data));
+        }
         const s = document.getElementById('save-status');
         if (s) {
             window._lastSavedAt = Date.now();
@@ -1930,17 +2117,18 @@ window.quickAddDataPoint = async function() {
     const dateEl = document.getElementById('quick-add-date');
     const valEl = document.getElementById('quick-add-value');
     const phaseEl = document.getElementById('quick-add-phase');
-    const date = dateEl?.value;
-    const value = parseFloat(valEl?.value);
+    const date = normaliseDateInput(dateEl?.value);
+    const value = parseNumericInput(valEl?.value);
     if (!date || isNaN(value)) {
-        showToast('Please enter a date and value', 'error');
+        showToast('Please enter a date and a number', 'error');
         return;
     }
-    const grade = phaseEl?.value || 'Intervention';
-    if (!state.projectData.chartData) state.projectData.chartData = [];
-    state.projectData.chartData.push({ date, value, grade });
+    const grade = phaseEl?.value || '';
+    if (!Array.isArray(state.projectData.chartData)) state.projectData.chartData = [];
+    state.projectData.chartData.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), date, value, grade, note: '' });
+    state.projectData.chartData.sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (window.saveData) await window.saveData();
-    showToast('Data point added', 'success');
+    showToast(`Added ${value} on ${formatUkDate(date)}`, 'success');
     // Reset value input, keep date
     if (valEl) valEl.value = '';
     // Refresh dashboard mini-chart if visible
@@ -2229,202 +2417,264 @@ async function checkShareLink(viewerUser) {
     return false;
 }
 
-// ─── Shared helper: fetch + enrich EVERY project across every user ───────────
-// Used by both the Master Admin dashboard and (below) the QIP Lead dashboard,
-// since a Departmental QIP Lead should be able to see every QIP anyone has
-// started, not just ones they were individually invited to.
+// ─── Shared helpers for the QIP Lead / Supervisor overviews ─────────────────
+// A Departmental QIP Lead sees every QIP anyone has started (unless the owner
+// opted out), not just ones they were individually invited to.
 async function fetchAllProjectsEnriched() {
     const snap = await getDocs(collectionGroup(db, 'projects'));
     const rows = [];
     const ownerUids = new Set();
-
     snap.forEach(docSnap => {
         const pathParts = docSnap.ref.path.split('/');
         if (pathParts.length < 4 || pathParts[0] !== 'users' || pathParts[2] !== 'projects') return;
         const ownerUid = pathParts[1];
-        const projectId = docSnap.id;
         const d = docSnap.data() || {};
-        // Owner opt-out: a trainee can hide their project from the blanket qip_lead
-        // view (Settings on their project) without needing per-lead invite management.
+        // Owner opt-out from the blanket view (explicit invites still apply).
         if (d.visibility && d.visibility.hideFromDeptQIPLead === true) return;
-        const c = d.checklist || {};
-        const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k => c[k]).length;
-        const hasPdsa = (d.pdsa || []).length > 0;
-        const hasData = (d.chartData || []).length > 0;
-        const progress = Math.round(((filled / 6) * 50) + (hasPdsa ? 25 : 0) + (hasData ? 25 : 0));
         ownerUids.add(ownerUid);
-        rows.push({ ownerUid, projectId, projectTitle: d.meta?.title || 'Untitled QIP', traineeName: null, _data: d, _progress: progress });
+        rows.push({ ownerUid, projectId: docSnap.id, projectTitle: d.meta?.title || 'Untitled QIP', traineeName: null, _data: d, ...summariseProject(d) });
     });
-
-    // Resolve owner display names from qipUsers (falls back to a short uid if unknown)
-    const nameByUid = {};
-    for (const uid of ownerUids) {
-        try {
-            const uSnap = await getDoc(doc(db, 'qipUsers', uid));
-            const ud = uSnap.exists() ? uSnap.data() : null;
-            nameByUid[uid] = ud?.displayName || ud?.email || `User (${uid.substring(0, 8)}\u2026)`;
-        } catch (e) {
-            nameByUid[uid] = `User (${uid.substring(0, 8)}\u2026)`;
-        }
-    }
+    const nameByUid = await resolveOwnerNames(ownerUids);
     rows.forEach(r => { r.traineeName = nameByUid[r.ownerUid]; });
     return rows;
 }
 
-// ─── QIP Lead status check ───────────────────────────────────────────────────
+async function resolveOwnerNames(uids) {
+    const nameByUid = {};
+    await Promise.all([...uids].map(async uid => {
+        try {
+            const uSnap = await getDoc(doc(db, 'qipUsers', uid));
+            const ud = uSnap.exists() ? uSnap.data() : null;
+            nameByUid[uid] = ud?.displayName || ud?.email || `User (${uid.substring(0, 8)}…)`;
+        } catch (e) {
+            nameByUid[uid] = `User (${uid.substring(0, 8)}…)`;
+        }
+    }));
+    return nameByUid;
+}
+
+// Fetches each invited project and attaches the card summary. Projects that
+// can't be read are kept but flagged, so the list is honest about them.
+async function enrichInvitedProjects(projects) {
+    // Older invites stored the trainee's email as their name; show their
+    // profile name instead where we can read it, else keep the email.
+    const emailNamed = new Set((projects || []).filter(p => !p.traineeName || p.traineeName.includes('@')).map(p => p.ownerUid).filter(Boolean));
+    const names = {};
+    await Promise.all([...emailNamed].map(async uid => {
+        try {
+            const uSnap = await getDoc(doc(db, 'qipUsers', uid));
+            if (uSnap.exists() && uSnap.data().displayName) names[uid] = uSnap.data().displayName;
+        } catch (e) { /* keep the stored email */ }
+    }));
+    return Promise.all((projects || []).map(async proj => {
+        const traineeName = names[proj.ownerUid] || proj.traineeName;
+        const d = await fetchProjectDoc(proj.ownerUid, proj.projectId);
+        if (!d) return { ...proj, traineeName, _data: {}, _unavailable: true, ...summariseProject({}) };
+        return { ...proj, traineeName, projectTitle: d.meta?.title || proj.projectTitle, _data: d, ...summariseProject(d) };
+    }));
+}
+
+function markOwn(rows) {
+    const uid = state.currentUser?.uid;
+    rows.forEach(r => { r._isOwn = !!uid && r.ownerUid === uid; });
+    return rows;
+}
+
+function setBusy(on) {
+    const o = document.getElementById('loading-overlay');
+    if (o) o.classList.toggle('hidden', !on);
+}
+
+function cloneProjectData(d) {
+    try { return JSON.parse(JSON.stringify(d || {})); } catch (e) { return { ...(d || {}) }; }
+}
+
+async function readUserRoles(user, label) {
+    try {
+        const roleSnap = await getDoc(doc(db, 'qipUsers', user.uid));
+        return roleSnap.exists() ? (roleSnap.data().roles || []) : [];
+    } catch (roleErr) {
+        console.warn(`[${label}] Could not read qipUsers role:`, roleErr);
+        if (roleErr?.code === 'permission-denied') {
+            showToast(`Could not check ${label} role — Firestore permission denied on qipUsers. This usually means the qipUsers security rule needs updating.`, 'error');
+        }
+        return [];
+    }
+}
+
+// ─── QIP Lead ────────────────────────────────────────────────────────────────
+async function loadQIPLeadProjects(user) {
+    const hasLeadRole = (await readUserRoles(user, 'QIP Lead')).includes('qip_lead');
+    const email = (user.email || '').toLowerCase();
+    let projects = [];
+    if (hasLeadRole) {
+        try {
+            projects = await fetchAllProjectsEnriched();
+        } catch (allErr) {
+            console.warn('[QIPLead] Could not fetch all projects:', allErr);
+            if (allErr?.code === 'permission-denied') {
+                showToast('Could not load all QIP projects — Firestore permission denied on the projects collection group.', 'error');
+            }
+        }
+    }
+    // Individually-invited projects always show, including ones the owner has
+    // hidden from the blanket department view.
+    const invited = await getQIPLeadProjects(db, email);
+    const have = new Set(projects.map(p => p.ownerUid + '/' + p.projectId));
+    const missing = invited.filter(p => !have.has(p.ownerUid + '/' + p.projectId));
+    if (missing.length) projects = projects.concat(await enrichInvitedProjects(missing));
+    return { hasLeadRole, projects: markOwn(projects) };
+}
+
 async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db) return;
     try {
-        // Check if user has the qip_lead role on their account (stored in qipUsers collection)
-        let hasLeadRole = false;
-        try {
-            const roleSnap = await getDoc(doc(db, 'qipUsers', user.uid));
-            const userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
-            hasLeadRole = userRoles.includes('qip_lead');
-            console.log('[QIPLead] roles from qipUsers:', userRoles, 'hasLeadRole:', hasLeadRole);
-        } catch (roleErr) {
-            console.warn('[QIPLead] Could not read qipUsers role:', roleErr);
-            if (roleErr?.code === 'permission-denied') {
-                showToast('Could not check QIP Lead role — Firestore permission denied on qipUsers. This usually means the qipUsers security rule needs updating.', 'error');
-            }
+        const { hasLeadRole, projects } = await loadQIPLeadProjects(user);
+        state.qipLeadProjects = projects;
+        state.qipLeadHasRole = hasLeadRole;
+        state.isQIPLead = hasLeadRole || projects.length > 0;
+        state._leadRefreshedAt = new Date().toISOString();
+
+        const leadHomeBtn = document.getElementById('sidebar-lead-home');
+        const navBtn = document.getElementById('nav-lead-dashboard');
+        const badge = document.getElementById('qip-lead-badge');
+        if (!state.isQIPLead) {
+            // Role removed since last visit: clear the cached button too.
+            localStorage.removeItem('rcem_is_qip_lead');
+            [leadHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            return;
         }
+        localStorage.setItem('rcem_is_qip_lead', '1');
 
-        let enriched = [];
-        if (hasLeadRole) {
-            // Interim behaviour (per Jake, 2026-08-19): any account with the qip_lead
-            // role sees EVERY QIP anyone has started, not just individually-invited
-            // ones. This will later be narrowed to a site/region-based link instead.
-            try {
-                enriched = await fetchAllProjectsEnriched();
-                console.log('[QIPLead] all-projects fetch:', enriched.length);
-            } catch (allErr) {
-                console.warn('[QIPLead] Could not fetch all projects:', allErr);
-                if (allErr?.code === 'permission-denied') {
-                    showToast('Could not load all QIP projects — Firestore permission denied on the projects collection group.', 'error');
-                }
-            }
-        } else {
-            // No general role — fall back to the legacy per-project invite list
-            // (qipLeadInvites/{email}) so anyone invited that way still sees theirs.
-            const projects = await getQIPLeadProjects(db, user.email);
-            console.log('[QIPLead] invited projects:', projects.length);
-            for (const proj of projects) {
-                try {
-                    const snap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
-                    if (snap.exists()) {
-                        const d = snap.data();
-                        const c = d.checklist || {};
-                        const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k=>c[k]).length;
-                        const hasPdsa = (d.pdsa||[]).length > 0;
-                        const hasData = (d.chartData||[]).length > 0;
-                        const progress = Math.round(((filled/6)*50) + (hasPdsa?25:0) + (hasData?25:0));
-                        enriched.push({ ...proj, _data: d, _progress: progress });
-                    }
-                } catch(e) { enriched.push({ ...proj, _data: {}, _progress: 0 }); }
-            }
+        const n = projects.length;
+        const badgeText = document.getElementById('qip-lead-badge-text');
+        if (badge) badge.classList.remove('hidden');
+        if (badgeText) {
+            badgeText.textContent = hasLeadRole
+                ? (n > 0 ? `You can see ${n} QIP project${n !== 1 ? 's' : ''} across the department as Departmental QIP Lead` : 'Departmental QIP Lead — no QIP projects exist yet')
+                : `You have been added as QIP Lead on ${n} project${n !== 1 ? 's' : ''}`;
         }
-
-        // If no role and no invites, nothing to do
-        if (!hasLeadRole && !enriched.length) return;
-
-        state.qipLeadProjects = enriched;
-        state.isQIPLead = hasLeadRole || enriched.length > 0;
-
-        // Cache role to localStorage so button appears instantly on next load
-        if (state.isQIPLead) localStorage.setItem('rcem_is_qip_lead', '1');
-        else localStorage.removeItem('rcem_is_qip_lead');
-
-        // Show UI elements whenever user has the role OR has invited projects
-        if (state.isQIPLead) {
-            const badge = document.getElementById('qip-lead-badge');
-            const badgeText = document.getElementById('qip-lead-badge-text');
-            if (badge) badge.classList.remove('hidden');
-            if (badgeText) {
-                if (hasLeadRole && enriched.length > 0) {
-                    badgeText.textContent = `You have access to all ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} across the department as Departmental QIP Lead`;
-                } else if (enriched.length > 0) {
-                    badgeText.textContent = `You have access to ${enriched.length} QIP project${enriched.length > 1 ? 's' : ''} as Departmental QIP Lead`;
-                } else {
-                    badgeText.textContent = 'Departmental QIP Lead — no QIP projects exist yet';
-                }
-            }
-            // Show QIP Lead Overview nav button + sidebar home button
-            const navBtn = document.getElementById('nav-lead-dashboard');
-            if (navBtn) navBtn.classList.remove('hidden');
-            const leadHomeBtn = document.getElementById('sidebar-lead-home');
-            if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
-            const leadHomeLbl = document.getElementById('sidebar-lead-home-label');
-            if (leadHomeLbl) leadHomeLbl.textContent = enriched.length > 0 ? `QIP Lead Overview (${enriched.length})` : 'QIP Lead Overview';
-            if (enriched.length > 0) {
-                const panel = document.getElementById('qip-lead-panel');
-                if (panel && state.currentUser) renderQIPLeadPanel(panel, db, state.currentUser.uid, state.currentProjectId);
-            }
-        }
-    } catch(e) {
+        if (navBtn) navBtn.classList.remove('hidden');
+        if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
+        const leadHomeLbl = document.getElementById('sidebar-lead-home-label');
+        if (leadHomeLbl) leadHomeLbl.textContent = n > 0 ? `QIP Lead Overview (${n})` : 'QIP Lead Overview';
+        rerenderOverviewIfShowing('lead');
+    } catch (e) {
         console.warn('[QIPLead] checkQIPLeadStatus error:', e);
     }
 }
 
-// Called from sidebar or projects page to show QIP Lead dashboard
-window.showQIPLeadDashboard = function() {
-    const container = document.getElementById('qip-lead-dashboard-container');
-    const projectsView = document.getElementById('view-projects');
-    if (!container) return;
+function overviewContainer() { return document.getElementById('qip-lead-dashboard-container'); }
 
-    // Hide projects view, show lead dashboard within same view-projects area
+function isOverviewShowing(kind) {
+    const c = overviewContainer();
+    return !!(c && !c.classList.contains('hidden') && c.dataset.overview === kind && !state.projectData);
+}
+
+function renderRoleOverview(kind) {
+    const container = overviewContainer();
+    if (!container) return;
+    if (kind === 'lead') {
+        renderQIPLeadDashboard(container, state.qipLeadProjects || [], {
+            hasRole: !!state.qipLeadHasRole,
+            refreshing: !!state._leadRefreshing,
+            refreshedAt: state._leadRefreshedAt
+        });
+    } else {
+        renderSupervisorOverview(container, state.supervisorProjects || [], {
+            refreshing: !!state._supRefreshing,
+            refreshedAt: state._supRefreshedAt
+        });
+    }
+}
+
+function rerenderOverviewIfShowing(kind) {
+    if (isOverviewShowing(kind)) renderRoleOverview(kind);
+}
+
+// Shows the QIP Lead or Supervisor overview from anywhere in the app: leaves
+// any open project, routes to the projects area and refreshes in the background.
+function openRoleOverview(kind) {
+    const container = overviewContainer();
+    if (!container) return;
+    leaveProjectContext();
+    window.router('projects');
     const inner = document.getElementById('project-list-inner');
     if (inner) inner.classList.add('hidden');
     container.classList.remove('hidden');
+    container.dataset.overview = kind;
+    renderRoleOverview(kind);
+    window.refreshRoleOverview(kind, { silent: true });
+}
 
-    renderQIPLeadDashboard(container, state.qipLeadProjects, (i) => {
-        window.viewLeadProject(i);
-    });
+window.refreshRoleOverview = async function(kind, opts = {}) {
+    if (!state.currentUser || !db) return;
+    const flag = kind === 'lead' ? '_leadRefreshing' : '_supRefreshing';
+    if (state[flag]) return;
+    state[flag] = true;
+    rerenderOverviewIfShowing(kind);
+    try {
+        if (kind === 'lead') await checkQIPLeadStatus(state.currentUser);
+        else await checkSupervisorStatus();
+        if (!opts.silent) showToast('List refreshed', 'success');
+    } finally {
+        state[flag] = false;
+        rerenderOverviewIfShowing(kind);
+    }
 };
 
+window.showQIPLeadDashboard = function() { openRoleOverview('lead'); };
+
 window.switchToOwnProjects = function() {
-    const container = document.getElementById('qip-lead-dashboard-container');
+    const container = overviewContainer();
     const inner = document.getElementById('project-list-inner');
-    if (container) container.classList.add('hidden');
+    if (container) { container.classList.add('hidden'); delete container.dataset.overview; }
     if (inner) inner.classList.remove('hidden');
 };
 
+// Opens a fresh copy of someone else's project read-only for a QIP Lead.
 window.viewLeadProject = async function(idx) {
-    const proj = state.qipLeadProjects[idx];
-    if (!proj || !proj._data) return;
-    // Set up read-only project view
-    state.projectData = proj._data;
+    const proj = (state.qipLeadProjects || [])[idx];
+    if (!proj) return;
+    if (proj._unavailable) { showToast('That project could not be loaded — it may have been deleted or your access removed.', 'error'); return; }
+    setBusy(true);
+    const fresh = await fetchProjectDoc(proj.ownerUid, proj.projectId);
+    setBusy(false);
+    if (fresh) Object.assign(proj, { _data: fresh, projectTitle: fresh.meta?.title || proj.projectTitle, ...summariseProject(fresh) });
+    const data = normaliseProjectData(cloneProjectData(fresh || proj._data));
+
+    leaveProjectContext();
+    state.projectData = data;
     state.currentProjectId = proj.projectId;
+    state.leadTargetUid = proj.ownerUid;
     state.isReadOnly = true;
     state.isLeadViewing = true;
-    // Audit trail: this is a Departmental QIP Lead opening someone else's project
-    // (often via the blanket all-projects role, not an individual invite).
-    logProjectAccessEvent(db, {
-        viewerUid: state.currentUser?.uid,
-        viewerEmail: state.currentUser?.email,
-        viaRole: 'qip_lead',
-        ownerUid: proj.ownerUid,
-        projectId: proj.projectId,
-        projectTitle: proj._data.meta?.title || proj.projectTitle || 'Untitled QIP',
-        action: 'viewed'
-    });
+    state.historyStack = [];
+    state.redoStack = [];
+    updateUndoRedoButtons();
+    // Audit trail: a Departmental QIP Lead opening someone else's project.
+    if (!proj._isOwn) {
+        logProjectAccessEvent(db, {
+            viewerUid: state.currentUser?.uid,
+            viewerEmail: state.currentUser?.email,
+            viaRole: 'qip_lead',
+            ownerUid: proj.ownerUid,
+            projectId: proj.projectId,
+            projectTitle: data.meta?.title || proj.projectTitle || 'Untitled QIP',
+            action: 'viewed'
+        });
+    }
+    const title = data.meta?.title || proj.projectTitle || 'QIP';
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
     const headerTitle = document.getElementById('project-header-title');
-    if (headerTitle) headerTitle.textContent = (proj._data.meta?.title || proj.projectTitle || 'QIP') + ' — QIP Lead View';
-    showReadOnlyBanner(proj._data.meta?.title || proj.projectTitle || 'Trainee QIP', 'lead');
+    if (headerTitle) headerTitle.textContent = title + ' — QIP Lead View';
+    showReadOnlyBanner(title, 'lead');
     window.router('dashboard');
-    showToast('Viewing in read-only mode', 'info');
+    showToast('Viewing read-only' + (fresh ? '' : ' (offline copy — may not be the latest)'), fresh ? 'info' : 'warning');
 };
 
-window.returnFromLeadView = function() {
-    state.isReadOnly = false;
-    state.isLeadViewing = false;
-    state.projectData = null;
-    const ind = document.getElementById('readonly-indicator');
-    if (ind) ind.classList.add('hidden');
-    document.body.classList.remove('readonly-mode');
-    window.showQIPLeadDashboard();
-};
+window.returnFromLeadView = function() { openRoleOverview('lead'); };
 
 // ─── Add/Remove QIP Lead button handlers (called from supervisor view) ───────
 // Owner-controlled opt-out from the blanket Departmental QIP Lead view (see
@@ -2616,9 +2866,9 @@ window.updateSupervisorNavBadge = function() {
 };
 
 window.openProject = (id) => {
+    leaveProjectContext();
     state.currentProjectId = id;
-    if (window.unsubscribeProject) window.unsubscribeProject();
-    
+
     if (!db) { showToast("No DB connection", "error"); return; }
     
     let firstLoad = true; // navigate to dashboard only once data is ready
@@ -2631,27 +2881,7 @@ window.openProject = (id) => {
                 state.redoStack = []; 
                 updateUndoRedoButtons(); 
             }
-            state.projectData = data;
-            
-            if(!state.projectData.checklist) state.projectData.checklist = {};
-            if(!state.projectData.drivers) state.projectData.drivers = {primary:[], secondary:[], changes:[]};
-            if(!state.projectData.fishbone) state.projectData.fishbone = emptyProject.fishbone;
-            if(!state.projectData.pdsa) state.projectData.pdsa = [];
-            if(!state.projectData.chartData) state.projectData.chartData = [];
-            if(!state.projectData.stakeholders) state.projectData.stakeholders = [];
-            if(!state.projectData.gantt) state.projectData.gantt = [];
-            if(!state.projectData.teamMembers) state.projectData.teamMembers = [];
-            if(!state.projectData.chartSettings) state.projectData.chartSettings = {};
-            if(!state.projectData.process) state.projectData.process = ["Start", "End"];
-            if(!state.projectData.leadershipLogs) state.projectData.leadershipLogs = [];
-            if(!state.projectData.patientFeedback) state.projectData.patientFeedback = [];
-            if(!state.projectData.assessment) state.projectData.assessment = {
-                supervisorComments: '', signedOff: false, signedOffBy: '', signedOffByUid: '',
-                signedOffByEmail: '', signedOffGmc: '', signedOffDate: '',
-                lastSupervisorActivityAt: '', traineeSeenAt: ''
-            };
-            if(!state.projectData.surveys) state.projectData.surveys = [];
-            migrateProjectData(state.projectData);
+            state.projectData = normaliseProjectData(data);
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
@@ -2938,76 +3168,6 @@ if (typeof lucide !== 'undefined') {
 
 window.checkFirebaseStatus = () => {
     return getFirebaseStatus();
-};
-
-// ==========================================
-// RAPID BATCH DATA ENTRY
-// ==========================================
-
-window.addBatchEntryRow = function() {
-    const tbody = document.getElementById('batch-entry-tbody');
-    if (!tbody) return;
-    const today = new Date().toISOString().split('T')[0];
-    const tr = document.createElement('tr');
-    tr.className = 'border-b border-slate-50';
-    tr.innerHTML = `
-        <td class="py-0.5 pr-1"><input type="date" class="batch-date w-full p-0.5 border border-slate-200 rounded text-xs" value="${today}"></td>
-        <td class="py-0.5 pr-1"><input type="number" class="batch-value w-24 p-0.5 border border-slate-200 rounded text-xs" placeholder="0" step="any"></td>
-        <td class="py-0.5 pr-1"><select class="batch-phase w-full p-0.5 border border-slate-200 rounded text-xs">
-            <option value="">—</option>
-            <option value="Baseline">Baseline</option>
-            <option value="PDSA 1">PDSA 1</option>
-            <option value="PDSA 2">PDSA 2</option>
-            <option value="PDSA 3">PDSA 3</option>
-            <option value="PDSA 4">PDSA 4</option>
-            <option value="PDSA 5">PDSA 5</option>
-            <option value="PDSA 6">PDSA 6</option>
-            <option value="Sustain">Sustain</option>
-        </select></td>
-        <td class="py-0.5 pl-1"><button onclick="this.closest('tr').remove()" class="text-slate-300 hover:text-red-400 text-base leading-none px-1" title="Remove row">&times;</button></td>
-    `;
-    tbody.appendChild(tr);
-};
-
-window.initBatchEntry = function() {
-    const tbody = document.getElementById('batch-entry-tbody');
-    if (tbody && tbody.children.length === 0) {
-        for (let i = 0; i < 3; i++) window.addBatchEntryRow();
-    }
-};
-
-window.submitBatchEntry = function() {
-    if (!state.projectData) { showToast('No project open', 'error'); return; }
-    const rows = document.querySelectorAll('#batch-entry-tbody tr');
-    let added = 0;
-    const errors = [];
-    rows.forEach((row, idx) => {
-        const d = row.querySelector('.batch-date')?.value;
-        const v = row.querySelector('.batch-value')?.value;
-        const g = row.querySelector('.batch-phase')?.value || '';
-        if (!d && !v) return; // skip blank rows silently
-        if (!d) { errors.push(`Row ${idx + 1}: missing date`); return; }
-        if (v === '' || v === null || v === undefined) { errors.push(`Row ${idx + 1}: missing value`); return; }
-        const parsedValue = parseFloat(v);
-        if (isNaN(parsedValue)) { errors.push(`Row ${idx + 1}: invalid value`); return; }
-        if (!state.projectData.chartData) state.projectData.chartData = [];
-        const id = Date.now().toString() + Math.random().toString(36).substr(2, 5);
-        state.projectData.chartData.push({ id, date: d, value: parsedValue, grade: g });
-        added++;
-    });
-    if (errors.length > 0) {
-        showToast(errors[0], 'error');
-    }
-    if (added > 0) {
-        state.projectData.chartData.sort((a, b) => new Date(a.date) - new Date(b.date));
-        if (window.saveData) window.saveData();
-        if (window.renderDataView) window.renderDataView();
-        const tbody = document.getElementById('batch-entry-tbody');
-        if (tbody) { tbody.innerHTML = ''; for (let i = 0; i < 3; i++) window.addBatchEntryRow(); }
-        showToast(`${added} point${added !== 1 ? 's' : ''} added`, 'success');
-    } else if (errors.length === 0) {
-        showToast('No data in rows — please enter dates and values', 'error');
-    }
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -3713,7 +3873,7 @@ function loadProjectAccessIntoSettings() {
             ? '<p class="text-xs text-slate-400 italic">No supervisor added yet</p>'
             : supervisors.map((s, i) => `
                 <div class="flex items-center justify-between bg-teal-50 border border-teal-100 rounded-lg px-3 py-1.5">
-                    <span class="text-xs text-slate-700 font-medium">${s.email || s}</span>
+                    <span class="text-xs text-slate-700 font-medium">${escapeHtml(String(s.email || s))}</span>
                     <button onclick="window.removeSettingsSupervisor(${i})" class="text-slate-300 hover:text-red-500 ml-2" title="Remove">
                         <i data-lucide="x" class="w-3 h-3"></i>
                     </button>
@@ -3726,7 +3886,7 @@ function loadProjectAccessIntoSettings() {
             ? '<p class="text-xs text-slate-400 italic">No QIP Lead added yet</p>'
             : leads.map((l, i) => `
                 <div class="flex items-center justify-between bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-1.5">
-                    <span class="text-xs text-slate-700 font-medium">${l.email || l}</span>
+                    <span class="text-xs text-slate-700 font-medium">${escapeHtml(String(l.email || l))}</span>
                     <button onclick="window.removeSettingsLead(${i})" class="text-slate-300 hover:text-red-500 ml-2" title="Remove">
                         <i data-lucide="x" class="w-3 h-3"></i>
                     </button>
@@ -3760,7 +3920,8 @@ window.addSupervisorFromSettings = async function() {
             ownerUid: state.currentUser.uid,
             projectId: state.currentProjectId,
             projectTitle: state.projectData.meta?.title || 'Untitled QIP',
-            traineeName: state.currentUser.email,
+            traineeName: state.currentUser.displayName || state.currentUser.email,
+            traineeEmail: state.currentUser.email,
             addedAt: new Date().toISOString()
         };
         await setDoc(doc(db, 'supervisorInvites', email),
@@ -3839,108 +4000,85 @@ window.removeSettingsLead = async function(index) {
 
 // Check if logged-in user is a supervisor for any projects
 async function checkSupervisorStatus() {
-    if (!state.currentUser || state.isMasterAdmin) return;
+    if (!state.currentUser || state.isMasterAdmin || !db) return;
     try {
-        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
         const email = state.currentUser.email?.toLowerCase();
         if (!email) return;
-
-        // Check role on account (stored in qipUsers collection)
-        let userRoles = [];
-        try {
-            const roleSnap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
-            userRoles = roleSnap.exists() ? (roleSnap.data().roles || []) : [];
-        } catch (roleErr) {
-            console.warn('[Supervisor] Could not read qipUsers role:', roleErr);
-            if (roleErr?.code === 'permission-denied') {
-                showToast('Could not check Supervisor role — Firestore permission denied on qipUsers. This usually means the qipUsers security rule needs updating.', 'error');
-            }
-        }
-        const hasSupervisorRole = userRoles.includes('supervisor');
-
+        const hasSupervisorRole = (await readUserRoles(state.currentUser, 'Supervisor')).includes('supervisor');
         const snap = await getDoc(doc(db, 'supervisorInvites', email));
-        const projects = snap.exists() ? (snap.data().projects || []) : [];
+        const invites = snap.exists() ? (snap.data().projects || []) : [];
 
-        // Show buttons if they have the role OR have invited projects
-        if (!hasSupervisorRole && projects.length === 0) {
+        const supHomeBtn = document.getElementById('sidebar-supervisor-home');
+        const navBtn = document.getElementById('nav-supervisor-overview');
+        const badge = document.getElementById('supervisor-badge');
+        if (!hasSupervisorRole && invites.length === 0) {
+            // Role removed since last visit: clear the cached button too.
             localStorage.removeItem('rcem_is_supervisor');
+            [supHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            state.supervisorProjects = [];
             return;
         }
-
-        // Cache to localStorage for instant show on next load
         localStorage.setItem('rcem_is_supervisor', '1');
 
-        // Enrich each invited project with progress/sign-off status, mirroring the QIP Lead dashboard
-        const enriched = [];
-        for (const proj of projects) {
-            try {
-                const pSnap = await getDoc(doc(db, `users/${proj.ownerUid}/projects`, proj.projectId));
-                if (pSnap.exists()) {
-                    const d = pSnap.data();
-                    const c = d.checklist || {};
-                    const filled = ['problem_desc','aim','outcome_measure','process_measure','lit_review','ethics'].filter(k => c[k]).length;
-                    const hasPdsa = (d.pdsa || []).length > 0;
-                    const hasData = (d.chartData || []).length > 0 || (Array.isArray(d.measures) && d.measures.some(m => (m.chartData || []).length > 0));
-                    const progress = Math.round(((filled / 6) * 50) + (hasPdsa ? 25 : 0) + (hasData ? 25 : 0));
-                    enriched.push({ ...proj, _data: d, _progress: progress, _signedOff: !!d.assessment?.signedOff, _signedOffBy: d.assessment?.signedOffBy || '', _signedOffDate: d.assessment?.signedOffDate || '' });
-                } else {
-                    enriched.push({ ...proj, _data: {}, _progress: 0, _signedOff: false });
-                }
-            } catch (e) { enriched.push({ ...proj, _data: {}, _progress: 0, _signedOff: false }); }
-        }
+        // The same project can be invited twice (re-added supervisor) — show it once.
+        const seen = new Set();
+        const unique = invites.filter(p => {
+            const k = p.ownerUid + '/' + p.projectId;
+            if (seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+        const enriched = await enrichInvitedProjects(unique);
         state.supervisorProjects = enriched;
+        state._supRefreshedAt = new Date().toISOString();
 
-        const badge = document.getElementById('supervisor-badge');
+        const pending = enriched.filter(p => !p._unavailable && !p._signedOff).length;
         const badgeText = document.getElementById('supervisor-badge-text');
         if (badge) badge.classList.remove('hidden');
         if (badgeText) {
             badgeText.textContent = enriched.length > 0
-                ? 'You are supervising ' + enriched.length + ' QIP project' + (enriched.length !== 1 ? 's' : '') + ' — click to review and sign off'
+                ? `You are supervising ${enriched.length} QIP project${enriched.length !== 1 ? 's' : ''}` + (pending ? ` — ${pending} awaiting sign-off` : ' — all signed off')
                 : 'Clinical Supervisor — no projects have been shared with you yet';
         }
-
-        // Show Supervisor Overview nav button + sidebar home button (shown for the role even before any project is shared, matching QIP Lead behaviour)
-        const navBtn = document.getElementById('nav-supervisor-overview');
         if (navBtn) navBtn.classList.remove('hidden');
-        const supHomeBtn = document.getElementById('sidebar-supervisor-home');
         if (supHomeBtn) supHomeBtn.classList.remove('hidden');
         const supHomeLbl = document.getElementById('sidebar-supervisor-home-label');
         if (supHomeLbl) supHomeLbl.textContent = enriched.length > 0 ? `Supervisor Overview (${enriched.length})` : 'Supervisor Overview';
-
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        rerenderOverviewIfShowing('supervisor');
     } catch (e) {
         console.warn('[Supervisor] checkSupervisorStatus error:', e);
     }
 }
 
 // Called from sidebar, nav, or the projects-page banner to show the Supervisor Overview dashboard
-window.showSupervisorOverview = function() {
-    const container = document.getElementById('qip-lead-dashboard-container');
-    if (!container) return;
-    const inner = document.getElementById('project-list-inner');
-    if (inner) inner.classList.add('hidden');
-    container.classList.remove('hidden');
+window.showSupervisorOverview = function() { openRoleOverview('supervisor'); };
 
-    renderSupervisorOverview(
-        container,
-        state.supervisorProjects || [],
-        (i) => window.viewSupervisedProjectReadOnly(i),
-        (i) => window.reviewSupervisedProject(i)
-    );
-};
-
-// Shared setup when a supervisor opens one of their supervised projects (already fetched/enriched in checkSupervisorStatus)
-function enterSupervisedProject(idx, action) {
+// Shared setup when a supervisor opens one of their supervised projects.
+// Always loads a fresh copy so the supervisor reviews the trainee's latest work.
+async function enterSupervisedProject(idx, action) {
     const p = (state.supervisorProjects || [])[idx];
-    if (!p || !p._data || Object.keys(p._data).length === 0) { showToast('Project data not available', 'error'); return null; }
+    if (!p) return null;
+    setBusy(true);
+    const fresh = await fetchProjectDoc(p.ownerUid, p.projectId);
+    setBusy(false);
+    if (fresh) Object.assign(p, { _data: fresh, _unavailable: false, projectTitle: fresh.meta?.title || p.projectTitle, ...summariseProject(fresh) });
+    if (!fresh && (p._unavailable || !p._data || Object.keys(p._data).length === 0)) {
+        showToast('That project could not be loaded — it may have been deleted or the invite withdrawn.', 'error');
+        return null;
+    }
+    const data = normaliseProjectData(cloneProjectData(fresh || p._data));
+
+    leaveProjectContext();
     state.currentProjectId = p.projectId;
     state.supervisorTargetUid = p.ownerUid;
-    const data = p._data;
-    migrateProjectData(data);
     state.projectData = data;
     state.isLeadViewing = true;
     state.isSupervisorViewing = true;
     state.isReadOnly = true;
+    state.historyStack = [];
+    state.redoStack = [];
+    updateUndoRedoButtons();
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
     // Audit trail: a Clinical/Educational Supervisor opening a trainee's project.
@@ -3953,41 +4091,30 @@ function enterSupervisedProject(idx, action) {
         projectTitle: data.meta?.title || p.projectTitle || 'Untitled QIP',
         action: action || 'viewed'
     });
+    if (!fresh) showToast('Showing the last loaded copy — could not fetch the latest version.', 'warning');
     return p;
 }
 
 // "View Full Project" — browse the trainee's entire QIP read-only, across every tab
-window.viewSupervisedProjectReadOnly = function(idx) {
-    const p = enterSupervisedProject(idx, 'viewed');
+window.viewSupervisedProjectReadOnly = async function(idx) {
+    const p = await enterSupervisedProject(idx, 'viewed');
     if (!p) return;
-    const title = p._data.meta?.title || p.projectTitle || 'QIP';
+    const title = state.projectData.meta?.title || p.projectTitle || 'QIP';
     const headerTitle = document.getElementById('project-header-title');
     if (headerTitle) headerTitle.textContent = title + ' — Supervisor View';
     showReadOnlyBanner(title, 'supervisor');
     window.router('dashboard');
-    showToast('Viewing read-only: ' + title, 'info');
 };
 
 // "Review & Sign Off" — go straight to the SLO 11 assessment/sign-off form
-window.reviewSupervisedProject = function(idx) {
-    const p = enterSupervisedProject(idx, 'reviewed');
+window.reviewSupervisedProject = async function(idx) {
+    const p = await enterSupervisedProject(idx, 'reviewed');
     if (!p) return;
-    const title = p._data.meta?.title || p.projectTitle || 'QIP';
+    const title = state.projectData.meta?.title || p.projectTitle || 'QIP';
     const headerTitle = document.getElementById('project-header-title');
     if (headerTitle) headerTitle.textContent = title + ' — Supervisor Review';
     showReadOnlyBanner(title, 'supervisor');
-    showToast('Supervisor Review: ' + title, 'success');
     window.router('supervisor');
 };
 
-window.returnFromSupervisorView = function() {
-    state.isSupervisorViewing = false;
-    state.isLeadViewing = false;
-    state.isReadOnly = false;
-    state.supervisorTargetUid = null;
-    state.projectData = null;
-    const ind = document.getElementById('readonly-indicator');
-    if (ind) ind.classList.add('hidden');
-    document.body.classList.remove('readonly-mode');
-    window.showSupervisorOverview();
-};
+window.returnFromSupervisorView = function() { openRoleOverview('supervisor'); };

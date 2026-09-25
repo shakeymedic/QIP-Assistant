@@ -3,7 +3,10 @@
 
 import { state } from "./state.js";
 import { callAI } from "./ai.js";
-import { showToast } from "./utils.js";
+import { showToast, escapeHtml } from "./utils.js";
+
+// AI output is untrusted text: escape everything before it goes into innerHTML.
+const esc = (v) => escapeHtml(v === null || v === undefined ? '' : String(v));
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,10 +39,10 @@ function domainCard(domain) {
     }[domain.key] || 'check-circle';
 
     const strengths = (domain.strengths || []).map(s =>
-        `<li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5 flex-shrink-0">✓</span><span>${s}</span></li>`
+        `<li class="flex items-start gap-1.5"><span class="text-emerald-500 mt-0.5 flex-shrink-0">✓</span><span>${esc(s)}</span></li>`
     ).join('');
     const gaps = (domain.gaps || []).map(g =>
-        `<li class="flex items-start gap-1.5"><span class="text-amber-500 mt-0.5 flex-shrink-0">→</span><span>${g}</span></li>`
+        `<li class="flex items-start gap-1.5"><span class="text-amber-500 mt-0.5 flex-shrink-0">→</span><span>${esc(g)}</span></li>`
     ).join('');
 
     return `
@@ -47,11 +50,11 @@ function domainCard(domain) {
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-2">
                 <i data-lucide="${icon}" class="w-4 h-4 ${c.text}"></i>
-                <span class="font-bold text-slate-800 text-sm">${domain.label}</span>
+                <span class="font-bold text-slate-800 text-sm">${esc(domain.label)}</span>
             </div>
-            <span class="${c.badge} text-white text-xs font-bold px-2.5 py-1 rounded-full">${domain.score}/100</span>
+            <span class="${c.badge} text-white text-xs font-bold px-2.5 py-1 rounded-full">${esc(Number(domain.score) || 0)}/100</span>
         </div>
-        <p class="text-slate-600 text-xs mb-3 leading-relaxed">${domain.summary}</p>
+        <p class="text-slate-600 text-xs mb-3 leading-relaxed">${esc(domain.summary)}</p>
         ${strengths ? `<ul class="text-xs space-y-1 mb-2">${strengths}</ul>` : ''}
         ${gaps      ? `<ul class="text-xs space-y-1">${gaps}</ul>` : ''}
     </div>`;
@@ -278,9 +281,9 @@ function renderFullAssessmentResults(result) {
     if (sumEl) {
         sumEl.innerHTML = `
             <div class="flex items-center gap-2 mb-2">
-                <span class="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full">QIAT Level: ${result.qiatLevel || '—'}</span>
+                <span class="bg-purple-100 text-purple-700 text-xs font-bold px-2.5 py-1 rounded-full">QIAT Level: ${esc(result.qiatLevel || '—')}</span>
             </div>
-            <p class="text-slate-600 text-sm leading-relaxed">${result.executiveSummary || ''}</p>
+            <p class="text-slate-600 text-sm leading-relaxed">${esc(result.executiveSummary)}</p>
         `;
     }
 
@@ -293,7 +296,7 @@ function renderFullAssessmentResults(result) {
                 ${result.topThreeActions.map((a, i) => `
                     <li class="flex items-start gap-2">
                         <span class="bg-purple-600 text-white text-xs font-black w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">${i+1}</span>
-                        <span class="text-slate-700 text-sm">${a}</span>
+                        <span class="text-slate-700 text-sm">${esc(a)}</span>
                     </li>
                 `).join('')}
             </ol>
@@ -319,7 +322,7 @@ function renderFullAssessmentResults(result) {
                     <i data-lucide="${d.icon}" class="w-4 h-4 text-purple-500"></i>
                     ${d.title}
                 </h4>
-                <p class="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">${d.content}</p>
+                <p class="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">${esc(d.content)}</p>
             </div>
         `).join('');
     }
@@ -404,7 +407,6 @@ Data points: ${(d.chartData||[]).length}
 Team size: ${(d.teamMembers||[]).length}
 Learning points: "${cl.learning_points?.substring(0,300)}"
 Sustainability: "${cl.sustainability?.substring(0,200)}"
-Spread: GHH deployment confirmed
 
 For EACH of the RCEM QIAT Higher Trainee criteria, state: MET / PARTIALLY MET / NOT MET, with a one-line justification. End with an overall verdict: what is the single most important action to reach the Higher Trainee standard?`
         }
