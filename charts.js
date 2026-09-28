@@ -1,5 +1,6 @@
 import { state } from "./state.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
+import { fishboneSVG, fishboneProblem } from "./diagrams.js";
 import {
     chooseBaseline, median as medianOf, runChartSignals, spcCalc, histogramBins, paretoData,
     dateToAxisPosition, formatUkDate, formatValue, withUnit, parseNumericInput
@@ -13,7 +14,7 @@ const TOOL_HELP = {
     fishbone: {
         title: "Fishbone Ishikawa Diagram",
         desc: "A root cause analysis tool using the 6M framework.",
-        tips: "Double-click a category to add a cause. Drag labels to reposition. Aim for 3-5 causes per category."
+        tips: "Click + beside a category to add a cause, a cause to edit or remove it, and a category to rename it. Aim for 3-5 causes per category."
     },
     driver: {
         title: "Driver Diagram",
@@ -226,170 +227,70 @@ function renderToolUI() {
     if(typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+// Fishbone: drawn as one SVG (diagrams.js) so causes sit on their bones and
+// never overlap, and the SVG export contains the whole diagram. Click a
+// category to rename it, "+" to add a cause, a cause to edit or remove it.
 function renderFishboneVisual(container, enableInteraction = false) {
+    const d = state.projectData;
+    if (!d.fishbone) d.fishbone = { categories: [] };
+    if (!Array.isArray(d.fishbone.categories) || d.fishbone.categories.length === 0) {
+        d.fishbone.categories = ['Patient', 'Staff', 'Equipment', 'Process', 'Environment', 'Management'].map(text => ({ text, causes: [] }));
+    }
+    const interactive = enableInteraction && !state.isReadOnly;
+    // The driver/process views restyle this container; reset it for the fishbone.
+    container.className = 'w-full p-4';
     container.style.position = 'relative';
-    container.style.minHeight = '500px';
-    
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.setAttribute("width", "100%"); 
-    svg.setAttribute("height", "100%"); 
-    // viewBox 0-100 lets every coordinate below be a plain number equal to
-    // its old percentage value — <polygon points=".."> requires real numbers
-    // (percentages there are invalid SVG and silently failed to render the
-    // arrowhead, throwing a console error on every Fishbone view).
-    svg.setAttribute("viewBox", "0 0 100 100");
-    svg.setAttribute("preserveAspectRatio", "none");
-    svg.style.position = 'absolute'; 
-    svg.style.top = '0'; 
-    svg.style.left = '0'; 
-    svg.style.pointerEvents = 'none';
-    svg.style.minHeight = '500px';
-    
-    const problem = state.projectData.checklist?.problem_desc?.substring(0, 50) || 'Problem';
-    
-    svg.innerHTML = `
-        <line x1="8" y1="50" x2="92" y2="50" stroke="#2d2e83" stroke-width="0.4" stroke-linecap="round"/>
-        <polygon points="92,47 98,50 92,53" fill="#2d2e83"/>
-        
-        <line x1="22" y1="20" x2="30" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-        <line x1="50" y1="20" x2="50" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-        <line x1="78" y1="20" x2="70" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-        
-        <line x1="22" y1="80" x2="30" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-        <line x1="50" y1="80" x2="50" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-        <line x1="78" y1="80" x2="70" y2="50" stroke="#94a3b8" stroke-width="0.2"/>
-    `;
-    container.appendChild(svg);
+    container.style.minHeight = '';
+    container.innerHTML = `
+        <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+            <div class="min-w-[900px]">${fishboneSVG(d.fishbone, fishboneProblem(d), { interactive, maxCauses: interactive ? 8 : 6 })}</div>
+        </div>
+        ${interactive ? `
+        <div class="flex flex-wrap items-center gap-2 mt-3 text-xs">
+            <button type="button" data-fb="add-cat" class="bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-semibold text-slate-700">+ Category</button>
+            <button type="button" data-fb="problem" class="bg-white border border-slate-300 hover:bg-slate-50 px-3 py-1.5 rounded-lg font-semibold text-slate-700">Edit problem label</button>
+            <span class="text-slate-400 ml-1">Click a category to rename it, <strong>+</strong> to add a cause, or a cause to edit or remove it.</span>
+        </div>` : ''}`;
+    if (!interactive) return;
 
-    const createLabel = (text, x, y, isCat, catIdx, causeIdx) => {
-        const el = document.createElement('div');
-        el.className = isCat 
-            ? 'fishbone-label category' 
-            : 'fishbone-label';
-        el.innerText = text || '...';
-        el.style.left = `${x}%`; 
-        el.style.top = `${y}%`;
-        
-        if(!state.isReadOnly && enableInteraction) {
-            makeDraggable(el, container, isCat, catIdx, causeIdx); 
-            el.ondblclick = (e) => { 
-                e.stopPropagation(); 
-                if(isCat) {
-                    window.addCauseWithWhys(catIdx); 
-                } else {
-                    const cause = state.projectData.fishbone.categories[catIdx].causes[causeIdx];
-                    const currentText = typeof cause === 'string' ? cause : cause.text;
-                    window.showInputModal(
-                        'Edit Cause',
-                        [{ id: 'text', label: 'Cause', type: 'text', placeholder: 'Describe the cause…', value: currentText, required: true }],
-                        (data) => {
-                            if (typeof cause === 'string') {
-                                state.projectData.fishbone.categories[catIdx].causes[causeIdx] = { text: data.text, x, y };
-                            } else {
-                                state.projectData.fishbone.categories[catIdx].causes[causeIdx].text = data.text;
-                            }
-                            window.saveData();
-                            renderTools();
-                        },
-                        'Save'
-                    );
-                }
-            };
-            
-            if (!isCat) {
-                el.oncontextmenu = (e) => {
-                    e.preventDefault();
-                    window.showConfirmDialog(`Delete cause: "${text}"?`, () => {
-                        state.projectData.fishbone.categories[catIdx].causes.splice(causeIdx, 1);
-                        window.saveData();
-                        renderTools();
-                    }, 'Delete', 'Delete Cause');
-                };
-            }
-        }
-        container.appendChild(el);
-    };
-
-    // Right-side X kept clear of the fixed "Effect" label (anchored to the
-    // right edge, vertically centered, ~150px wide) so the middle-right
-    // category never renders underneath it.
-    const categoryPositions = [
-        { x: 18, y: 15 },   
-        { x: 70, y: 15 },   
-        { x: 18, y: 50 },   
-        { x: 66, y: 50 },   
-        { x: 18, y: 85 },   
-        { x: 70, y: 85 }    
-    ];
-
-    if (!state.projectData.fishbone) {
-        state.projectData.fishbone = { categories: [] };
-    }
-    
-    let categories = state.projectData.fishbone.categories || [];
-    if (categories.length === 0) {
-        categories = [
-            { text: "Patient", causes: [] },
-            { text: "Staff", causes: [] },
-            { text: "Equipment", causes: [] },
-            { text: "Process", causes: [] },
-            { text: "Environment", causes: [] },
-            { text: "Management", causes: [] }
-        ];
-        state.projectData.fishbone.categories = categories;
-    }
-    
-    categories.forEach((cat, i) => {
-        const defaultPos = categoryPositions[i] || { x: 50, y: 50 };
-        // Clamp so a previously-dragged/saved position can never land under
-        // the spine arrowhead or the fixed "Effect" label on the right edge.
-        const catX = Math.max(4, Math.min(68, cat.x !== undefined ? cat.x : defaultPos.x));
-        const catY = Math.max(4, Math.min(96, cat.y !== undefined ? cat.y : defaultPos.y));
-        
-        createLabel(cat.text, catX, catY, true, i);
-        
-        if (cat.causes && cat.causes.length > 0) {
-            cat.causes.forEach((cause, j) => {
-                const isString = typeof cause === 'string';
-                const causeText = isString ? cause : cause.text;
-                
-                const isLeft = catX < 50;
-                // Zig-zag perpendicular-ish to the bone line.
-                const offsetX = j % 2 === 0 ? -8 : 8;
-                const offsetY = (j + 1) * 6 * (catY < 50 ? 1 : -1);
-                
-                const rawX = isString ? (catX + offsetX) : (cause.x !== undefined ? cause.x : catX + offsetX);
-                const rawY = isString ? (catY + offsetY) : (cause.y !== undefined ? cause.y : catY + offsetY);
-                // Clamp so nothing can land under the spine arrowhead (right
-                // edge) or the fixed "Effect" label, regardless of stored
-                // custom drag positions from older saved projects.
-                const causeX = Math.max(4, Math.min(68, rawX));
-                const causeY = Math.max(4, Math.min(96, rawY));
-                
-                createLabel(causeText, causeX, causeY, false, i, j);
-            });
-        }
+    const cats = d.fishbone.categories;
+    const redraw = () => { window.saveData(); renderTools(); };
+    const causeText = (c) => typeof c === 'string' ? c : (c && c.text) || '';
+    container.querySelectorAll('.fb-add').forEach(el => el.addEventListener('click', () => {
+        const cat = cats[+el.dataset.cat];
+        window.showInputModal(`Add a cause to ${cat.text || 'this category'}`,
+            [{ id: 'text', label: 'Cause', type: 'text', placeholder: 'e.g. Kit stored in locked cupboards', required: true }],
+            (v) => { const t = (v.text || '').trim(); if (!t) return; (cat.causes = cat.causes || []).push({ text: t }); redraw(); }, 'Add');
+    }));
+    container.querySelectorAll('.fb-cat').forEach(el => el.addEventListener('click', () => {
+        const idx = +el.dataset.cat, cat = cats[idx];
+        window.showInputModal('Rename category',
+            [{ id: 'name', label: 'Category name', type: 'text', value: cat.text || '', hint: 'Clear the name to remove this category and its causes.' }],
+            (v) => {
+                const t = (v.name || '').trim();
+                if (t) { cat.text = t; redraw(); return; }
+                window.showConfirmDialog(`Remove "${cat.text}" and its ${(cat.causes || []).length} cause(s)?`, () => { cats.splice(idx, 1); redraw(); }, 'Remove', 'Remove category');
+            }, 'Save');
+    }));
+    container.querySelectorAll('.fb-cause').forEach(el => el.addEventListener('click', () => {
+        const cat = cats[+el.dataset.cat], k = +el.dataset.cause;
+        window.showInputModal('Edit cause',
+            [{ id: 'text', label: 'Cause', type: 'text', value: causeText(cat.causes[k]), hint: 'Clear the text to remove this cause.' }],
+            (v) => {
+                const t = (v.text || '').trim();
+                if (t) cat.causes[k] = { ...(typeof cat.causes[k] === 'object' ? cat.causes[k] : {}), text: t };
+                else cat.causes.splice(k, 1);
+                redraw();
+            }, 'Save');
+    }));
+    container.querySelector('[data-fb="add-cat"]')?.addEventListener('click', () => {
+        window.showInputModal('Add a category', [{ id: 'name', label: 'Category', type: 'text', placeholder: 'e.g. Patients', required: true }],
+            (v) => { const t = (v.name || '').trim(); if (t) { cats.push({ text: t, causes: [] }); redraw(); } }, 'Add');
     });
-
-    // Positioned in the SAME percentage coordinate system as the category/
-    // cause labels below (rather than mixing in fixed pixel right/max-width),
-    // so it scales consistently with container width instead of encroaching
-    // further into the diagram on narrower screens. Categories/causes are
-    // clamped to x<=78 with this box starting at 85%, leaving a real margin
-    // regardless of container width.
-    const effectLabel = document.createElement('div');
-    effectLabel.className = 'absolute top-1/2 -translate-y-1/2 bg-red-600 text-white px-3 py-2 rounded-lg font-bold text-xs text-center shadow-lg z-10';
-    effectLabel.style.left = '85%';
-    effectLabel.style.width = '14%';
-    effectLabel.innerHTML = `<div class="text-[9px] uppercase opacity-75">Effect</div>${escapeHtml(problem)}...`;
-    container.appendChild(effectLabel);
-    
-    if (enableInteraction && !state.isReadOnly) {
-        const hint = document.createElement('div');
-        hint.className = 'absolute bottom-2 left-2 text-xs text-slate-400 bg-white/80 px-2 py-1 rounded';
-        hint.innerHTML = '<i data-lucide="mouse-pointer-click" class="w-3 h-3 inline"></i> Double-click category to add cause. Drag to reposition. Right-click cause to delete.';
-        container.appendChild(hint);
-    }
+    container.querySelector('[data-fb="problem"]')?.addEventListener('click', () => {
+        window.showInputModal('Problem (effect) label', [{ id: 'p', label: 'Short problem statement', type: 'text', value: d.fishbone.problem || fishboneProblem(d), hint: 'Shown in the red box at the head of the fish. Keep it short.' }],
+            (v) => { d.fishbone.problem = (v.p || '').trim(); redraw(); }, 'Save');
+    });
 }
 
 function renderDriverVisual(container, enableInteraction = false) {
@@ -698,11 +599,15 @@ function sortedPoints() {
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 
+// Only the interactive chart animates; report/export charts draw instantly
+// so an image capture can never catch one half-drawn.
+let animateCurrent = true;
+
 function baseOptions(ctxInfo) {
     return {
         responsive: true,
         maintainAspectRatio: false,
-        animation: { duration: 350 },
+        animation: animateCurrent ? { duration: 350 } : false,
         layout: { padding: { top: 4, right: 12, bottom: 0, left: 4 } },
         font: { family: CHART_FONT },
         interaction: { mode: 'nearest', intersect: false },
@@ -837,6 +742,7 @@ export function renderChart(canvasId = 'mainChart') {
     oldCtx.parentNode.replaceChild(newCtx, oldCtx);
     const ctx = newCtx;
     clearChartMessage(ctx);
+    animateCurrent = canvasId === 'mainChart' && !window.__qipExporting;
     if (canvasId === 'mainChart') window.lastRunChartSignals = null;
 
     // Pick up whichever chart mode is saved against the ACTIVE measure.
@@ -1312,13 +1218,14 @@ function renderBeforeAfter(ctx, canvasId) {
         data: {
             labels: pairedLabels,
             datasets: [
-                { label: beforePhase, data: beforeValues, backgroundColor: '#94a3b8', borderRadius: 6 },
-                { label: afterPhase, data: afterValues, backgroundColor: '#10b981', borderRadius: 6 }
+                { label: beforePhase, data: beforeValues, backgroundColor: '#94a3b8', borderRadius: 6, minBarLength: 3 },
+                { label: afterPhase, data: afterValues, backgroundColor: '#10b981', borderRadius: 6, minBarLength: 3 }
             ]
         },
         options: {
             responsive: true,
             maintainAspectRatio: false,
+            animation: animateCurrent ? { duration: 350 } : false,
             plugins: {
                 title: { display: true, text: settings.title || `${beforePhase} vs ${afterPhase}`, font: { size: 16, weight: 'bold' }, color: '#1e293b', padding: { bottom: 4 } },
                 subtitle: { display: !!changeText, text: changeText, font: { size: 12, weight: 'normal' }, color: '#475569', padding: { bottom: 12 } },
@@ -1833,31 +1740,22 @@ export function updateChartEducation() {
 }
 
 export function renderFullViewChart() {
-    const c = document.getElementById('full-view-chart-container');
-    if (!c) return;
-    let cv = document.getElementById('full-view-chart-canvas');
-    if (!cv) { 
-        cv = document.createElement('canvas'); 
-        cv.id = 'full-view-chart-canvas'; 
-        c.innerHTML = ''; 
-        c.appendChild(cv); 
-    }
-    // The formal report always charts the PRIMARY measure, regardless of
-    // which measure tab is active in the Data view, so the report narrative
-    // (which also always describes the primary measure) and the chart image
-    // stay consistent. Temporarily point chartData/chartSettings at the
-    // primary measure, render, then restore the active measure's references.
+    // One chart per measure that has data, each drawn with that measure's own
+    // settings. d.chartData / d.chartSettings are pointed at each measure in
+    // turn and restored afterwards (they normally track the active measure).
     const d = state.projectData;
-    const measures = Array.isArray(d?.measures) ? d.measures : [];
-    if (measures.length > 1 && typeof window.getPrimaryMeasure === 'function') {
-        const primary = window.getPrimaryMeasure(d);
-        const savedChartData = d.chartData, savedChartSettings = d.chartSettings;
-        d.chartData = primary.chartData;
-        d.chartSettings = primary.chartSettings;
-        renderChart('full-view-chart-canvas');
-        d.chartData = savedChartData;
-        d.chartSettings = savedChartSettings;
-    } else {
-        renderChart('full-view-chart-canvas');
-    }
+    if (!d) return;
+    const measures = (Array.isArray(d.measures) && d.measures.length)
+        ? d.measures.filter(m => Array.isArray(m.chartData) && m.chartData.length)
+        : ((d.chartData || []).length ? [{ chartData: d.chartData, chartSettings: d.chartSettings }] : []);
+    const savedData = d.chartData, savedSettings = d.chartSettings, savedMode = chartMode;
+    measures.forEach((m, i) => {
+        if (!document.getElementById(`full-view-chart-canvas-${i}`)) return;
+        d.chartData = m.chartData;
+        d.chartSettings = { ...(m.chartSettings || {}), mode: (m.chartSettings && m.chartSettings.mode) || 'run' };
+        try { renderChart(`full-view-chart-canvas-${i}`); } catch (e) { console.error('[renderFullViewChart]', e); }
+    });
+    d.chartData = savedData;
+    d.chartSettings = savedSettings;
+    chartMode = savedMode;
 }

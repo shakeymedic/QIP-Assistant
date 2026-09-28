@@ -12,6 +12,9 @@ import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculato
 import { renderSurveys } from "./surveys.js";
 import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withUnit } from "./project-metrics.js";
 import { renderDataTable, refreshEntryForm } from "./data-entry.js";
+import { renderEMQIATForm, emqiatPlainText } from "./emqiat.js";
+import { assessEmqiat } from "./emqiat-shared.js";
+import { stakeholderQuadrant, layoutStakeholders, fishboneSVG, fishboneProblem, ganttSummaryHTML, processFlowHTML } from "./diagrams.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -240,6 +243,7 @@ function updatePortfolioReadiness() {
                     </div>
                 `).join('')}
             </div>
+            ${emqiatReadinessLine()}
             ${percent < 100 ? `
                 <div class="flex gap-2 mt-4">
                     <button onclick="window.openGoldenThreadValidator()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
@@ -253,6 +257,22 @@ function updatePortfolioReadiness() {
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
+}
+
+// Link from the dashboard to the EM QIAT excellence check.
+function emqiatReadinessLine() {
+    const res = assessEmqiat(state.projectData || {});
+    const all = res.strong === res.total;
+    return `
+        <button onclick="window.router('publish'); setTimeout(() => window.switchPublishMode && window.switchPublishMode('qiat'), 50);"
+            class="mt-4 w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${all ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100'}">
+            <i data-lucide="clipboard-check" class="w-5 h-5 ${all ? 'text-emerald-600' : 'text-indigo-600'} flex-shrink-0"></i>
+            <span class="flex-1">
+                <span class="block text-xs font-bold text-slate-800">EM QIAT: ${res.strong} of ${res.total} sections strong</span>
+                <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : 'See exactly what each answer still needs'}</span>
+            </span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>`;
 }
 
 function renderARCPCountdown() {
@@ -376,24 +396,28 @@ function renderMiniChart() {
         return `${x.toFixed(1)},${y.toFixed(1)}`;
     }).join(' ');
     
-    // Y-axis ticks (4 ticks)
-    const yTicks = [min, min + range * 0.33, min + range * 0.67, max];
+    // Y-axis ticks: round numbers inside the data range
+    const rawStep = range / 3;
+    const mag = Math.pow(10, Math.floor(Math.log10(rawStep || 1)));
+    const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(v => v >= rawStep) || rawStep;
+    const yTicks = [];
+    for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) yTicks.push(v);
     const yTickSvg = yTicks.map(v => {
         const y = (MT + chartH - ((v - min) / range) * chartH).toFixed(1);
         return `<line x1="${ML - 4}" y1="${y}" x2="${ML}" y2="${y}" stroke="#cbd5e1" stroke-width="1"/>
-                <text x="${ML - 6}" y="${y}" dominant-baseline="middle" text-anchor="end" font-size="10" fill="#94a3b8">${Math.round(v)}</text>
+                <text x="${ML - 6}" y="${y}" dominant-baseline="middle" text-anchor="end" font-size="10" fill="#94a3b8">${Number(v.toFixed(2))}</text>
                 <line x1="${ML}" y1="${y}" x2="${W - MR}" y2="${y}" stroke="#f1f5f9" stroke-width="1"/>`;
     }).join('');
     
     // X-axis: show first, middle, last date labels
     const xLabels = [];
-    if (sorted.length >= 1) xLabels.push({ i: 0, label: formatDate(sorted[0].date) });
-    if (sorted.length >= 3) xLabels.push({ i: Math.floor((sorted.length - 1) / 2), label: formatDate(sorted[Math.floor((sorted.length - 1) / 2)].date) });
-    if (sorted.length >= 2) xLabels.push({ i: sorted.length - 1, label: formatDate(sorted[sorted.length - 1].date) });
+    if (sorted.length >= 1) xLabels.push({ i: 0, label: formatUkDate(sorted[0].date, true), anchor: sorted.length === 1 ? 'middle' : 'start' });
+    if (sorted.length >= 3) xLabels.push({ i: Math.floor((sorted.length - 1) / 2), label: formatUkDate(sorted[Math.floor((sorted.length - 1) / 2)].date, true), anchor: 'middle' });
+    if (sorted.length >= 2) xLabels.push({ i: sorted.length - 1, label: formatUkDate(sorted[sorted.length - 1].date, true), anchor: 'end' });
     
-    const xLabelSvg = xLabels.map(({ i, label }) => {
+    const xLabelSvg = xLabels.map(({ i, label, anchor }) => {
         const x = (ML + (i / (values.length - 1 || 1)) * chartW).toFixed(1);
-        return `<text x="${x}" y="${H - MB + 14}" text-anchor="middle" font-size="10" fill="#94a3b8">${label}</text>`;
+        return `<text x="${x}" y="${H - MB + 14}" text-anchor="${anchor}" font-size="10" fill="#94a3b8">${escapeHtml(label)}</text>`;
     }).join('');
     
     const settings = d.chartSettings || {};
@@ -402,7 +426,7 @@ function renderMiniChart() {
     container.innerHTML = `
         <div class="flex items-center justify-between mb-2">
             <span class="text-xs text-slate-500 font-medium">${sorted.length} data point${sorted.length !== 1 ? 's' : ''}</span>
-            <span class="text-xs text-slate-400">Median: <strong class="text-slate-600">${median.toFixed(1)}</strong></span>
+            <span class="text-xs text-slate-400">Baseline median: <strong class="text-slate-600">${Number(median.toFixed(2))}</strong></span>
         </div>
         <svg width="100%" viewBox="0 0 ${W} ${H}" class="overflow-visible">
             <!-- Y-axis -->
@@ -2118,45 +2142,6 @@ function nudgeAwayFromFixed(x, y, fixed, minDist = STAKEHOLDER_MIN_DIST) {
     return { x: px, y: py };
 }
 
-/**
- * Full mutual separation across every stakeholder — used ONLY once, to
- * migrate legacy/imported data that may have identical or overlapping
- * coordinates (e.g. everything defaulted to 50,50). Once run, the results
- * are persisted onto each stakeholder's own x/y and this never needs to
- * run again for that project, so it can never "move other boxes around"
- * on a later render.
- */
-function resolveAllStakeholderOverlaps(stakes) {
-    const positions = stakes.map(s => ({ x: clampToMatrix(s.x ?? 50), y: clampToMatrix(s.y ?? 50) }));
-    for (let iter = 0; iter < 80; iter++) {
-        let moved = false;
-        for (let i = 0; i < positions.length; i++) {
-            for (let j = i + 1; j < positions.length; j++) {
-                const dx = positions[i].x - positions[j].x;
-                const dy = positions[i].y - positions[j].y;
-                let dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist === 0) {
-                    const angle = (i * 47 + j * 91) % 360 * (Math.PI / 180);
-                    positions[j].x += Math.cos(angle) * 0.5;
-                    positions[j].y += Math.sin(angle) * 0.5;
-                    dist = 0.5;
-                }
-                if (dist < STAKEHOLDER_MIN_DIST) {
-                    const overlap = (STAKEHOLDER_MIN_DIST - dist) / 2;
-                    const nx = dx / dist, ny = dy / dist;
-                    positions[i].x = clampToMatrix(positions[i].x + nx * overlap);
-                    positions[i].y = clampToMatrix(positions[i].y + ny * overlap);
-                    positions[j].x = clampToMatrix(positions[j].x - nx * overlap);
-                    positions[j].y = clampToMatrix(positions[j].y - ny * overlap);
-                    moved = true;
-                }
-            }
-        }
-        if (!moved) break;
-    }
-    return positions;
-}
-
 export function renderStakeholders() {
     const d = state.projectData;
     if (!d) return;
@@ -2166,20 +2151,14 @@ export function renderStakeholders() {
     
     const stakes = d.stakeholders || [];
 
-    // One-time migration: legacy/imported data can have identical or
-    // overlapping coordinates (e.g. everything defaulted to 50,50).
-    // Resolve once and persist the result onto each stakeholder's own
-    // x/y so this never has to run — and never has to move an already
-    // fine card — again on a later render.
-    if (stakes.length && !d._stakeholderLayoutResolved) {
-        const resolved = resolveAllStakeholderOverlaps(stakes);
-        stakes.forEach((s, i) => { s.x = resolved[i].x; s.y = resolved[i].y; });
-        d._stakeholderLayoutResolved = true;
-        if (window.saveData) window.saveData();
-    }
+    // Cards are spread apart for display only, and never out of their own
+    // quadrant: the saved x/y (and so the quadrant) is exactly where the
+    // trainee put it, and is what every other view reads too.
+    // Card size as a % of the matrix (cards are ~112×44px; the matrix is up to
+    // 768px wide, narrower on small screens).
+    const matrixPx = Math.max(280, Math.min(768, (canvas.clientWidth || 768) - 48));
+    const resolvedPositions = layoutStakeholders(stakes, { w: Math.min(24, 114 / matrixPx * 100), h: Math.min(12, 46 / matrixPx * 100), pad: 0.8, band: Math.min(12, 50 / matrixPx * 100) });
 
-    const resolvedPositions = stakes.map(s => ({ x: clampToMatrix(s.x ?? 50), y: clampToMatrix(s.y ?? 50) }));
-    
     canvas.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 h-full">
             <header class="flex justify-between items-center mb-6">
@@ -2200,37 +2179,31 @@ export function renderStakeholders() {
             </header>
             
             <div id="stakeholder-matrix" class="relative w-full aspect-square max-w-3xl mx-auto border-2 border-slate-200 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100">
-                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-20">
+                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-0">
                     <div class="border-r border-b border-slate-200 p-3">
-                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Keep Satisfied</span>
-                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">High Power / Low Interest</span>
+                        <span class="text-xs text-slate-500 font-semibold">Keep Satisfied</span>
+                        <span class="block text-[10px] text-slate-400">High Power / Low Interest</span>
                     </div>
                     <div class="border-b border-slate-200 p-3 text-right">
-                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Manage Closely</span>
-                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">High Power / High Interest</span>
+                        <span class="text-xs text-slate-500 font-semibold">Manage Closely</span>
+                        <span class="block text-[10px] text-slate-400">High Power / High Interest</span>
                     </div>
-                    <div class="border-r border-slate-200 p-3">
-                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Monitor</span>
-                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">Low Power / Low Interest</span>
+                    <div class="border-r border-slate-200 p-3 flex flex-col justify-end">
+                        <span class="text-xs text-slate-500 font-semibold">Monitor</span>
+                        <span class="block text-[10px] text-slate-400">Low Power / Low Interest</span>
                     </div>
-                    <div class="p-3 text-right">
-                        <span class="text-xs text-slate-400 font-medium bg-white/90 px-1 rounded">Keep Informed</span>
-                        <span class="block text-[10px] text-slate-300 mt-1 bg-white/90 px-1 rounded inline-block">Low Power / High Interest</span>
+                    <div class="p-3 text-right flex flex-col justify-end items-end">
+                        <span class="text-xs text-slate-500 font-semibold">Keep Informed</span>
+                        <span class="block text-[10px] text-slate-400">Low Power / High Interest</span>
                     </div>
                 </div>
-                
+
                 <div class="absolute -left-10 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Power ↑</div>
                 <div class="absolute bottom-[-28px] left-1/2 -translate-x-1/2 text-xs font-bold text-slate-500 uppercase tracking-wider">Interest →</div>
                 
                 ${stakes.map((s, i) => {
                     const rp = resolvedPositions[i];
-                    const isHighPower = rp.y >= 50;
-                    const isHighInterest = rp.x >= 50;
-                    let bgColor = 'bg-slate-600';
-                    if (isHighPower && isHighInterest) bgColor = 'bg-red-600';
-                    else if (isHighPower && !isHighInterest) bgColor = 'bg-amber-600';
-                    else if (!isHighPower && isHighInterest) bgColor = 'bg-blue-600';
-                    else bgColor = 'bg-slate-500';
+                    const bgColor = stakeholderQuadrant(s).card;
                     
                     return `
                     <div class="stakeholder-label absolute cursor-move group z-10" 
@@ -2306,12 +2279,10 @@ function initStakeholderDrag() {
                     // existing position — those positions are treated as fixed
                     // and are never themselves moved, so dropping one card near
                     // another no longer reshuffles the rest of the board.
-                    const others = state.projectData.stakeholders
-                        .filter((_, j) => j !== index)
-                        .map(s => ({ x: s.x ?? 50, y: s.y ?? 50 }));
-                    const { x, y } = nudgeAwayFromFixed(rawX, rawY, others);
-                    state.projectData.stakeholders[index].x = x;
-                    state.projectData.stakeholders[index].y = y;
+                    // Save exactly where it was dropped; the display layout
+                    // keeps cards apart without moving anyone's quadrant.
+                    state.projectData.stakeholders[index].x = Math.round(rawX * 10) / 10;
+                    state.projectData.stakeholders[index].y = Math.round(rawY * 10) / 10;
                     if (window.saveData) window.saveData();
                     renderStakeholders();
                 }
@@ -2429,13 +2400,11 @@ export function toggleStakeView() {
                         </thead>
                         <tbody class="divide-y divide-slate-100">
                             ${stakes.map((s, i) => {
-                                const power = Math.round(s.y || 50);
-                                const interest = Math.round(s.x || 50);
-                                let strategy = 'Monitor';
-                                let strategyColor = 'text-slate-600';
-                                if (power >= 50 && interest >= 50) { strategy = 'Manage Closely'; strategyColor = 'text-red-600'; }
-                                else if (power >= 50) { strategy = 'Keep Satisfied'; strategyColor = 'text-amber-600'; }
-                                else if (interest >= 50) { strategy = 'Keep Informed'; strategyColor = 'text-blue-600'; }
+                                const power = Math.round(s.y ?? 50);
+                                const interest = Math.round(s.x ?? 50);
+                                const q = stakeholderQuadrant(s);
+                                const strategy = q.label;
+                                const strategyColor = { manage: 'text-red-600', satisfy: 'text-amber-600', inform: 'text-blue-600', monitor: 'text-slate-600' }[q.key];
                                 
                                 return `
                                     <tr class="hover:bg-slate-50">
@@ -2942,6 +2911,22 @@ export function openGanttModal(index = null) {
 // 10. FULL PROJECT VIEW
 // ==========================================
 
+// Measures to chart in the Whole Project View: every measure with data.
+function fullViewMeasures(d) {
+    if (Array.isArray(d.measures) && d.measures.length) return d.measures.filter(m => Array.isArray(m.chartData) && m.chartData.length);
+    return (d.chartData || []).length ? [{ name: '', chartData: d.chartData, chartSettings: d.chartSettings || {} }] : [];
+}
+
+// First sentences of a long text, up to about `max` characters.
+function summarySentences(text, max) {
+    const t = String(text || '').replace(/\s+/g, ' ').trim();
+    if (t.length <= max) return t;
+    const parts = t.match(/[^.!?]+[.!?]+/g) || [t];
+    let out = '';
+    for (const p of parts) { if ((out + p).length > max) break; out += p; }
+    return (out || t.slice(0, max).replace(/\s+\S*$/, '')).trim() + (out.length < t.length ? ' \u2026' : '');
+}
+
 export function renderFullProject() {
     const d = state.projectData;
     if (!d) return;
@@ -2964,7 +2949,7 @@ export function renderFullProject() {
                 <div class="mt-4 flex flex-wrap gap-4 text-sm">
                     ${team.length > 0 ? `<span><i data-lucide="user" class="w-4 h-4 inline mr-1"></i> ${escapeHtml(team[0].name)}</span>` : ''}
                     <span><i data-lucide="calendar" class="w-4 h-4 inline mr-1"></i> ${new Date().toLocaleDateString('en-GB')}</span>
-                    <span><i data-lucide="activity" class="w-4 h-4 inline mr-1"></i> ${d.chartData?.length || 0} data points</span>
+                    <span><i data-lucide="activity" class="w-4 h-4 inline mr-1"></i> ${fullViewMeasures(d).reduce((n, m) => n + m.chartData.length, 0)} data points</span>
                     <span><i data-lucide="refresh-cw" class="w-4 h-4 inline mr-1"></i> ${pdsa.length} PDSA cycles</span>
                 </div>
             </header>
@@ -2973,8 +2958,8 @@ export function renderFullProject() {
                 <section class="bg-slate-50 rounded-lg p-6 border-l-4 border-rcem-purple">
                     <h2 class="text-lg font-bold text-slate-800 mb-3">Executive Summary</h2>
                     <p class="text-slate-600 leading-relaxed">
-                        ${c.aim ? `This project aimed to ${escapeHtml(c.aim.toLowerCase().replace(/^to /i, ''))}` : 'Aim not yet defined.'}
-                        ${c.results_analysis ? ` Key findings: ${escapeHtml(c.results_analysis.substring(0, 200))}...` : ''}
+                        ${c.aim ? `<strong>Aim:</strong> ${escapeHtml(c.aim)}` : 'Aim not yet defined.'}
+                        ${c.results_analysis ? `<br><br><strong>Key findings:</strong> ${escapeHtml(summarySentences(c.results_analysis, 320))}` : ''}
                     </p>
                 </section>
                 
@@ -3075,21 +3060,130 @@ export function renderFullProject() {
                             <div>
                                 <h4 class="font-bold text-slate-700 text-sm uppercase mb-2">Secondary Drivers</h4>
                                 <ul class="space-y-1">
-                                    ${drivers.secondary.slice(0, 6).map(s => `<li class="text-sm text-slate-600 flex items-start gap-2"><span class="text-sky-500 mt-1">•</span> ${escapeHtml(s)}</li>`).join('')}
-                                    ${drivers.secondary.length > 6 ? `<li class="text-xs text-slate-400">...and ${drivers.secondary.length - 6} more</li>` : ''}
+                                    ${drivers.secondary.map(s => `<li class="text-sm text-slate-600 flex items-start gap-2"><span class="text-sky-500 mt-1">•</span> ${escapeHtml(s)}</li>`).join('')}
                                 </ul>
                             </div>
                             <div>
                                 <h4 class="font-bold text-slate-700 text-sm uppercase mb-2">Change Ideas</h4>
                                 <ul class="space-y-1">
-                                    ${drivers.changes.slice(0, 6).map(ch => `<li class="text-sm text-slate-600 flex items-start gap-2"><span class="text-emerald-500 mt-1">•</span> ${escapeHtml(ch)}</li>`).join('')}
-                                    ${drivers.changes.length > 6 ? `<li class="text-xs text-slate-400">...and ${drivers.changes.length - 6} more</li>` : ''}
+                                    ${drivers.changes.map(ch => `<li class="text-sm text-slate-600 flex items-start gap-2"><span class="text-emerald-500 mt-1">•</span> ${escapeHtml(ch)}</li>`).join('')}
                                 </ul>
                             </div>
                         </div>
                     </section>
                 ` : ''}
                 
+                <!-- ===== FISHBONE DIAGRAM ===== -->
+                ${(d.fishbone?.categories?.some(cat => cat.text && (cat.causes || []).length)) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">F</span>
+                            Fishbone (Cause &amp; Effect) Diagram
+                        </h2>
+                        <div class="rounded-xl border border-slate-200 overflow-x-auto mb-3">
+                            <div class="min-w-[760px]">${fishboneSVG(d.fishbone, fishboneProblem(d))}</div>
+                        </div>
+                        <details class="text-sm">
+                            <summary class="cursor-pointer text-xs font-semibold text-indigo-700 hover:underline">Show every cause in full</summary>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+                                ${d.fishbone.categories.filter(cat => cat.text).map(cat => `
+                                    <div class="bg-white rounded-lg border border-indigo-100 p-3">
+                                        <div class="font-bold text-indigo-800 text-sm mb-2 pb-1 border-b border-indigo-100">${escapeHtml(cat.text)}</div>
+                                        <ul class="space-y-1">${(cat.causes || []).map(cz => `<li class="text-xs text-slate-600 flex gap-1.5"><span class="text-indigo-400">&bull;</span><span>${escapeHtml(typeof cz === 'string' ? cz : cz.text || '')}</span></li>`).join('') || '<li class="text-xs text-slate-400 italic">No causes added</li>'}</ul>
+                                    </div>`).join('')}
+                            </div>
+                        </details>
+                    </section>
+                ` : ''}
+
+                <!-- ===== 5-WHYS ===== -->
+                ${(d.fivewhys?.problem) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">5</span>
+                            5-Whys Root Cause Analysis
+                        </h2>
+                        <div class="space-y-2">
+                            <div class="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
+                                <div class="text-xs font-bold text-red-600 uppercase mb-1">Problem Statement</div>
+                                <p class="text-slate-700 font-medium">${escapeHtml(d.fivewhys.problem)}</p>
+                            </div>
+                            ${['why1','why2','why3','why4','why5'].filter(k=>d.fivewhys[k]).map((k,i)=>`
+                            <div class="flex items-start gap-3 pl-4">
+                                <div class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold mt-0.5">W${i+1}</div>
+                                <div class="bg-white border border-slate-200 rounded-lg p-3 flex-1">
+                                    <div class="text-xs font-bold text-slate-500 uppercase mb-0.5">Why ${i+1}</div>
+                                    <p class="text-slate-700 text-sm">${escapeHtml(d.fivewhys[k])}</p>
+                                </div>
+                            </div>`).join('')}
+                            ${d.fivewhys.rootCause ? `
+                            <div class="bg-emerald-50 border-l-4 border-emerald-500 rounded-r-lg p-4 mt-2">
+                                <div class="text-xs font-bold text-emerald-700 uppercase mb-1">Root Cause Identified</div>
+                                <p class="text-emerald-800 font-semibold">${escapeHtml(d.fivewhys.rootCause)}</p>
+                            </div>` : ''}
+                        </div>
+                    </section>
+                ` : ''}
+
+                <!-- ===== PROCESS MAP ===== -->
+                ${(Array.isArray(d.process) && d.process.filter(Boolean).length > 2) ? `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-sm font-bold">P</span>
+                            Process Map
+                        </h2>
+                        ${processFlowHTML(d.process)}
+                    </section>
+                ` : ''}
+
+                <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->
+                ${(stakes.length > 0) ? (() => {
+                    // Numbered dots (matching the numbered list) spread apart for
+                    // display without ever leaving their quadrant, which comes from
+                    // the same saved position the Stakeholders page uses.
+                    const pos = layoutStakeholders(stakes, { w: 6, h: 6, pad: 0.6 });
+                    const dots = stakes.map((sh, idx) => {
+                        const q = stakeholderQuadrant(sh);
+                        return `<div title="${escapeHtml(sh.name || '')} \u2014 ${q.label}" style="position:absolute;left:${pos[idx].x}%;top:${100 - pos[idx].y}%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${q.dot};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:5">${idx + 1}</div>`;
+                    }).join('');
+                    const quad = (cls, title, sub, pos2) => `<div class="${cls} p-2 flex flex-col ${pos2}"><span class="text-[10px] font-bold">${title}</span><span class="text-[9px] opacity-70">${sub}</span></div>`;
+                    return `
+                    <section>
+                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span class="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">S</span>
+                            Stakeholder Power / Interest Matrix
+                        </h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+                            <div class="pl-5 pb-5 relative">
+                                <div class="relative rounded-xl border-2 border-slate-200 overflow-hidden" style="aspect-ratio:1">
+                                    <div class="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                                        ${quad('bg-amber-50 text-amber-700 border-r border-b border-slate-200', 'KEEP SATISFIED', 'High power \u00b7 low interest', '')}
+                                        ${quad('bg-red-50 text-red-700 border-b border-slate-200', 'MANAGE CLOSELY', 'High power \u00b7 high interest', 'items-end')}
+                                        ${quad('bg-slate-50 text-slate-600 border-r border-slate-200', 'MONITOR', 'Low power \u00b7 low interest', 'justify-end')}
+                                        ${quad('bg-blue-50 text-blue-700', 'KEEP INFORMED', 'Low power \u00b7 high interest', 'items-end justify-end')}
+                                    </div>
+                                    ${dots}
+                                </div>
+                                <span class="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 origin-center text-[10px] font-bold text-slate-500 tracking-widest -ml-3">POWER \u2191</span>
+                                <span class="absolute bottom-0 left-1/2 -translate-x-1/2 text-[10px] font-bold text-slate-500 tracking-widest">INTEREST \u2192</span>
+                            </div>
+                            <ol class="space-y-1.5">
+                                ${stakes.map((sh, idx) => {
+                                    const q = stakeholderQuadrant(sh);
+                                    return `<li class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
+                                        <span class="w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style="background:${q.dot}">${idx + 1}</span>
+                                        <div class="flex-1 min-w-0">
+                                            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(sh.name || '')}</div>
+                                            ${[sh.role, sh.organisation].filter(Boolean).length ? `<div class="text-xs text-slate-400 truncate">${escapeHtml([sh.role, sh.organisation].filter(Boolean).join(' \u2014 '))}</div>` : ''}
+                                        </div>
+                                        <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${q.chip}">${q.label}</span>
+                                    </li>`;
+                                }).join('')}
+                            </ol>
+                        </div>
+                    </section>`;
+                })() : ''}
+
                 ${pdsa.length > 0 ? `
                     <section>
                         <h2 class="text-xl font-bold text-slate-800 mb-3 flex items-center gap-2">
@@ -3132,7 +3226,11 @@ export function renderFullProject() {
                         <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm">7</span>
                         Results
                     </h2>
-                    <div id="full-view-chart-container" class="bg-slate-50 rounded-lg p-4 min-h-[300px] mb-4"></div>
+                    ${fullViewMeasures(d).map((m, i) => `
+                        <div class="bg-slate-50 rounded-lg p-4 mb-4">
+                            ${fullViewMeasures(d).length > 1 ? `<div class="text-sm font-bold text-slate-700 mb-2">${escapeHtml(m.name || 'Measure ' + (i + 1))}</div>` : ''}
+                            <div class="relative h-[360px]"><canvas id="full-view-chart-canvas-${i}"></canvas></div>
+                        </div>`).join('') || '<div class="bg-slate-50 rounded-lg p-6 text-sm text-slate-400 text-center mb-4">No data collected yet.</div>'}
                     ${c.results_analysis ? `
                         <div class="bg-slate-50 rounded-lg p-4">
                             <h4 class="font-bold text-slate-700 text-sm mb-2">Analysis</h4>
@@ -3208,225 +3306,15 @@ export function renderFullProject() {
                         <p class="text-slate-600 leading-relaxed whitespace-pre-line">${escapeHtml(c.sustainability)}</p>
                     </section>
                 ` : ''}
-            </div>
-            
-
-                <!-- ===== FISHBONE DIAGRAM ===== -->
-                ${(d.fishbone?.categories?.filter(c=>c.text).length > 0) ? (() => {
-                    const cats = d.fishbone.categories.filter(c => c.text);
-                    // SVG skeleton — no cause text in SVG to prevent overlap
-                    const W = 1060, H = 340, spineY = H/2, headX = W-80, tailX = 60;
-                    const spacing = (headX - tailX) / (cats.length + 1);
-                    const armH = 120;
-                    let paths = '', lbls = '';
-                    cats.forEach((cat, i) => {
-                        const bx = tailX + (i+1)*spacing;
-                        const above = i%2===0;
-                        const ex = bx - spacing*0.38;
-                        const ey = above ? spineY-armH : spineY+armH;
-                        // Bone arm
-                        paths += `<line x1="${bx}" y1="${spineY}" x2="${ex}" y2="${ey}" stroke="#4f46e5" stroke-width="2.5" stroke-linecap="round"/>`;
-                        // Tick marks for causes (no text — detail goes in cards below)
-                        (cat.causes||[]).slice(0,6).forEach((_, j) => {
-                            const t = (j+1) / (Math.min((cat.causes||[]).length, 6) + 1);
-                            const cx = bx + t*(ex-bx), cy = spineY + t*(ey-spineY);
-                            const tx2 = cx + (above ? -22 : -22), ty2 = cy + (above ? -18 : 18);
-                            paths += `<line x1="${cx}" y1="${cy}" x2="${tx2}" y2="${ty2}" stroke="#818cf8" stroke-width="1.5" opacity="0.65"/>`;
-                        });
-                        // Category label pill
-                        const safe = escapeHtml(cat.text||'');
-                        const pw = Math.min(safe.length * 7 + 22, 170);
-                        const py = above ? ey-28 : ey+8;
-                        lbls += `<rect x="${ex - pw/2}" y="${py}" width="${pw}" height="22" rx="5" fill="#312e81"/>`;
-                        lbls += `<text x="${ex}" y="${py+15}" text-anchor="middle" font-size="11" font-weight="700" fill="white">${safe}</text>`;
-                    });
-                    // Problem label (short excerpt)
-                    const probText = escapeHtml((d.checklist?.problem_desc||d.fivewhys?.problem||'').substring(0,20)) + ((d.checklist?.problem_desc||d.fivewhys?.problem||'').length > 20 ? '\u2026' : '');
-                    // Cause detail cards
-                    const cardHtml = cats.map(cat => `
-                        <div class="bg-white rounded-lg border border-indigo-100 p-3">
-                            <div class="font-bold text-indigo-800 text-sm mb-2 pb-1 border-b border-indigo-100">${escapeHtml(cat.text||'')}</div>
-                            <ul class="space-y-1">
-                                ${(cat.causes||[]).length > 0
-                                    ? (cat.causes||[]).map(c => `<li class="text-xs text-slate-600 flex gap-1.5 items-start"><span class="text-indigo-400 mt-0.5 flex-shrink-0">&bull;</span><span>${escapeHtml(c.text||'')}</span></li>`).join('')
-                                    : '<li class="text-xs text-slate-400 italic">No causes added</li>'}
-                            </ul>
-                        </div>`).join('');
-                    return `<section>
-                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">F</span>
-                            Fishbone (Cause &amp; Effect) Diagram
-                        </h2>
-                        <div class="bg-slate-50 rounded-xl border border-slate-200 p-3 overflow-x-auto mb-4">
-                            <svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" style="min-height:160px;max-height:280px">
-                                <rect x="0" y="0" width="${W}" height="${H}" fill="#f8fafc" rx="8"/>
-                                <line x1="${tailX}" y1="${spineY}" x2="${headX}" y2="${spineY}" stroke="#1e1b4b" stroke-width="3.5"/>
-                                <polygon points="${headX+4},${spineY} ${headX-14},${spineY-8} ${headX-14},${spineY+8}" fill="#1e1b4b"/>
-                                ${paths}${lbls}
-                                <rect x="${headX+6}" y="${spineY-24}" width="78" height="48" rx="6" fill="#ef4444"/>
-                                <text x="${headX+45}" y="${spineY-6}" text-anchor="middle" font-size="10" font-weight="bold" fill="white">Problem</text>
-                                <text x="${headX+45}" y="${spineY+9}" text-anchor="middle" font-size="8" fill="rgba(255,255,255,0.8)">${probText}</text>
-                            </svg>
-                        </div>
-                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">${cardHtml}</div>
-                    </section>`;
-                })() : ''}
-
-                <!-- ===== STAKEHOLDER POWER/INTEREST MAP ===== -->
-                ${(d.stakeholders?.length > 0) ? (() => {
-                    // Stakeholders use s.x (interest, left→right) and s.y (power, 0=bottom, 100=top)
-                    // CSS top = 100 - s.y  (matching the interactive view)
-                    // De-overlap: bucket to nearest 5% grid and spiral-spread clashes.
-                    // Offsets are wider than the 30px avatar diameter needs at typical
-                    // card sizes, and the outer clamp keeps every avatar a few percent
-                    // clear of the corners/edges, where the quadrant labels live —
-                    // avoids 3+ stakeholders in the same corner collapsing back onto
-                    // each other and onto the "Manage Closely" label after clamping.
-                    const offsets = [[0,0],[9,-9],[9,9],[-9,9],[-9,-9],[0,-14],[14,0],[0,14],[-14,0],[6,-14],[-6,-14],[6,14],[-6,14]];
-                    // Bucket keys MUST be derived from the same clamped coordinates in both
-                    // passes below — otherwise a stakeholder placed outside the [8,92] clamp
-                    // range (e.g. x=95, y=95) buckets differently the second time round and
-                    // `buckets[key]` is undefined, crashing the whole report render.
-                    const clampedPos = d.stakeholders.map(s => ({
-                        baseLeft: Math.max(8, Math.min(92, s.x||50)),
-                        baseTop: Math.max(8, Math.min(92, 100-(s.y||50)))
-                    }));
-                    const buckets = {};
-                    clampedPos.forEach(({ baseLeft, baseTop }, idx) => {
-                        const bx = Math.round(baseLeft / 5) * 5;
-                        const by = Math.round(baseTop / 5) * 5;
-                        const key = `${bx}_${by}`;
-                        if (!buckets[key]) buckets[key] = [];
-                        buckets[key].push(idx);
-                    });
-                    const finalPos = d.stakeholders.map((s, idx) => {
-                        // cssLeft = s.x, cssTop = 100 - s.y
-                        const { baseLeft, baseTop } = clampedPos[idx];
-                        const bx = Math.round(baseLeft/5)*5, by = Math.round(baseTop/5)*5;
-                        const key = `${bx}_${by}`;
-                        const slot = (buckets[key] || [idx]).indexOf(idx);
-                        const [ox, oy] = offsets[slot % offsets.length];
-                        return { left: Math.max(10, Math.min(90, baseLeft + ox)), top: Math.max(10, Math.min(90, baseTop + oy)) };
-                    });
-                    const dots = d.stakeholders.map((s, idx) => {
-                        const { left, top } = finalPos[idx];
-                        const hp = (s.y||50) >= 50, hi = (s.x||50) >= 50; // high power = high y
-                        const bg = hp&&hi?'#dc2626':hp?'#d97706':hi?'#2563eb':'#64748b';
-                        const initials = (s.name||'?').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                        return `<div style="position:absolute;left:${left}%;top:${top}%;transform:translate(-50%,-50%);z-index:${idx+1}" title="${escapeHtml(s.name||'')}">
-                            <div style="width:30px;height:30px;border-radius:50%;background:${bg};display:flex;align-items:center;justify-content:center;color:white;font-size:9px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,0.3);border:2px solid rgba(255,255,255,0.8)">${escapeHtml(initials)}</div>
-                        </div>`;
-                    }).join('');
-                    return `
-                    <section>
-                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span class="w-8 h-8 rounded-full bg-violet-100 text-violet-600 flex items-center justify-center text-sm font-bold">S</span>
-                            Stakeholder Power / Interest Matrix
-                        </h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div class="relative bg-white rounded-xl border-2 border-slate-200" style="aspect-ratio:1;">
-                                <!-- Axis labels -->
-                                <div class="absolute -left-6 inset-y-0 flex items-center pointer-events-none">
-                                    <span style="writing-mode:vertical-rl;transform:rotate(180deg)" class="text-[10px] font-bold text-slate-500 tracking-widest">POWER &uarr;</span>
-                                </div>
-                                <div class="absolute inset-x-0 -bottom-5 flex justify-center pointer-events-none">
-                                    <span class="text-[10px] font-bold text-slate-500 tracking-widest">INTEREST &rarr;</span>
-                                </div>
-                                <div class="absolute inset-0 grid grid-cols-2 grid-rows-2 pointer-events-none z-40">
-                                    <div class="border-r border-b border-slate-200 bg-amber-50/60 p-2 flex flex-col justify-start"><span class="text-[9px] font-bold text-amber-700 bg-white/85 px-1 rounded">KEEP SATISFIED</span><span class="text-[8px] text-amber-500 bg-white/85 px-1 rounded mt-0.5">High Power / Low Interest</span></div>
-                                    <div class="border-b border-slate-200 bg-red-50/60 p-2 flex flex-col items-end"><span class="text-[9px] font-bold text-red-700 bg-white/85 px-1 rounded">MANAGE CLOSELY</span><span class="text-[8px] text-red-500 bg-white/85 px-1 rounded mt-0.5">High Power / High Interest</span></div>
-                                    <div class="border-r border-slate-200 bg-slate-50 p-2 flex flex-col justify-end"><span class="text-[9px] font-bold text-slate-500 bg-white/85 px-1 rounded">MONITOR</span><span class="text-[8px] text-slate-400 bg-white/85 px-1 rounded mt-0.5">Low Power / Low Interest</span></div>
-                                    <div class="bg-blue-50/60 p-2 flex flex-col items-end justify-end"><span class="text-[9px] font-bold text-blue-700 bg-white/85 px-1 rounded">KEEP INFORMED</span><span class="text-[8px] text-blue-500 bg-white/85 px-1 rounded mt-0.5">Low Power / High Interest</span></div>
-                                </div>
-                                <div class="absolute inset-y-0 left-1/2 border-l border-slate-300 pointer-events-none"></div>
-                                <div class="absolute inset-x-0 top-1/2 border-t border-slate-300 pointer-events-none"></div>
-                                ${dots}
-                            </div>
-                            <div class="space-y-2">
-                                ${d.stakeholders.map(s => {
-                                    const hp=(s.y||50)>=50, hi=(s.x||50)>=50;
-                                    const q=hp&&hi?'Manage Closely':hp?'Keep Satisfied':hi?'Keep Informed':'Monitor';
-                                    const qc=hp&&hi?'bg-red-100 text-red-700':hp?'bg-amber-100 text-amber-700':hi?'bg-blue-100 text-blue-700':'bg-slate-100 text-slate-600';
-                                    return `<div class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
-                                        <div class="flex-1 min-w-0">
-                                            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(s.name||'')}</div>
-                                            <div class="text-xs text-slate-400">${escapeHtml([s.role, s.organisation].filter(Boolean).join(' \u2014 '))}</div>
-                                        </div>
-                                        <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${qc}">${q}</span>
-                                    </div>`;
-                                }).join('')}
-                            </div>
-                        </div>
-                    </section>
-                `;
-                })() : ''}
-
-                <!-- ===== 5-WHYS ===== -->
-                ${(d.fivewhys?.problem) ? `
-                    <section>
-                        <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">5</span>
-                            5-Whys Root Cause Analysis
-                        </h2>
-                        <div class="space-y-2">
-                            <div class="bg-red-50 border-l-4 border-red-500 rounded-r-lg p-4">
-                                <div class="text-xs font-bold text-red-600 uppercase mb-1">Problem Statement</div>
-                                <p class="text-slate-700 font-medium">${escapeHtml(d.fivewhys.problem)}</p>
-                            </div>
-                            ${['why1','why2','why3','why4','why5'].filter(k=>d.fivewhys[k]).map((k,i)=>`
-                            <div class="flex items-start gap-3 pl-4">
-                                <div class="flex-shrink-0 w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold mt-0.5">W${i+1}</div>
-                                <div class="bg-white border border-slate-200 rounded-lg p-3 flex-1">
-                                    <div class="text-xs font-bold text-slate-500 uppercase mb-0.5">Why ${i+1}</div>
-                                    <p class="text-slate-700 text-sm">${escapeHtml(d.fivewhys[k])}</p>
-                                </div>
-                            </div>`).join('')}
-                            ${d.fivewhys.rootCause ? `
-                            <div class="bg-emerald-50 border-l-4 border-emerald-500 rounded-r-lg p-4 mt-2">
-                                <div class="text-xs font-bold text-emerald-700 uppercase mb-1">Root Cause Identified</div>
-                                <p class="text-emerald-800 font-semibold">${escapeHtml(d.fivewhys.rootCause)}</p>
-                            </div>` : ''}
-                        </div>
-                    </section>
-                ` : ''}
 
                 <!-- ===== GANTT TIMELINE ===== -->
                 ${(d.gantt?.length > 0) ? `
                     <section>
                         <h2 class="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
                             <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">G</span>
-                            Project Timeline (Gantt)
+                            Project Timeline
                         </h2>
-                        <div class="border border-slate-200 rounded-xl overflow-hidden">
-                            <table class="w-full text-sm">
-                                <thead class="bg-slate-50">
-                                    <tr>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Task</th>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Start</th>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">End</th>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Progress</th>
-                                        <th class="px-4 py-2 text-left text-xs font-bold text-slate-600 uppercase">Owner</th>
-                                    </tr>
-                                </thead>
-                                <tbody class="divide-y divide-slate-100">
-                                    ${d.gantt.map(g=>`
-                                    <tr class="hover:bg-slate-50">
-                                        <td class="px-4 py-2 font-medium text-slate-800">${escapeHtml(g.task||g.title||'')}</td>
-                                        <td class="px-4 py-2 text-slate-500 text-xs font-mono">${escapeHtml(g.start||g.startDate||'')}</td>
-                                        <td class="px-4 py-2 text-slate-500 text-xs font-mono">${escapeHtml(g.end||g.endDate||'')}</td>
-                                        <td class="px-4 py-2">
-                                            <div class="flex items-center gap-2">
-                                                <div class="flex-1 bg-slate-200 rounded-full h-2 min-w-[60px]">
-                                                    <div class="bg-indigo-500 rounded-full h-2" style="width:${Math.min(100,Math.max(0,parseInt(g.progress||g.percent||0)))}%"></div>
-                                                </div>
-                                                <span class="text-xs text-slate-500 flex-shrink-0">${parseInt(g.progress||g.percent||0)}%</span>
-                                            </div>
-                                        </td>
-                                        <td class="px-4 py-2 text-slate-500 text-xs">${escapeHtml(g.owner||g.responsible||'')}</td>
-                                    </tr>`).join('')}
-                                </tbody>
-                            </table>
-                        </div>
+                        ${ganttSummaryHTML(d.gantt)}
                     </section>
                 ` : ''}
 
@@ -3450,6 +3338,9 @@ export function renderFullProject() {
                         </div>
                     </section>
                 ` : ''}
+
+
+            </div>
 
             <footer class="bg-slate-50 px-8 py-4 rounded-b-xl border-t border-slate-200 print:bg-white">
                 <div class="flex justify-between items-center text-xs text-slate-500">
@@ -3488,27 +3379,15 @@ export function renderPublish(mode = 'qiat') {
     });
     
     if (mode === 'qiat') {
-        content.innerHTML = renderQIATForm(d);
-        // Make QIAT narrative divs editable (inline editing before copying to portfolio)
-        setTimeout(() => {
-            const qiatIds = ['qiat-pdp', 'qiat-education', 'qiat-learning', 'qiat-reflections', 'qiat-next-pdp'];
-            qiatIds.forEach(id => {
-                const el = document.getElementById(id);
-                if (el && !state.isReadOnly) {
-                    el.contentEditable = 'plaintext-only';
-                    el.title = 'Click to edit before copying to your portfolio';
-                    el.classList.add('focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-300', 'cursor-text', 'hover:bg-indigo-50/50', 'transition-colors');
-                    // Add subtle edit hint on first editable div
-                    if (id === 'qiat-pdp' && !el.dataset.hintAdded) {
-                        el.dataset.hintAdded = '1';
-                        const hint = document.createElement('div');
-                        hint.className = 'text-[10px] text-indigo-400 mt-1 flex items-center gap-1';
-                        hint.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> All text boxes are editable — personalise before copying to risr/Advance';
-                        el.parentNode?.insertBefore(hint, el.nextSibling);
-                    }
-                }
-            });
-        }, 100);
+        // The same EM QIAT (2025 Update) form as the SLO 11 page — one set of
+        // answers, laid out exactly like the live risr/advance form.
+        content.innerHTML = `
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-sm text-indigo-900 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                <span>This is your EM QIAT, question for question as it appears on risr/advance. It is the same form your supervisor reviews on the <button onclick="window.router('supervisor')" class="font-bold underline">SLO 11 Sign-off</button> page \u2014 answers save automatically. Use <strong>Copy</strong> on each answer, or <strong>Export for risr/advance</strong>, to paste them in.</span>
+            </div>
+            <div id="publish-emqiat"></div>`;
+        renderEMQIATForm(document.getElementById('publish-emqiat'), { readOnly: !!state.isReadOnly });
     } else if (mode === 'abstract') {
         content.innerHTML = renderAbstractForm(d);
     } else {
@@ -3519,308 +3398,6 @@ export function renderPublish(mode = 'qiat') {
 }
 
 // Helper: empty state placeholder for QIAT text fields 
-function qiatEmptyState(promptText) {
-    return `<p class="text-slate-400 italic text-sm select-none">${escapeHtml(promptText)}</p>`;
-}
-
-// Save training stage 
-window.saveTrainingStage = function(value) {
-    if (!state.projectData.meta) state.projectData.meta = {};
-    state.projectData.meta.trainingStage = value;
-    if (window.saveData) window.saveData();
-    // Re-render to update stage-specific guidance
-    renderPublish('qiat');
-};
-
-function renderQIATForm(d) {
-    const c = d.checklist || {};
-    const pdsa = d.pdsa || [];
-    const team = d.teamMembers || [];
-    const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
-    const logs = d.leadershipLogs || [];
-    const trainingStage = d.meta?.trainingStage || '';
-    const isHigher = trainingStage === 'higher';
-    const isACCS = trainingStage === 'accs';
-    
-    // QI Journey checklist (derived from actual project data)
-    const hasCreatingConditions = logs.length > 0 || team.length > 1;
-    const hasUnderstandingSystems = d.fishbone?.categories?.some(cat => cat.causes?.length > 0) || drivers.primary.length > 0;
-    const hasDevelopingAims = !!c.aim;
-    const hasTestingChanges = pdsa.length > 0;
-    const hasImplement = pdsa.some(p => p.status === 'complete' || p.act?.toLowerCase().includes('adopt'));
-    const hasSpread = c.sustainability?.toLowerCase().includes('spread') || c.sustainability?.toLowerCase().includes('other');
-    const hasLeadership = logs.length >= 3 || team.some(m => m.role?.toLowerCase().includes('lead'));
-    const hasProjectManagement = d.gantt?.length > 0 || pdsa.length >= 2;
-    const hasMeasurement = primaryChartData(d).length >= 10;
-
-    // Stage-specific guidance banners
-    const stageBanner = isHigher
-        ? `<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-sm text-indigo-800">
-               <strong>Higher Trainee:</strong> You must demonstrate <em>leadership</em> of your QI project, not just participation.
-               Ensure your reflections describe how you led the team, engaged stakeholders, and drove the improvement cycle.
-           </div>`
-        : isACCS
-        ? `<div class="bg-sky-50 border border-sky-200 rounded-lg p-3 mb-4 text-sm text-sky-800">
-               <strong>ACCS Trainee:</strong> You need to demonstrate active <em>participation</em> in a QI project.
-               Document your personal contribution and what you learned from the experience.
-           </div>`
-        : `<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
-               <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
-               <strong>Select your training stage below</strong> to see stage-specific guidance for this form.
-           </div>`;
-
-    return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 text-white p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2">
-                    <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-                    QIAT Draft — quick auto-generated summary
-                </h2>
-                <p class="text-indigo-200 text-sm mt-1">A rough draft assembled from your project data, useful for copying quick text into other documents.</p>
-            </div>
-            
-            <div class="p-6 space-y-6">
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-                    <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
-                    <div class="text-sm text-amber-800">
-                        <strong>This is not the form your supervisor reviews.</strong> It's a rough, auto-generated draft —
-                        useful for copying quick text into other documents, but it doesn't follow the real EM-QIAT (2025 Update)
-                        field structure and isn't linked to your sign-off. For the actual field-by-field EM-QIAT form that your
-                        supervisor sees and signs off on, go to
-                        <button onclick="window.router('supervisor')" class="font-bold underline hover:no-underline">SLO 11 Sign-off</button>
-                        in the sidebar — that's the one to complete and rely on for your portfolio.
-                    </div>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <button onclick="window.copyReport('qiat')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
-                        <i data-lucide="copy" class="w-4 h-4"></i> Copy All Text
-                    </button>
-                </div>
-                
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Training Stage</label>
-                    <div class="flex gap-3">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="training-stage" value="accs" 
-                                ${trainingStage === 'accs' ? 'checked' : ''}
-                                onchange="window.saveTrainingStage('accs')"
-                                class="text-rcem-purple">
-                            <span class="text-sm font-medium text-slate-700">ACCS Trainee</span>
-                            <span class="text-xs text-slate-400">(participation required)</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="training-stage" value="higher"
-                                ${trainingStage === 'higher' ? 'checked' : ''}
-                                onchange="window.saveTrainingStage('higher')"
-                                class="text-rcem-purple">
-                            <span class="text-sm font-medium text-slate-700">Higher Trainee</span>
-                            <span class="text-xs text-slate-400">(leadership required)</span>
-                        </label>
-                    </div>
-                </div>
-
-                ${stageBanner}
-                
-                <div class="border-b border-slate-200 pb-4">
-                    <h3 class="text-lg font-bold text-slate-800">Part A - Trainee Section</h3>
-                    <p class="text-sm text-slate-500">Complete this form prior to ARCP</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stage of Training</label>
-                        <div class="text-sm text-slate-800 font-medium">
-                            ${trainingStage === 'accs' ? 'ACCS' : trainingStage === 'higher' ? 'Higher EM Training' : team.length > 0 ? escapeHtml(team[0].grade || '-') : '-'}
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Placement</label>
-                        <div class="text-sm text-slate-800 font-medium">Emergency Department</div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date of Completion</label>
-                        <div class="text-sm text-slate-800 font-medium">${new Date().toLocaleDateString('en-GB')}</div>
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-blue-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">1. QI Personal Development Plan - Current Year</h4>
-                    </div>
-                    <div class="p-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                            1.1 PDP Summary
-                            <span class="normal-case font-normal text-slate-400 ml-2">- Enter your own goals in Define &amp; Measure → Aim</span>
-                        </label>
-                        <div id="qiat-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                            ${c.aim
-                                ? `<p class="text-sm text-slate-700">Primary objective: ${escapeHtml(c.aim)}</p>`
-                                : qiatEmptyState('No aim defined yet. Set your SMART aim in Define & Measure - it will appear here.')
-                            }
-                        </div>
-                        ${!c.aim ? `
-                            <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                Complete the aim field in Define &amp; Measure to populate this section.
-                            </p>` : ''}
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-emerald-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">2. QI Education</h4>
-                    </div>
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.1 Involvement - Engagement with QI education over the past year
-                            </label>
-                            <div id="qiat-education" class="bg-slate-50 p-3 rounded text-sm text-slate-700 min-h-[80px]">
-                                ${(d.meta?.title || pdsa.length > 0 || primaryChartData(d).length > 0) ? `
-                                    <ul class="space-y-1 text-sm text-slate-700">
-                                        ${d.meta?.title ? `<li>QIP: "${escapeHtml(d.meta.title)}"</li>` : ''}
-                                        ${pdsa.length > 0 ? `<li>${pdsa.length} PDSA cycle${pdsa.length > 1 ? 's' : ''} completed</li>` : ''}
-                                        ${primaryChartData(d).length > 0 ? `<li>${primaryChartData(d).length} data points collected and analysed</li>` : ''}
-                                        ${team.length > 0 ? `<li>${team.length} team member${team.length > 1 ? 's' : ''} engaged</li>` : ''}
-                                        ${(d.stakeholders?.length || 0) > 0 ? `<li>${d.stakeholders.length} stakeholder${d.stakeholders.length > 1 ? 's' : ''} mapped</li>` : ''}
-                                        ${logs.length > 0 ? `<li>${logs.length} leadership engagement${logs.length > 1 ? 's' : ''} documented</li>` : ''}
-                                    </ul>
-                                ` : qiatEmptyState('Add project data - involvement details will be drawn from your project automatically.')}
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.2 Learning - How has this developed your understanding of QI?
-                                <span class="normal-case font-normal text-slate-400 ml-2">- from your Learning Points</span>
-                            </label>
-                            <div id="qiat-learning" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                                ${c.learning_points
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('Enter your learning points in Define & Measure → Learning & Sustainability - they will appear here automatically. Write in your own words: what worked, what did not, what you would do differently.')
-                                }
-                            </div>
-                            ${!c.learning_points ? `
-                                <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                    <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                    This is a key reflective field - it must be in your own words.
-                                </p>` : ''}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-amber-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">3. Project Involvement</h4>
-                    </div>
-                    <div class="p-4">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-sm font-medium text-slate-700">Were you involved in a QI project?</span>
-                            <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">Yes</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded text-sm text-slate-700">
-                            <strong>Project Title:</strong> ${escapeHtml(d.meta?.title || '-')}
-                            <br><strong>Role:</strong> ${isHigher ? 'Project Lead / QI Lead' : isACCS ? 'Project Participant' : (team.length > 0 ? escapeHtml(team[0].role || '-') : '-')}
-                            <br><strong>Duration:</strong> ${d.gantt?.length > 0 ? `${d.gantt[0].start} to ${d.gantt[d.gantt.length - 1].end}` : 'Ongoing'}
-                        </div>
-                        ${isHigher ? `
-                            <p class="text-xs text-indigo-600 mt-2 flex items-center gap-1">
-                                <i data-lucide="info" class="w-3 h-3"></i>
-                                As a Higher trainee, ensure your reflections demonstrate how you <em>led</em> this project.
-                            </p>` : ''}
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-purple-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">4. Learning & Development</h4>
-                    </div>
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">4.1 QI Journey - Aspects gained experience in this year</label>
-                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                                ${[
-                                    [hasCreatingConditions, 'Creating Conditions'],
-                                    [hasUnderstandingSystems, 'Understanding Systems'],
-                                    [hasDevelopingAims, 'Developing Aims'],
-                                    [hasTestingChanges, 'Testing Changes'],
-                                    [hasImplement, 'Implement'],
-                                    [hasSpread, 'Spread'],
-                                    [hasLeadership, 'Leadership & Teams'],
-                                    [hasProjectManagement, 'Project Management'],
-                                    [hasMeasurement, 'Measurement'],
-                                ].map(([checked, label]) => `
-                                    <div class="flex items-center gap-2 p-2 rounded ${checked ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200'}">
-                                        <input type="checkbox" ${checked ? 'checked' : ''} disabled class="rounded">
-                                        <span class="text-xs ${checked ? 'text-emerald-800 font-medium' : 'text-slate-500'}">${label}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                4.2 Reflections and Learning
-                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
-                            </label>
-                            <div id="qiat-reflections" class="bg-slate-50 p-3 rounded min-h-[100px]">
-                                ${c.learning_points
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('This section requires your personal reflection. Enter your learning points in Define & Measure → Learning & Sustainability. Describe what went well, what did not, barriers you encountered, and what you would do differently. This cannot be auto-generated - it must be in your own words.')
-                                }
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                4.3 Next Year's PDP
-                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
-                            </label>
-                            <div id="qiat-next-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                                ${c.next_pdp
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.next_pdp)}</p>`
-                                    : qiatEmptyState('Enter your plans for next year\'s QI development here. What specific QI skills do you want to develop? What projects do you plan to lead or participate in? This section must be completed in your own words and cannot be auto-generated.')
-                                }
-                            </div>
-                            ${!c.next_pdp ? `
-                                <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                    <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                    Add your next year PDP to Define &amp; Measure → Learning &amp; Sustainability, or type it directly in your risr/advance portfolio.
-                                </p>` : ''}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                    <h4 class="font-bold text-indigo-800 text-sm mb-2 flex items-center gap-2">
-                        <i data-lucide="info" class="w-4 h-4"></i>
-                        Curriculum Mapping
-                    </h4>
-                    <p class="text-sm text-indigo-700">
-                        This project should be linked to <strong>SLO 11</strong> (Quality Improvement) in your risr/advance portfolio.
-                        ${isHigher
-                            ? 'As a Higher trainee, select Key Capabilities reflecting <strong>leadership</strong> of a QI project.'
-                            : isACCS
-                            ? 'As an ACCS trainee, select Key Capabilities reflecting <strong>participation</strong> in a QI project.'
-                            : 'Select the appropriate Key Capabilities based on your stage of training.'
-                        }
-                    </p>
-                </div>
-                
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
-                        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                        Part B - Trainer Section
-                    </h4>
-                    <p class="text-sm text-amber-700">
-                        Part B must be completed by your Educational Supervisor or an appropriate assessor.
-                        They will review your QI activity and provide feedback on your performance against SLO 11 criteria.
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 function wc(t) { return t ? t.split(/\s+/).filter(w => w.length > 0).length : 0; }
 function renderAbstractForm(d) {
     const c = d.checklist || {};
@@ -3954,11 +3531,7 @@ export function copyReport(type) {
     let content = '';
     
     if (type === 'qiat') {
-        const sections = ['qiat-pdp', 'qiat-education', 'qiat-learning', 'qiat-reflections', 'qiat-next-pdp'];
-        content = sections.map(id => {
-            const el = document.getElementById(id);
-            return el ? el.innerText : '';
-        }).filter(t => t.trim()).join('\n\n---\n\n');
+        content = emqiatPlainText(state.projectData);
     } else if (type === 'abstract') {
         // Try new structured abstract (4 sections) first, fall back to old single textarea
         const secIds = ['abs-bg', 'abs-methods', 'abs-results', 'abs-conc'];
