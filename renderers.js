@@ -12,6 +12,8 @@ import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculato
 import { renderSurveys } from "./surveys.js";
 import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withUnit } from "./project-metrics.js";
 import { renderDataTable, refreshEntryForm } from "./data-entry.js";
+import { renderEMQIATForm, emqiatPlainText } from "./emqiat.js";
+import { assessEmqiat } from "./emqiat-shared.js";
 
 // ==========================================
 // 1. MAIN ROUTER & NAVIGATION
@@ -240,6 +242,7 @@ function updatePortfolioReadiness() {
                     </div>
                 `).join('')}
             </div>
+            ${emqiatReadinessLine()}
             ${percent < 100 ? `
                 <div class="flex gap-2 mt-4">
                     <button onclick="window.openGoldenThreadValidator()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
@@ -253,6 +256,22 @@ function updatePortfolioReadiness() {
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
     }
+}
+
+// Link from the dashboard to the EM QIAT excellence check.
+function emqiatReadinessLine() {
+    const res = assessEmqiat(state.projectData || {});
+    const all = res.strong === res.total;
+    return `
+        <button onclick="window.router('publish'); setTimeout(() => window.switchPublishMode && window.switchPublishMode('qiat'), 50);"
+            class="mt-4 w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${all ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100'}">
+            <i data-lucide="clipboard-check" class="w-5 h-5 ${all ? 'text-emerald-600' : 'text-indigo-600'} flex-shrink-0"></i>
+            <span class="flex-1">
+                <span class="block text-xs font-bold text-slate-800">EM QIAT: ${res.strong} of ${res.total} sections strong</span>
+                <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : 'See exactly what each answer still needs'}</span>
+            </span>
+            <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+        </button>`;
 }
 
 function renderARCPCountdown() {
@@ -3488,27 +3507,15 @@ export function renderPublish(mode = 'qiat') {
     });
     
     if (mode === 'qiat') {
-        content.innerHTML = renderQIATForm(d);
-        // Make QIAT narrative divs editable (inline editing before copying to portfolio)
-        setTimeout(() => {
-            const qiatIds = ['qiat-pdp', 'qiat-education', 'qiat-learning', 'qiat-reflections', 'qiat-next-pdp'];
-            qiatIds.forEach(id => {
-                const el = document.getElementById(id);
-                if (el && !state.isReadOnly) {
-                    el.contentEditable = 'plaintext-only';
-                    el.title = 'Click to edit before copying to your portfolio';
-                    el.classList.add('focus:outline-none', 'focus:ring-2', 'focus:ring-indigo-300', 'cursor-text', 'hover:bg-indigo-50/50', 'transition-colors');
-                    // Add subtle edit hint on first editable div
-                    if (id === 'qiat-pdp' && !el.dataset.hintAdded) {
-                        el.dataset.hintAdded = '1';
-                        const hint = document.createElement('div');
-                        hint.className = 'text-[10px] text-indigo-400 mt-1 flex items-center gap-1';
-                        hint.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> All text boxes are editable — personalise before copying to risr/Advance';
-                        el.parentNode?.insertBefore(hint, el.nextSibling);
-                    }
-                }
-            });
-        }, 100);
+        // The same EM QIAT (2025 Update) form as the SLO 11 page — one set of
+        // answers, laid out exactly like the live risr/advance form.
+        content.innerHTML = `
+            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-sm text-indigo-900 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
+                <span>This is your EM QIAT, question for question as it appears on risr/advance. It is the same form your supervisor reviews on the <button onclick="window.router('supervisor')" class="font-bold underline">SLO 11 Sign-off</button> page \u2014 answers save automatically. Use <strong>Copy</strong> on each answer, or <strong>Export for risr/advance</strong>, to paste them in.</span>
+            </div>
+            <div id="publish-emqiat"></div>`;
+        renderEMQIATForm(document.getElementById('publish-emqiat'), { readOnly: !!state.isReadOnly });
     } else if (mode === 'abstract') {
         content.innerHTML = renderAbstractForm(d);
     } else {
@@ -3519,308 +3526,6 @@ export function renderPublish(mode = 'qiat') {
 }
 
 // Helper: empty state placeholder for QIAT text fields 
-function qiatEmptyState(promptText) {
-    return `<p class="text-slate-400 italic text-sm select-none">${escapeHtml(promptText)}</p>`;
-}
-
-// Save training stage 
-window.saveTrainingStage = function(value) {
-    if (!state.projectData.meta) state.projectData.meta = {};
-    state.projectData.meta.trainingStage = value;
-    if (window.saveData) window.saveData();
-    // Re-render to update stage-specific guidance
-    renderPublish('qiat');
-};
-
-function renderQIATForm(d) {
-    const c = d.checklist || {};
-    const pdsa = d.pdsa || [];
-    const team = d.teamMembers || [];
-    const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
-    const logs = d.leadershipLogs || [];
-    const trainingStage = d.meta?.trainingStage || '';
-    const isHigher = trainingStage === 'higher';
-    const isACCS = trainingStage === 'accs';
-    
-    // QI Journey checklist (derived from actual project data)
-    const hasCreatingConditions = logs.length > 0 || team.length > 1;
-    const hasUnderstandingSystems = d.fishbone?.categories?.some(cat => cat.causes?.length > 0) || drivers.primary.length > 0;
-    const hasDevelopingAims = !!c.aim;
-    const hasTestingChanges = pdsa.length > 0;
-    const hasImplement = pdsa.some(p => p.status === 'complete' || p.act?.toLowerCase().includes('adopt'));
-    const hasSpread = c.sustainability?.toLowerCase().includes('spread') || c.sustainability?.toLowerCase().includes('other');
-    const hasLeadership = logs.length >= 3 || team.some(m => m.role?.toLowerCase().includes('lead'));
-    const hasProjectManagement = d.gantt?.length > 0 || pdsa.length >= 2;
-    const hasMeasurement = primaryChartData(d).length >= 10;
-
-    // Stage-specific guidance banners
-    const stageBanner = isHigher
-        ? `<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-sm text-indigo-800">
-               <strong>Higher Trainee:</strong> You must demonstrate <em>leadership</em> of your QI project, not just participation.
-               Ensure your reflections describe how you led the team, engaged stakeholders, and drove the improvement cycle.
-           </div>`
-        : isACCS
-        ? `<div class="bg-sky-50 border border-sky-200 rounded-lg p-3 mb-4 text-sm text-sky-800">
-               <strong>ACCS Trainee:</strong> You need to demonstrate active <em>participation</em> in a QI project.
-               Document your personal contribution and what you learned from the experience.
-           </div>`
-        : `<div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm text-amber-800">
-               <i data-lucide="alert-triangle" class="w-4 h-4 inline mr-1"></i>
-               <strong>Select your training stage below</strong> to see stage-specific guidance for this form.
-           </div>`;
-
-    return `
-        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            <div class="bg-gradient-to-r from-rcem-purple to-indigo-700 text-white p-6">
-                <h2 class="text-xl font-bold flex items-center gap-2">
-                    <i data-lucide="clipboard-check" class="w-5 h-5"></i>
-                    QIAT Draft — quick auto-generated summary
-                </h2>
-                <p class="text-indigo-200 text-sm mt-1">A rough draft assembled from your project data, useful for copying quick text into other documents.</p>
-            </div>
-            
-            <div class="p-6 space-y-6">
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-start gap-3">
-                    <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
-                    <div class="text-sm text-amber-800">
-                        <strong>This is not the form your supervisor reviews.</strong> It's a rough, auto-generated draft —
-                        useful for copying quick text into other documents, but it doesn't follow the real EM-QIAT (2025 Update)
-                        field structure and isn't linked to your sign-off. For the actual field-by-field EM-QIAT form that your
-                        supervisor sees and signs off on, go to
-                        <button onclick="window.router('supervisor')" class="font-bold underline hover:no-underline">SLO 11 Sign-off</button>
-                        in the sidebar — that's the one to complete and rely on for your portfolio.
-                    </div>
-                </div>
-                <div class="flex justify-end gap-2">
-                    <button onclick="window.copyReport('qiat')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700">
-                        <i data-lucide="copy" class="w-4 h-4"></i> Copy All Text
-                    </button>
-                </div>
-                
-                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Training Stage</label>
-                    <div class="flex gap-3">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="training-stage" value="accs" 
-                                ${trainingStage === 'accs' ? 'checked' : ''}
-                                onchange="window.saveTrainingStage('accs')"
-                                class="text-rcem-purple">
-                            <span class="text-sm font-medium text-slate-700">ACCS Trainee</span>
-                            <span class="text-xs text-slate-400">(participation required)</span>
-                        </label>
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="training-stage" value="higher"
-                                ${trainingStage === 'higher' ? 'checked' : ''}
-                                onchange="window.saveTrainingStage('higher')"
-                                class="text-rcem-purple">
-                            <span class="text-sm font-medium text-slate-700">Higher Trainee</span>
-                            <span class="text-xs text-slate-400">(leadership required)</span>
-                        </label>
-                    </div>
-                </div>
-
-                ${stageBanner}
-                
-                <div class="border-b border-slate-200 pb-4">
-                    <h3 class="text-lg font-bold text-slate-800">Part A - Trainee Section</h3>
-                    <p class="text-sm text-slate-500">Complete this form prior to ARCP</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-slate-50 rounded-lg">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Stage of Training</label>
-                        <div class="text-sm text-slate-800 font-medium">
-                            ${trainingStage === 'accs' ? 'ACCS' : trainingStage === 'higher' ? 'Higher EM Training' : team.length > 0 ? escapeHtml(team[0].grade || '-') : '-'}
-                        </div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Placement</label>
-                        <div class="text-sm text-slate-800 font-medium">Emergency Department</div>
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Date of Completion</label>
-                        <div class="text-sm text-slate-800 font-medium">${new Date().toLocaleDateString('en-GB')}</div>
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-blue-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">1. QI Personal Development Plan - Current Year</h4>
-                    </div>
-                    <div class="p-4">
-                        <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                            1.1 PDP Summary
-                            <span class="normal-case font-normal text-slate-400 ml-2">- Enter your own goals in Define &amp; Measure → Aim</span>
-                        </label>
-                        <div id="qiat-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                            ${c.aim
-                                ? `<p class="text-sm text-slate-700">Primary objective: ${escapeHtml(c.aim)}</p>`
-                                : qiatEmptyState('No aim defined yet. Set your SMART aim in Define & Measure - it will appear here.')
-                            }
-                        </div>
-                        ${!c.aim ? `
-                            <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                Complete the aim field in Define &amp; Measure to populate this section.
-                            </p>` : ''}
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-emerald-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">2. QI Education</h4>
-                    </div>
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.1 Involvement - Engagement with QI education over the past year
-                            </label>
-                            <div id="qiat-education" class="bg-slate-50 p-3 rounded text-sm text-slate-700 min-h-[80px]">
-                                ${(d.meta?.title || pdsa.length > 0 || primaryChartData(d).length > 0) ? `
-                                    <ul class="space-y-1 text-sm text-slate-700">
-                                        ${d.meta?.title ? `<li>QIP: "${escapeHtml(d.meta.title)}"</li>` : ''}
-                                        ${pdsa.length > 0 ? `<li>${pdsa.length} PDSA cycle${pdsa.length > 1 ? 's' : ''} completed</li>` : ''}
-                                        ${primaryChartData(d).length > 0 ? `<li>${primaryChartData(d).length} data points collected and analysed</li>` : ''}
-                                        ${team.length > 0 ? `<li>${team.length} team member${team.length > 1 ? 's' : ''} engaged</li>` : ''}
-                                        ${(d.stakeholders?.length || 0) > 0 ? `<li>${d.stakeholders.length} stakeholder${d.stakeholders.length > 1 ? 's' : ''} mapped</li>` : ''}
-                                        ${logs.length > 0 ? `<li>${logs.length} leadership engagement${logs.length > 1 ? 's' : ''} documented</li>` : ''}
-                                    </ul>
-                                ` : qiatEmptyState('Add project data - involvement details will be drawn from your project automatically.')}
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                2.2 Learning - How has this developed your understanding of QI?
-                                <span class="normal-case font-normal text-slate-400 ml-2">- from your Learning Points</span>
-                            </label>
-                            <div id="qiat-learning" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                                ${c.learning_points
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('Enter your learning points in Define & Measure → Learning & Sustainability - they will appear here automatically. Write in your own words: what worked, what did not, what you would do differently.')
-                                }
-                            </div>
-                            ${!c.learning_points ? `
-                                <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                    <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                    This is a key reflective field - it must be in your own words.
-                                </p>` : ''}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-amber-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">3. Project Involvement</h4>
-                    </div>
-                    <div class="p-4">
-                        <div class="flex items-center gap-2 mb-4">
-                            <span class="text-sm font-medium text-slate-700">Were you involved in a QI project?</span>
-                            <span class="bg-emerald-100 text-emerald-800 px-2 py-1 rounded text-xs font-bold">Yes</span>
-                        </div>
-                        <div class="bg-slate-50 p-3 rounded text-sm text-slate-700">
-                            <strong>Project Title:</strong> ${escapeHtml(d.meta?.title || '-')}
-                            <br><strong>Role:</strong> ${isHigher ? 'Project Lead / QI Lead' : isACCS ? 'Project Participant' : (team.length > 0 ? escapeHtml(team[0].role || '-') : '-')}
-                            <br><strong>Duration:</strong> ${d.gantt?.length > 0 ? `${d.gantt[0].start} to ${d.gantt[d.gantt.length - 1].end}` : 'Ongoing'}
-                        </div>
-                        ${isHigher ? `
-                            <p class="text-xs text-indigo-600 mt-2 flex items-center gap-1">
-                                <i data-lucide="info" class="w-3 h-3"></i>
-                                As a Higher trainee, ensure your reflections demonstrate how you <em>led</em> this project.
-                            </p>` : ''}
-                    </div>
-                </div>
-                
-                <div class="border border-slate-200 rounded-lg overflow-hidden">
-                    <div class="bg-purple-50 px-4 py-3 border-b border-slate-200">
-                        <h4 class="font-bold text-slate-800">4. Learning & Development</h4>
-                    </div>
-                    <div class="p-4 space-y-4">
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">4.1 QI Journey - Aspects gained experience in this year</label>
-                            <div class="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
-                                ${[
-                                    [hasCreatingConditions, 'Creating Conditions'],
-                                    [hasUnderstandingSystems, 'Understanding Systems'],
-                                    [hasDevelopingAims, 'Developing Aims'],
-                                    [hasTestingChanges, 'Testing Changes'],
-                                    [hasImplement, 'Implement'],
-                                    [hasSpread, 'Spread'],
-                                    [hasLeadership, 'Leadership & Teams'],
-                                    [hasProjectManagement, 'Project Management'],
-                                    [hasMeasurement, 'Measurement'],
-                                ].map(([checked, label]) => `
-                                    <div class="flex items-center gap-2 p-2 rounded ${checked ? 'bg-emerald-50 border border-emerald-200' : 'bg-slate-50 border border-slate-200'}">
-                                        <input type="checkbox" ${checked ? 'checked' : ''} disabled class="rounded">
-                                        <span class="text-xs ${checked ? 'text-emerald-800 font-medium' : 'text-slate-500'}">${label}</span>
-                                    </div>
-                                `).join('')}
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                4.2 Reflections and Learning
-                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
-                            </label>
-                            <div id="qiat-reflections" class="bg-slate-50 p-3 rounded min-h-[100px]">
-                                ${c.learning_points
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.learning_points)}</p>`
-                                    : qiatEmptyState('This section requires your personal reflection. Enter your learning points in Define & Measure → Learning & Sustainability. Describe what went well, what did not, barriers you encountered, and what you would do differently. This cannot be auto-generated - it must be in your own words.')
-                                }
-                            </div>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-bold text-slate-500 uppercase mb-2">
-                                4.3 Next Year's PDP
-                                <span class="normal-case font-normal text-slate-400 ml-2">- must be written in your own words</span>
-                            </label>
-                            <div id="qiat-next-pdp" class="bg-slate-50 p-3 rounded min-h-[80px]">
-                                ${c.next_pdp
-                                    ? `<p class="text-sm text-slate-700 whitespace-pre-line">${escapeHtml(c.next_pdp)}</p>`
-                                    : qiatEmptyState('Enter your plans for next year\'s QI development here. What specific QI skills do you want to develop? What projects do you plan to lead or participate in? This section must be completed in your own words and cannot be auto-generated.')
-                                }
-                            </div>
-                            ${!c.next_pdp ? `
-                                <p class="text-xs text-amber-600 mt-2 flex items-center gap-1">
-                                    <i data-lucide="alert-circle" class="w-3 h-3"></i>
-                                    Add your next year PDP to Define &amp; Measure → Learning &amp; Sustainability, or type it directly in your risr/advance portfolio.
-                                </p>` : ''}
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-                    <h4 class="font-bold text-indigo-800 text-sm mb-2 flex items-center gap-2">
-                        <i data-lucide="info" class="w-4 h-4"></i>
-                        Curriculum Mapping
-                    </h4>
-                    <p class="text-sm text-indigo-700">
-                        This project should be linked to <strong>SLO 11</strong> (Quality Improvement) in your risr/advance portfolio.
-                        ${isHigher
-                            ? 'As a Higher trainee, select Key Capabilities reflecting <strong>leadership</strong> of a QI project.'
-                            : isACCS
-                            ? 'As an ACCS trainee, select Key Capabilities reflecting <strong>participation</strong> in a QI project.'
-                            : 'Select the appropriate Key Capabilities based on your stage of training.'
-                        }
-                    </p>
-                </div>
-                
-                <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <h4 class="font-bold text-amber-800 text-sm mb-2 flex items-center gap-2">
-                        <i data-lucide="alert-triangle" class="w-4 h-4"></i>
-                        Part B - Trainer Section
-                    </h4>
-                    <p class="text-sm text-amber-700">
-                        Part B must be completed by your Educational Supervisor or an appropriate assessor.
-                        They will review your QI activity and provide feedback on your performance against SLO 11 criteria.
-                    </p>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
 function wc(t) { return t ? t.split(/\s+/).filter(w => w.length > 0).length : 0; }
 function renderAbstractForm(d) {
     const c = d.checklist || {};
@@ -3954,11 +3659,7 @@ export function copyReport(type) {
     let content = '';
     
     if (type === 'qiat') {
-        const sections = ['qiat-pdp', 'qiat-education', 'qiat-learning', 'qiat-reflections', 'qiat-next-pdp'];
-        content = sections.map(id => {
-            const el = document.getElementById(id);
-            return el ? el.innerText : '';
-        }).filter(t => t.trim()).join('\n\n---\n\n');
+        content = emqiatPlainText(state.projectData);
     } else if (type === 'abstract') {
         // Try new structured abstract (4 sections) first, fall back to old single textarea
         const secIds = ['abs-bg', 'abs-methods', 'abs-results', 'abs-conc'];

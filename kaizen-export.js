@@ -1,33 +1,26 @@
 // kaizen-export.js
 //
-// Generates copy-paste-ready text matching the ACTUAL current RCEM EM-QIAT
-// (2025 Update, v7) form on kaizenep.com/risr-advance — NOT a generic "QIAT"
-// layout. Field labels and numbering below (1.1, 2.1, 3.0-3.5, 4.1-4.4) are
-// taken directly from that live form so this export can be pasted straight
-// into the matching boxes.
+// Export of the EM QIAT (2025 Update) laid out exactly like the live form on
+// risr/advance (kaizenep.com): the intro, header fields, Part A with the same
+// numbering and question wording (1.1, 2.1, 3.0–3.5, 4.1–4.4) and the
+// Curriculum section — each answer in its own box with a Copy button, so it
+// can be pasted straight into the matching field.
+//
+// Each answer is what the trainee wrote on the EM QIAT form in the app. If a
+// box is empty, a draft built from the project data is shown instead, clearly
+// marked as a draft; failing that, a marked reminder of what to write.
 
 import { state } from "./state.js";
 import { getProjectExportGaps } from "./utils.js";
-import { deriveStageLabel, deriveTeam, deriveRole, deriveOverview, deriveSharingResults, deriveReflections, deriveNextYearPdp, hasAnyProjectData, derivePdpFromJournal, deriveEducationInvolvementFromJournal, deriveEndOfTrainingFromJournal } from "./emqiat-shared.js";
+import {
+    deriveStageLabel, deriveOverview, deriveSharingResults, deriveReflections, deriveNextYearPdp,
+    hasAnyProjectData, derivePdpFromJournal, deriveEducationInvolvementFromJournal, deriveEndOfTrainingFromJournal,
+    deriveRoleNarrative, deriveTeamNarrative, assessEmqiat, isFinalYear,
+    EMQIAT_INTRO, EMQIAT_NA_NOTE, EMQIAT_PROMPTS, QI_JOURNEY_ITEMS, QI_JOURNEY_URL,
+    CURRICULUM_HEADING, CURRICULUM_NOTE, CURRICULUM_KCS, OVERVIEW_PARTS
+} from "./emqiat-shared.js";
 
-// Field label → friendly name, used only for the "tick all that apply" list below.
-const QI_JOURNEY_LABELS = {
-    creatingConditions: 'Creating Conditions',
-    understandingSystems: 'Understanding Systems',
-    developingAims: 'Developing Aims',
-    testingChanges: 'Testing Changes',
-    implement: 'Implement',
-    spread: 'Spread',
-    leadershipTeams: 'Leadership & Teams',
-    projectManagementCommunication: 'Project Management & Communication',
-    measurement: 'Measurement'
-};
-
-// Escapes HTML special characters. Only ever apply this to genuine user/derived
-// text — never to a string that already contains deliberate structural markup
-// (e.g. a static hint paragraph, or a value built by concatenating an already
-// nl2br()'d fragment with raw HTML), or that markup will be escaped too and show
-// up as visible tag soup instead of rendering.
+// Escapes HTML special characters. Apply only to user/derived text.
 function esc(value) {
     if (value === null || value === undefined) return '';
     return String(value).replace(/[&<>"']/g, character => ({
@@ -44,7 +37,7 @@ export function exportToKaizen() {
     const gaps = getProjectExportGaps(data);
     if (gaps.length > 0 && window.showConfirmDialog) {
         window.showConfirmDialog(
-            'This project is missing some information that would normally appear in the QIAT export — ' + gaps.join(' ') + ' You can still export now and fill those sections in on the live Kaizen form yourself, or go back and add them first.',
+            'This project is missing some information that would normally appear in the QIAT export — ' + gaps.join(' ') + ' You can still export now and fill those sections in on the live form yourself, or go back and add them first.',
             () => runKaizenExport(),
             'Export Anyway',
             'Some sections look incomplete'
@@ -54,204 +47,173 @@ export function exportToKaizen() {
     runKaizenExport();
 }
 
+// One answer box: the trainee's text, else a marked draft, else a marked reminder.
+function answerBox(typed, draft, reminder) {
+    if (typed && String(typed).trim()) return `<div class="content-box" data-copy="${esc(typed)}">${nl2br(typed)}</div>`;
+    if (draft && String(draft).trim()) {
+        return `<div class="content-box draft" data-copy="${esc(draft)}"><div class="flag no-copy">Draft from your project data — not yet written by you. Rewrite in your own words and fill in any [bracketed] parts before pasting.</div>${nl2br(draft)}</div>`;
+    }
+    return reminder === 'N/A' ? `<div class="content-box" data-copy="N/A">N/A</div>` : `<div class="content-box todo no-copy">${esc(reminder)}</div>`;
+}
+
+function question(q) {
+    return `<h3>${esc(q.num)} ${esc(q.label)}${q.prompt ? ` <span class="prompt">- ${esc(q.prompt)}</span>` : ''}</h3>`;
+}
+
 function runKaizenExport() {
     const data = state.projectData || window.projectData || {};
-    const checklist = data.checklist || {};
     const meta = data.meta || {};
-    const emqiatForm = data.emqiatForm || {};
-    const overview = emqiatForm.overview || {};
+    const e = data.emqiatForm || {};
+    const overview = e.overview || {};
     const derivedOverview = deriveOverview(data);
     const hasProject = hasAnyProjectData(data);
+    const P = EMQIAT_PROMPTS;
+    const finalYear = isFinalYear(data);
+    const check = assessEmqiat(data);
 
-    // Every field below PREFERS what the trainee actually typed into the
-    // in-app EM-QIAT form (data.emqiatForm.*) and only falls back to a derived
-    // suggestion from elsewhere in the project, then a bracketed placeholder,
-    // if the trainee hasn't filled it in yet. This keeps the export and the
-    // in-app form from ever drifting apart.
-    const stage = emqiatForm.stageOfTraining || deriveStageLabel(meta.trainingStage) || '[Add your stage of training, e.g. ST6]';
-    const placement = emqiatForm.placement || '[Add your placement/rotation for this training year, e.g. "ST6 year at <hospital>"]';
-    const dateOfCompletion = emqiatForm.dateOfCompletion || '[Add the date you expect to complete/submit this QIAT form]';
-    // pdpEntered is real trainee/derived text and must be escaped; pdpFallback is a
-    // static developer-authored hint (with a deliberate embedded <p class="hint">)
-    // and must never be passed through esc()/nl2br(), or its markup would render as
-    // literal text instead of a styled hint.
-    const pdpEntered = emqiatForm.pdp || derivePdpFromJournal(data);
-    const pdpFallback = 'This year\'s QI PDP centred on leading a full-cycle, trainee-initiated Quality Improvement Project (see Section 3 below).<p class="hint">[No PDP text entered yet on the EM-QIAT tab — add your own, or use "Suggest from project data" there.]</p>';
-    const qiEducationInvolvement = emqiatForm.qiEducationInvolvement || deriveEducationInvolvementFromJournal(data) || '[No data available for this — add any online learning, courses, or conference attendance related to QI here.]';
-    const qiEducationLearning = emqiatForm.qiEducationLearning || '[No data available for this — describe what formal QI education contributed, separate from what you learned by doing the project itself.]';
-    const involvedAnswer = emqiatForm.involvedInProject === 'yes' ? 'Yes'
-        : emqiatForm.involvedInProject === 'no' ? 'No'
-        : (hasProject ? 'Yes' : '[Answer Yes/No]');
+    const involved = e.involvedInProject === 'yes' ? 'Yes' : e.involvedInProject === 'no' ? 'No' : (hasProject ? 'Yes' : '');
 
-    const ov = {
-        background: overview.background || derivedOverview.background || '[Add background]',
-        aim: overview.aim || derivedOverview.aim || '[Add your SMART aim]',
-        understandingProblem: overview.understandingProblem || derivedOverview.understandingProblem || '[Add baseline/scoping evidence]',
-        measures: overview.measures || derivedOverview.measures || '[Add outcome/process/balancing measures]',
-        interventions: overview.interventions || derivedOverview.interventions || '[Add your change ideas / PDSA cycles]',
-        results: overview.results || derivedOverview.results || '[Add results once available]',
-        nextSteps: overview.nextSteps || derivedOverview.nextSteps || '[Add next steps]'
-    };
-    const projectOverview = hasProject || Object.values(overview).some(Boolean) ? `
-        <p><strong>Background:</strong> ${nl2br(ov.background)}</p>
-        <p><strong>Aim:</strong> ${nl2br(ov.aim)}</p>
-        <p><strong>Understanding the Problem:</strong> ${nl2br(ov.understandingProblem)}</p>
-        <p><strong>Measures:</strong> ${nl2br(ov.measures)}</p>
-        <p><strong>Interventions:</strong> ${nl2br(ov.interventions)}</p>
-        <p><strong>Results:</strong> ${nl2br(ov.results)}</p>
-        <p><strong>Next Steps:</strong> ${nl2br(ov.nextSteps)}</p>
-    ` : '[No QI project data found yet — complete the Problem, Aim and Measures tabs, or fill in the EM-QIAT tab directly, first.]';
+    // 3.1: the trainee's structured overview, falling back part by part to a draft.
+    const ovTyped = OVERVIEW_PARTS.some(([k]) => (overview[k] || '').trim());
+    const ovRows = OVERVIEW_PARTS.map(([k, l]) => {
+        const typed = (overview[k] || '').trim();
+        const draft = (derivedOverview[k] || '').trim();
+        if (typed) return `<p><strong>${l}:</strong> ${nl2br(typed)}</p>`;
+        if (draft) return `<p class="draft-inline"><strong>${l}:</strong> ${nl2br(draft)} <span class="flag-inline no-copy">(draft from project data)</span></p>`;
+        return `<p class="todo-inline"><strong>${l}:</strong> [To complete]</p>`;
+    }).join('');
+    const overviewBox = (ovTyped || hasProject)
+        ? `<div class="content-box" data-copy="${esc(OVERVIEW_PARTS.map(([k, l]) => { const t = (overview[k] || '').trim() || (derivedOverview[k] || '').trim(); return t ? `${l}: ${t}` : ''; }).filter(Boolean).join('\n\n'))}">${ovRows}</div>`
+        : `<div class="content-box todo">[To complete: background, aim, understanding the problem, measures, interventions, results and next steps]</div>`;
 
-    const roleGuess = emqiatForm.role || deriveRole(data) || '[Describe your role — Lead / Co-lead / Team member]';
+    const journey = e.qiJourney || {};
+    const ticked = QI_JOURNEY_ITEMS.filter(([k]) => journey[k]).map(([, l]) => l);
+    const curriculum = e.curriculum || {};
+    const kcs = CURRICULUM_KCS.filter(([k]) => curriculum[k]).map(([, l]) => l);
 
-    // teamStakeholders / deriveTeam text is real user/derived text and must be
-    // escaped via nl2br(); "Additional stakeholders engaged: …" is a static label
-    // we add ourselves, kept out of nl2br() so it isn't escaped, with the actual
-    // stakeholder names escaped separately via esc().
-    const teamDerived = deriveTeam(data);
-    const stakeholderNarrativeText = emqiatForm.teamStakeholders || teamDerived || '[List your team members and how you engaged stakeholders]';
-    const additionalStakeholders = (!emqiatForm.teamStakeholders && teamDerived && data.stakeholders?.length)
-        ? data.stakeholders.map(s => s.name || s).filter(Boolean).join(', ')
-        : '';
-
-    const sharingGuess = emqiatForm.sharingResults || deriveSharingResults(data) || '[Add details of any poster, presentation, or meeting where you shared this work]';
-
-    // 4.1 QI Journey — now a real tracked checklist (data.emqiatForm.qiJourney),
-    // not just an instruction to go tick it on the live form.
-    const qiJourney = emqiatForm.qiJourney || {};
-    const qiJourneyList = Object.entries(QI_JOURNEY_LABELS)
-        .map(([key, label]) => `${qiJourney[key] ? '☑' : '☐'} ${label}`)
-        .join(' &nbsp;&middot;&nbsp; ');
-
-    const reflections = emqiatForm.reflections || deriveReflections(data) || '[Add your reflections — what went well, what didn\'t, what you would do differently]';
-    const nextYearPdp = emqiatForm.nextYearPdp || deriveNextYearPdp(data) || '[Add your QI plans for next year]';
-
-    // 4.4 End of training QI development journey — this is a personal narrative
-    // and should not be fabricated. Prefer the trainee's own text; only fall
-    // back to a clearly-marked draft skeleton if they haven't written anything.
-    // journeyEntered is escaped once at the render site below. journeyDraftHtml is
-    // built here from an already-escaped/nl2br'd fragment plus static markup, so it
-    // must be rendered as-is at the render site rather than passed through nl2br()
-    // again (which would double-escape the <br> tags it already contains).
-    const journeyDraftParts = [checklist.sustainability, checklist.learning_points].filter(Boolean);
-    const journeyEntered = emqiatForm.endOfTrainingJourney || deriveEndOfTrainingFromJournal(data);
-    const journeyDraftHtml = journeyDraftParts.length
-        ? `${nl2br(journeyDraftParts.join('\n\n'))}<p style="color:#b45309;"><em>[DRAFT — this field asks for your longitudinal QI/leadership journey across your whole EM training with specific examples from earlier years. The text above is drawn only from this project's sustainability/learning notes — personalise it before submitting.]</em></p>`
-        : '';
+    const weak = check.items.filter(i => !i.optional && i.status !== 'strong');
 
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-        if (window.showToast) window.showToast('Please allow pop-ups to export to Kaizen', 'error');
+        if (window.showToast) window.showToast('Please allow pop-ups to open the export', 'error');
         return;
     }
 
-    const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <title>EM QIAT (2025 Update) Export</title>
-            <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #1e293b; padding: 40px; max-width: 900px; margin: 0 auto; }
-                .header { text-align: center; border-bottom: 2px solid #2d2e83; padding-bottom: 20px; margin-bottom: 30px; position: relative; }
-                .logo { position: absolute; top: 0; right: 0; width: 100px; }
-                h1 { color: #2d2e83; font-size: 22px; }
-                h2 { color: #2d2e83; font-size: 17px; margin-top: 28px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                h3 { font-size: 13.5px; color: #444; margin-bottom: 4px; }
-                .part-label { display: inline-block; background: #eef2ff; color: #312e81; font-size: 11px; font-weight: bold; text-transform: uppercase; letter-spacing: .03em; padding: 2px 8px; border-radius: 3px; margin-bottom: 6px; }
-                .section { margin-bottom: 22px; }
-                .content-box { background: #f9f9f9; padding: 14px; border: 1px solid #ddd; border-radius: 4px; min-height: 30px; font-size: 13.5px; }
-                .content-box p { margin: 0 0 8px; }
-                .hint { color: #64748b; font-size: 11.5px; font-style: italic; margin: 2px 0 8px; }
-                .btn-print { display: block; width: 200px; margin: 20px auto; padding: 10px; background: #2d2e83; color: white; text-align: center; text-decoration: none; border-radius: 5px; cursor: pointer; border: none; font-size: 14px; }
-                @media print { .btn-print { display: none; } body { padding: 0; } }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <img src="./logo.png" alt="WMEBEM Logo" class="logo">
-                <h1>EM Quality Improvement Assessment Tool (2025 Update)</h1>
-                <p><strong>Project Title:</strong> ${esc(meta.title) || 'Not specified'}</p>
-                <p><strong>Date Exported:</strong> ${new Date().toLocaleDateString()}</p>
-                <p class="hint">This mirrors the fields on the live risr/advance "New EM QIAT (2025 Update)" form — copy each box into the matching field there.</p>
-            </div>
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <title>EM QIAT (2025 Update) — ${esc(meta.title || 'QIP')}</title>
+    <style>
+        body { font-family: Arial, Helvetica, sans-serif; line-height: 1.55; color: #1e293b; padding: 36px; max-width: 900px; margin: 0 auto; font-size: 14px; }
+        h1 { color: #2d2e83; font-size: 21px; margin: 0 0 4px; }
+        .sub { color: #64748b; font-size: 12px; margin: 0 0 18px; }
+        .intro { margin: 0 0 14px; }
+        .hdr { display: grid; grid-template-columns: 170px 1fr; gap: 4px 12px; margin-bottom: 16px; font-size: 13.5px; }
+        .hdr span:nth-child(odd) { color: #475569; }
+        h2 { color: #a21caf; font-size: 17px; font-weight: normal; margin: 26px 0 10px; }
+        h3 { font-size: 13.5px; color: #1e293b; margin: 14px 0 5px; font-weight: bold; }
+        h3 .prompt { font-weight: normal; color: #475569; }
+        .content-box { position: relative; background: #f8fafc; padding: 12px 14px; border: 1px solid #e2e8f0; border-radius: 6px; min-height: 22px; font-size: 13.5px; }
+        .content-box p { margin: 0 0 8px; }
+        .content-box.draft { background: #fffbeb; border-color: #fcd34d; }
+        .content-box.todo, .todo-inline { color: #b45309; font-style: italic; }
+        .draft-inline { background: #fffbeb; }
+        .flag { font-size: 11.5px; color: #92400e; font-weight: bold; margin-bottom: 6px; }
+        .flag-inline { font-size: 11px; color: #92400e; font-style: italic; }
+        .note { color: #64748b; font-size: 12px; font-style: italic; }
+        .copy { position: absolute; top: 6px; right: 6px; font-size: 11px; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; padding: 2px 8px; cursor: pointer; color: #334155; }
+        .copy:hover { background: #eef2ff; }
+        .check { border: 1px solid #c7d2fe; background: #eef2ff; border-radius: 8px; padding: 12px 14px; margin: 0 0 20px; font-size: 13px; }
+        .check.good { border-color: #a7f3d0; background: #ecfdf5; }
+        .check ul { margin: 6px 0 0; padding-left: 18px; }
+        .toolbar { display: flex; gap: 8px; justify-content: center; margin: 0 0 20px; }
+        .toolbar button { padding: 9px 16px; background: #2d2e83; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
+        a { color: #a21caf; }
+        @media print { .toolbar, .copy, .check, .no-copy { display: none !important; } body { padding: 0; } .content-box.draft { background: #f8fafc; border-color: #e2e8f0; } }
+    </style>
+</head>
+<body>
+    <h1>EM QIAT (2025 Update)</h1>
+    <p class="sub">${esc(meta.title || 'Untitled QIP')} · exported ${new Date().toLocaleDateString('en-GB')} · copy each box into the matching field on risr/advance</p>
 
-            <button class="btn-print" onclick="window.print()">Print to PDF</button>
+    <div class="toolbar"><button onclick="window.print()">Print / save as PDF</button></div>
 
-            <div class="section">
-                <h2>Header fields</h2>
-                <h3>Stage of training</h3>
-                <div class="content-box">${nl2br(stage)}</div>
-                <h3>Placement</h3>
-                <div class="content-box">${nl2br(placement)}</div>
-                <h3>Date of completion</h3>
-                <div class="content-box">${nl2br(dateOfCompletion)}</div>
-            </div>
+    <div class="check ${weak.length ? '' : 'good'}">
+        <strong>Excellence check: ${check.strong} of ${check.total} sections strong.</strong>
+        ${weak.length ? `<ul>${weak.map(i => `<li><strong>${esc(i.num ? i.num + ' ' : '')}${esc(i.title)}:</strong> ${esc(i.checks.filter(c => !c.ok).map(c => c.text).join('; '))}</li>`).join('')}</ul>` : ' Every section has what an assessor looks for.'}
+        ${check.rcem && check.rcem.excellent.length ? `<div style="margin-top:8px"><strong>RCEM “excellent” descriptors evidenced: ${check.rcem.excellent.filter(d => d.ok).length} of ${check.rcem.excellent.length}.</strong><ul>${check.rcem.excellent.filter(d => !d.ok).map(d => `<li>Not yet evidenced: ${esc(d.text)}</li>`).join('')}</ul></div>` : ''}
+        <div class="note" style="margin-top:6px">A content check, not a grade — the assessment is your supervisor’s judgement. Not shown when printed.</div>
+    </div>
 
-            <div class="section">
-                <span class="part-label">Part A</span>
-                <h2>1. QI Personal Development Plan &mdash; Current year</h2>
-                <h3>1.1 PDP &mdash; summarise your QI PDP for this year and list specific objectives</h3>
-                <div class="content-box">${pdpEntered ? nl2br(pdpEntered) : pdpFallback}</div>
-            </div>
+    <p class="intro">${esc(EMQIAT_INTRO)}</p>
+    <div class="hdr">
+        <span>Stage of training</span><span>${e.stageOfTraining ? esc(e.stageOfTraining) : `<em class="todo-inline">${esc(deriveStageLabel(meta.trainingStage) || '[To complete, e.g. ST6]')}</em>`}</span>
+        <span>Placement</span><span>${e.placement ? esc(e.placement) : '<em class="todo-inline">[To complete, e.g. ST6 year at &lt;hospital&gt;]</em>'}</span>
+        <span>Date of completion</span><span>${e.dateOfCompletion ? esc(new Date(e.dateOfCompletion + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })) : '<em class="todo-inline">[To complete]</em>'}</span>
+    </div>
 
-            <div class="section">
-                <h2>2. QI Education</h2>
-                <h3>2.1 Involvement &mdash; describe your engagement with QI education over the past year</h3>
-                <div class="content-box">${nl2br(qiEducationInvolvement)}</div>
-                <h3>2.2 Learning &mdash; how has this developed your understanding of QI?</h3>
-                <div class="content-box">${nl2br(qiEducationLearning)}</div>
-            </div>
+    <p><strong>Part A</strong></p>
+    <p>${esc(EMQIAT_NA_NOTE)}</p>
+    <p>For information on the QI Journey please click here: <a href="${QI_JOURNEY_URL}" target="_blank" rel="noopener">QI journey</a>.</p>
 
-            <div class="section">
-                <h2>3. Project Involvement</h2>
-                <h3>3.0 Were you involved in a QI project in any way?</h3>
-                <div class="content-box">${involvedAnswer}</div>
+    <h2>1. QI Personal Development Plan - Current year</h2>
+    ${question(P.pdp)}
+    ${answerBox(e.pdp, derivePdpFromJournal(data), '[To complete: a broad summary of your QI goals this year, then 3–4 specific objectives, one per line]')}
 
-                <h3>3.1 Project Overview</h3>
-                <div class="content-box">${projectOverview}</div>
+    <h2>2. QI Education</h2>
+    ${question(P.qiEducationInvolvement)}
+    ${answerBox(e.qiEducationInvolvement, deriveEducationInvolvementFromJournal(data), '[To complete: named courses, e-learning and meetings, and what you took from each into your project]')}
 
-                <h3>3.2 Your Role in the Project</h3>
-                <div class="content-box">${nl2br(roleGuess)}</div>
+    <h2>3. Project Involvement</h2>
+    ${question(P.involvedInProject)}
+    <div class="content-box" data-copy="${esc(involved)}">${involved ? esc(involved) : '<span class="todo-inline">[Yes / No]</span>'}</div>
+    ${question(P.overview)}
+    ${overviewBox}
+    ${question(P.role)}
+    ${answerBox(e.role, deriveRoleNarrative(data), '[To complete: your role, stage by stage of the QI Journey, and a challenge you led the team through]')}
+    ${question(P.tools)}
+    <div class="content-box no-copy note">File upload: attach your driver diagram, fishbone/process map, run chart and PDSA write-ups (export them as images from this app).</div>
+    ${question(P.teamStakeholders)}
+    ${answerBox(e.teamStakeholders, deriveTeamNarrative(data), '[To complete: team roles, stakeholder groups, how you engaged them and how you gained buy-in]')}
+    ${question(P.sharingResults)}
+    ${answerBox(e.sharingResults, deriveSharingResults(data), '[To complete: each meeting, poster or presentation — what, to whom, when]')}
+    ${question(P.poster)}
+    <div class="content-box no-copy note">File upload: attach your poster or presentation.</div>
 
-                <h3>3.2.1 QI tools attachment</h3>
-                <div class="content-box hint">Attach your driver diagram, fishbone diagram, and run chart as files &mdash; use the PNG/SVG export buttons on the Diagnosis Tools and Data pages, then upload them to this field on the live form.</div>
+    <h2>4 - Learning &amp; Development</h2>
+    <p>For information on the QI journey please refer to the following link: <a href="${QI_JOURNEY_URL}" target="_blank" rel="noopener">QI Journey</a></p>
+    ${question(P.qiJourney)}
+    <div class="content-box" data-copy="${esc(ticked.join(', '))}">${ticked.length ? esc(ticked.join(', ')) : '<span class="todo-inline">[Tick the stages you gained experience in]</span>'}</div>
+    ${question(P.reflections)}
+    ${answerBox(e.reflections, deriveReflections(data), '[To complete: what this year taught you about QI, a challenge you worked through, and what you would do differently]')}
+    ${question(P.nextYearPdp)}
+    ${answerBox(e.nextYearPdp, deriveNextYearPdp(data), '[To complete: your QI plans for next year (or, if you CCT this year, your QI plans as a new consultant)]')}
+    ${question(P.endOfTrainingJourney)}
+    ${answerBox(e.endOfTrainingJourney, deriveEndOfTrainingFromJournal(data), finalYear ? '[To complete: your QI and leadership journey across your whole EM training, with examples from earlier years, and how you will apply it as an EM consultant]' : 'N/A')}
 
-                <h3>3.3 Team working and Stakeholders</h3>
-                <div class="content-box">${nl2br(stakeholderNarrativeText)}${additionalStakeholders ? `<br><br>Additional stakeholders engaged: ${esc(additionalStakeholders)}` : ''}</div>
+    <p style="margin-top:26px"><strong>Curriculum</strong></p>
+    <p>${esc(CURRICULUM_NOTE)}</p>
+    <h3>${esc(CURRICULUM_HEADING)}</h3>
+    <div class="content-box" data-copy="${esc(kcs.join(' , '))}">${kcs.length ? esc(kcs.join(' , ')) : '<span class="todo-inline">[Select the Key Capabilities for your stage, e.g. Higher SLO11 Key Capability 1 and 2]</span>'}</div>
+    <p class="note">Attach files</p>
 
-                <h3>3.4 Sharing of results</h3>
-                <div class="content-box">${nl2br(sharingGuess)}</div>
-
-                <h3>3.5 Poster or Presentation</h3>
-                <div class="content-box hint">Attach any poster or slide deck as a file upload on the live form.</div>
-            </div>
-
-            <div class="section">
-                <h2>4. Learning &amp; Development</h2>
-                <h3>4.1 The QI Journey</h3>
-                <div class="content-box">${qiJourneyList}</div>
-
-                <h3>4.2 Reflections and Learning</h3>
-                <div class="content-box">${nl2br(reflections)}</div>
-
-                <h3>4.3 Next Year's PDP</h3>
-                <div class="content-box">${nl2br(nextYearPdp)}</div>
-
-                <h3>4.4 End of training &mdash; QI development journey</h3>
-                <div class="content-box">${journeyEntered ? nl2br(journeyEntered) : (journeyDraftHtml || '[Add a summary of your QI/leadership development across your whole EM training, with specific examples from earlier training years]')}</div>
-            </div>
-
-            <script>
-                window.onload = function() {
-                    setTimeout(function() {
-                        window.print();
-                    }, 500);
-                };
-            </script>
-        </body>
-        </html>
-    `;
+    <script>
+        // A Copy button on every answer box, copying just the answer text.
+        document.querySelectorAll('.content-box[data-copy]').forEach(function (box) {
+            if (!box.dataset.copy) return;
+            var btn = document.createElement('button');
+            btn.className = 'copy';
+            btn.textContent = 'Copy';
+            btn.onclick = function () {
+                var text = box.dataset.copy;
+                navigator.clipboard.writeText(text).then(function () { btn.textContent = 'Copied'; setTimeout(function () { btn.textContent = 'Copy'; }, 1500); });
+            };
+            box.appendChild(btn);
+        });
+    </script>
+</body>
+</html>`;
 
     printWindow.document.write(htmlContent);
     printWindow.document.close();
