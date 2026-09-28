@@ -372,11 +372,17 @@ export async function exportPPTX() {
                 slide = pres.addSlide();
                 addHeader(slide, `Additional Measure: ${m.name || 'Measure ' + (mi + 1)}`);
             }
+            if (!Array.isArray(m.chartData) || m.chartData.length === 0) {
+                slide.addText('No data collected yet for this measure.', { x: 0.5, y: 2.5, w: 5.5, fontSize: 12, italic: true, color: '94A3B8' });
+                continue;
+            }
             d.chartData = m.chartData; d.chartSettings = m.chartSettings;
             if (m.id) d.activeMeasureId = m.id;
+            window.__qipExporting = true; // draw without animation so the capture is complete
             if (window.renderChart) window.renderChart('mainChart');
+            window.__qipExporting = false;
             try {
-                await new Promise(r => setTimeout(r, 100)); // Small wait for chart render
+                await new Promise(r => setTimeout(r, 150)); // let the canvas finish laying out
                 const liveCanvas = document.getElementById('mainChart'); // renderChart replaces the node, so re-fetch it
                 const dataUrl = liveCanvas.toDataURL('image/png', 1.0);
                 slide.addImage({ data: dataUrl, x: 0.5, y: 1.2, w: 5.5, h: 4.0 });
