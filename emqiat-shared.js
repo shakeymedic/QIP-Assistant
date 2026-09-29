@@ -323,7 +323,7 @@ export function assessEmqiat(data) {
     add('qiEducationLearning', '2.2', 'What QI education taught you', [
         { ok: words(e.qiEducationLearning) >= 60, text: 'A real reflection, not a line (aim for 60+ words)' },
         { ok: QI_JOURNEY_ITEMS.filter(([, l]) => has(e.qiEducationLearning, new RegExp(l.split(' ')[0].replace('&', ''), 'i'))).length >= 2, text: 'Maps your learning to QI Journey stages by name (e.g. Measurement, Testing Changes)' },
-        { ok: has(e.qiEducationLearning, /(future|next|will|going forward|consultant)/i), text: 'Says how it will help your future QI work' }
+        { ok: has(e.qiEducationLearning, /\b(future|next|will|going forward|consultant)\b/i), text: 'Says how it will help your future QI work' }
     ], { empty: !e.qiEducationLearning });
 
     add('involvedInProject', '3.0', 'Involved in a QI project', [
