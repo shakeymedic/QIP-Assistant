@@ -281,7 +281,7 @@ function renderARCPCountdown() {
     if (!display) return;
 
     const arcpDate = state.projectData?.meta?.arcpDate;
-    if (input && arcpDate) input.value = arcpDate;
+    if (input) input.value = arcpDate || '';
 
     if (!arcpDate) {
         display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`;
@@ -289,7 +289,11 @@ function renderARCPCountdown() {
     }
 
     const today = new Date(); today.setHours(0,0,0,0);
-    const target = new Date(arcpDate); target.setHours(0,0,0,0);
+    // Parse yyyy-mm-dd as a local date (new Date('yyyy-mm-dd') is UTC midnight).
+    const [ay, am, ad] = String(arcpDate).split('-').map(Number);
+    const target = (ay && am && ad) ? new Date(ay, am - 1, ad) : new Date(arcpDate);
+    target.setHours(0,0,0,0);
+    if (isNaN(target)) { display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`; return; }
     const days = Math.round((target - today) / 86400000);
 
     let color, label, icon;
@@ -470,7 +474,7 @@ function renderRecentActivity() {
         });
     });
     
-    const recentData = [...(d.chartData || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+    const recentData = [...(d.chartData || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 3);
     recentData.forEach(dp => {
         activities.push({
             type: 'data',
@@ -481,7 +485,8 @@ function renderRecentActivity() {
         });
     });
     
-    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // ISO dates sort as strings; undated items (e.g. a PDSA with no start date) go last.
+    activities.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     
     if (activities.length === 0) {
         container.innerHTML = '<div class="text-center text-slate-400 py-4 text-sm">No recent activity</div>';
@@ -492,7 +497,7 @@ function renderRecentActivity() {
         <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
             <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
             <div class="flex-1 text-sm text-slate-700 truncate">${escapeHtml(a.text)}</div>
-            <div class="text-xs text-slate-400">${a.date}</div>
+            <div class="text-xs text-slate-400">${escapeHtml(formatUkDate(a.date) || a.date)}</div>
         </div>
     `).join('');
 }
@@ -3934,27 +3939,13 @@ window.applyPDSATemplate = function(id) {
 
 // ARCP date save
 window.saveARCPDate = function(val) {
-    if (!window.state?.projectData?.meta) return;
-    window.state.projectData.meta.arcpDate = val;
+    // `state` is this module's import — there is no window.state, which is why
+    // the date previously never saved.
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.meta) state.projectData.meta = {};
+    state.projectData.meta.arcpDate = val || '';
     if (window.saveData) window.saveData();
-    // Re-render countdown
-    const { renderARCPCountdown } = window.__rendererHelpers || {};
-    // Inline re-render
-    const display = document.getElementById('arcp-countdown-display');
-    if (!display) return;
-    if (!val) { display.innerHTML = '<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>'; return; }
-    const today = new Date(); today.setHours(0,0,0,0);
-    const target = new Date(val); target.setHours(0,0,0,0);
-    const days = Math.round((target - today) / 86400000);
-    const color = days < 0 ? 'text-slate-500' : days <= 30 ? 'text-red-600' : days <= 90 ? 'text-amber-600' : 'text-emerald-600';
-    display.innerHTML = `
-        <div class="flex items-center gap-3">
-            <div class="text-3xl font-black ${color}">${days < 0 ? 'Past' : days + ' days'}</div>
-            <div class="text-xs text-slate-500">${days < 0 ? `ARCP was ${Math.abs(days)} days ago` : `until ARCP<br><span class="text-slate-400">${target.toLocaleDateString('en-GB')}</span>`}</div>
-        </div>
-        ${days >= 0 && days <= 30 ? '<p class="text-xs text-red-600 font-bold mt-1">Imminent — ensure portfolio is submission-ready!</p>' : ''}
-        ${days > 30 && days <= 90 ? '<p class="text-xs text-amber-600 mt-1">Getting close — review your portfolio readiness score.</p>' : ''}
-    `;
+    renderARCPCountdown();
 };
 
 // Abstract word count live update

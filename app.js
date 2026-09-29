@@ -27,7 +27,7 @@ import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
-import { computeReadiness, allMeasurePoints, lastActivityDate, normaliseDateInput, parseNumericInput, formatUkDate } from "./project-metrics.js";
+import { computeReadiness, allMeasurePoints, lastActivityDate, normaliseDateInput, parseNumericInput, formatUkDate, chooseBaseline, median, runChartSignals } from "./project-metrics.js";
 import "./measures.js"; // multi-measure management (self-registers window.addMeasure etc.)
 import "./export-center.js"; // unified Export Center (self-registers window.openExportCenter etc.)
 
@@ -221,7 +221,16 @@ async function fetchProjectDoc(ownerUid, projectId) {
 // Leaves whatever project is open (own, lead-viewed or supervised) and
 // stops its live listener, so a later snapshot of the user's own project
 // can't overwrite a trainee project being reviewed.
+// JSON with object keys sorted, so two copies of a project compare equal
+// whatever order Firestore returns their fields in.
+function stableJson(v) {
+    return JSON.stringify(v, (k, val) => (val && typeof val === 'object' && !Array.isArray(val))
+        ? Object.keys(val).sort().reduce((o, key) => { o[key] = val[key]; return o; }, {})
+        : val);
+}
+
 function leaveProjectContext() {
+    flushPendingSave();
     if (window.unsubscribeProject) { window.unsubscribeProject(); window.unsubscribeProject = null; }
     state.currentProjectId = null;
     state.projectData = null;
@@ -425,7 +434,9 @@ const NAV_GROUP_COLLAPSE_KEY = (groupId) => `qipNavGroupCollapsed_${groupId}`;
 // Toggles (or forces via `expand`) a sidebar nav group open/closed, rotates
 // its chevron, and persists the collapsed state to localStorage so it
 // survives reloads.
-window.toggleNavGroup = (groupId, expand) => {
+// Only a click by the user is remembered (`persist`); automatic expansion on
+// load or navigation isn't, so it can't be mistaken for a user preference.
+window.toggleNavGroup = (groupId, expand, persist = true) => {
     const items = document.getElementById(`nav-group-items-${groupId}`);
     const header = document.querySelector(`.nav-group[data-group="${groupId}"] .nav-group-header`);
     if (!items) return;
@@ -441,6 +452,7 @@ window.toggleNavGroup = (groupId, expand) => {
     const chevron = header ? header.querySelector('.nav-group-chevron') : null;
     if (chevron) chevron.style.transform = shouldExpand ? 'rotate(0deg)' : 'rotate(-90deg)';
 
+    if (!persist) return;
     try {
         localStorage.setItem(NAV_GROUP_COLLAPSE_KEY(groupId), shouldExpand ? '0' : '1');
     } catch (e) { /* localStorage unavailable — ignore */ }
@@ -451,7 +463,7 @@ window.toggleNavGroup = (groupId, expand) => {
 // even if the user had collapsed it.
 window.expandNavGroupForView = (view) => {
     const groupId = Object.keys(NAV_GROUP_VIEWS).find(g => NAV_GROUP_VIEWS[g].includes(view));
-    if (groupId) window.toggleNavGroup(groupId, true);
+    if (groupId) window.toggleNavGroup(groupId, true, false);
 };
 
 // Applies any saved collapse state to all nav groups on load. Safe to call
@@ -461,7 +473,7 @@ window.initNavGroups = () => {
     Object.keys(NAV_GROUP_VIEWS).forEach(groupId => {
         let collapsed = false;
         try { collapsed = localStorage.getItem(NAV_GROUP_COLLAPSE_KEY(groupId)) === '1'; } catch (e) { /* ignore */ }
-        window.toggleNavGroup(groupId, !collapsed);
+        window.toggleNavGroup(groupId, !collapsed, false);
     });
 };
 window.initNavGroups();
@@ -1657,146 +1669,176 @@ window.toggleKeyVis = () => {
 
 window.hasAI = () => !!state.aiKey;
 
+// Shared by the AI helpers: sets a button's busy label and always restores it.
+async function withAIButton(btnId, busyLabel, idleHTML, fn) {
+    const btn = btnId ? document.getElementById(btnId) : null;
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> ${busyLabel}`; }
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    try { return await fn(); }
+    finally {
+        const b = btnId ? document.getElementById(btnId) : null; // may have been re-rendered
+        if (b) { b.disabled = false; b.innerHTML = idleHTML; }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+}
+
+// Asks before AI text replaces something the user has already written.
+function confirmAIReplace(hasExisting, what, apply) {
+    if (!hasExisting) { apply(); return; }
+    window.showConfirmDialog(`Replace your current ${what} with the AI suggestion? You can press Undo afterwards if you change your mind.`, apply, 'Replace', 'Use AI suggestion?');
+}
+
+const aiStrings = (v, max) => Array.isArray(v)
+    ? v.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim()).slice(0, max)
+    : [];
+
 window.aiRefineAim = async () => {
-    const d = state.projectData.checklist;
+    if (!state.projectData || state.isReadOnly) return;
+    const d = state.projectData.checklist || (state.projectData.checklist = {});
     if (!d.problem_desc && !d.aim) { showToast("Enter a problem or draft aim first", "error"); return; }
-    
-    const btn = document.getElementById('btn-ai-aim');
-    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Refining...`;
-    
-    const prompt = `
+    await withAIButton('btn-ai-aim', 'Refining...', `<i data-lucide="sparkles" class="w-3 h-3"></i> Refine Aim`, async () => {
+        const prompt = `
         Context: Quality Improvement in Emergency Medicine.
         Problem: "${d.problem_desc || 'Not defined'}"
         Draft Aim: "${d.aim || 'Not defined'}"
-        Task: Rewrite the aim to be strictly SMART (Specific, Measurable, Achievable, Relevant, Time-bound). 
+        Task: Rewrite the aim to be strictly SMART (Specific, Measurable, Achievable, Relevant, Time-bound).
+        Keep any numbers, dates and targets the user has given; do not invent new baseline figures.
         Keep it under 35 words. Return ONLY the aim statement text, no quotes.
     `;
-    
-    const result = await callAI(prompt);
-    if (result) {
-        state.projectData.checklist.aim = result.trim();
-        window.saveData();
-        R.renderChecklist();
-        showToast("Aim refined by AI", "success");
-    }
-    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> Refine Aim`;
-    if(typeof lucide !== 'undefined') lucide.createIcons();
+        const result = await callAI(prompt);
+        const aim = typeof result === 'string' ? result.trim().replace(/^["“]|["”]$/g, '') : '';
+        if (!aim) return;
+        confirmAIReplace(!!(d.aim || '').trim(), 'aim', () => {
+            state.projectData.checklist.aim = aim;
+            window.saveData();
+            R.renderChecklist();
+            showToast("Aim refined by AI — check it still says what you mean", "success");
+        });
+    });
 };
 
 window.aiSuggestDrivers = async () => {
-    const d = state.projectData.checklist;
+    if (!state.projectData || state.isReadOnly) return;
+    const d = state.projectData.checklist || {};
     if (!d.aim) { showToast("Define an Aim first", "error"); return; }
-
-    const btn = document.getElementById('btn-ai-driver');
-    if(btn) {
-        btn.disabled = true;
-        btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Generating...`;
-    }
-
-    const prompt = `
+    await withAIButton('btn-ai-driver', 'Generating...', `<i data-lucide="sparkles" class="w-3 h-3"></i> Auto-Generate`, async () => {
+        const prompt = `
         The QIP Aim is: "${d.aim}".
-        Problem Context: "${d.problem_desc}".
+        Problem Context: "${d.problem_desc || 'Not defined'}".
         Task: Generate a Driver Diagram structure in JSON format.
         Schema: { "primary": ["string"], "secondary": ["string"], "changes": ["string"] }
         Requirements: 3-4 Primary Drivers, 4-6 Secondary Drivers, 5-8 Specific Change Ideas.
     `;
-
-    const result = await callAI(prompt, true);
-
-    if (result && result.primary) {
-        state.projectData.drivers = result;
-        window.saveData();
-        window.renderTools();
-        showToast("Driver Diagram generated", "success");
-    }
-
-    if(btn) {
-        btn.disabled = false;
-        btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> Auto-Generate`;
-    }
-    if(typeof lucide !== 'undefined') lucide.createIcons();
+        const result = await callAI(prompt, true);
+        const drivers = {
+            primary: aiStrings(result?.primary, 8),
+            secondary: aiStrings(result?.secondary, 12),
+            changes: aiStrings(result?.changes, 15)
+        };
+        if (!drivers.primary.length) { if (result) showToast("The AI reply wasn't a usable driver diagram — please try again.", "error"); return; }
+        const cur = state.projectData.drivers || {};
+        const hasExisting = ['primary', 'secondary', 'changes'].some(k => (cur[k] || []).length);
+        confirmAIReplace(hasExisting, 'driver diagram', () => {
+            state.projectData.drivers = drivers;
+            window.saveData();
+            window.renderTools();
+            showToast("Driver Diagram generated — edit it to fit your department", "success");
+        });
+    });
 };
 
 window.aiGeneratePDSA = async () => {
-    const title = document.getElementById('pdsa-title').value;
-    if(!title) { showToast("Enter a title for the cycle first", "error"); return; }
-    
-    const d = state.projectData.checklist;
-    const btn = document.getElementById('btn-ai-pdsa');
-    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Drafting...`;
-
-    const prompt = `
-        Project Aim: "${d.aim}".
-        PDSA Title: "${title}".
-        Task: Draft a realistic PDSA cycle for this project.
-        Return JSON format: { "desc": "Plan details...", "do": "Do details...", "study": "Study details...", "act": "Act details..." }
-        Keep sections concise (2-3 sentences each).
+    if (!state.projectData || state.isReadOnly) return;
+    const titleEl = document.getElementById('ci-new-title');
+    const descEl = document.getElementById('ci-new-desc');
+    if (!titleEl || !descEl) return;
+    const title = titleEl.value.trim();
+    if (!title) { showToast("Enter a title for the change idea first", "error"); titleEl.focus(); return; }
+    const d = state.projectData.checklist || {};
+    await withAIButton('btn-ai-pdsa', 'Drafting...', `<i data-lucide="sparkles" class="w-4 h-4"></i> AI Draft Idea`, async () => {
+        const prompt = `
+        Project Aim: "${d.aim || 'Not defined'}".
+        Change idea: "${title}".
+        Task: Describe this change idea for a PDSA-tested QI project, and plan a small first test of it.
+        Return JSON format: { "description": "What the change is and why it should help (2 sentences)", "firstTest": "Who, where, when and how big the first small test is (1-2 sentences)", "prediction": "What we predict will happen, stated so the data can prove it right or wrong (1 sentence)" }
     `;
-
-    const result = await callAI(prompt, true);
-    
-    if(result) {
-        document.getElementById('pdsa-plan').value = `${result.desc}\n\n[AI Drafted - Prediction]\n${result.study}`;
-        showToast("Plan drafted", "success");
-    }
-    
-    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Draft`;
-    if(typeof lucide !== 'undefined') lucide.createIcons();
+        const result = await callAI(prompt, true);
+        const parts = result && typeof result === 'object'
+            ? [result.description, result.firstTest && `First test: ${result.firstTest}`, result.prediction && `Prediction: ${result.prediction}`].filter(x => typeof x === 'string' && x.trim())
+            : [];
+        if (!parts.length) { if (result) showToast("The AI reply wasn't usable — please try again.", "error"); return; }
+        const text = parts.join('\n\n');
+        const el = document.getElementById('ci-new-desc');
+        if (!el) return;
+        confirmAIReplace(!!el.value.trim(), 'description', () => {
+            el.value = text;
+            showToast("Idea drafted — review it, then press Add Change Idea", "success");
+        });
+    });
 };
 
 window.aiAnalyseChart = async () => {
-    const d = state.projectData.chartData;
-    if(!d || d.length < 5) { showToast("Need at least 5 data points", "error"); return; }
-    
-    const btn = document.getElementById('btn-ai-chart');
-    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> Analysing...`;
-    
-    const sorted = [...d].sort((a,b) => new Date(a.date) - new Date(b.date));
-    const dataStr = sorted.map(x => `${x.date}:${x.value}`).join(', ');
-    
-    const prompt = `
-        Aim: "${state.projectData.checklist.aim}".
-        Data (Date:Value): [${dataStr}].
-        Task: Analyze this SPC/Run chart data. Identify shifts, trends, or outliers. 
-        Conclude if there is improvement. Write a short paragraph for the "Results" section.
+    if (!state.projectData || state.isReadOnly) return;
+    const pts = (state.projectData.chartData || [])
+        .filter(p => p && p.date && p.value !== '' && p.value !== null && !isNaN(Number(p.value)))
+        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    if (pts.length < 5) { showToast("Need at least 5 data points", "error"); return; }
+    await withAIButton('btn-ai-chart', 'Analysing...', `<i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse`, async () => {
+        // Give the AI the app's own run-chart analysis so its narrative matches the chart.
+        const values = pts.map(p => Number(p.value));
+        const base = chooseBaseline(pts, state.projectData.pdsa);
+        const med = median(base.values);
+        const sig = runChartSignals(values, med);
+        const measures = state.projectData.measures || [];
+        const measure = measures.find(m => m.chartData === state.projectData.chartData) || measures[0] || {};
+        const dataStr = pts.map(p => `${p.date}:${p.value}${p.grade ? ` (${p.grade})` : ''}`).join(', ');
+        const prompt = `
+        Aim: "${state.projectData.checklist?.aim || 'Not defined'}".
+        Measure: "${measure.name || state.projectData.checklist?.outcome_measure || 'Not stated'}"${measure.unit ? `, unit ${measure.unit}` : ''}. Work out from the aim whether higher or lower values are better.
+        Data (Date:Value (phase)): [${dataStr}].
+        The app's run chart analysis (use these facts; do not recalculate or contradict them):
+        - Baseline median: ${med === null ? 'not available' : med} (from ${base.count} baseline points).
+        - Shift (6+ consecutive points one side of the median): ${sig.shift ? 'present' : 'none'}.
+        - Trend (5+ consecutive points rising or falling): ${sig.trend ? 'present' : 'none'}.
+        - Possible astronomical point: ${sig.astronomical ? 'present' : 'none'}.
+        Task: Write a short paragraph for the "Results" section describing what the run chart shows, using only the facts above.
+        Say whether there is evidence of improvement (a non-random signal in the right direction), and if not, say so plainly.
     `;
-    
-    const result = await callAI(prompt);
-    
-    if(result) {
+        const result = await callAI(prompt);
+        const text = typeof result === 'string' ? result.trim() : '';
+        if (!text) return;
         const box = document.getElementById('results-text');
-        box.value = result.trim();
-        window.saveResults(result.trim());
-        showToast("Analysis complete", "success");
-    }
-    
-    if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> AI Analyse`;
-    if(typeof lucide !== 'undefined') lucide.createIcons();
+        confirmAIReplace(!!(state.projectData.checklist?.results_analysis || '').trim(), 'results text', () => {
+            if (box) box.value = text;
+            window.saveResults(text);
+            showToast("Analysis added — check it against your chart", "success");
+        });
+    });
 };
 
 window.aiSuggestEvidence = async () => {
-    const d = state.projectData.checklist;
+    if (!state.projectData || state.isReadOnly) return;
+    const d = state.projectData.checklist || (state.projectData.checklist = {});
     if (!d.problem_desc && !d.aim) { showToast("Define a problem or aim first", "error"); return; }
-    
     const prompt = `
         Context: Quality Improvement in UK Emergency Medicine.
         Problem: "${d.problem_desc || 'Not defined'}"
         Aim: "${d.aim || 'Not defined'}"
-        Task: Suggest relevant evidence, guidelines, and standards for this QIP.
-        Include: NICE guidelines, RCEM standards, key research papers, CQC requirements.
-        Format as a brief paragraph suitable for a literature review section.
-        Keep under 150 words.
+        Task: Suggest the kinds of evidence, guidelines and standards this QIP should draw on
+        (e.g. relevant NICE guidance, RCEM standards or best practice guidance, CQC expectations, published research).
+        Only name a specific guideline or paper if you are confident it exists; never invent titles, authors, years or numbers.
+        Where unsure, describe what to search for instead.
+        Format as a brief paragraph suitable for a literature review section. Keep under 150 words.
     `;
-    
     const result = await callAI(prompt);
-    
-    if(result) {
-        const existing = d.lit_review || '';
-        state.projectData.checklist.lit_review = existing ? existing + '\n\n[AI Suggestions]\n' + result.trim() : result.trim();
-        window.saveData();
-        R.renderChecklist();
-        showToast("Evidence suggestions added", "success");
-    }
+    const text = typeof result === 'string' ? result.trim() : '';
+    if (!text) return;
+    const existing = d.lit_review || '';
+    const block = '[AI suggestions — check every source exists and says this before citing it]\n' + text;
+    state.projectData.checklist.lit_review = existing ? existing + '\n\n' + block : block;
+    window.saveData();
+    R.renderChecklist();
+    showToast("Evidence suggestions added — verify each source before citing", "success");
 };
 
 window.exportPPTX = exportPPTX;
@@ -1842,8 +1884,19 @@ window.renderTools = renderTools;
 let _saveDebounceTimer = null;
 window.saveDataDebounced = function() {
     clearTimeout(_saveDebounceTimer);
-    _saveDebounceTimer = setTimeout(() => window.saveData(), 1500);
+    _saveDebounceTimer = setTimeout(() => { _saveDebounceTimer = null; window.saveData(); }, 1500);
 };
+
+// Sends a waiting debounced save straight away — used when leaving a project
+// or hiding the page, so an edit made in the last 1.5 s is not dropped.
+function flushPendingSave() {
+    if (!_saveDebounceTimer) return;
+    clearTimeout(_saveDebounceTimer);
+    _saveDebounceTimer = null;
+    if (state.projectData && !state.isReadOnly) window.saveData();
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSave(); });
+window.addEventListener('pagehide', flushPendingSave);
 
 window.saveChecklist = (key, val) => { 
     if (!state.projectData.checklist) state.projectData.checklist = {};
@@ -2135,20 +2188,39 @@ window.quickAddDataPoint = async function() {
     if (typeof R !== 'undefined' && R.renderAll) R.renderAll('dashboard');
 };
 
+// Undo history holds the states *before* each save. saveData() runs after the
+// edit has already been applied, so the pre-edit state is kept separately in
+// state._historyBase and pushed only when the project has actually changed.
+function resetHistory(data) {
+    state.historyStack = [];
+    state.redoStack = [];
+    state._historyBase = data ? JSON.stringify(data) : null;
+    updateUndoRedoButtons();
+}
+
 function pushHistory() {
-    if(state.isReadOnly) return;
-    state.historyStack.push(JSON.stringify(state.projectData));
-    if(state.historyStack.length > state.MAX_HISTORY) state.historyStack.shift();
-    state.redoStack = []; 
+    if (state.isReadOnly || !state.projectData) return;
+    const current = JSON.stringify(state.projectData);
+    if (state._historyBase && state._historyBase !== current) {
+        state.historyStack.push(state._historyBase);
+        if (state.historyStack.length > state.MAX_HISTORY) state.historyStack.shift();
+        state.redoStack = [];
+    }
+    state._historyBase = current;
     updateUndoRedoButtons();
 }
 
 window.undo = () => {
-    if (state.historyStack.length === 0 || state.isReadOnly) return;
+    if (state.isReadOnly || !state.projectData) return;
+    // An edit still waiting on the debounced save becomes its own undo step.
+    clearTimeout(_saveDebounceTimer); _saveDebounceTimer = null;
+    pushHistory();
+    if (state.historyStack.length === 0) return;
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
     state.projectData = JSON.parse(prevState);
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
+    state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
     if (currentView) {
         let viewName = currentView.id.replace('view-', '');
@@ -2160,11 +2232,12 @@ window.undo = () => {
 };
 
 window.redo = () => {
-    if (state.redoStack.length === 0 || state.isReadOnly) return;
+    if (state.redoStack.length === 0 || state.isReadOnly || !state.projectData) return;
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
     state.projectData = JSON.parse(nextState);
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
+    state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
     if (currentView) {
         let viewName = currentView.id.replace('view-', '');
@@ -2649,9 +2722,7 @@ window.viewLeadProject = async function(idx) {
     state.leadTargetUid = proj.ownerUid;
     state.isReadOnly = true;
     state.isLeadViewing = true;
-    state.historyStack = [];
-    state.redoStack = [];
-    updateUndoRedoButtons();
+    resetHistory(null);
     // Audit trail: a Departmental QIP Lead opening someone else's project.
     if (!proj._isOwn) {
         logProjectAccessEvent(db, {
@@ -2875,13 +2946,20 @@ window.openProject = (id) => {
 
     window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
         if (doc.exists()) {
-            const data = doc.data();
-            if (!state.projectData) { 
-                state.historyStack = [JSON.stringify(data)]; 
-                state.redoStack = []; 
-                updateUndoRedoButtons(); 
+            // After the first load, ignore the echo of this user's own save (and
+            // any snapshot identical to what is on screen). Re-rendering for it
+            // would throw away the cursor and anything typed but not yet saved,
+            // and would swap state.projectData for a copy mid-edit.
+            if (!firstLoad) {
+                if (doc.metadata && doc.metadata.hasPendingWrites) return;
+                const incoming = normaliseProjectData(doc.data());
+                if (stableJson(incoming) === stableJson(state.projectData)) return;
+                state.projectData = incoming;
+                state._historyBase = JSON.stringify(incoming);
+            } else {
+                state.projectData = normaliseProjectData(doc.data());
+                resetHistory(state.projectData);
             }
-            state.projectData = normaliseProjectData(data);
             
             const headerTitle = document.getElementById('project-header-title');
             if(headerTitle) headerTitle.textContent = state.projectData.meta.title;
@@ -3105,9 +3183,7 @@ window.openDemoProject = () => {
     state.projectData = getDemoData();
     migrateProjectData(state.projectData);
     state.currentProjectId = 'DEMO';
-    state.historyStack = [JSON.stringify(state.projectData)];
-    state.redoStack = [];
-    updateUndoRedoButtons();
+    resetHistory(state.projectData);
 
     const header = document.getElementById('project-header-title');
     if(header) header.textContent = state.projectData.meta.title + " (DEMO)";
@@ -3119,26 +3195,32 @@ window.openDemoProject = () => {
 
 window.shareProject = () => {
     if(state.isDemoMode) { showToast("Cannot share demo projects.", "error"); return; }
-    const url = `${window.location.origin}${window.location.pathname}?share=${state.currentProjectId}&uid=${state.currentUser.uid}`;
-    navigator.clipboard.writeText(url).then(() => showToast("Share Link copied — anyone with this link can view the project (view is logged).", "success"));
+    if (!state.currentProjectId || !state.currentUser || state.isReadOnly) { showToast("Open one of your own projects to share it.", "error"); return; }
+    const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(state.currentProjectId)}&uid=${encodeURIComponent(state.currentUser.uid)}`;
+    const copied = () => showToast("Share Link copied — anyone with this link can view the project (view is logged).", "success");
+    // Clipboard access can be refused (older browsers, some NHS desktops) — fall back to showing the link.
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(copied).catch(() => window.prompt('Copy this share link:', url));
+    else window.prompt('Copy this share link:', url);
 };
 
 document.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+    const key = (e.key || '').toLowerCase(); // Shift makes e.key 'Z' on most platforms
+    if (key === 's') {
         e.preventDefault();
-        window.saveData(true);
-        showToast("Project Saved", "success");
+        if (!state.projectData || !state.currentProjectId) return;
+        if (state.isReadOnly) { showToast("This project is read-only — nothing to save.", "info"); return; }
+        clearTimeout(_saveDebounceTimer); _saveDebounceTimer = null;
+        window.saveData().then(() => showToast("Project Saved", "success"));
+        return;
     }
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-        if (!e.shiftKey) {
-            e.preventDefault();
-            window.undo();
-        }
-    }
-    if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'z') {
-        e.preventDefault();
-        window.redo();
-    }
+    // Leave Ctrl+Z / Ctrl+Y to the browser while typing, so they undo text
+    // rather than the whole project (which would also discard what was typed).
+    const t = e.target;
+    const typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    if (typing || !state.projectData) return;
+    if (key === 'z' && !e.shiftKey) { e.preventDefault(); window.undo(); }
+    else if ((key === 'z' && e.shiftKey) || key === 'y') { e.preventDefault(); window.redo(); }
 });
 
 if(document.readyState === 'complete') {
@@ -4076,9 +4158,7 @@ async function enterSupervisedProject(idx, action) {
     state.isLeadViewing = true;
     state.isSupervisorViewing = true;
     state.isReadOnly = true;
-    state.historyStack = [];
-    state.redoStack = [];
-    updateUndoRedoButtons();
+    resetHistory(null);
     const topBar = document.getElementById('top-bar');
     if (topBar) topBar.classList.remove('hidden');
     // Audit trail: a Clinical/Educational Supervisor opening a trainee's project.
