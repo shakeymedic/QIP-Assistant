@@ -49,10 +49,12 @@ export function renderGreenCalculator() {
 }
 
 export function calculateCarbonSavings() {
-    const medWaste   = parseFloat(document.getElementById('med-waste-input')?.value)   || 0;
-    const plastic    = parseFloat(document.getElementById('plastic-waste-input')?.value) || 0;
-    const travel     = parseFloat(document.getElementById('travel-input')?.value)       || 0;
-    const energy     = parseFloat(document.getElementById('energy-input')?.value)       || 0;
+    // Savings can't be negative: treat blank, invalid or negative entries as 0.
+    const num = (id) => Math.max(0, parseFloat(document.getElementById(id)?.value) || 0);
+    const medWaste   = num('med-waste-input');
+    const plastic    = num('plastic-waste-input');
+    const travel     = num('travel-input');
+    const energy     = num('energy-input');
 
     // CO₂e savings (kg/year)
     const medCO2     = medWaste  * 2.5;
@@ -113,7 +115,7 @@ export function calculateCarbonSavings() {
                         </div>
                     `).join('')}
                 </div>
-                <p class="text-xs text-slate-400 mt-4">Conversion factors: DESNZ 2024 (energy), DEFRA 2024 (travel), NHS Supply Chain estimates (medication/plastic).</p>
+                <p class="text-xs text-slate-400 mt-4">Rough estimates using fixed approximate factors. Before quoting these figures, check them against the current UK Government greenhouse gas conversion factors (DESNZ) and your trust's own costs, and cite the source you used.</p>
             </div>
             ` : '<div class="p-4 text-sm text-slate-400">Enter values above to see the breakdown.</div>'}
         </div>

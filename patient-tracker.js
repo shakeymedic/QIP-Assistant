@@ -1,6 +1,11 @@
 // patient-tracker.js
 
 import { escapeHtml } from './utils.js';
+import { state } from './state.js';
+
+// The handlers below read state.projectData when clicked rather than the object
+// passed in at render time, which Undo or a live update may since have replaced.
+const current = () => state.projectData;
 
 export function renderPatientTracker(projectData, saveDataFunc) {
     const container = document.getElementById('patient-tracker-container');
@@ -17,12 +22,12 @@ export function renderPatientTracker(projectData, saveDataFunc) {
         listHtml = projectData.patientFeedback.map((item, index) => `
             <div class="bg-white p-4 rounded border border-slate-200 mb-2">
                 <div class="flex justify-between items-start mb-2">
-                    <span class="text-xs font-bold text-rcem-purple bg-purple-50 px-2 py-1 rounded">${item.date ? new Date(item.date + 'T00:00:00').toLocaleDateString('en-GB') : ''}</span>
+                    <span class="text-xs font-bold text-rcem-purple bg-purple-50 px-2 py-1 rounded">${item.date ? escapeHtml(new Date(item.date + 'T00:00:00').toLocaleDateString('en-GB')) : ''}</span>
                     <button onclick="window.deletePatientFeedback(${index})" class="text-red-500 hover:text-red-700 text-xs font-bold">Delete</button>
                 </div>
                 <p class="text-sm text-slate-800 font-bold mb-1">Feedback: <span class="font-normal">${escapeHtml(item.feedback)}</span></p>
                 <p class="text-sm text-slate-800 font-bold mb-1">Action Taken: <span class="font-normal">${escapeHtml(item.action)}</span></p>
-                <p class="text-xs text-slate-500 mt-2">Mapped to PDSA Cycle: ${escapeHtml(item.pdsaLink)}</p>
+                ${item.pdsaLink ? `<p class="text-xs text-slate-500 mt-2">Mapped to PDSA Cycle: ${escapeHtml(item.pdsaLink)}</p>` : ''}
             </div>
         `).join('');
     }
@@ -36,7 +41,7 @@ export function renderPatientTracker(projectData, saveDataFunc) {
             <div class="bg-white p-4 rounded border border-slate-200">
                 <h4 class="font-bold text-slate-700 mb-3">Log New Feedback</h4>
                 <input type="date" id="pf-date" class="w-full border border-slate-300 rounded p-2 mb-2">
-                <textarea id="pf-feedback" class="w-full border border-slate-300 rounded p-2 mb-2" placeholder="Enter patient suggestion or complaint..."></textarea>
+                <textarea id="pf-feedback" class="w-full border border-slate-300 rounded p-2 mb-2" placeholder="Enter patient suggestion or complaint (no names, dates of birth or NHS numbers)..."></textarea>
                 <textarea id="pf-action" class="w-full border border-slate-300 rounded p-2 mb-2" placeholder="Enter the action you took..."></textarea>
                 <input type="text" id="pf-pdsa" class="w-full border border-slate-300 rounded p-2 mb-3" placeholder="Which PDSA cycle does this map to? (e.g. Cycle 2)">
                 <button onclick="window.addPatientFeedback()" class="bg-rcem-purple text-white px-4 py-2 rounded font-bold hover:bg-purple-800">Save Feedback</button>
@@ -45,26 +50,32 @@ export function renderPatientTracker(projectData, saveDataFunc) {
     `;
 
     window.addPatientFeedback = () => {
-        const date = document.getElementById('pf-date').value;
-        const feedback = document.getElementById('pf-feedback').value;
-        const action = document.getElementById('pf-action').value;
-        const pdsaLink = document.getElementById('pf-pdsa').value;
+        const d = current();
+        if (!d || state.isReadOnly) return;
+        const val = (id) => (document.getElementById(id)?.value || '').trim();
+        const date = val('pf-date');
+        const feedback = val('pf-feedback');
+        const action = val('pf-action');
+        const pdsaLink = val('pf-pdsa');
 
         if (!date || !feedback) {
             if (window.showToast) window.showToast('Date and feedback are required.', 'error');
             return;
         }
 
-        projectData.patientFeedback.push({ date, feedback, action, pdsaLink });
+        if (!Array.isArray(d.patientFeedback)) d.patientFeedback = [];
+        d.patientFeedback.push({ date, feedback, action, pdsaLink });
         saveDataFunc();
-        renderPatientTracker(projectData, saveDataFunc);
+        renderPatientTracker(d, saveDataFunc);
     };
 
     window.deletePatientFeedback = (index) => {
         window.showConfirmDialog('Remove this patient feedback log entry?', () => {
-            projectData.patientFeedback.splice(index, 1);
+            const d = current();
+            if (!d || !Array.isArray(d.patientFeedback)) return;
+            d.patientFeedback.splice(index, 1);
             saveDataFunc();
-            renderPatientTracker(projectData, saveDataFunc);
+            renderPatientTracker(d, saveDataFunc);
         }, 'Remove', 'Remove Feedback');
     };
 }

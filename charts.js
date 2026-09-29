@@ -527,7 +527,7 @@ export function setChartMode(m) {
     // remembers its own preferred chart type when you switch tabs.
     if (state.projectData && state.projectData.chartSettings) {
         state.projectData.chartSettings.mode = m;
-        if (window.saveData) window.saveData();
+        if (window.saveViewChoice) window.saveViewChoice(); // a view choice, not an Undo step
     }
     // Proactively flag the proportion/% SPC caveat (rather than relying on
     // the user opening the guidance panel) — shown once per measure per
@@ -1333,11 +1333,17 @@ window.removeStep = (index) => {
 };
 
 window.runChangeGen = async (type, index) => {
+    if (state.isReadOnly || !state.projectData) return;
     if(window.generateChangeIdeas) {
-        const driverName = state.projectData.drivers[type][index];
+        const driverName = state.projectData.drivers?.[type]?.[index];
+        if (!driverName) return;
         showToast("Generating ideas...", "info");
-        const ideas = await window.generateChangeIdeas(driverName);
-        if(ideas && Array.isArray(ideas)) {
+        const raw = await window.generateChangeIdeas(driverName);
+        // Keep only real text, and skip ideas already on the diagram.
+        const existing = new Set((state.projectData.drivers.changes || []).map(c => String(c).trim().toLowerCase()));
+        const ideas = Array.isArray(raw) ? raw.filter(x => typeof x === 'string' && x.trim() && !existing.has(x.trim().toLowerCase())).map(x => x.trim()).slice(0, 8) : null;
+        if (raw && !ideas?.length) { showToast("No new ideas came back — try again.", "info"); return; }
+        if(ideas && ideas.length) {
             if (!state.projectData.drivers.changes) state.projectData.drivers.changes = [];
             state.projectData.drivers.changes.push(...ideas);
             window.saveData();

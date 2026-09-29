@@ -8,8 +8,10 @@ import { showToast } from "./utils.js";
 
 function csvEscape(val) {
     if (val === null || val === undefined) return '';
-    const s = String(val);
-    if (/[",\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
+    let s = String(val);
+    // Text starting with = + - @ would run as a formula in Excel/Sheets; numbers are left alone.
+    if (typeof val !== 'number' && /^[=+\-@\t\r]/.test(s) && isNaN(Number(s))) s = "'" + s;
+    if (/[",\r\n]/.test(s)) return '"' + s.replace(/"/g, '""') + '"';
     return s;
 }
 
@@ -27,9 +29,9 @@ export function exportAllDataCSV() {
 
     const rows = [['Measure', 'Unit', 'Date', 'Value', 'Phase/Grade', 'Note']];
     measures.forEach(m => {
-        const pts = Array.isArray(m.chartData) ? m.chartData : [];
+        const pts = (Array.isArray(m.chartData) ? [...m.chartData] : []).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
         pts.forEach(pt => {
-            rows.push([m.name, m.unit || '', pt.date || '', pt.value ?? '', pt.grade || '', pt.note || '']);
+            rows.push([m.name || 'Unnamed measure', m.unit || '', pt.date || '', pt.value ?? '', pt.grade || '', pt.note || '']);
         });
     });
 
@@ -46,7 +48,7 @@ export function exportAllDataCSV() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    URL.revokeObjectURL(url);
+    setTimeout(() => URL.revokeObjectURL(url), 1000); // revoking at once can cancel the download in some browsers
     showToast('Data exported as CSV', 'success');
 }
 

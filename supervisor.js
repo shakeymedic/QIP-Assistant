@@ -234,7 +234,7 @@ export function renderSupervisorDashboard() {
         && assessment.lastSupervisorActivityAt > assessment.traineeSeenAt;
     if (hasUnseenSupervisorActivity) {
         assessment.traineeSeenAt = new Date().toISOString();
-        if (window.saveData) window.saveData();
+        if (window.saveData) window.saveData(true); // bookkeeping, not an Undo step
     }
     if (window.updateSupervisorNavBadge) window.updateSupervisorNavBadge();
 

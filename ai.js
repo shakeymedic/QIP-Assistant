@@ -1,13 +1,17 @@
-import { state } from "./state.js";
+import { state, safeStorage } from "./state.js";
 import { showToast } from "./utils.js";
 
-// Model cascade: try newest first, fall back if unavailable
+// Model cascade: tried in order, moving on when a model is unavailable.
+// 'gemini-flash-latest' is Google's alias for the current stable Flash model,
+// so the app keeps working when individual versions are retired (Gemini 1.5
+// and 2.0 Flash have been shut down). The named versions are fallbacks.
 const GEMINI_MODELS = [
-    'gemini-2.0-flash',
-    'gemini-2.0-flash-lite',
-    'gemini-1.5-flash-latest',
-    'gemini-1.5-flash-8b',
+    'gemini-flash-latest',
+    'gemini-flash-lite-latest',
+    'gemini-3.5-flash',
+    'gemini-2.5-flash',
 ];
+const MODEL_UNAVAILABLE = /not found|not supported|no longer|deprecated|retired|is not available/i;
 const API_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 const SYSTEM_PROMPT = `
@@ -30,6 +34,8 @@ function getTrainingStageContext() {
     const stage = state.projectData?.meta?.trainingStage;
     if (stage === 'accs') {
         return "\nTraining Stage: ACCS. Focus on learning, contribution, and personal development.";
+    } else if (stage === 'intermediate') {
+        return "\nTraining Stage: Intermediate (ST4/ST5). Focus on taking an increasing share of the project work, engaging the team and interpreting the data.";
     } else if (stage === 'higher') {
         return "\nTraining Stage: Higher EM Training. Focus on decision-making, stakeholder engagement, team management, and driving the improvement cycle.";
     }
@@ -37,7 +43,7 @@ function getTrainingStageContext() {
 }
 
 export async function callAI(userPrompt, jsonMode = false, schema = null) {
-    const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
+    const key = state.aiKey || safeStorage.get('rcem_qip_ai_key');
     if (!key) {
         showToast("AI API Key missing. Go to Settings.", "error");
         return null;
@@ -48,7 +54,9 @@ export async function callAI(userPrompt, jsonMode = false, schema = null) {
 
     const generationConfig = {
         temperature: 0.7,
-        maxOutputTokens: 2000,
+        // Newer Flash models "think" first and that counts against this limit,
+        // so leave headroom or replies (especially JSON) can come back cut off.
+        maxOutputTokens: 8192,
     };
     if (jsonMode) {
         generationConfig.responseMimeType = "application/json";
@@ -64,18 +72,19 @@ export async function callAI(userPrompt, jsonMode = false, schema = null) {
     let lastError = null;
     for (const model of GEMINI_MODELS) {
         try {
-            const url = `${API_BASE}/${model}:generateContent?key=${key}`;
+            // Key goes in a header rather than the URL, so it isn't kept in logs or history.
+            const url = `${API_BASE}/${model}:generateContent`;
             const response = await fetch(url, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", "x-goog-api-key": key },
                 body: JSON.stringify(payload)
             });
 
             if (!response.ok) {
-                const err = await response.json();
-                const msg = err.error?.message || "API Error";
-                // If model not found / not supported, try next
-                if (msg.includes('not found') || msg.includes('not supported') || response.status === 404) {
+                const err = await response.json().catch(() => ({}));
+                const msg = err.error?.message || `API Error (${response.status})`;
+                // Retired or unknown model: try the next one
+                if (response.status === 404 || MODEL_UNAVAILABLE.test(msg)) {
                     lastError = new Error(`${model}: ${msg}`);
                     console.warn(`[AI] ${model} unavailable, trying next...`);
                     continue;
@@ -91,7 +100,7 @@ export async function callAI(userPrompt, jsonMode = false, schema = null) {
             return text;
 
         } catch (error) {
-            if (error.message?.includes('not found') || error.message?.includes('not supported')) {
+            if (MODEL_UNAVAILABLE.test(error.message || '')) {
                 lastError = error;
                 continue;
             }
@@ -158,7 +167,9 @@ export async function runGoldenThreadValidator(projectData) {
     const prompt = `
         Perform a comprehensive coherence check on this QIP.
         Rules:
-        Keep each comment under 25 words.
+        For each check, status must be exactly one of "pass", "warning" or "fail".
+        overallScore is a whole number from 0 to 100.
+        Base every comment only on the data given. Keep each comment under 25 words.
         Data: ${context}
     `;
 
@@ -310,19 +321,20 @@ export async function generateNarrativeReport(projectData) {
     const pdsa = d.pdsa || [];
     
     const pdsaSummary = pdsa.map((p, i) => 
-        `Cycle ${i + 1}: ${p.title}. Plan: ${p.plan}. Study: ${p.study}. Act: ${p.act}.`
+        `Cycle ${i + 1}: ${p.title || 'Untitled'}. Plan: ${p.plan || p.desc || 'not recorded'}. Study: ${p.study || 'not recorded'}. Act: ${p.act || 'not recorded'}.`
     ).join(' ');
 
     const prompt = `
         Generate a comprehensive formal narrative report for this Emergency Medicine QIP.
-        Problem: "${cl.problem_desc}"
-        Aim: "${cl.aim}"
-        PDSA Cycles: ${pdsaSummary}
-        Results: "${cl.results_analysis}"
-        Learning: "${cl.learning_points}"
+        Problem: "${cl.problem_desc || 'Not defined'}"
+        Aim: "${cl.aim || 'Not defined'}"
+        PDSA Cycles: ${pdsaSummary || 'None recorded'}
+        Results: "${cl.results_analysis || 'Not yet analysed'}"
+        Learning: "${cl.learning_points || 'Not yet documented'}"
         
         Structure the output exactly into these headings: Background, Methodology, Results, and Conclusion.
         Use clear, direct language. Keep sentences short and sharp.
+        Do NOT invent data, numbers or findings that are not provided; say plainly where something is not yet recorded.
     `;
 
     return await callAI(prompt);

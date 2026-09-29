@@ -1,5 +1,5 @@
-import { state } from "./state.js";
-import { escapeHtml, showToast, autoResizeTextarea, formatDate } from "./utils.js";
+import { state, safeStorage } from "./state.js";
+import { escapeHtml, jsArg, showToast, autoResizeTextarea, formatDate } from "./utils.js";
 import { 
     renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, 
     setToolMode, renderFullViewChart, makeDraggable, chartMode, toolMode
@@ -281,7 +281,7 @@ function renderARCPCountdown() {
     if (!display) return;
 
     const arcpDate = state.projectData?.meta?.arcpDate;
-    if (input && arcpDate) input.value = arcpDate;
+    if (input) input.value = arcpDate || '';
 
     if (!arcpDate) {
         display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`;
@@ -289,7 +289,11 @@ function renderARCPCountdown() {
     }
 
     const today = new Date(); today.setHours(0,0,0,0);
-    const target = new Date(arcpDate); target.setHours(0,0,0,0);
+    // Parse yyyy-mm-dd as a local date (new Date('yyyy-mm-dd') is UTC midnight).
+    const [ay, am, ad] = String(arcpDate).split('-').map(Number);
+    const target = (ay && am && ad) ? new Date(ay, am - 1, ad) : new Date(arcpDate);
+    target.setHours(0,0,0,0);
+    if (isNaN(target)) { display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`; return; }
     const days = Math.round((target - today) / 86400000);
 
     let color, label, icon;
@@ -470,7 +474,7 @@ function renderRecentActivity() {
         });
     });
     
-    const recentData = [...(d.chartData || [])].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 3);
+    const recentData = [...(d.chartData || [])].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))).slice(0, 3);
     recentData.forEach(dp => {
         activities.push({
             type: 'data',
@@ -481,7 +485,8 @@ function renderRecentActivity() {
         });
     });
     
-    activities.sort((a, b) => new Date(b.date) - new Date(a.date));
+    // ISO dates sort as strings; undated items (e.g. a PDSA with no start date) go last.
+    activities.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
     
     if (activities.length === 0) {
         container.innerHTML = '<div class="text-center text-slate-400 py-4 text-sm">No recent activity</div>';
@@ -492,7 +497,7 @@ function renderRecentActivity() {
         <div class="flex items-center gap-3 py-2 border-b border-slate-100 last:border-0">
             <i data-lucide="${a.icon}" class="w-4 h-4 ${a.color}"></i>
             <div class="flex-1 text-sm text-slate-700 truncate">${escapeHtml(a.text)}</div>
-            <div class="text-xs text-slate-400">${a.date}</div>
+            <div class="text-xs text-slate-400">${escapeHtml(formatUkDate(a.date) || a.date)}</div>
         </div>
     `).join('');
 }
@@ -616,7 +621,7 @@ export function renderChecklist() {
                 <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
                     <button onclick="window.toggleSWOTPESTPanel()" class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-all">
                         <span class="flex items-center gap-2"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i> SWOT / PEST Analysis</span>
-                        <i id="swot-chevron" data-lucide="${swotOpen ? 'chevron-up' : 'chevron-down'}" class="w-4 h-4 text-slate-400"></i>
+                        <i id="swot-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform" style="${swotOpen ? 'transform: rotate(180deg)' : ''}"></i>
                     </button>
                     <div id="swot-pest-body" class="${swotOpen ? '' : 'hidden'} p-4">
                         <!-- Mode toggle -->
@@ -1083,13 +1088,13 @@ export function renderMeasureTabs() {
         const typeAbbr = TYPE_ABBR[m.measureType] ? `<span class="opacity-60" title="${escapeHtml(m.measureType)}">${TYPE_ABBR[m.measureType]}</span>` : '';
         const editControls = readOnly ? '' : `
                 <span class="hidden group-hover:inline-flex items-center gap-0.5 ml-1">
-                    <button aria-label="Rename measure" onclick="event.stopPropagation(); window.renameMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}" title="Rename">
+                    <button aria-label="Rename measure" onclick="event.stopPropagation(); window.renameMeasure(${jsArg(m.id)})" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-slate-700'}" title="Rename">
                         <i data-lucide="pencil" class="w-3 h-3"></i>
                     </button>
-                    ${measures.length > 1 ? `<button aria-label="Delete measure" onclick="event.stopPropagation(); window.deleteMeasure('${m.id}')" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-red-500'}" title="Delete"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ''}
+                    ${measures.length > 1 ? `<button aria-label="Delete measure" onclick="event.stopPropagation(); window.deleteMeasure(${jsArg(m.id)})" class="${isActive ? 'text-white/80 hover:text-white' : 'text-slate-400 hover:text-red-500'}" title="Delete"><i data-lucide="trash-2" class="w-3 h-3"></i></button>` : ''}
                 </span>`;
         return `
-            <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure('${m.id}')">
+            <div class="group flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer transition-all ${base}" onclick="window.switchMeasure(${jsArg(m.id)})">
                 ${roleDot}
                 <span>${escapeHtml(m.name)}</span>
                 ${typeAbbr}
@@ -1257,7 +1262,7 @@ export function renderResultsView() {
                         </h3>
                         ${m.unit ? `<p class="text-xs text-slate-400 mt-0.5">Unit: ${escapeHtml(m.unit)}</p>` : ''}
                     </div>
-                    <button aria-label="Open ${escapeHtml(m.name || 'measure')} on Data page" onclick="window.switchMeasure('${m.id}'); window.router('data');" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
+                    <button aria-label="Open ${escapeHtml(m.name || 'measure')} on Data page" onclick="window.switchMeasure(${jsArg(m.id)}); window.router('data');" class="text-xs text-indigo-600 hover:text-indigo-800 font-medium whitespace-nowrap">
                         View chart &rarr;
                     </button>
                 </div>
@@ -1497,12 +1502,24 @@ export function addChangeIdea() {
     showToast('Change idea added', 'success');
 }
 
+// Redraws the PDSA page (so status colours update) without collapsing the
+// ideas and cycles the user has open.
+function rerenderPDSAKeepingOpen() {
+    const open = [...document.querySelectorAll('#pdsa-container [id^="cycle-body-"], #pdsa-container [id^="ci-body-"]')]
+        .filter(el => !el.classList.contains('hidden')).map(el => el.id);
+    const y = window.scrollY;
+    renderPDSA();
+    open.forEach(id => document.getElementById(id)?.classList.remove('hidden'));
+    window.scrollTo(0, y);
+}
+
 export function updateChangeIdea(ideaIdx, field, value) {
     const idea = state.projectData.changeIdeas?.[ideaIdx];
     if (!idea) return;
     idea[field] = value;
     syncPDSAFlat();
     if (window.saveData) window.saveData();
+    if (field === 'status') rerenderPDSAKeepingOpen();
 }
 
 export function deleteChangeIdea(ideaIdx) {
@@ -1579,6 +1596,7 @@ export function updateCycleInIdea(ideaIdx, cycleIdx, field, value) {
     if (field === 'startDate') cycle.start = value;
     syncPDSAFlat();
     if (window.saveData) window.saveData();
+    if (field === 'status' || field === 'actDecision') rerenderPDSAKeepingOpen();
 }
 
 export function deleteCycleFromIdea(ideaIdx, cycleIdx) {
@@ -2656,7 +2674,7 @@ export function renderActionPlan() {
             <button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"><i data-lucide="plus" class="w-4 h-4"></i> Add action</button>
         </header>
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select onchange="window.updateActionPlanRow('${row.id}', 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow('${row.id}', 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow('${row.id}', 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow('${row.id}', 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select onchange="window.updateActionPlanRow('${row.id}', 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow('${row.id}')" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
+            ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow(${jsArg(row.id)})" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
         </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -2731,17 +2749,19 @@ export function renderGantt() {
         return;
     }
     
-    let minDate = new Date();
-    let maxDate = new Date();
+    // yyyy-mm-dd read as a local date, so bars line up with the day headers.
+    const localDate = (v) => {
+        const m = String(v || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+        const dt = m ? new Date(+m[1], +m[2] - 1, +m[3]) : new Date(v);
+        return isNaN(dt) ? null : dt;
+    };
+    let minDate = new Date(); minDate.setHours(0, 0, 0, 0);
+    let maxDate = new Date(minDate);
     tasks.forEach(t => {
-        if (t.start) {
-            const s = new Date(t.start);
-            if (s < minDate) minDate = new Date(s);
-        }
-        if (t.end) {
-            const e = new Date(t.end);
-            if (e > maxDate) maxDate = new Date(e);
-        }
+        const s = localDate(t.start);
+        if (s && s < minDate) minDate = new Date(s);
+        const e = localDate(t.end);
+        if (e && e > maxDate) maxDate = new Date(e);
     });
     
     const padding = ganttZoomLevel === 'days' ? 7 : ganttZoomLevel === 'weeks' ? 14 : 30;
@@ -2775,13 +2795,15 @@ export function renderGantt() {
             currentDate.setDate(currentDate.getDate() + 7);
         }
     } else {
+        // The timeline starts at minDate, so the first month is only the part
+        // from minDate onwards — otherwise every later month label drifts right.
         let currentDate = new Date(minDate);
-        currentDate.setDate(1);
         while (currentDate <= maxDate) {
             const monthName = currentDate.toLocaleDateString('en-GB', { month: 'short', year: '2-digit' });
             const daysInMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-            timeHeaders += `<div class="text-xs text-slate-500 px-2 border-l border-slate-200 font-medium" style="width: ${daysInMonth * dayWidth}px">${monthName}</div>`;
-            currentDate.setMonth(currentDate.getMonth() + 1);
+            const daysShown = daysInMonth - currentDate.getDate() + 1;
+            timeHeaders += `<div class="text-xs text-slate-500 px-2 border-l border-slate-200 font-medium whitespace-nowrap overflow-hidden" style="width: ${daysShown * dayWidth}px; flex-shrink: 0">${daysShown * dayWidth >= 28 ? monthName : ''}</div>`;
+            currentDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
         }
     }
     
@@ -2822,21 +2844,21 @@ export function renderGantt() {
                 </div>
                 
                 ${tasks.map((t, i) => {
-                    const start = t.start ? new Date(t.start) : minDate;
-                    const end = t.end ? new Date(t.end) : start;
-                    const startOffset = Math.max(0, Math.ceil((start - minDate) / (1000 * 60 * 60 * 24)));
-                    const duration = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)) + 1);
+                    const start = localDate(t.start) || minDate;
+                    const end = localDate(t.end) || start;
+                    const startOffset = Math.max(0, Math.round((start - minDate) / (1000 * 60 * 60 * 24)));
+                    const duration = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)) + 1);
                     
                     const barColor = typeColors[t.type] || 'bg-slate-400';
                     
                     return `
                         <div class="flex border-b border-slate-100 hover:bg-slate-50 group">
                             <div class="w-48 flex-shrink-0 px-3 py-3 border-r border-slate-100 flex items-center justify-between">
-                                <div class="truncate text-sm text-slate-700 flex items-center gap-2" title="${escapeHtml(t.name || 'Untitled')}">
+                                <button type="button" onclick="window.openGanttModal(${i})" class="truncate text-sm text-slate-700 flex items-center gap-2 text-left hover:text-rcem-purple" title="Edit: ${escapeHtml(t.name || 'Untitled')}">
                                     ${t.milestone ? '<i data-lucide="flag" class="w-3 h-3 text-amber-500 flex-shrink-0"></i>' : ''}
-                                    ${escapeHtml(t.name || 'Untitled')}
-                                </div>
-                                <button onclick="window.deleteGanttTask(${i})" class="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all flex-shrink-0 ml-2">
+                                    <span class="truncate">${escapeHtml(t.name || 'Untitled')}</span>
+                                </button>
+                                <button onclick="window.deleteGanttTask(${i})" aria-label="Delete task" class="opacity-0 group-hover:opacity-100 focus:opacity-100 text-slate-300 hover:text-red-500 transition-all flex-shrink-0 ml-2">
                                     <i data-lucide="trash-2" class="w-3 h-3"></i>
                                 </button>
                             </div>
@@ -2844,14 +2866,14 @@ export function renderGantt() {
                                 ${t.milestone ? `
                                 <div class="absolute w-6 h-6 rounded-sm ${barColor} shadow-sm flex items-center justify-center text-white hover:shadow-md transition-shadow"
                                      style="left: ${Math.max(0, startOffset * dayWidth - 12)}px; top: 4px; transform: rotate(45deg);"
-                                     title="Milestone: ${escapeHtml(t.name)} (${t.start})${t.owner ? ' \u2014 ' + escapeHtml(t.owner) : ''}">
+                                     title="Milestone: ${escapeHtml(t.name)} (${escapeHtml(t.start || '')})${t.owner ? ' \u2014 ' + escapeHtml(t.owner) : ''}">
                                     <i data-lucide="flag" class="w-3 h-3" style="transform: rotate(-45deg)"></i>
                                 </div>
                                 <span class="absolute text-[10px] font-medium text-slate-600 whitespace-nowrap" style="left: ${startOffset * dayWidth + 16}px; top: 8px;">${escapeHtml(t.name)}</span>
                                 ` : `
                                 <div class="absolute h-6 rounded ${barColor} shadow-sm flex items-center px-2 text-white text-[10px] font-medium overflow-hidden hover:shadow-md transition-shadow"
                                      style="left: ${startOffset * dayWidth}px; width: ${duration * dayWidth}px;"
-                                     title="${escapeHtml(t.name)}: ${t.start} to ${t.end}${t.owner ? ' (' + t.owner + ')' : ''}">
+                                     title="${escapeHtml(t.name)}: ${escapeHtml(t.start || '')} to ${escapeHtml(t.end || '')}${t.owner ? ' (' + escapeHtml(t.owner) + ')' : ''}">
                                     <span class="truncate">${duration > 3 ? escapeHtml(t.name) : ''}</span>
                                 </div>
                                 `}
@@ -2898,8 +2920,8 @@ export function openGanttModal(index = null) {
     if (depSelect) {
         const tasks = d.gantt || [];
         depSelect.innerHTML = `<option value="">None</option>` + 
-            tasks.filter((_, i) => i !== index).map((t, i) => 
-                `<option value="${t.id || i}" ${task?.dependency === (t.id || String(i)) ? 'selected' : ''}>${escapeHtml(t.name || `Task ${i + 1}`)}</option>`
+            tasks.map((t, i) => ({ t, i })).filter(({ i }) => i !== index && tasks[i].id).map(({ t, i }) =>
+                `<option value="${escapeHtml(t.id)}" ${task?.dependency === t.id ? 'selected' : ''}>${escapeHtml(t.name || `Task ${i + 1}`)}</option>`
             ).join('');
     }
     
@@ -3720,18 +3742,22 @@ export async function openGoldenThreadValidator() {
         try {
             const result = await window.runGoldenThreadValidator(state.projectData);
             if (result) {
-                const scoreColor = result.overallScore >= 80 ? 'text-emerald-500' : (result.overallScore >= 50 ? 'text-amber-500' : 'text-red-500');
+                const score = Math.max(0, Math.min(100, Math.round(Number(result.overallScore) || 0)));
+                const scoreColor = score >= 80 ? 'text-emerald-500' : (score >= 50 ? 'text-amber-500' : 'text-red-500');
                 
+                // AI output is untrusted: escape it, and read the status loosely.
                 const renderRow = (label, data) => {
                     if (!data) return '';
-                    const icon = data.status === 'pass' ? 'check-circle' : (data.status === 'warning' ? 'alert-triangle' : 'x-circle');
-                    const color = data.status === 'pass' ? 'text-emerald-500' : (data.status === 'warning' ? 'text-amber-500' : 'text-red-500');
+                    const st = String(data.status || '').toLowerCase();
+                    const status = /pass|met|good|strong/.test(st) ? 'pass' : /warn|partial|amber/.test(st) ? 'warning' : 'fail';
+                    const icon = status === 'pass' ? 'check-circle' : (status === 'warning' ? 'alert-triangle' : 'x-circle');
+                    const color = status === 'pass' ? 'text-emerald-500' : (status === 'warning' ? 'text-amber-500' : 'text-red-500');
                     return `
                         <div class="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
                             <i data-lucide="${icon}" class="w-5 h-5 ${color} flex-shrink-0 mt-0.5"></i>
                             <div>
                                 <h4 class="text-sm font-bold text-slate-800">${label}</h4>
-                                <p class="text-xs text-slate-600 mt-1">${data.comment}</p>
+                                <p class="text-xs text-slate-600 mt-1">${escapeHtml(String(data.comment || ''))}</p>
                             </div>
                         </div>
                     `;
@@ -3739,12 +3765,12 @@ export async function openGoldenThreadValidator() {
 
                 content.innerHTML = `
                     <div class="text-center mb-6">
-                        <div class="text-4xl font-black ${scoreColor}">${result.overallScore}/100</div>
+                        <div class="text-4xl font-black ${scoreColor}">${score}/100</div>
                         <div class="text-sm text-slate-500 font-medium uppercase tracking-wide mt-1">Coherence Score</div>
                     </div>
                     <div class="bg-indigo-50 border border-indigo-200 p-4 rounded-lg mb-6">
                         <h4 class="text-xs font-bold text-indigo-800 uppercase mb-1">Top Recommendation</h4>
-                        <p class="text-sm text-indigo-900">${result.topRecommendation}</p>
+                        <p class="text-sm text-indigo-900">${escapeHtml(String(result.topRecommendation || ''))}</p>
                     </div>
                     <div class="space-y-3">
                         ${renderRow('Aim addresses problem', result.aimAddressesProblem)}
@@ -3765,7 +3791,7 @@ export async function openGoldenThreadValidator() {
                 content.innerHTML = `<div class="p-6 text-center text-red-500">Validation failed. Please try again.</div>`;
             }
         } catch (error) {
-            content.innerHTML = `<div class="p-6 text-center text-red-500">Validation error: ${error.message}</div>`;
+            content.innerHTML = `<div class="p-6 text-center text-red-500">Validation error: ${escapeHtml(String(error?.message || error))}</div>`;
         }
     } else {
         content.innerHTML = `
@@ -3833,7 +3859,7 @@ export function startTour() {
 // PDSA view toggle
 window.setPDSAView = function(mode) {
     window.pdsaViewMode = mode;
-    if (window.renderPDSA) window.renderPDSA();
+    renderPDSA(); // (not currently called from the UI)
     // Re-init lucide after re-render
     if (typeof lucide !== 'undefined') setTimeout(() => lucide.createIcons(), 50);
 };
@@ -3934,27 +3960,13 @@ window.applyPDSATemplate = function(id) {
 
 // ARCP date save
 window.saveARCPDate = function(val) {
-    if (!window.state?.projectData?.meta) return;
-    window.state.projectData.meta.arcpDate = val;
+    // `state` is this module's import — there is no window.state, which is why
+    // the date previously never saved.
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.meta) state.projectData.meta = {};
+    state.projectData.meta.arcpDate = val || '';
     if (window.saveData) window.saveData();
-    // Re-render countdown
-    const { renderARCPCountdown } = window.__rendererHelpers || {};
-    // Inline re-render
-    const display = document.getElementById('arcp-countdown-display');
-    if (!display) return;
-    if (!val) { display.innerHTML = '<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>'; return; }
-    const today = new Date(); today.setHours(0,0,0,0);
-    const target = new Date(val); target.setHours(0,0,0,0);
-    const days = Math.round((target - today) / 86400000);
-    const color = days < 0 ? 'text-slate-500' : days <= 30 ? 'text-red-600' : days <= 90 ? 'text-amber-600' : 'text-emerald-600';
-    display.innerHTML = `
-        <div class="flex items-center gap-3">
-            <div class="text-3xl font-black ${color}">${days < 0 ? 'Past' : days + ' days'}</div>
-            <div class="text-xs text-slate-500">${days < 0 ? `ARCP was ${Math.abs(days)} days ago` : `until ARCP<br><span class="text-slate-400">${target.toLocaleDateString('en-GB')}</span>`}</div>
-        </div>
-        ${days >= 0 && days <= 30 ? '<p class="text-xs text-red-600 font-bold mt-1">Imminent — ensure portfolio is submission-ready!</p>' : ''}
-        ${days > 30 && days <= 90 ? '<p class="text-xs text-amber-600 mt-1">Getting close — review your portfolio readiness score.</p>' : ''}
-    `;
+    renderARCPCountdown();
 };
 
 // Abstract word count live update
@@ -4122,7 +4134,7 @@ window.showExample = function(section) {
 
 // ─── AI Review Centre renderer ────────────────────────────────────────────────
 export function renderAIReview() {
-    const hasKey = !!(state.aiKey || localStorage.getItem('rcem_qip_ai_key'));
+    const hasKey = !!(state.aiKey || safeStorage.get('rcem_qip_ai_key'));
     const noKeyEl = document.getElementById('aireview-nokey');
     const runPanel = document.getElementById('aireview-run-panel');
     const quickEl  = document.getElementById('aireview-quick');

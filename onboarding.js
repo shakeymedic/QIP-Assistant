@@ -192,26 +192,26 @@ function saveCurrentStepData() {
         const planEl = document.getElementById('onboarding-pdsa-plan');
         
         if (titleEl && titleEl.value.trim()) {
-            if (!state.projectData.pdsa) state.projectData.pdsa = [];
-            
-            // Only add if we do not already have one to avoid duplicates if they go back and forth
-            if (state.projectData.pdsa.length === 0) {
-                state.projectData.pdsa.push({
-                    title: titleEl.value,
-                    plan: planEl ? planEl.value : '',
-                    desc: planEl ? planEl.value : '',
-                    startDate: new Date().toISOString().split('T')[0],
-                    status: 'planning',
-                    do: '', study: '', act: ''
+            // PDSA cycles live under change ideas; d.pdsa is only a flattened
+            // copy, rebuilt from them, so a cycle written only there is lost.
+            const d = state.projectData;
+            if (!Array.isArray(d.changeIdeas)) d.changeIdeas = [];
+            const plan = planEl ? planEl.value : '';
+            let found = null;
+            d.changeIdeas.forEach(ci => (ci.pdsaCycles || []).forEach(c => { if (c.fromOnboarding) found = c; }));
+            if (found) {
+                // They went back and edited it
+                found.title = titleEl.value;
+                found.plan = plan; found.desc = plan;
+            } else if (!d.changeIdeas.some(ci => (ci.pdsaCycles || []).length)) {
+                const today = new Date().toISOString().split('T')[0];
+                d.changeIdeas.push({
+                    id: 'ci-' + Date.now(), title: titleEl.value, description: '', driverLink: '', status: 'active',
+                    pdsaCycles: [{ title: titleEl.value, plan, desc: plan, prediction: '', startDate: today, start: today,
+                        owner: '', status: 'planning', do: '', study: '', act: '', actDecision: '', fromOnboarding: true }]
                 });
-            } else {
-                // Update existing first cycle if they go back and edit
-                state.projectData.pdsa[0].title = titleEl.value;
-                if (planEl) {
-                    state.projectData.pdsa[0].plan = planEl.value;
-                    state.projectData.pdsa[0].desc = planEl.value;
-                }
             }
+            d.pdsa = d.changeIdeas.flatMap(ci => ci.pdsaCycles || []);
         }
     }
     

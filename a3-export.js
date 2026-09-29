@@ -113,7 +113,7 @@ async function runA3Export() {
     }
 
     const estimatedCompletion = charter.endDate || checklist.aim_date || '';
-    const problemCategory = charter.keyAreaOfFocus || 'Patient Safety — Equipment & Systems (pending confirmation)';
+    const problemCategory = charter.keyAreaOfFocus || 'Not specified — add the key area of focus in the Project Charter.';
     const nextSteps = checklist.next_pdp || latestPdsa.act || checklist.sustainability || '';
 
     const printWindow = window.open('', '_blank');
