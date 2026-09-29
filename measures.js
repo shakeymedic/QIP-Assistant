@@ -56,8 +56,8 @@ export function getActiveMeasure() {
     return d.measures.find(m => m.id === d.activeMeasureId) || d.measures[0] || null;
 }
 
-function refreshUI() {
-    if (window.saveData) window.saveData();
+function refreshUI(save = true) {
+    if (save && window.saveData) window.saveData();
     if (window.R && window.R.renderDataView) window.R.renderDataView();
     else if (window.renderDataView) window.renderDataView();
     if (window.renderChart) window.renderChart();
@@ -71,7 +71,9 @@ export function switchMeasure(measureId) {
     if (!m) return;
     d.activeMeasureId = m.id;
     syncActiveMeasureRefs();
-    refreshUI();
+    // Switching tabs is a viewing choice, not an edit (and never reverted when read-only).
+    if (window.saveViewChoice) window.saveViewChoice();
+    refreshUI(false);
 }
 
 export function addMeasure() {

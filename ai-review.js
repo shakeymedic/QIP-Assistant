@@ -1,7 +1,7 @@
 // ai-review.js — AI Review Centre
 // Full project assessment using Google Gemini, covering all 10 QIP domains
 
-import { state } from "./state.js";
+import { state, safeStorage } from "./state.js";
 import { callAI } from "./ai.js";
 import { showToast, escapeHtml } from "./utils.js";
 
@@ -182,7 +182,7 @@ GANTT TASKS: ${(d.gantt || []).length} tasks
 
 export async function runFullAIAssessment() {
     if (!state.projectData) { showToast('Open a project first', 'error'); return; }
-    const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
+    const key = state.aiKey || safeStorage.get('rcem_qip_ai_key');
     if (!key) {
         document.getElementById('aireview-nokey')?.classList.remove('hidden');
         return;
@@ -357,7 +357,7 @@ function renderFullAssessmentResults(result) {
 // ─── Individual section AI (quick actions) ────────────────────────────────────
 
 export async function runSectionAI(section) {
-    const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
+    const key = state.aiKey || safeStorage.get('rcem_qip_ai_key');
     if (!key) {
         document.getElementById('aireview-nokey')?.classList.remove('hidden');
         return;

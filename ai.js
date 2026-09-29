@@ -1,4 +1,4 @@
-import { state } from "./state.js";
+import { state, safeStorage } from "./state.js";
 import { showToast } from "./utils.js";
 
 // Model cascade: tried in order, moving on when a model is unavailable.
@@ -43,7 +43,7 @@ function getTrainingStageContext() {
 }
 
 export async function callAI(userPrompt, jsonMode = false, schema = null) {
-    const key = state.aiKey || localStorage.getItem('rcem_qip_ai_key');
+    const key = state.aiKey || safeStorage.get('rcem_qip_ai_key');
     if (!key) {
         showToast("AI API Key missing. Go to Settings.", "error");
         return null;
@@ -167,7 +167,9 @@ export async function runGoldenThreadValidator(projectData) {
     const prompt = `
         Perform a comprehensive coherence check on this QIP.
         Rules:
-        Keep each comment under 25 words.
+        For each check, status must be exactly one of "pass", "warning" or "fail".
+        overallScore is a whole number from 0 to 100.
+        Base every comment only on the data given. Keep each comment under 25 words.
         Data: ${context}
     `;
 

@@ -1,8 +1,8 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { state, emptyProject, getDemoData } from "./state.js";
-import { escapeHtml, updateOnlineStatus, showToast } from "./utils.js";
+import { state, emptyProject, getDemoData, safeStorage } from "./state.js";
+import { escapeHtml, jsArg, updateOnlineStatus, showToast } from "./utils.js";
 window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
 import { callAI } from "./ai.js";
 
@@ -454,7 +454,7 @@ window.toggleNavGroup = (groupId, expand, persist = true) => {
 
     if (!persist) return;
     try {
-        localStorage.setItem(NAV_GROUP_COLLAPSE_KEY(groupId), shouldExpand ? '0' : '1');
+        safeStorage.set(NAV_GROUP_COLLAPSE_KEY(groupId), shouldExpand ? '0' : '1');
     } catch (e) { /* localStorage unavailable — ignore */ }
 };
 
@@ -472,7 +472,7 @@ window.expandNavGroupForView = (view) => {
 window.initNavGroups = () => {
     Object.keys(NAV_GROUP_VIEWS).forEach(groupId => {
         let collapsed = false;
-        try { collapsed = localStorage.getItem(NAV_GROUP_COLLAPSE_KEY(groupId)) === '1'; } catch (e) { /* ignore */ }
+        try { collapsed = safeStorage.get(NAV_GROUP_COLLAPSE_KEY(groupId)) === '1'; } catch (e) { /* ignore */ }
         window.toggleNavGroup(groupId, !collapsed, false);
     });
 };
@@ -486,7 +486,7 @@ window.initNavGroups();
 // preference on later projects).
 window.applyProgressiveNavDisclosure = () => {
     try {
-        const anyCustomised = Object.keys(NAV_GROUP_VIEWS).some(g => localStorage.getItem(NAV_GROUP_COLLAPSE_KEY(g)) !== null);
+        const anyCustomised = Object.keys(NAV_GROUP_VIEWS).some(g => safeStorage.get(NAV_GROUP_COLLAPSE_KEY(g)) !== null);
         if (anyCustomised) return;
         const c = (state.projectData && state.projectData.checklist) || {};
         const fields = ['problem_desc', 'problem_context', 'problem_evidence', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
@@ -591,6 +591,20 @@ function stopReadOnlyLock() {
         delete el.dataset.readonlyLocked;
     });
 }
+
+// Viewing choices (which measure tab, which chart type) change the project
+// object too. In read-only mode, accept them as the new baseline instead of
+// reverting them as if they were edits — otherwise viewers can't change view.
+// Real edits can't be pending here: they are reverted as soon as they're saved.
+window.acceptReadOnlyViewChange = function() {
+    if (state.isReadOnly && state.projectData) state._readOnlySnapshot = JSON.stringify(state.projectData);
+};
+// Stores a viewing choice: kept locally when read-only, otherwise saved
+// without becoming an Undo step.
+window.saveViewChoice = function() {
+    if (state.isReadOnly) window.acceptReadOnlyViewChange();
+    else if (window.saveData) window.saveData(true);
+};
 
 // Called when saveData() is refused in read-only mode: put back the copy of
 // the project we opened, redraw, and say why nothing was saved.
@@ -1471,23 +1485,27 @@ window.savePESTField = function(field, value) {
 };
 window.setSWOTMode = function(mode) {
     const d = state.projectData; if (!d) return;
+    if (!d.checklist) d.checklist = {};
     d.checklist.swotMode = mode;
-    if (window.saveData) window.saveData();
-    const swotP = document.getElementById('swot-panel');
-    const pestP = document.getElementById('pest-panel');
-    const toggleEl = document.getElementById('swot-mode-toggle');
-    if (swotP) swotP.classList.toggle('hidden', mode !== 'swot');
-    if (pestP) pestP.classList.toggle('hidden', mode !== 'pest');
-    if (toggleEl) toggleEl.innerHTML = `<button onclick="event.stopPropagation(); window.setSWOTMode('swot')" class="px-2 py-1 text-[10px] font-bold rounded-l ${mode==='swot' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">SWOT</button><button onclick="event.stopPropagation(); window.setSWOTMode('pest')" class="px-2 py-1 text-[10px] font-bold rounded-r ${mode==='pest' ? 'bg-indigo-600 text-white' : 'text-indigo-600 hover:bg-indigo-50'}">PEST</button>`;
+    window.saveViewChoice();
+    // Show the chosen grid and restyle the two buttons in place.
+    document.getElementById('swot-grid')?.classList.toggle('hidden', mode !== 'swot');
+    document.getElementById('pest-grid')?.classList.toggle('hidden', mode !== 'pest');
+    document.querySelectorAll('button[onclick^="window.setSWOTMode"]').forEach(btn => {
+        const on = btn.getAttribute('onclick').includes(`'${mode}'`);
+        btn.classList.toggle('bg-indigo-600', on); btn.classList.toggle('text-white', on); btn.classList.toggle('border-indigo-600', on);
+        btn.classList.toggle('bg-white', !on); btn.classList.toggle('text-slate-600', !on); btn.classList.toggle('border-slate-300', !on);
+    });
 };
 window.toggleSWOTPESTPanel = function() {
     const content = document.getElementById('swot-pest-body');
     const chevron = document.getElementById('swot-chevron');
     const d = state.projectData;
     if (content) {
-        const isNowOpen = content.classList.toggle('hidden');
-        if (d) { d.checklist.swotOpen = !content.classList.contains('hidden'); if (window.saveData) window.saveData(); }
-        if (chevron) chevron.style.transform = content.classList.contains('hidden') ? 'rotate(-90deg)' : '';
+        content.classList.toggle('hidden');
+        const open = !content.classList.contains('hidden');
+        if (d) { if (!d.checklist) d.checklist = {}; d.checklist.swotOpen = open; window.saveViewChoice(); }
+        if (chevron) chevron.style.transform = open ? 'rotate(180deg)' : '';
     }
 };
 // ─── FMEA helpers ────────────────────────────────────────────────────────────
@@ -1546,7 +1564,7 @@ window.closeHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
     const cb = document.getElementById('howto-dont-show');
-    if (cb && cb.checked) localStorage.setItem('qip_howto_seen', '1');
+    if (cb && cb.checked) safeStorage.set('qip_howto_seen', '1');
 };
 
 window.returnToProjects = () => {
@@ -1647,10 +1665,10 @@ window.saveGlobalSettings = () => {
     const key = document.getElementById('settings-ai-key').value.trim();
     state.aiKey = key;
     if(key) {
-        localStorage.setItem('rcem_qip_ai_key', key);
+        safeStorage.set('rcem_qip_ai_key', key);
         showToast("Settings saved. AI features enabled.", "success");
     } else {
-        localStorage.removeItem('rcem_qip_ai_key');
+        safeStorage.remove('rcem_qip_ai_key');
         showToast("Settings saved. AI features disabled.", "info");
     }
     document.getElementById('global-settings-modal').classList.add('hidden');
@@ -1976,43 +1994,47 @@ window.renderAllPDSACycles = R.renderAllPDSACycles;
 
 window.openGanttModal = R.openGanttModal;
 window.saveGanttTask = () => {
-    const name = document.getElementById('task-name').value;
-    const start = document.getElementById('task-start').value;
-    const end = document.getElementById('task-end').value;
-    const type = document.getElementById('task-type').value;
-    const owner = document.getElementById('task-owner').value;
-    const milestone = document.getElementById('task-milestone').checked;
-    const dependency = document.getElementById('task-dep')?.value;
+    if (!state.projectData || state.isReadOnly) return;
+    const val = (id) => (document.getElementById(id)?.value || '').trim();
+    const name = val('task-name');
+    const start = val('task-start');
+    const end = val('task-end');
+    const type = val('task-type') || 'plan';
+    const owner = val('task-owner');
+    const milestone = !!document.getElementById('task-milestone')?.checked;
+    const dependency = val('task-dep');
+    const idxRaw = val('task-index');
+    const editIndex = idxRaw !== '' ? parseInt(idxRaw, 10) : null;
 
-    if(!name || !start || !end) { showToast("Missing task details", "error"); return; }
-    
-    if(dependency) {
-        const depTask = state.projectData.gantt.find(t => t.id === dependency);
-        if(depTask && new Date(depTask.end) > new Date(start)) {
+    if (!name || !start || !end) { showToast("Please give the task a name, start date and end date", "error"); return; }
+    if (end < start) { showToast("The end date is before the start date", "error"); return; }
+
+    if (!Array.isArray(state.projectData.gantt)) state.projectData.gantt = [];
+    const gantt = state.projectData.gantt;
+    // Older tasks may have no id; give them one so dependencies can point at them.
+    gantt.forEach((t, i) => { if (!t.id) t.id = Date.now().toString(36) + i; });
+
+    if (dependency) {
+        const depTask = gantt.find(t => t.id === dependency);
+        if (depTask && depTask.end && depTask.end > start) {
             showToast(`Task must start after dependency '${depTask.name}' finishes.`, 'error');
             return;
         }
     }
 
-    if(!state.projectData.gantt) state.projectData.gantt = [];
-    state.projectData.gantt.push({ 
-        id: Date.now().toString(), 
-        name, start, end, type, owner, milestone, dependency 
-    });
-    
+    const existing = editIndex !== null && gantt[editIndex] ? gantt[editIndex] : null;
+    const task = { ...(existing || {}), id: existing?.id || Date.now().toString(36), name, start, end, type, owner, milestone, dependency };
+    if (existing) gantt[editIndex] = task; else gantt.push(task);
+
     window.saveData();
-    document.getElementById('task-modal').classList.add('hidden');
-    
-    document.getElementById('task-name').value = '';
-    document.getElementById('task-start').value = '';
-    document.getElementById('task-end').value = '';
-    document.getElementById('task-type').value = 'plan';
-    document.getElementById('task-owner').value = '';
-    document.getElementById('task-milestone').checked = false;
-    document.getElementById('task-dep').value = '';
-    
+    const modal = document.getElementById('task-modal');
+    if (modal) { modal.classList.add('hidden'); modal.classList.remove('flex'); }
+    ['task-name', 'task-start', 'task-end', 'task-owner', 'task-dep', 'task-index'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+    const typeEl = document.getElementById('task-type'); if (typeEl) typeEl.value = 'plan';
+    const ms = document.getElementById('task-milestone'); if (ms) ms.checked = false;
+
     R.renderGantt();
-    showToast("Task added", "success");
+    showToast(existing ? "Task updated" : "Task added", "success");
 };
 window.deleteGantt = (id) => {
     window.showConfirmDialog('Delete this Gantt task?', () => {
@@ -2062,8 +2084,15 @@ window.saveData = async function(skipHistory = false) {
     // which is only reachable from the "Review & Sign Off" entry point.
     if (state.isReadOnly) { revertReadOnlyEdit(); return; }
     
+    // skipHistory: not an Undo step (Undo/Redo themselves, view choices, "seen"
+    // markers) — move the baseline so a later Undo doesn't quietly revert it.
+    const recordHistory = () => {
+        if (!skipHistory) pushHistory();
+        else if (state.projectData) state._historyBase = JSON.stringify(state.projectData);
+    };
+
     if (state.isDemoMode) { 
-        if(!skipHistory) pushHistory();
+        recordHistory();
         let currentView = document.querySelector('.view-section:not(.hidden)');
         if (currentView) {
             let viewName = currentView.id.replace('view-', '');
@@ -2077,11 +2106,11 @@ window.saveData = async function(skipHistory = false) {
     if (!state.currentProjectId || !state.currentUser) return;
     
     if (!db) {
-        showToast("Database not connected. Changes saved locally.", "warning");
+        showToast("Not connected to the database — your changes are only kept until you close this page.", "warning");
         return;
     }
     
-    if(!skipHistory) pushHistory();
+    recordHistory();
     
     try {
         const ownerUid = (state.isSupervisorViewing && state.supervisorTargetUid)
@@ -2386,8 +2415,8 @@ if (auth) {
 
             // Show role-specific sidebar buttons immediately from localStorage cache
             // (will be confirmed/hidden by Firestore check below)
-            const cachedLead = localStorage.getItem('rcem_is_qip_lead');
-            const cachedSupervisor = localStorage.getItem('rcem_is_supervisor');
+            const cachedLead = safeStorage.get('rcem_is_qip_lead');
+            const cachedSupervisor = safeStorage.get('rcem_is_supervisor');
             if (cachedLead) {
                 const leadBtn = document.getElementById('sidebar-lead-home');
                 if (leadBtn) leadBtn.classList.remove('hidden');
@@ -2419,11 +2448,11 @@ if (auth) {
                 if (ud) ud.textContent = user.email;
                 // Auto-save email to qipUsers so admin dashboard can resolve names
                 if (db) {
-                    setDoc(doc(db, 'qipUsers', user.uid), {
-                        email: user.email || '',
-                        displayName: user.displayName || '',
-                        lastLogin: new Date().toISOString()
-                    }, { merge: true }).catch(e => console.warn('[Profile] auto-save:', e));
+                    // Only send a name when the account has one: email sign-ups have
+                    // none here, and a blank would overwrite the name given at registration.
+                    const profile = { email: user.email || '', lastLogin: new Date().toISOString() };
+                    if (user.displayName) profile.displayName = user.displayName;
+                    setDoc(doc(db, 'qipUsers', user.uid), profile, { merge: true }).catch(e => console.warn('[Profile] auto-save:', e));
                 }
                 loadProjectList();
                 checkQIPLeadStatus(user);
@@ -2461,9 +2490,17 @@ async function checkShareLink(viewerUser) {
             const docRef = doc(db, `users/${shareUid}/projects`, sharePid);
             const docSnap = await getDoc(docRef);
             if (docSnap.exists()) {
-                state.projectData = docSnap.data();
+                // Normalise like every other way of opening a project, so an older
+                // or sparse project can't crash a tab for the person viewing it.
+                state.projectData = normaliseProjectData(docSnap.data());
                 state.currentProjectId = sharePid;
-                document.getElementById('project-header-title').textContent = state.projectData.meta.title + " (Shared)";
+                resetHistory(null);
+                const title = state.projectData.meta?.title || 'QIP';
+                const header = document.getElementById('project-header-title');
+                if (header) header.textContent = title + " (Shared)";
+                const topBar = document.getElementById('top-bar');
+                if (topBar) topBar.classList.remove('hidden');
+                showReadOnlyBanner(title, 'share');
                 window.router('dashboard');
                 // Log this the same way qip_lead/supervisor cross-account views are
                 // logged, so a plain share link can't view a trainee's project
@@ -2613,11 +2650,11 @@ async function checkQIPLeadStatus(user) {
         const badge = document.getElementById('qip-lead-badge');
         if (!state.isQIPLead) {
             // Role removed since last visit: clear the cached button too.
-            localStorage.removeItem('rcem_is_qip_lead');
+            safeStorage.remove('rcem_is_qip_lead');
             [leadHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
             return;
         }
-        localStorage.setItem('rcem_is_qip_lead', '1');
+        safeStorage.set('rcem_is_qip_lead', '1');
 
         const n = projects.length;
         const badgeText = document.getElementById('qip-lead-badge-text');
@@ -2764,11 +2801,12 @@ window.addQIPLeadBtn = async function() {
     const email = input.value.trim().toLowerCase();
     if (!email) { showToast('Enter a lead email address.', 'error'); return; }
     const d = state.projectData;
-    if (!d || !state.currentUser) return;
+    if (!d || !state.currentUser || !canManageAccess()) return;
+    if ((d.qipLeads || []).some(l => (l.email || l) === email)) { showToast('That email is already listed as a QIP Lead', 'info'); return; }
     const success = await addQIPLeadToProject(
         db, state.currentUser.uid, state.currentProjectId,
         email,
-        d.teamMembers?.[0]?.name || state.currentUser.email,
+        state.currentUser.displayName || state.currentUser.email,
         d.meta?.title || 'Untitled QIP'
     );
     if (success) {
@@ -2784,7 +2822,7 @@ window.addQIPLeadBtn = async function() {
 
 window.removeQIPLeadBtn = async function(idx) {
     const d = state.projectData;
-    if (!d?.qipLeads) return;
+    if (!d?.qipLeads || !canManageAccess()) return;
     const lead = d.qipLeads[idx];
     if (!lead) return;
     await removeQIPLeadFromProject(db, state.currentUser.uid, state.currentProjectId, lead.email);
@@ -2802,7 +2840,7 @@ async function loadProjectList() {
     if(topBar) topBar.classList.add('hidden');
 
     // Auto-show How-To guide for first-time visitors
-    if (!localStorage.getItem('qip_howto_seen')) {
+    if (!safeStorage.get('qip_howto_seen')) {
         setTimeout(() => window.showHowTo(), 800);
     }
 
@@ -2842,17 +2880,20 @@ async function loadProjectList() {
                 <button onclick="window.createNewProject()" class="text-rcem-purple font-bold hover:underline flex items-center justify-center gap-2 mx-auto"><i data-lucide="plus-circle" class="w-4 h-4"></i> Create your first QIP</button>
             </div>`;
         }
-        snap.forEach(doc => {
-            const d = doc.data();
-            const date = new Date(d.meta?.created).toLocaleDateString('en-GB');
-            const titleText = escapeHtml(d.meta?.title) || 'Untitled';
-            listEl.innerHTML += `
-                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer relative group hover:shadow-md transition-all" onclick="window.openProject('${doc.id}')">
-                    <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors truncate" title="${titleText}">${titleText}</h3>
-                    <p class="text-xs text-slate-400 mb-4">Created: ${date}</p>
-                    <button onclick="event.stopPropagation(); window.deleteProject('${doc.id}')" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        // Newest first; built in one go rather than re-parsing the list per card.
+        const rows = [];
+        snap.forEach(doc => rows.push({ id: doc.id, d: doc.data() || {} }));
+        rows.sort((a, b) => String(b.d.meta?.created || '').localeCompare(String(a.d.meta?.created || '')));
+        listEl.innerHTML = listEl.innerHTML + rows.map(({ id, d }) => {
+            const created = formatUkDate(d.meta?.created || '');
+            const titleText = escapeHtml(d.meta?.title || 'Untitled');
+            return `
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 cursor-pointer relative group hover:shadow-md transition-all" onclick="window.openProject(${jsArg(id)})">
+                    <h3 class="font-bold text-lg text-slate-800 mb-1 pr-8 group-hover:text-rcem-purple transition-colors truncate" title="${titleText}">${titleText}</h3>
+                    <p class="text-xs text-slate-400 mb-4">${created ? `Created: ${escapeHtml(created)}` : '&nbsp;'}</p>
+                    <button aria-label="Delete project" title="Delete project" onclick="event.stopPropagation(); window.deleteProject(${jsArg(id)})" class="absolute top-4 right-4 text-slate-300 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition-all p-2"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
                 </div>`;
-        });
+        }).join('');
         if(typeof lucide !== 'undefined') lucide.createIcons();
     } catch (e) {
         showToast("Failed to load projects: " + e.message, "error");
@@ -2876,13 +2917,17 @@ window.createNewProject = async () => {
     oldSubmit.parentNode.replaceChild(submitBtn, oldSubmit);
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
+    let creating = false; // a quick double Enter must not create two projects
     const doCreate = async () => {
+        if (creating) return;
         const title = titleInput.value.trim();
         if (!title) {
             titleInput.classList.add('border-red-400', 'ring-1', 'ring-red-400');
             titleInput.focus();
             return;
         }
+        creating = true;
+        titleInput.onkeydown = null;
         modal.classList.add('hidden');
         modal.classList.remove('flex');
 
@@ -3390,13 +3435,20 @@ window.regGoBack = function() {
     if (d2) { d2.classList.remove('bg-rcem-purple'); d2.classList.add('bg-slate-200'); }
 };
 
+function refreshRoleNavAfterRegistration(user) {
+    if (!user || state.isMasterAdmin) return;
+    checkQIPLeadStatus(user);
+    checkSupervisorStatus();
+}
+
 async function saveUserProfileToFirestore(uid, email, displayName) {
     if (!db) return;
     try {
         await setDoc(doc(db, 'qipUsers', uid), {
             email: email || '',
             displayName: displayName || '',
-            roles: _regSelectedRoles,
+            // arrayUnion: signing up again (e.g. with Google) adds roles, never removes existing ones.
+            roles: arrayUnion(..._regSelectedRoles),
             createdAt: new Date().toISOString()
         }, { merge: true });
     } catch (e) {
@@ -3441,6 +3493,8 @@ window.submitRegister = async function() {
     try {
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await saveUserProfileToFirestore(cred.user.uid, email, name);
+        // Sign-in has already checked roles, possibly before they were saved — check again.
+        refreshRoleNavAfterRegistration(cred.user);
         // onAuthStateChanged will fire and load the app
         const reg = document.getElementById('register-screen');
         if (reg) reg.classList.add('hidden');
@@ -3470,6 +3524,7 @@ window.registerWithGoogle = async function() {
         provider.setCustomParameters({ prompt: 'select_account' });
         const cred = await signInWithPopup(auth, provider);
         await saveUserProfileToFirestore(cred.user.uid, cred.user.email, cred.user.displayName || '');
+        refreshRoleNavAfterRegistration(cred.user);
         const reg = document.getElementById('register-screen');
         if (reg) reg.classList.add('hidden');
         showToast('Account created with Google! Welcome.', 'success');
@@ -3536,39 +3591,19 @@ async function loadMasterAdminDashboard() {
             userMap[ownerUid].push({ projectId, data });
         });
 
-        // Known UID→email map seeded from Firebase Auth (covers all users pre-dating auto-save)
-        const KNOWN_USER_EMAILS = {
-            'n6JSBUsE0Kg4x5hvFQp252A0ny32': 'emevidence999@gmail.com',
-            '57bYrw6cyKg42U4EYzRfFsmeEob2': 'helen-michelle.spindler@uhb.nhs.uk',
-            'MYxJA61V3GNOxgqNwJ2kYkxIrmj2': 'sophie.mellor5@nhs.net',
-            'G2HVZqpc5CYENZRHQNQl834JhPa2': 'breijes.05@gmail.com',
-            'QNdzNb18T0YAxmh2BDubaiWYGLj1': 'chloe_thomson@hotmail.co.uk',
-            'Mm1VlbNzvYS25JmASN8zjIBEh2v1': 'chloe.thomson635@gmail.com',
-            'IcjFLqDIZufOZx72hmljb335Kvq2': 'testuser12345@example.com',
-            '6rNMSd2TTqUZOY7XTS4nV0IMbsn1': 'jaketurner2503@gmail.com'
-        };
-
-        // Fetch user emails — qipUsers doc first, then KNOWN_USER_EMAILS fallback
+        // Names come from each user's qipUsers profile, which is written at
+        // every sign-in. (No personal emails are kept in this public file.)
         const userEmails = {};
-        for (const uid of Object.keys(userMap)) {
+        const fallbackName = (uid) => `User (${uid.substring(0, 8)}\u2026)`;
+        await Promise.all(Object.keys(userMap).map(async (uid) => {
             try {
                 const uSnap = await getDoc(doc(db, 'qipUsers', uid));
-                if (uSnap.exists()) {
-                    const ud = uSnap.data();
-                    userEmails[uid] = ud.displayName ? `${ud.displayName} (${ud.email})` : (ud.email || KNOWN_USER_EMAILS[uid] || `User (${uid.substring(0,8)}\u2026)`);
-                } else {
-                    const knownEmail = KNOWN_USER_EMAILS[uid];
-                    if (knownEmail) {
-                        userEmails[uid] = knownEmail;
-                        // Silently seed qipUsers so future lookups hit the fast path
-                        setDoc(doc(db, 'qipUsers', uid), { email: knownEmail }, { merge: true })
-                            .catch(e => console.warn('[Admin] seed qipUsers:', e));
-                    } else {
-                        userEmails[uid] = `User (${uid.substring(0,8)}\u2026)`;
-                    }
-                }
-            } catch (e) { userEmails[uid] = KNOWN_USER_EMAILS[uid] || `User (${uid.substring(0,8)}\u2026)`; }
-        }
+                const ud = uSnap.exists() ? uSnap.data() : {};
+                userEmails[uid] = ud.email
+                    ? (ud.displayName ? `${ud.displayName} (${ud.email})` : ud.email)
+                    : (ud.displayName || fallbackName(uid));
+            } catch (e) { userEmails[uid] = fallbackName(uid); }
+        }));
 
         const totalProjects = state.adminAllProjects.length;
         const totalUsers = Object.keys(userMap).length;
@@ -3620,22 +3655,22 @@ async function loadMasterAdminDashboard() {
 
             projects.forEach(({ projectId, data }, idx) => {
                 const title = escapeHtml(data.meta?.title || 'Untitled');
-                const created = data.meta?.created ? new Date(data.meta.created).toLocaleDateString('en-GB') : '?';
-                const updated = data.meta?.updated ? new Date(data.meta.updated).toLocaleDateString('en-GB') : '?';
-                const pdsaCount = (data.pdsa || []).length;
-                const dataPoints = (data.chartData || []).length;
-                const c = data.checklist || {};
-                const filled = ['problem_desc', 'aim', 'outcome_measure', 'process_measure', 'lit_review'].filter(k => c[k]).length;
-                const progress = Math.round((filled / 5) * 100);
+                // Same figures as the QIP Lead and Supervisor overviews.
+                const summary = summariseProject(data);
+                const created = formatUkDate(data.meta?.created || '') || '?';
+                const updated = summary._lastActivity ? formatUkDate(summary._lastActivity.slice(0, 10)) : '?';
+                const pdsaCount = summary._pdsaCount;
+                const dataPoints = summary._dataPoints;
+                const progress = summary._progress;
 
                 html += `
                     <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 hover:shadow-md transition-all cursor-pointer group"
-                         onclick="window.adminViewProject('${uid}', '${projectId}')">
+                         onclick="window.adminViewProject(${jsArg(uid)}, ${jsArg(projectId)})">
                         <div class="flex items-start justify-between mb-2 gap-2">
                             <h3 class="font-bold text-slate-800 truncate group-hover:text-rcem-purple transition-colors" title="${title}">${title}</h3>
                             <span class="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-semibold whitespace-nowrap flex-shrink-0">Read-only</span>
                         </div>
-                        <p class="text-xs text-slate-400 mb-3">Created: ${created}&ensp;·&ensp;Updated: ${updated}</p>
+                        <p class="text-xs text-slate-400 mb-3">Created: ${created}&ensp;·&ensp;Last activity: ${updated}</p>
                         <div class="w-full bg-slate-100 rounded-full h-1.5 mb-3">
                             <div class="bg-rcem-purple h-1.5 rounded-full transition-all" style="width:${progress}%"></div>
                         </div>
@@ -3812,25 +3847,24 @@ window.adminViewProject = async function(uid, projectId) {
         const snap = await getDoc(doc(db, `users/${uid}/projects`, projectId));
         if (!snap.exists()) { showToast('Project not found', 'error'); return; }
 
-        const data = snap.data();
-        // Ensure all expected fields exist
-        if (!data.checklist) data.checklist = {};
-        if (!data.drivers) data.drivers = { primary: [], secondary: [], changes: [] };
-        if (!data.fishbone) data.fishbone = {};
-        if (!data.pdsa) data.pdsa = [];
-        if (!data.chartData) data.chartData = [];
-        if (!data.stakeholders) data.stakeholders = [];
-        if (!data.gantt) data.gantt = [];
-        if (!data.teamMembers) data.teamMembers = [];
-        if (!data.chartSettings) data.chartSettings = {};
-        if (!data.process) data.process = ['Start', 'End'];
-        if (!data.surveys) data.surveys = [];
-
-        migrateProjectData(data); // ensure admin view also sees measure tabs for multi-measure projects
+        const data = normaliseProjectData(snap.data());
+        leaveProjectContext();
         state.projectData = data;
         state.currentProjectId = projectId;
         state.isReadOnly = true;
         state.isLeadViewing = false;
+        resetHistory(null);
+        showReadOnlyBanner(data.meta?.title || 'Untitled', 'admin');
+        // Logged like QIP Lead / Supervisor / share-link views, so admin access is visible too.
+        logProjectAccessEvent(db, {
+            viewerUid: state.currentUser?.uid,
+            viewerEmail: state.currentUser?.email,
+            viaRole: 'master_admin',
+            ownerUid: uid,
+            projectId,
+            projectTitle: data.meta?.title || 'Untitled QIP',
+            action: 'viewed'
+        });
 
         const headerTitle = document.getElementById('project-header-title');
         if (headerTitle) headerTitle.textContent = (data.meta?.title || 'Untitled') + ' \u2014 Admin View';
@@ -3945,6 +3979,15 @@ window.toggleSettingsRole = async function(role, btnEl) {
 // PROJECT ACCESS — Supervisor & QIP Lead
 // ==========================================
 
+// Only the project's owner, in their own project, can change who has access.
+function canManageAccess() {
+    if (state.isReadOnly || state.isSupervisorViewing || state.isLeadViewing || state.isDemoMode) {
+        showToast("Only the project's owner can change who has access.", 'error');
+        return false;
+    }
+    return true;
+}
+
 function loadProjectAccessIntoSettings() {
     const supervisors = state.projectData?.supervisors || [];
     const leads = state.projectData?.qipLeads || [];
@@ -3987,15 +4030,14 @@ window.addSupervisorFromSettings = async function() {
     if (!state.projectData || !state.currentProjectId || !state.currentUser) {
         showToast('No project loaded', 'error'); return;
     }
+    if (!canManageAccess()) return;
     if (!state.projectData.supervisors) state.projectData.supervisors = [];
     if (state.projectData.supervisors.some(s => (s.email || s) === email)) {
         showToast('That email is already listed as a supervisor', 'info'); return;
     }
 
-    const entry = { email, addedAt: new Date().toISOString() };
-    state.projectData.supervisors.push(entry);
-
-    // Write supervisorInvites/{email} so supervisor sees this project on login
+    // Write supervisorInvites/{email} so supervisor sees this project on login.
+    // Only list them on the project once that has worked.
     try {
         const { doc, setDoc, arrayUnion } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
         const inviteEntry = {
@@ -4010,15 +4052,20 @@ window.addSupervisorFromSettings = async function() {
             { email, projects: arrayUnion(inviteEntry) }, { merge: true });
     } catch (e) {
         console.warn('[Access] supervisorInvites write failed:', e);
+        showToast("Couldn't add that supervisor — please check your connection and try again.", 'error');
+        return;
     }
 
+    state.projectData.supervisors.push({ email, addedAt: new Date().toISOString() });
     window.saveData();
     if (input) input.value = '';
     loadProjectAccessIntoSettings();
-    showToast(`Supervisor invite sent to ${email}`, 'success');
+    // No email is sent — the supervisor sees the project when they sign in.
+    showToast(`Supervisor added. ${email} will see this project when they sign in with that email.`, 'success');
 };
 
 window.removeSettingsSupervisor = async function(index) {
+    if (!canManageAccess()) return;
     const supervisors = state.projectData?.supervisors || [];
     const removed = supervisors[index];
     if (!removed) return;
@@ -4050,14 +4097,14 @@ window.addLeadFromSettings = async function() {
     if (!state.projectData || !state.currentProjectId || !state.currentUser) {
         showToast('No project loaded', 'error'); return;
     }
+    if (!canManageAccess()) return;
     if (!state.projectData.qipLeads) state.projectData.qipLeads = [];
     if (state.projectData.qipLeads.some(l => l.email === email)) {
         showToast('That email is already listed as a QIP Lead', 'info'); return;
     }
-    const { addQIPLeadToProject } = await import('./qip-lead.js');
     const ok = await addQIPLeadToProject(
         db, state.currentUser.uid, state.currentProjectId, email,
-        state.currentUser.email,
+        state.currentUser.displayName || state.currentUser.email,
         state.projectData.meta?.title || 'Untitled QIP'
     );
     if (ok) {
@@ -4069,11 +4116,11 @@ window.addLeadFromSettings = async function() {
 };
 
 window.removeSettingsLead = async function(index) {
+    if (!canManageAccess()) return;
     const leads = state.projectData?.qipLeads || [];
     const removed = leads[index];
     if (!removed) return;
     leads.splice(index, 1);
-    const { removeQIPLeadFromProject } = await import('./qip-lead.js');
     await removeQIPLeadFromProject(db, state.currentUser?.uid, state.currentProjectId, removed.email || removed);
     window.saveData();
     loadProjectAccessIntoSettings();
@@ -4095,12 +4142,12 @@ async function checkSupervisorStatus() {
         const badge = document.getElementById('supervisor-badge');
         if (!hasSupervisorRole && invites.length === 0) {
             // Role removed since last visit: clear the cached button too.
-            localStorage.removeItem('rcem_is_supervisor');
+            safeStorage.remove('rcem_is_supervisor');
             [supHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
             state.supervisorProjects = [];
             return;
         }
-        localStorage.setItem('rcem_is_supervisor', '1');
+        safeStorage.set('rcem_is_supervisor', '1');
 
         // The same project can be invited twice (re-added supervisor) — show it once.
         const seen = new Set();

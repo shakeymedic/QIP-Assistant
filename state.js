@@ -1,3 +1,10 @@
+// localStorage throws when a browser blocks site data; the app must still load.
+export const safeStorage = {
+    get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* storage blocked */ } },
+    remove(k) { try { localStorage.removeItem(k); } catch (e) { /* storage blocked */ } }
+};
+
 export const state = {
     currentUser: null,
     currentProjectId: null,
@@ -9,7 +16,7 @@ export const state = {
     historyStack: [],
     redoStack: [],
     MAX_HISTORY: 50,
-    aiKey: localStorage.getItem('rcem_qip_ai_key') || null
+    aiKey: safeStorage.get('rcem_qip_ai_key') || null
 };
 
 export const emptyProject = {

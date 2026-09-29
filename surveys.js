@@ -1,5 +1,5 @@
 import { state } from "./state.js";
-import { showToast, escapeHtml } from "./utils.js";
+import { showToast, escapeHtml, jsArg } from "./utils.js";
 import { callAI } from "./ai.js";
 
 export function renderSurveys() {
@@ -42,10 +42,10 @@ export function renderSurveys() {
                 <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
                     <div class="flex justify-between items-start mb-4 border-b border-slate-100 pb-4">
                         <div class="flex-1 mr-4">
-                            <input type="text" value="${escapeHtml(survey.title)}" onchange="window.updateSurveyTitle('${survey.id}', this.value)" class="w-full text-xl font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 hover:bg-slate-50 rounded" placeholder="Survey Title">
+                            <input type="text" value="${escapeHtml(survey.title)}" onchange="window.updateSurveyTitle(${jsArg(survey.id)}, this.value)" class="w-full text-xl font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 hover:bg-slate-50 rounded" placeholder="Survey Title">
                             <p class="text-xs text-slate-400 mt-1">${survey.responses ? survey.responses.length : 0} responses recorded</p>
                         </div>
-                        <button onclick="window.deleteSurvey('${survey.id}')" class="text-slate-400 hover:text-red-500 p-2 rounded hover:bg-red-50 transition-colors">
+                        <button onclick="window.deleteSurvey(${jsArg(survey.id)})" class="text-slate-400 hover:text-red-500 p-2 rounded hover:bg-red-50 transition-colors">
                             <i data-lucide="trash-2" class="w-5 h-5"></i>
                         </button>
                     </div>
@@ -59,7 +59,7 @@ export function renderSurveys() {
                                 <p class="text-xs text-slate-600 mb-3">Export your Google Form or Sheet as a CSV, then upload it here. The first row must contain your questions.</p>
                                 <label class="bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-2 cursor-pointer hover:bg-emerald-600 transition-colors w-full">
                                     <i data-lucide="upload" class="w-4 h-4"></i> Upload CSV File
-                                    <input type="file" accept=".csv" onchange="window.importSurveyCSV(this, '${survey.id}')" class="hidden">
+                                    <input type="file" accept=".csv" onchange="window.importSurveyCSV(this, ${jsArg(survey.id)})" class="hidden">
                                 </label>
                             </div>
                             
@@ -75,10 +75,10 @@ export function renderSurveys() {
                             <h4 class="font-bold text-slate-700 text-sm mb-2 flex items-center gap-2">
                                 <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Results and Summary
                             </h4>
-                            <textarea onchange="window.updateSurveySummary('${survey.id}', this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-rcem-purple" placeholder="Summarise the key findings from this survey...">${escapeHtml(survey.summary || '')}</textarea>
+                            <textarea onchange="window.updateSurveySummary(${jsArg(survey.id)}, this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[120px] focus:ring-2 focus:ring-rcem-purple" placeholder="Summarise the key findings from this survey...">${escapeHtml(survey.summary || '')}</textarea>
                             
                             ${window.hasAI && window.hasAI() && survey.responses && survey.responses.length > 0 ? `
-                                <button onclick="window.aiAnalyseSurvey('${survey.id}')" id="btn-ai-survey-${survey.id}" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded-lg font-bold hover:bg-purple-100 transition-colors flex items-center justify-center gap-2 text-sm">
+                                <button onclick="window.aiAnalyseSurvey(${jsArg(survey.id)})" id="btn-ai-survey-${escapeHtml(survey.id)}" class="w-full mt-2 border border-purple-200 text-purple-700 bg-purple-50 py-2 rounded-lg font-bold hover:bg-purple-100 transition-colors flex items-center justify-center gap-2 text-sm">
                                     <i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Summarise Results
                                 </button>
                             ` : ''}
@@ -135,7 +135,7 @@ export function deleteSurvey(id) {
 
 export function importSurveyCSV(input, id) {
     const file = input.files ? input.files[0] : null;
-    if (!file) return;
+    if (!file || state.isReadOnly) return;
     const reader = new FileReader();
     reader.onload = (e) => {
         const text = e.target.result;
@@ -145,7 +145,17 @@ export function importSurveyCSV(input, id) {
             return;
         }
         
-        const questions = rows[0];
+        // Headers become Firestore field names, which can't be blank or look
+        // like __name__, and duplicates would overwrite each other's answers.
+        const seen = {};
+        const questions = rows[0].map((h, idx) => {
+            let q = String(h || '').replace(/^\uFEFF/, '').trim() || `Column ${idx + 1}`;
+            if (/^__.*__$/.test(q)) q = q.replace(/^_+|_+$/g, '') || `Column ${idx + 1}`;
+            const base = q;
+            while (seen[q]) q = `${base} (${++seen[base]})`;
+            seen[q] = seen[q] || 1;
+            return q;
+        });
         const responses = [];
         
         for(let i = 1; i < rows.length; i++) {
@@ -195,32 +205,44 @@ function parseCSV(str) {
 }
 
 export async function aiAnalyseSurvey(id) {
-    const s = state.projectData.surveys.find(x => x.id === id);
-    if (!s || !s.responses || s.responses.length === 0) return;
-    
-    const btn = document.getElementById(`btn-ai-survey-${id}`);
-    if(btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Analysing...`;
+    if (!state.projectData || state.isReadOnly) return;
+    const s = (state.projectData.surveys || []).find(x => x.id === id);
+    if (!s || !s.responses || s.responses.length === 0) { showToast('Add some responses first', 'info'); return; }
 
-    const sample = s.responses.slice(0, 30);
-    const dataStr = JSON.stringify(sample);
+    const btn = document.getElementById(`btn-ai-survey-${id}`);
+    const idle = `<i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Summarise Results`;
+    if (btn) { btn.disabled = true; btn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Analysing...`; }
+
+    // Keep the request a sensible size; say so if not every response was read.
+    const MAX = 100;
+    const sample = s.responses.slice(0, MAX);
+    const partial = s.responses.length > MAX;
 
     const prompt = `
         I have conducted a survey for my Quality Improvement Project in the Emergency Department.
-        Survey Title: "${s.title}"
-        Data (JSON format): ${dataStr}
+        Survey Title: "${s.title || 'Untitled survey'}"
+        Responses analysed: ${sample.length}${partial ? ` of ${s.responses.length}` : ''}.
+        Data (JSON format): ${JSON.stringify(sample)}
         
-        Task: Please analyse the survey responses and provide a concise, professional summary of the key findings, trends, and actionable insights. Use bullet points for readability. Keep it under 250 words. Do not use any introductory or concluding filler.
+        Task: Please analyse the survey responses and provide a concise, professional summary of the key findings, trends, and actionable insights. Give counts or percentages only where you can work them out from the data. Use bullet points for readability. Keep it under 250 words. Do not use any introductory or concluding filler.
     `;
 
-    const result = await callAI(prompt);
-    
-    if(result) {
-        s.summary = result.trim();
+    let result = null;
+    try { result = await callAI(prompt); }
+    finally {
+        const b = document.getElementById(`btn-ai-survey-${id}`);
+        if (b) { b.disabled = false; b.innerHTML = idle; }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+    const text = typeof result === 'string' ? result.trim() : '';
+    if (!text) return;
+    const summary = partial ? `${text}\n\n(AI summary of the first ${MAX} of ${s.responses.length} responses.)` : text;
+    const apply = () => {
+        s.summary = summary;
         window.saveData();
         renderSurveys();
-        showToast("Survey analysed", "success");
-    } else {
-        if(btn) btn.innerHTML = `<i data-lucide="sparkles" class="w-4 h-4"></i> Auto-Summarise Results`;
-        if(typeof lucide !== 'undefined') lucide.createIcons();
-    }
+        showToast("Survey analysed — check the summary against your data", "success");
+    };
+    if ((s.summary || '').trim()) window.showConfirmDialog('Replace your current survey summary with the AI summary? You can press Undo afterwards.', apply, 'Replace', 'Use AI summary?');
+    else apply();
 }

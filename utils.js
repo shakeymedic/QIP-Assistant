@@ -19,6 +19,13 @@ export function escapeHtml(str) {
     return str.replace(/[&<>"']/g, m => map[m]);
 }
 
+// A value as a quoted JavaScript string that is safe inside an inline HTML
+// handler, e.g. onclick="f(${jsArg(id)})". escapeHtml alone is not enough
+// there: the browser decodes &#039; back to ' before the code runs.
+export function jsArg(v) {
+    return escapeHtml(JSON.stringify(String(v ?? '')));
+}
+
 /**
  * Checks a project's data for common gaps before it gets exported (Kaizen
  * QIAT / A3), so incomplete sections get flagged at export time instead of

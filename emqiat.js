@@ -442,6 +442,7 @@ window.toggleEmqiatFormJourney = function(key, checked) {
 window.tickEmqiatJourneyFromProject = function() {
     if (!state.projectData || state.isReadOnly) return;
     const evidence = deriveJourneyFromProject(state.projectData);
+    if (!state.projectData.emqiatForm) state.projectData.emqiatForm = {};
     let added = 0;
     Object.entries(evidence).forEach(([key, ok]) => {
         if (!ok) return;

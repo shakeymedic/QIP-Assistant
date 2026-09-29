@@ -39,7 +39,7 @@ export async function addQIPLeadToProject(db, ownerUid, projectId, leadEmail, tr
             { email: leadEmail, projects: arrayUnion(entry) },
             { merge: true }
         );
-        showToast(`QIP Lead invite sent to ${leadEmail}`, 'success');
+        showToast(`QIP Lead added. ${leadEmail} will see this project when they sign in with that email.`, 'success');
         return true;
     } catch (e) {
         console.error('[QIPLead] addQIPLead error:', e);
