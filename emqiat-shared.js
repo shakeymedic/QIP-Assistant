@@ -125,6 +125,7 @@ export const QI_JOURNEY_URL = 'https://learn.nes.nhs.scot/4095/quality-improveme
 export const EMQIAT_PROMPTS = {
     pdp: { num: '1.1', label: 'PDP', prompt: 'Please summarise your QI PDP for this year in broad terms and list specific objectives below.' },
     qiEducationInvolvement: { num: '2.1', label: 'Involvement', prompt: 'Please describe your engagement with QI education over the past year. This can include online learning or attendance at local/national courses.' },
+    qiEducationLearning: { num: '2.2', label: 'Learning', prompt: 'How has this developed your understanding of QI? How do you feel this will help your future QI work? Please map to the QI journey in section 4.1 where relevant.', hint: 'Separate reflections can also be uploaded to risr/advance and then linked to SLO 11.' },
     involvedInProject: { num: '3.0', label: 'Were you involved in a QI project in any way?', prompt: '' },
     overview: { num: '3.1', label: 'Project Overview', prompt: 'Please provide an overview of any QI-related project you have been involved with during this training year.' },
     role: { num: '3.2', label: 'Your Role in the Project', prompt: 'Please describe your personal involvement with the project and relate to the QI journey. If you did not lead on the project, what role did you have?' },
@@ -319,6 +320,12 @@ export function assessEmqiat(data) {
         { ok: has(e.qiEducationInvolvement, /\b(learn|learnt|learned|applied|used this|helped me|taught me|so that)\b/i), text: 'Says what you learned from them or how you applied it to your project' }
     ], { empty: !e.qiEducationInvolvement });
 
+    add('qiEducationLearning', '2.2', 'What QI education taught you', [
+        { ok: words(e.qiEducationLearning) >= 60, text: 'A real reflection, not a line (aim for 60+ words)' },
+        { ok: QI_JOURNEY_ITEMS.filter(([, l]) => has(e.qiEducationLearning, new RegExp(l.split(' ')[0].replace('&', ''), 'i'))).length >= 2, text: 'Maps your learning to QI Journey stages by name (e.g. Measurement, Testing Changes)' },
+        { ok: has(e.qiEducationLearning, /\b(future|next|will|going forward|consultant)\b/i), text: 'Says how it will help your future QI work' }
+    ], { empty: !e.qiEducationLearning });
+
     add('involvedInProject', '3.0', 'Involved in a QI project', [
         { ok: e.involvedInProject === 'yes', text: 'Answered "Yes" (if you led a project)' }
     ], { empty: !e.involvedInProject });
@@ -482,6 +489,7 @@ export const EMQIAT_EXAMPLE = {
 NHS England "Making Data Count" workshop (Nov 2025): run chart and SPC rules; I now report shifts and trends rather than before-and-after averages.
 Regional QI teaching day (Feb 2026): stakeholder mapping and measurement plans; I applied the power/interest grid to our nursing and pharmacy colleagues.
 Monthly departmental audit and QI meetings: presented twice and gave feedback on two other trainees' projects.`,
+    qiEducationLearning: `The Making Data Count training changed how I judge whether a change has worked (Measurement): I now plot data over time and look for shifts rather than comparing two averages. The IHI modules gave me the habit of small, fast tests (Testing Changes), which is why my first PDSA was on one shift rather than the whole department. In future QI work I will set up a run chart and a family of measures before making any change, and use stakeholder mapping at the start (Creating Conditions) rather than when I meet resistance.`,
     overview: {
         background: 'Only 42% of patients with red-flag sepsis in our ED received IV antibiotics within 60 minutes (baseline audit of 50 cases, June 2025), against the RCEM standard.',
         aim: 'Increase the proportion of red-flag sepsis patients receiving IV antibiotics within 60 minutes of triage from 42% to 90% by May 2026.',

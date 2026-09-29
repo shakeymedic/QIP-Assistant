@@ -2,7 +2,7 @@
 // every logged version string below derives from this constant, so the two can
 // never drift out of sync the way they previously did (constant said v3.24.0,
 // the install/load log lines still said v3.15.17/v3.15.19).
-const SW_VERSION = 'v3.28.0';
+const SW_VERSION = 'v3.29.0';
 const CACHE_NAME = `rcem-qip-${SW_VERSION}`;
 const STATIC_CACHE = `rcem-qip-static-${SW_VERSION}`;
 const DYNAMIC_CACHE = `rcem-qip-dynamic-${SW_VERSION}`;

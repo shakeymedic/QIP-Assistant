@@ -57,7 +57,7 @@ function answerBox(typed, draft, reminder) {
 }
 
 function question(q) {
-    return `<h3>${esc(q.num)} ${esc(q.label)}${q.prompt ? ` <span class="prompt">- ${esc(q.prompt)}</span>` : ''}</h3>`;
+    return `<h3>${esc(q.num)} ${esc(q.label)}${q.prompt ? ` <span class="prompt">- ${esc(q.prompt)}</span>` : ''}</h3>${q.hint ? `<p class="prompt">${esc(q.hint)}</p>` : ''}`;
 }
 
 function runKaizenExport() {
@@ -164,6 +164,8 @@ function runKaizenExport() {
     <h2>2. QI Education</h2>
     ${question(P.qiEducationInvolvement)}
     ${answerBox(e.qiEducationInvolvement, deriveEducationInvolvementFromJournal(data), '[To complete: named courses, e-learning and meetings, and what you took from each into your project]')}
+    ${question(P.qiEducationLearning)}
+    ${answerBox(e.qiEducationLearning, '', '[To complete: how this developed your understanding of QI and how it will help your future QI work, mapped to the QI Journey stages in 4.1]')}
 
     <h2>3. Project Involvement</h2>
     ${question(P.involvedInProject)}

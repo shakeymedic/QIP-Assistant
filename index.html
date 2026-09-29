@@ -525,9 +525,14 @@
                                     <h1 class="text-3xl font-bold text-slate-900">My Projects</h1>
                                     <p class="text-slate-500 mt-1">Select a project or create a new one.</p>
                                 </div>
-                                <button aria-label="Create New Project" onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition-colors flex items-center gap-2">
-                                    <i data-lucide="plus" class="w-4 h-4"></i> New Project
-                                </button>
+                                <div class="flex flex-wrap gap-2">
+                                    <button aria-label="Import a project backup file as a new project" onclick="window.triggerImportProject('new')" class="bg-white text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:border-rcem-purple hover:text-rcem-purple transition-colors flex items-center gap-2">
+                                        <i data-lucide="upload" class="w-4 h-4"></i> Import Backup
+                                    </button>
+                                    <button aria-label="Create New Project" onclick="window.createNewProject()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 transition-colors flex items-center gap-2">
+                                        <i data-lucide="plus" class="w-4 h-4"></i> New Project
+                                    </button>
+                                </div>
                             </header>
                             <!-- Supervisor badge — shown when user has supervised projects -->
                             <!-- Supervisor access banner — shown when user is a Clinical Supervisor -->
@@ -1494,6 +1499,13 @@
                     <div>
                         <div class="font-bold text-slate-800 text-sm">Full Project Backup — JSON</div>
                         <div class="text-xs text-slate-500 mt-0.5">A complete copy of everything in this project. Keep it safe, or import it back into QIP Assist later.</div>
+                    </div>
+                </button>
+                <button aria-label="Restore this project from a backup file" onclick="window.closeExportCenter(); window.triggerImportProject('replace');" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-amber-400 hover:bg-amber-50 text-left transition-all">
+                    <div class="bg-amber-100 text-amber-700 p-2 rounded-lg shrink-0"><i data-lucide="upload" class="w-5 h-5"></i></div>
+                    <div>
+                        <div class="font-bold text-slate-800 text-sm">Restore From Backup — JSON</div>
+                        <div class="text-xs text-slate-500 mt-0.5">Replace everything in this project with a backup file. Supervisor and QIP Lead access stays as it is. You'll be asked to confirm.</div>
                     </div>
                 </button>
             </div>
