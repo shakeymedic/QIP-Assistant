@@ -35,7 +35,7 @@ const STATUS_STYLE = {
 function fieldId(path) { return 'emqiat-' + path.replace(/\./g, '-'); }
 
 function questionHeading(q) {
-    return `<span class="font-bold text-slate-800">${q.num} ${escapeHtml(q.label)}</span>${q.prompt ? ` <span class="font-normal text-slate-600">– ${escapeHtml(q.prompt)}</span>` : ''}`;
+    return `<span class="font-bold text-slate-800">${q.num} ${escapeHtml(q.label)}</span>${q.prompt ? ` <span class="font-normal text-slate-600">– ${escapeHtml(q.prompt)}</span>` : ''}${q.hint ? `<span class="block text-xs font-normal text-slate-400 mt-0.5">${escapeHtml(q.hint)}</span>` : ''}`;
 }
 
 function statusChip(key) {
@@ -126,20 +126,6 @@ export function renderEMQIATForm(container, opts = {}) {
 
     if (!data.emqiatForm) data.emqiatForm = {};
     const e = data.emqiatForm;
-    // The live form has no "2.2 Learning" question; older versions of this
-    // app asked for one. Fold any earlier answer into 2.1 so nothing is lost.
-    // (Blanked rather than deleted: saves merge, so a deleted key would come
-    // back from the database and be merged again.)
-    if (!readOnly && e.qiEducationLearning) {
-        const learning = String(e.qiEducationLearning).trim();
-        const current = String(e.qiEducationInvolvement || '');
-        if (learning && !current.includes(learning)) {
-            e.qiEducationInvolvement = [current.trim(), learning].filter(Boolean).join('\n\n');
-        }
-        e.qiEducationLearning = '';
-        if (window.saveData) window.saveData();
-    }
-
     const overview = e.overview || {};
     const qiJourney = e.qiJourney || {};
     const curriculum = e.curriculum || {};
@@ -256,6 +242,7 @@ export function renderEMQIATForm(container, opts = {}) {
             <div class="mb-6">
                 ${sectionTitle('2. QI Education')}
                 ${ta('qiEducationInvolvement', { placeholder: 'One activity per line — what it was, when, and what you took from it into your project' })}
+                ${ta('qiEducationLearning', { placeholder: 'How your QI education has developed your understanding of QI and how it will help your future QI work — name the QI Journey stages it relates to' })}
             </div>
 
             <div class="mb-6">
@@ -508,6 +495,7 @@ export function emqiatPlainText(data) {
         `Part A\n${EMQIAT_NA_NOTE}`,
         `1. QI Personal Development Plan - Current year\n${q('pdp')}\n${a(e.pdp)}`,
         `2. QI Education\n${q('qiEducationInvolvement')}\n${a(e.qiEducationInvolvement)}`,
+        `${q('qiEducationLearning')}\n${a(e.qiEducationLearning)}`,
         `3. Project Involvement\n${q('involvedInProject')} ${e.involvedInProject === 'yes' ? 'Yes' : e.involvedInProject === 'no' ? 'No' : '[not answered yet]'}`,
         `${q('overview')}\n${a(overviewText(e.overview))}`,
         `${q('role')}\n${a(e.role)}`,

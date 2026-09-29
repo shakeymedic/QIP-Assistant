@@ -1593,7 +1593,15 @@ window.exportProjectToFile = function() {
     showToast("Project saved to Downloads", "success");
 }
 
-window.triggerImportProject = function() {
+// 'new' (from the project list) creates a new project from the file;
+// 'replace' (from the Export Centre) overwrites the open project after a confirm.
+let importMode = 'new';
+window.triggerImportProject = function(mode = 'new') {
+    if (mode === 'replace' && (!state.projectData || !state.currentProjectId || state.isReadOnly || state.isDemoMode)) {
+        showToast("Open one of your own projects to restore it from a backup.", "error");
+        return;
+    }
+    importMode = mode;
     document.getElementById('project-upload-input').click();
 }
 
@@ -1606,36 +1614,58 @@ window.importProjectFromFile = async function(input) {
     try {
         const text = await file.text();
         json = JSON.parse(text);
-        if (!json.meta || !json.checklist) throw new Error('Invalid QIP file — missing meta or checklist');
+        if (!json || typeof json !== 'object' || !json.meta || !json.checklist) throw new Error('Invalid QIP file — missing meta or checklist');
     } catch (err) {
         console.error(err);
         showToast('Failed to read file: ' + err.message, 'error');
         return;
     }
+    if (!state.currentUser || !db) { showToast('Sign in to import a project.', 'error'); return; }
 
-    // If no project is currently open, create a new Firestore doc first so data persists
-    if (!state.currentProjectId && state.currentUser && db) {
-        try {
-            const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), json);
-            state.currentProjectId = docRef.id;
-            state.projectData = json;
-            migrateProjectData(state.projectData);
-            const topBar = document.getElementById('top-bar');
-            if (topBar) topBar.classList.remove('hidden');
-            window.router('dashboard');
-            showToast('Project imported successfully', 'success');
-        } catch (err) {
-            showToast('Import failed: ' + err.message, 'error');
-        }
+    if (importMode === 'replace') {
+        const ownerUid = state.currentUser.uid;
+        const projectId = state.currentProjectId;
+        if (!projectId || state.isReadOnly) return;
+        const title = state.projectData?.meta?.title || 'this project';
+        window.showConfirmDialog(
+            `Replace everything in "${title}" with the contents of ${file.name}? This overwrites the current version. Export a backup first if you might want it back.`,
+            async () => {
+                // Keep who has access to this project, whatever the file says.
+                const keep = { supervisors: state.projectData?.supervisors, qipLeads: state.projectData?.qipLeads, visibility: state.projectData?.visibility };
+                Object.keys(keep).forEach(k => { if (keep[k] !== undefined) json[k] = keep[k]; else delete json[k]; });
+                const data = normaliseProjectData(json);
+                try {
+                    // A full write (not a merge), so fields removed in the file are removed here too.
+                    await setDoc(doc(db, `users/${ownerUid}/projects`, projectId), JSON.parse(JSON.stringify(data)));
+                    state.projectData = data;
+                    resetHistory(state.projectData);
+                    const header = document.getElementById('project-header-title');
+                    if (header) header.textContent = data.meta?.title || 'QIP';
+                    window.router('dashboard');
+                    showToast('Project restored from backup', 'success');
+                } catch (err) {
+                    showToast('Restore failed: ' + err.message, 'error');
+                }
+            },
+            'Replace Project', 'Restore From Backup'
+        );
         return;
     }
 
-    // Project already open — overwrite it in place
-    state.projectData = json;
-    migrateProjectData(state.projectData);
-    window.saveData(true);
-    window.router('dashboard');
-    showToast('Project imported and saved', 'success');
+    // New project from the file. Access lists and sign-off belong to the original
+    // project, so they are not copied: re-add supervisors/leads in Settings.
+    delete json.supervisors;
+    delete json.qipLeads;
+    if (json.assessment && typeof json.assessment === 'object') {
+        ['signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate'].forEach(k => delete json.assessment[k]);
+    }
+    try {
+        const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), JSON.parse(JSON.stringify(json)));
+        showToast('Project imported. Add your supervisor and QIP Lead again in Settings → Project access.', 'success');
+        window.openProject(docRef.id);
+    } catch (err) {
+        showToast('Import failed: ' + err.message, 'error');
+    }
 }
 
 window.openGlobalSettings = () => {
