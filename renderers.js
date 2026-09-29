@@ -2949,6 +2949,22 @@ function summarySentences(text, max) {
     return (out || t.slice(0, max).replace(/\s+\S*$/, '')).trim() + (out.length < t.length ? ' \u2026' : '');
 }
 
+const PDSA_STATUS_LABELS = { planning: 'Planning', planned: 'Planning', doing: 'Doing', studying: 'Studying', acting: 'Acting', active: 'In progress', complete: 'Complete', completed: 'Complete', abandoned: 'Abandoned' };
+
+// Cycles titled "PDSA 3: …" print in number order under their own title;
+// untitled or unnumbered cycles keep their order and get "Cycle n".
+function fullViewCycles(pdsa) {
+    const num = p => { const m = String(p?.title || '').match(/^\s*(?:pdsa|cycle)\s*(\d+)/i); return m ? +m[1] : null; };
+    const list = pdsa.filter(Boolean).map((p, i) => ({ p, i, n: num(p) }));
+    if (list.length && list.every(x => x.n !== null)) list.sort((a, b) => a.n - b.n || a.i - b.i);
+    return list.map(({ p, i, n }) => ({ p, heading: n !== null ? String(p.title).trim() : `Cycle ${i + 1}: ${p.title || 'Untitled'}` }));
+}
+
+// "PLAN: …" at the start of the Plan box repeats the box's own label.
+function stripPdsaPrefix(text, label) {
+    return String(text || '').replace(new RegExp('^\\s*' + label + '\\s*[:\u2014-]\\s*', 'i'), '').trim();
+}
+
 export function renderFullProject() {
     const d = state.projectData;
     if (!d) return;
@@ -3021,23 +3037,23 @@ export function renderFullProject() {
                             <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm">3</span>
                             Family of Measures
                         </h2>
-                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="grid grid-cols-1 ${[c.outcome_measure, c.process_measure, c.balance_measure].some(t => String(t || '').length > 300) ? '' : 'md:grid-cols-3'} gap-4">
                             ${c.outcome_measure ? `
                                 <div class="bg-emerald-50 border border-emerald-200 rounded-lg p-4">
                                     <h4 class="font-bold text-emerald-800 text-sm uppercase mb-2">Outcome Measure</h4>
-                                    <p class="text-emerald-700 text-sm">${escapeHtml(c.outcome_measure)}</p>
+                                    <p class="text-emerald-700 text-sm whitespace-pre-line">${escapeHtml(c.outcome_measure)}</p>
                                 </div>
                             ` : ''}
                             ${c.process_measure ? `
                                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                     <h4 class="font-bold text-blue-800 text-sm uppercase mb-2">Process Measure</h4>
-                                    <p class="text-blue-700 text-sm">${escapeHtml(c.process_measure)}</p>
+                                    <p class="text-blue-700 text-sm whitespace-pre-line">${escapeHtml(c.process_measure)}</p>
                                 </div>
                             ` : ''}
                             ${c.balance_measure ? `
                                 <div class="bg-amber-50 border border-amber-200 rounded-lg p-4">
                                     <h4 class="font-bold text-amber-800 text-sm uppercase mb-2">Balancing Measure</h4>
-                                    <p class="text-amber-700 text-sm">${escapeHtml(c.balance_measure)}</p>
+                                    <p class="text-amber-700 text-sm whitespace-pre-line">${escapeHtml(c.balance_measure)}</p>
                                 </div>
                             ` : ''}
                         </div>
@@ -3213,29 +3229,18 @@ export function renderFullProject() {
                             PDSA Cycles (${pdsa.length})
                         </h2>
                         <div class="space-y-4">
-                            ${pdsa.map((p, i) => `
+                            ${fullViewCycles(pdsa).map(({ p, heading }) => `
                                 <div class="border border-slate-200 rounded-lg overflow-hidden">
-                                    <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
-                                        <h4 class="font-bold text-slate-800">Cycle ${i + 1}: ${escapeHtml(p.title || 'Untitled')}</h4>
-                                        <span class="text-xs text-slate-500">${p.startDate || p.start || ''}</span>
+                                    <div class="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center gap-3">
+                                        <h4 class="font-bold text-slate-800">${escapeHtml(heading)}</h4>
+                                        <span class="text-xs text-slate-500 whitespace-nowrap">${escapeHtml([PDSA_STATUS_LABELS[p.status] || '', (p.startDate || p.start) ? formatUkDate(p.startDate || p.start) : ''].filter(Boolean).join(' \u00b7 '))}</span>
                                     </div>
-                                    <div class="grid grid-cols-2 md:grid-cols-4 divide-x divide-y md:divide-y-0 divide-slate-200">
-                                        <div class="p-3 bg-blue-50/30">
-                                            <div class="text-[10px] font-bold text-blue-600 uppercase mb-1">Plan</div>
-                                            <p class="text-xs text-slate-600 line-clamp-3">${escapeHtml((p.plan || p.desc || 'Not documented').substring(0, 150))}${(p.plan || p.desc || '').length > 150 ? '...' : ''}</p>
-                                        </div>
-                                        <div class="p-3 bg-amber-50/30">
-                                            <div class="text-[10px] font-bold text-amber-600 uppercase mb-1">Do</div>
-                                            <p class="text-xs text-slate-600 line-clamp-3">${escapeHtml((p.do || 'Not documented').substring(0, 150))}${(p.do || '').length > 150 ? '...' : ''}</p>
-                                        </div>
-                                        <div class="p-3 bg-purple-50/30">
-                                            <div class="text-[10px] font-bold text-purple-600 uppercase mb-1">Study</div>
-                                            <p class="text-xs text-slate-600 line-clamp-3">${escapeHtml((p.study || 'Not documented').substring(0, 150))}${(p.study || '').length > 150 ? '...' : ''}</p>
-                                        </div>
-                                        <div class="p-3 bg-emerald-50/30">
-                                            <div class="text-[10px] font-bold text-emerald-600 uppercase mb-1">Act</div>
-                                            <p class="text-xs text-slate-600 line-clamp-3">${escapeHtml((p.act || 'Not documented').substring(0, 150))}${(p.act || '').length > 150 ? '...' : ''}</p>
-                                        </div>
+                                    <div class="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 divide-slate-200">
+                                        ${[['Plan', p.plan || p.desc, 'blue'], ['Do', p.do, 'amber'], ['Study', p.study, 'purple'], ['Act', p.act, 'emerald']].map(([label, text, col], k) => `
+                                        <div class="p-3 bg-${col}-50/30 ${k % 2 === 0 ? 'sm:border-r' : ''} ${k < 2 ? 'sm:border-b' : ''} border-slate-200">
+                                            <div class="text-[10px] font-bold text-${col}-600 uppercase mb-1">${label}</div>
+                                            <p class="text-xs text-slate-600 whitespace-pre-line">${escapeHtml(stripPdsaPrefix(text, label) || 'Not documented')}</p>
+                                        </div>`).join('')}
                                     </div>
                                 </div>
                             `).join('')}
@@ -3296,15 +3301,14 @@ export function renderFullProject() {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-slate-100">
-                                    ${logs.slice(0, 10).map(l => `
+                                    ${logs.map(l => `
                                         <tr>
-                                            <td class="px-3 py-2 text-slate-600 font-mono text-xs">${escapeHtml(l.date || '')}</td>
-                                            <td class="px-3 py-2 text-slate-600">${escapeHtml(l.note || '')}</td>
+                                            <td class="px-3 py-2 text-slate-600 font-mono text-xs whitespace-nowrap align-top">${escapeHtml(l.date ? formatUkDate(l.date) : '')}</td>
+                                            <td class="px-3 py-2 text-slate-600 whitespace-pre-line">${escapeHtml(l.note || '')}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
                             </table>
-                            ${logs.length > 10 ? `<div class="px-3 py-2 text-xs text-slate-400 bg-slate-50">...and ${logs.length - 10} more entries</div>` : ''}
                         </div>
                     </section>
                 ` : ''}
@@ -3354,8 +3358,8 @@ export function renderFullProject() {
                                     <h4 class="font-bold text-slate-800">${escapeHtml(sv.title||sv.name||'Survey '+(i+1))}</h4>
                                     <span class="text-xs text-slate-400">${escapeHtml(sv.date||sv.createdAt||'')}</span>
                                 </div>
-                                ${sv.responses ? `<p class="text-sm text-slate-600">Responses: ${sv.responses}</p>` : ''}
-                                ${sv.summary ? `<p class="text-sm text-slate-600 mt-1">${escapeHtml(sv.summary)}</p>` : ''}
+                                ${(Array.isArray(sv.responses) ? sv.responses.length : Number(sv.responses) || 0) ? `<p class="text-sm text-slate-600">Responses: ${Array.isArray(sv.responses) ? sv.responses.length : Number(sv.responses)}</p>` : ''}
+                                ${sv.summary ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-line">${escapeHtml(sv.summary)}</p>` : ''}
                             </div>`).join('')}
                         </div>
                     </section>
