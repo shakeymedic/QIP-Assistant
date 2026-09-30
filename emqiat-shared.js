@@ -179,6 +179,25 @@ function cycleTitle(p, i) {
     return (p && p.title ? String(p.title) : `Cycle ${i + 1}`).trim();
 }
 
+const listJoin = (a) => a.length > 1 ? `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}` : (a[0] || '');
+
+// Cycles numbered "PDSA 3" etc. in number order; otherwise by start date.
+function sortCycles(pdsa) {
+    const num = p => { const m = String(p?.title || '').match(/pdsa\s*(\d+)/i); return m ? +m[1] : null; };
+    if (pdsa.every(p => num(p) !== null)) return [...pdsa].sort((a, b) => num(a) - num(b));
+    return [...pdsa].sort((a, b) => String(a?.startDate || '').localeCompare(String(b?.startDate || '')));
+}
+
+// First sentence (or line) of a long field, capped, so a draft quotes the
+// point rather than pasting a whole paragraph and its revision notes.
+function firstSentence(text, max = 220) {
+    const flat = String(text || '').split(/\n+/).map(l => l.trim()).filter(Boolean)[0] || '';
+    const m = flat.match(/^.*?[.!?](?=\s|$)/);
+    let out = (m ? m[0] : flat).trim();
+    if (out.length > max) out = out.slice(0, max).replace(/\s+\S*$/, '') + '…';
+    return out;
+}
+
 // Which QI Journey stages the project itself shows evidence of.
 export function deriveJourneyFromProject(data) {
     const c = data.checklist || {};
@@ -219,12 +238,24 @@ export function deriveRoleNarrative(data) {
     if (data.fishbone?.categories?.some(cat => (cat.causes || []).length)) sys.push('a fishbone diagram');
     if ((data.drivers?.primary || []).length) sys.push('a driver diagram');
     if (Array.isArray(data.process) && data.process.length > 2) sys.push('a process map');
-    if (sys.length) lines.push(`Understanding Systems: I used ${sys.join(', ')} to understand the causes of the problem.`);
-    if (c.aim) lines.push(`Developing Aims: I set the aim — "${String(c.aim).trim().replace(/\s+/g, ' ')}"`);
-    if (pdsa.length) lines.push(`Testing Changes: I led ${pdsa.length} PDSA cycle${pdsa.length !== 1 ? 's' : ''}: ${pdsa.map(cycleTitle).join('; ')}.`);
-    const points = (Array.isArray(data.measures) && data.measures[0]?.chartData ? data.measures[0].chartData : data.chartData || []).length;
-    if (points) lines.push(`Measurement: I collected ${points} data points and analysed them on a run chart.`);
-    if (logs.length) lines.push(`Leadership & Teams: I recorded ${logs.length} leadership interactions, including: ${logs.slice(0, 3).map(l => l.note).filter(Boolean).join('; ')}.`);
+    if (sys.length) lines.push(`Understanding Systems: I used ${listJoin(sys)} to understand the causes of the problem.`);
+    if (c.aim) lines.push(`Developing Aims: I set the aim: "${firstSentence(c.aim).replace(/^["“]|["”]$/g, '')}"`);
+    if (pdsa.length) {
+        const isPlanned = p => p && (p.status === 'planning' || p.status === 'planned');
+        const planned = sortCycles(pdsa.filter(isPlanned));
+        const run = sortCycles(pdsa.filter(p => !isPlanned(p)));
+        const plural = n => `${n} PDSA cycle${n !== 1 ? 's' : ''}`;
+        if (run.length) lines.push(`Testing Changes: I led ${plural(run.length)}: ${run.map(cycleTitle).join('; ')}${planned.length ? `, with ${planned.length} more planned (${planned.map(cycleTitle).join('; ')})` : ''}.`);
+        else lines.push(`Testing Changes: I planned ${plural(planned.length)}: ${planned.map(cycleTitle).join('; ')}.`);
+    }
+    const measures = (Array.isArray(data.measures) && data.measures.length ? data.measures : [{ chartData: data.chartData || [] }])
+        .filter(m => Array.isArray(m.chartData) && m.chartData.length);
+    const points = measures.reduce((n, m) => n + m.chartData.length, 0);
+    if (points) {
+        const names = measures.map(m => m.name).filter(Boolean).map(n => firstSentence(n, 60));
+        lines.push(`Measurement: I collected ${points} data points${measures.length > 1 ? ` across ${measures.length} measures` : ''}${names.length ? ` (${names.join('; ')})` : ''} and analysed them on ${measures.length > 1 ? 'charts' : 'a chart'}.`);
+    }
+    if (logs.length) lines.push(`Leadership & Teams: I recorded ${logs.length} leadership interaction${logs.length !== 1 ? 's' : ''}, including: ${logs.slice(0, 3).map(l => l.note && firstSentence(l.note, 120).replace(/[.!?]$/, '')).filter(Boolean).join('; ')}.`);
     if (!lines.length) return '';
     lines.push('[In your own words: what you personally did at each stage, a challenge you had to lead the team through, and how you handled it.]');
     return lines.join('\n');

@@ -552,14 +552,287 @@ export function printPoster() {
     printPosterOnly();
 }
 
+// The report PDF is a picture of the Whole Project View, so it is laid out
+// at the printed width first (A4 portrait, 10 mm side margins) and page
+// breaks are then placed between blocks — or between the lines of a long
+// paragraph — so nothing is sliced through or pushed onto a near-blank page.
+const PDF_MARGIN_MM = [10, 10, 12, 10];           // top, left, bottom, right
+const PDF_INNER_W_MM = 210 - PDF_MARGIN_MM[1] - PDF_MARGIN_MM[3];
+const PDF_INNER_H_MM = 297 - PDF_MARGIN_MM[0] - PDF_MARGIN_MM[2];
+const PDF_SCALE = 2;
+
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+// Charts are redrawn at the printed width (and at a higher pixel density so
+// they stay sharp), captured as images, then put back as they were.
+function captureCharts(source) {
+    const images = [];
+    source.querySelectorAll('canvas').forEach(cv => {
+        const chart = window.Chart && window.Chart.getChart ? window.Chart.getChart(cv) : null;
+        let url = '';
+        try {
+            if (chart) {
+                chart.stop();
+                chart.options.devicePixelRatio = 3;
+                chart.resize();
+                chart.update('none');
+            }
+            url = cv.toDataURL('image/png');
+        } catch (e) { console.warn('[pdf] chart capture failed', e); }
+        images.push(url);
+    });
+    return images;
+}
+
+function restoreCharts(source) {
+    source.querySelectorAll('canvas').forEach(cv => {
+        const chart = window.Chart && window.Chart.getChart ? window.Chart.getChart(cv) : null;
+        if (!chart) return;
+        try { delete chart.options.devicePixelRatio; chart.resize(); chart.update('none'); } catch (e) { /* leave as is */ }
+    });
+}
+
+function buildPdfClone(source, chartImages) {
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:absolute;left:-12000px;top:0;';
+    const root = document.createElement('div');
+    root.className = 'pdf-export';
+    root.style.width = PDF_INNER_W_MM + 'mm';
+    root.style.background = '#ffffff';
+    const clone = source.cloneNode(true);
+    clone.querySelectorAll('canvas').forEach((cv, i) => {
+        const img = document.createElement('img');
+        img.src = chartImages[i] || '';
+        img.alt = '';
+        img.style.cssText = 'display:block;width:100%;height:auto;';
+        if (cv.parentElement) cv.parentElement.style.height = 'auto';
+        cv.replaceWith(img);
+    });
+    // Collapsed "show more" panels print open, without their toggle.
+    clone.querySelectorAll('details').forEach(det => {
+        const div = document.createElement('div');
+        [...det.childNodes].forEach(n => { if (n.nodeName !== 'SUMMARY') div.appendChild(n); });
+        det.replaceWith(div);
+    });
+    clone.querySelectorAll('button, .no-print').forEach(el => el.remove());
+    clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+    clone.removeAttribute('id');
+    root.appendChild(clone);
+    holder.appendChild(root);
+    document.body.appendChild(holder);
+    return { holder, root };
+}
+
+const PDF_OPTIONS = {
+    margin: PDF_MARGIN_MM,
+    image: { type: 'jpeg', quality: 0.92 },
+    html2canvas: { scale: PDF_SCALE, useCORS: true, logging: false, allowTaint: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+    pagebreak: { mode: ['legacy'] }
+};
+
+// The page height, in CSS pixels, that html2pdf will slice the report at:
+// floor(canvas width × page ratio) canvas pixels. The canvas width is
+// rounded by html2canvas, so it is measured with a tiny probe of the same
+// width rather than worked out.
+async function pdfPageHeightPx(root) {
+    try {
+        const probe = document.createElement('div');
+        probe.style.cssText = `width:${PDF_INNER_W_MM}mm;height:4px;background:#fff`;
+        const worker = html2pdf().set(PDF_OPTIONS).from(probe);
+        await worker.toCanvas();
+        const canvas = worker.prop.canvas, ratio = worker.prop.pageSize.inner.ratio;
+        if (canvas && canvas.width && ratio) return Math.floor(canvas.width * ratio) / PDF_SCALE;
+    } catch (e) { console.warn('[pdf] page probe failed', e); }
+    const w = Math.ceil(root.getBoundingClientRect().width);
+    return Math.floor(w * PDF_SCALE * (PDF_INNER_H_MM / PDF_INNER_W_MM)) / PDF_SCALE;
+}
+
+function paginateForPdf(root, pageH) {
+    const PAD = 6;                        // breathing room at the top of a new page
+    const originTop = () => root.getBoundingClientRect().top;
+    const box = (el) => { const r = el.getBoundingClientRect(); const t = originTop(); return { top: r.top - t, bottom: r.bottom - t, h: r.height }; };
+    const pageEndFor = (y) => (Math.floor((y + 0.5) / pageH) + 1) * pageH;
+    const isHeading = (el) => /^H[1-6]$/.test(el.tagName);
+    const atomicTags = new Set(['IMG', 'svg', 'SVG', 'TR', 'LI', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'THEAD']);
+
+    const makeSpacer = (el, h) => {
+        if (el.tagName === 'TR') {
+            const tr = document.createElement('tr');
+            tr.className = 'pdf-spacer';
+            tr.innerHTML = `<td colspan="99" style="height:${h}px;padding:0;border:0;background:#fff"></td>`;
+            return tr;
+        }
+        const d = document.createElement('div');
+        d.className = 'pdf-spacer';
+        d.style.cssText = `height:${h}px;margin:0;padding:0;`;
+        const parent = el.parentElement;
+        const ps = parent ? getComputedStyle(parent) : null;
+        if (ps && ps.display.includes('grid')) d.style.gridColumn = '1 / -1';
+        else if (ps && ps.display.includes('flex') && ps.flexWrap === 'wrap') d.style.cssText += 'flex:0 0 100%;width:100%;';
+        return d;
+    };
+    const setSpacerHeight = (sp, h) => {
+        const target = sp.tagName === 'TR' ? sp.firstElementChild : sp;
+        target.style.height = Math.max(0, h) + 'px';
+    };
+    // Push `el` to the top of the next page, correcting for margins/gaps.
+    // A short title block (a heading, a small header bar holding one, or a
+    // one-line bold label) directly above the element moves with it.
+    const isTitle = (el, b) => isHeading(el) || !!el.querySelector('h1,h2,h3,h4,h5,h6') || (b.h <= 40 && /\bfont-(bold|semibold)\b/.test(el.className || ''));
+    const titleAbove = (el, pageEnd) => {
+        const prev = el.previousElementSibling;
+        if (!prev || prev.classList.contains('pdf-spacer')) return null;
+        const b = box(prev);
+        if (b.h > 90 || pageEndFor(b.top) !== pageEnd) return null;
+        return isTitle(prev, b) ? prev : null;
+    };
+    const withTitles = (el, pageEnd) => {
+        for (let k = 0; k < 8; k++) {
+            const t = titleAbove(el, pageEnd);
+            if (t) { el = t; continue; }
+            const parent = el.parentElement;
+            // First row of a table body: keep the table's header row with it.
+            if (el.tagName === 'TR' && !el.previousElementSibling && parent && parent.tagName === 'TBODY') {
+                const table = el.closest('table');
+                if (table && pageEndFor(box(table).top) === pageEnd) { el = table; continue; }
+            }
+            // First thing in its box: the box (and any title above it) moves instead.
+            if (!el.previousElementSibling && parent && parent !== root && !/^(TABLE|THEAD|TBODY|TFOOT|TR)$/.test(parent.tagName) && pageEndFor(box(parent).top) === pageEnd) { el = parent; continue; }
+            break;
+        }
+        return el;
+    };
+    const pushToNextPage = (el, pageEnd) => {
+        el = withTitles(el, pageEnd);
+        const want = pageEnd + PAD;
+        const sp = makeSpacer(el, Math.max(0, want - box(el).top));
+        el.parentNode.insertBefore(sp, el);
+        for (let k = 0; k < 2; k++) {
+            const diff = want - box(el).top;
+            if (Math.abs(diff) < 0.5) break;
+            const cur = parseFloat((sp.tagName === 'TR' ? sp.firstElementChild : sp).style.height) || 0;
+            setSpacerHeight(sp, cur + diff);
+        }
+    };
+
+    const isInlineOnly = (el) => [...el.children].every(ch => ch.tagName === 'BR' || /^inline/.test(getComputedStyle(ch).display));
+
+    // Line boxes of the text itself (not of inline elements, which can span lines).
+    const lineRects = (el) => {
+        const t0 = originTop();
+        const out = [];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.length || !node.textContent.trim()) continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            [...range.getClientRects()].forEach(r => { if (r.height > 1 && r.height < 60) out.push({ top: r.top - t0, bottom: r.bottom - t0 }); });
+        }
+        return out.sort((x, y) => x.top - y.top);
+    };
+    const charTop = (node, i) => {
+        for (let j = i; j < Math.min(node.length, i + 40); j++) {
+            const r = document.createRange();
+            r.setStart(node, j); r.setEnd(node, j + 1);
+            const rect = r.getBoundingClientRect();
+            if (rect.height > 0) return rect.top - originTop();
+        }
+        return null;
+    };
+    // Insert a line break spacer before the first character on the line
+    // starting at `lineTop`, sized so that line opens the next page.
+    const splitAtLine = (el, lineTop, pageEnd) => {
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+            if (!node.length) continue;
+            const last = charTop(node, Math.max(0, node.length - 1)) ?? charTop(node, 0);
+            if (last === null || last < lineTop - 1) continue;
+            let lo = 0, hi = node.length - 1;
+            while (lo < hi) {
+                const mid = (lo + hi) >> 1;
+                const tm = charTop(node, mid);
+                if (tm === null || tm >= lineTop - 1) hi = mid; else lo = mid + 1;
+            }
+            const rest = lo > 0 ? node.splitText(lo) : node;
+            const sp = document.createElement('span');
+            sp.className = 'pdf-spacer';
+            sp.style.cssText = 'display:block;height:0;';
+            rest.parentNode.insertBefore(sp, rest);
+            const want = pageEnd + PAD;
+            for (let k = 0; k < 3; k++) {
+                const now = charTop(rest, 0);
+                if (now === null) break;
+                const diff = want - now;
+                if (Math.abs(diff) < 0.5) break;
+                sp.style.height = Math.max(0, (parseFloat(sp.style.height) || 0) + diff) + 'px';
+            }
+            return true;
+        }
+        return false;
+    };
+    // Long text: break between lines at every page boundary it crosses.
+    const splitLongText = (el) => {
+        let lastTop = -Infinity;
+        for (let k = 0; k < 60; k++) {
+            const cross = lineRects(el).find(l => l.top > lastTop + 1 && l.bottom > pageEndFor(l.top) + 0.5);
+            if (!cross) return;
+            const pe = pageEndFor(cross.top);
+            if (!splitAtLine(el, cross.top, pe)) return;
+            lastTop = pe;          // that line now opens the next page
+        }
+    };
+
+    const visible = (el) => { const r = el.getBoundingClientRect(); return r.height > 0 || r.width > 0; };
+
+    const visit = (el, depth = 0) => {
+        if (depth > 40 || el.classList?.contains('pdf-spacer')) return;
+        let r = box(el);
+        if (r.h <= 0) return;
+        const pageEnd = pageEndFor(r.top);
+        // A heading never sits alone at the foot of a page.
+        if (isHeading(el) && r.bottom <= pageEnd && pageEnd - r.bottom < 70) { pushToNextPage(el, pageEnd); return; }
+        if (r.bottom <= pageEnd + 0.5) return;
+        const display = getComputedStyle(el).display;
+        const isGrid = display.includes('grid');
+        const isFlexRow = display.includes('flex') && !getComputedStyle(el).flexDirection.startsWith('column');
+        const small = r.h <= pageH * 0.3;
+        if (atomicTags.has(el.tagName) ? r.h <= pageH : small) { pushToNextPage(el, pageEnd); return; }
+        const isWrapRow = isFlexRow && getComputedStyle(el).flexWrap === 'wrap';
+        if (((isFlexRow && !isWrapRow) || (isGrid && el.children.length <= 1)) && r.h <= pageH) { pushToNextPage(el, pageEnd); return; }
+        if (isGrid || isWrapRow) {
+            // Break between grid rows with a full-width spacer.
+            const items = [...el.children].filter(ch => !ch.classList.contains('pdf-spacer') && visible(ch));
+            for (let i = 0; i < items.length; i++) {
+                const rowTop = box(items[i]).top;
+                const row = items.filter(it => Math.abs(box(it).top - rowTop) < 2);
+                if (row[0] !== items[i]) continue;
+                const rowBottom = Math.max(...row.map(it => box(it).bottom));
+                const end = pageEndFor(rowTop);
+                if (rowBottom > end + 0.5) {
+                    const rowH = rowBottom - rowTop;
+                    if (rowH <= pageH * 0.3 || (row.length > 1 && rowH <= pageH)) pushToNextPage(items[i], end);
+                    else row.forEach(it => visit(it, depth + 1));
+                }
+            }
+            return;
+        }
+        if (!el.children.length || isInlineOnly(el)) { splitLongText(el); return; }
+        [...el.children].forEach(ch => visit(ch, depth + 1));
+    };
+
+    [...root.children].forEach(ch => visit(ch));
+}
+
 export function printPosterOnly() {
     const { state } = window._qipModules || {};
     if (!state?.projectData) { showToast("No project loaded.", "error"); return; }
-    
-    // Navigate to full view first to ensure all content renders
+
     const fullView = document.getElementById('view-full');
     if (!fullView) { showToast("Error locating report.", "error"); return; }
-    
+
     const wasHidden = fullView.classList.contains('hidden');
     let prevView = null;
     if (wasHidden) {
@@ -567,57 +840,49 @@ export function printPosterOnly() {
         if (active) prevView = active.id.replace('view-', '');
         if (window.router) window.router('full');
     }
-    
-    // Allow full view + charts to render
-    setTimeout(() => {
+    const goBack = () => { if (prevView && window.router) window.router(prevView); };
+
+    setTimeout(async () => {
         const exportTarget = document.getElementById('full-project-container');
         if (!exportTarget) { showToast("Could not locate report content.", "error"); return; }
+        if (typeof html2pdf === 'undefined') { showToast("PDF library not loaded — try refreshing.", "error"); return; }
 
         const title = state?.projectData?.meta?.title || 'QIP Report';
         const filename = title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '_qip_report.pdf';
-
         showToast("Generating PDF — this may take a few seconds…", "info");
 
-        // html2pdf options
-        const opt = {
-            margin: [10, 10, 12, 10],
-            filename,
-            image: { type: 'jpeg', quality: 0.95 },
-            html2canvas: {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                allowTaint: true,
-                backgroundColor: '#ffffff',
-                onclone: (cloned) => {
-                    // Make all sections visible in the clone
-                    cloned.querySelectorAll('.hidden').forEach(el => el.classList.remove('hidden'));
-                    // Remove interactive elements not needed in PDF
-                    cloned.querySelectorAll('button, .no-print').forEach(el => el.remove());
-                }
-            },
-            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-            pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-        };
+        let holder = null;
+        const prevWidth = exportTarget.style.width;
+        try {
+            exportTarget.style.width = PDF_INNER_W_MM + 'mm';
+            await wait(50);
+            const chartImages = captureCharts(exportTarget);
+            exportTarget.style.width = prevWidth;
+            restoreCharts(exportTarget);
 
-        if (typeof html2pdf === 'undefined') {
-            showToast("PDF library not loaded — try refreshing.", "error");
-            return;
-        }
-
-        html2pdf()
-            .set(opt)
-            .from(exportTarget)
-            .save()
-            .then(() => {
-                showToast(`PDF saved: ${filename}`, "success");
-                if (prevView && window.router) window.router(prevView);
-            })
-            .catch(err => {
-                console.error("PDF error:", err);
-                showToast("PDF generation failed. Try using browser print (Ctrl+P) instead.", "error");
-                if (prevView && window.router) window.router(prevView);
+            const built = buildPdfClone(exportTarget, chartImages);
+            holder = built.holder;
+            await Promise.all([...built.root.querySelectorAll('img')].map(img => img.decode ? img.decode().catch(() => {}) : null));
+            if (document.fonts && document.fonts.ready) await document.fonts.ready;
+            // html2canvas draws an inline SVG at its width/height attributes,
+            // so give each one its laid-out size (a "100%" width otherwise
+            // renders zoomed in and cropped).
+            built.root.querySelectorAll('svg').forEach(svg => {
+                const r = svg.getBoundingClientRect();
+                if (r.width && r.height) { svg.setAttribute('width', r.width); svg.setAttribute('height', r.height); }
             });
+            const pageH = await pdfPageHeightPx(built.root);
+            paginateForPdf(built.root, pageH);
 
-    }, wasHidden ? 800 : 200);
+            await html2pdf().set({ ...PDF_OPTIONS, filename }).from(built.root).save();
+            showToast(`PDF saved: ${filename}`, "success");
+        } catch (err) {
+            console.error("PDF error:", err);
+            showToast("PDF generation failed. Try using browser print (Ctrl+P) instead.", "error");
+        } finally {
+            exportTarget.style.width = prevWidth;
+            if (holder) holder.remove();
+            goBack();
+        }
+    }, wasHidden ? 900 : 200);
 }

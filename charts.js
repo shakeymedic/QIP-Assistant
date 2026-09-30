@@ -653,11 +653,14 @@ function dateMarkers(dates) {
         if (!start) return;
         const x = dateToAxisPosition(dates, start);
         if (x === null) { outside++; return; }
-        const name = p.title ? (p.title.length > 22 ? p.title.slice(0, 21) + '…' : p.title) : `Cycle ${i + 1}`;
+        // A title that already carries its number ("PDSA 3: …") is used as is.
+        const own = /^\s*(pdsa|cycle)\s*\d+/i.test(p.title || '');
+        const full = own ? String(p.title).trim() : `PDSA ${i + 1}: ${p.title || `Cycle ${i + 1}`}`;
+        const content = full.length > 30 ? full.slice(0, 29) + '…' : full;
         ann[`pdsa_${i}`] = {
             type: 'line', xMin: x, xMax: x, borderColor: 'rgba(243, 111, 33, 0.85)', borderWidth: 2, borderDash: [5, 4],
             label: {
-                display: true, content: `PDSA ${i + 1}: ${name}`, position: 'start', yAdjust: -(i % 3) * 22,
+                display: true, content, position: 'start', yAdjust: -(i % 3) * 22,
                 backgroundColor: 'rgba(243, 111, 33, 0.92)', color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
                 font: { size: 10, weight: 'bold', family: CHART_FONT }
             }
@@ -860,7 +863,8 @@ function renderRunChart(ctx, canvasId) {
 
     const subtitleBits = [];
     if (med !== null) subtitleBits.push(`Median from ${baselineSummary(baseline)}`);
-    if (markersOutside) subtitleBits.push(`${markersOutside} marker${markersOutside !== 1 ? 's' : ''} outside the data range not shown`);
+    // Only useful while editing on the Data page, not in the report or exports.
+    if (markersOutside && canvasId === 'mainChart') subtitleBits.push(`${markersOutside} marker${markersOutside !== 1 ? 's' : ''} outside the data range not shown`);
 
     const opts = baseOptions(info);
     opts.plugins.subtitle = { display: subtitleBits.length > 0, text: subtitleBits.join(' · '), color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 } };

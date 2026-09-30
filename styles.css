@@ -660,3 +660,16 @@ details[open] .details-chevron {
 /* Read-only review (QIP Lead, supervisor, admin, share link): hide the
    widgets whose only job is to change the project. */
 body.readonly-mode .readonly-hide { display: none !important; }
+
+/* PDF report (export.js builds an off-screen copy of the Whole Project View
+   at A4 width): show everything in full and fit it to the page width. */
+.pdf-export .truncate { overflow: visible; white-space: normal; text-overflow: clip; }
+.pdf-export .line-clamp-3 { display: block; -webkit-line-clamp: unset; overflow: visible; }
+.pdf-export .overflow-x-auto { overflow: visible; }
+.pdf-export [class*="min-w-["] { min-width: 0 !important; }
+.pdf-export svg { max-width: 100%; height: auto; }
+.pdf-export .shadow-sm, .pdf-export .shadow { box-shadow: none; }
+/* A tiny letter-spacing makes html2canvas place each character where the
+   browser laid it out, instead of re-wrapping words (which overlapped
+   wrapped labels such as "Sign-off" or "Supervisor / QIAT"). */
+.pdf-export, .pdf-export * { letter-spacing: 0.01px; }
