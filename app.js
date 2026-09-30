@@ -1580,18 +1580,27 @@ window.returnToProjects = () => {
     }
 };
 
+// Saves a project as a JSON backup that "Import Backup" / "Restore From
+// Backup" can read back. Returns the file name.
+function downloadProjectBackup(data) {
+    const date = new Date().toISOString().slice(0, 10);
+    const cleanTitle = ((data.meta && data.meta.title) || "QIP").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const filename = `qip_backup_${cleanTitle}_${date}.json`;
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    return filename;
+}
+
 window.exportProjectToFile = function() {
     if (!state.projectData) { showToast("No data to export", "error"); return; }
-    
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(state.projectData));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    const date = new Date().toISOString().slice(0,10);
-    const cleanTitle = (state.projectData.meta.title || "QIP").replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    downloadAnchorNode.setAttribute("download", `qip_backup_${cleanTitle}_${date}.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+    downloadProjectBackup(state.projectData);
     showToast("Project saved to Downloads", "success");
 }
 
@@ -2983,22 +2992,97 @@ window.createNewProject = async () => {
     titleInput.onkeydown = (e) => { if (e.key === 'Enter') doCreate(); };
 };
 
+// Deleting is permanent, so the dialog puts "Download backup" first and only
+// enables Delete once a backup has been downloaded, or the person has ticked
+// that they accept the project cannot be recovered.
 window.deleteProject = async (id) => {
-    window.showConfirmDialog(
-        'Permanently delete this project? This cannot be undone.',
-        async () => {
-            try {
-                if (!db) throw new Error('No DB connection');
-                await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id));
-                loadProjectList();
-                showToast('Project deleted', 'info');
-            } catch (e) {
-                showToast('Failed to delete project: ' + e.message, 'error');
-            }
-        },
-        'Delete Project',
-        'Delete Project'
-    );
+    if (!db || !state.currentUser) { showToast('Not connected — cannot delete right now.', 'error'); return; }
+    document.getElementById('delete-project-modal')?.remove();
+
+    let data = null;
+    let loadError = '';
+    try {
+        const snap = await getDoc(doc(db, `users/${state.currentUser.uid}/projects`, id));
+        if (snap.exists()) data = normaliseProjectData(snap.data());
+        else loadError = 'This project could not be found.';
+    } catch (e) {
+        loadError = 'The project could not be loaded for a backup (' + e.message + ').';
+    }
+    const title = (data && data.meta && data.meta.title) || 'this project';
+    const shared = data ? ((data.supervisors || []).length + (data.qipLeads || []).length) : 0;
+
+    const modal = document.createElement('div');
+    modal.id = 'delete-project-modal';
+    modal.className = 'fixed inset-0 z-[80] bg-slate-900/60 flex items-center justify-center p-4';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-labelledby', 'delete-project-title');
+    modal.innerHTML = `
+        <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div class="flex items-start gap-3 mb-4">
+                <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0"><i data-lucide="alert-triangle" class="w-5 h-5"></i></div>
+                <div>
+                    <h3 id="delete-project-title" class="font-bold text-slate-900 text-lg leading-snug">Delete ${escapeHtml(title === 'this project' ? 'this project' : '\u201c' + title + '\u201d')}?</h3>
+                    <p class="text-sm text-slate-600 mt-1">This permanently deletes the project and all its data${shared ? ', including access for the supervisor or QIP lead you shared it with' : ''}. It cannot be undone from the app.</p>
+                </div>
+            </div>
+            <div class="rounded-xl border-2 border-amber-300 bg-amber-50 p-4 mb-4">
+                <p class="text-sm font-bold text-amber-900 mb-1">Step 1: download a full backup</p>
+                <p class="text-xs text-amber-800 mb-3">Keep the file somewhere safe. If you need the project back, use <strong>Import Backup</strong> on My Projects.</p>
+                <button type="button" id="delete-project-backup" class="w-full flex items-center justify-center gap-2 bg-rcem-purple hover:bg-indigo-800 text-white font-bold px-4 py-2.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" ${data ? '' : 'disabled'}>
+                    <i data-lucide="download" class="w-4 h-4"></i> Download backup
+                </button>
+                <p id="delete-project-backup-status" class="text-xs mt-2 ${loadError ? 'text-red-700' : 'text-amber-800'}">${loadError ? escapeHtml(loadError) : 'Not downloaded yet.'}</p>
+            </div>
+            <label class="flex items-start gap-2 text-xs text-slate-600 mb-4 cursor-pointer">
+                <input type="checkbox" id="delete-project-skip" class="mt-0.5">
+                <span>Delete without a backup. I understand this project cannot be recovered.</span>
+            </label>
+            <div class="flex justify-end gap-2">
+                <button type="button" id="delete-project-cancel" class="px-4 py-2 rounded-lg text-slate-700 hover:bg-slate-100 font-medium">Cancel</button>
+                <button type="button" id="delete-project-confirm" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold disabled:opacity-40 disabled:cursor-not-allowed" disabled>Delete project</button>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+
+    const q = (sel) => modal.querySelector(sel);
+    let backedUp = false;
+    const refresh = () => { q('#delete-project-confirm').disabled = !(backedUp || q('#delete-project-skip').checked); };
+    const close = () => { modal.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') close(); };
+    document.addEventListener('keydown', onKey);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    q('#delete-project-cancel').onclick = close;
+    q('#delete-project-skip').onchange = refresh;
+    q('#delete-project-backup').onclick = () => {
+        try {
+            const name = downloadProjectBackup(data);
+            backedUp = true;
+            const st = q('#delete-project-backup-status');
+            st.className = 'text-xs mt-2 text-emerald-700 font-semibold';
+            st.textContent = '\u2713 Backup downloaded: ' + name + '. Check it is in your Downloads before deleting.';
+            refresh();
+        } catch (e) {
+            q('#delete-project-backup-status').textContent = 'Download failed: ' + e.message;
+        }
+    };
+    q('#delete-project-confirm').onclick = async () => {
+        const btn = q('#delete-project-confirm');
+        btn.disabled = true;
+        btn.textContent = 'Deleting\u2026';
+        try {
+            await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id));
+            close();
+            loadProjectList();
+            showToast(backedUp ? 'Project deleted. Your backup is in Downloads.' : 'Project deleted', 'info');
+        } catch (e) {
+            btn.textContent = 'Delete project';
+            refresh();
+            showToast('Failed to delete project: ' + e.message, 'error');
+        }
+    };
+    q('#delete-project-backup').focus();
 };
 
 // Shows/hides the amber dot on the sidebar's "SLO 11 Sign-off" link whenever
