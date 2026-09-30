@@ -116,10 +116,10 @@ function updateNavigationUI(currentView) {
         const score = domains.filter(Boolean).length;
         const pct = Math.round((score / 8) * 100);
         const chipColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
-        chip.innerHTML = `<div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/10 border border-white/20">
-            <div class="flex-1 bg-white/20 rounded-full h-1.5"><div class="${chipColor} h-1.5 rounded-full transition-all" style="width:${pct}%"></div></div>
-            <span class="text-xs font-bold text-white whitespace-nowrap">${score}/8 FRCEM</span>
-        </div>`;
+        chip.innerHTML = `<button type="button" onclick="window.showFRCEMReadinessChecker && window.showFRCEMReadinessChecker()" title="Project readiness: ${score} of 8 key elements in place. Click for details." aria-label="Project readiness ${score} of 8 — show details" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+            <div class="flex-1 bg-white/15 rounded-full h-1.5"><div class="${chipColor} h-1.5 rounded-full transition-all" style="width:${pct}%"></div></div>
+            <span class="text-[11px] font-semibold text-slate-300 whitespace-nowrap">${score}/8 ready</span>
+        </button>`;
     } else if (chip) {
         chip.innerHTML = '';
     }

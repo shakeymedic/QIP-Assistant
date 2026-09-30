@@ -304,180 +304,180 @@
         <div class="flex flex-1 overflow-hidden relative">
             
             <aside id="app-sidebar" class="hidden w-64 bg-slate-900 text-white flex-col h-full fixed lg:static z-20 shadow-2xl no-print transition-all duration-300">
-                <div class="p-6 border-b border-white/10 flex flex-col items-center">
-                    <img src="./logo.png" alt="Emergency Medicine Evidence Logo" class="h-12 mb-3 bg-white rounded p-1 w-auto">
-                    <div class="text-center">
-                        <h1 class="font-bold text-lg tracking-tight">QIP Assistant</h1>
-                        <p class="text-xs text-slate-400">Gold Standard Tool</p>
+                <div class="px-4 py-3 border-b border-white/10 flex items-center gap-3">
+                    <img src="./logo.png" alt="Emergency Medicine Evidence logo" class="h-9 w-9 object-contain bg-white rounded-lg p-0.5 flex-shrink-0">
+                    <div class="min-w-0">
+                        <h1 class="font-bold text-base leading-tight tracking-tight">QIP Assistant</h1>
+                        <p class="text-[11px] text-slate-400 leading-tight">RCEM quality improvement</p>
                     </div>
                 </div>
-                
-                <nav class="flex-1 p-3 space-y-1 overflow-y-auto" id="nav-menu">
-                    <div id="frcem-progress-chip" class="mb-2 px-1"></div>
 
-                    <div class="nav-group" data-group="define">
-                        <button type="button" aria-label="Toggle Define & Measure section" onclick="window.toggleNavGroup('define')" class="nav-group-header w-full flex items-center gap-2 px-3 py-1.5 mt-2 mb-1 text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
-                            <span class="w-5 h-5 rounded-full bg-slate-600 text-slate-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9312;</span>
-                            <span class="flex-1 text-left">Define & Measure</span>
+                <nav class="flex-1 px-2 py-2 overflow-y-auto" id="nav-menu" aria-label="Project sections">
+                    <div id="frcem-progress-chip" class="mb-1 px-1"></div>
+
+                    <div class="space-y-0.5">
+                            <button type="button" aria-label="Go to Dashboard" onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-dashboard">
+                                <i data-lucide="layout-dashboard" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Dashboard</span>
+                            </button>
+                            <button type="button" aria-label="Go to Whole Project View" onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-full">
+                                <i data-lucide="scroll-text" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Whole Project View</span>
+                            </button>
+                    </div>
+
+                    <div class="nav-group" data-group="plan">
+                        <button type="button" aria-label="Show or hide Plan" onclick="window.toggleNavGroup('plan')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            <span class="text-slate-600 tabular-nums">1</span>
+                            <span class="flex-1 text-left">Plan</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
-                        <div class="nav-group-items space-y-1" id="nav-group-items-define">
-                            <button aria-label="Go to Dashboard" onclick="window.router('dashboard')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-dashboard">
-                                <i data-lucide="layout-dashboard" class="w-4 h-4"></i> Dashboard
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-plan">
+                            <button type="button" aria-label="Go to Define &amp; Measure" onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-checklist">
+                                <i data-lucide="clipboard-check" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Define &amp; Measure</span>
                             </button>
-                            <button aria-label="Go to QIP Guide" onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-intro">
-                                <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i> QIP Guide
+                            <button type="button" aria-label="Go to Project Charter" onclick="window.router('charter')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-charter">
+                                <i data-lucide="file-signature" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Project Charter</span>
                             </button>
-                            <button aria-label="Go to Whole Project View" onclick="window.router('full')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-full">
-                                <i data-lucide="scroll-text" class="w-4 h-4 text-emerald-400"></i> Whole Project View
+                            <button type="button" aria-label="Go to Team &amp; Leadership" onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-team">
+                                <i data-lucide="users-2" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Team &amp; Leadership</span>
                             </button>
-                            <button aria-label="Go to Define & Measure" onclick="window.router('checklist')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-checklist">
-                                <i data-lucide="clipboard-check" class="w-4 h-4"></i> Define & Measure
-                            </button>
-                            <button aria-label="Go to Team & Leadership" onclick="window.router('team')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-team">
-                                <i data-lucide="users-2" class="w-4 h-4 text-pink-400"></i> Team & Leadership
-                            </button>
-                            <button aria-label="Go to Project Charter" onclick="window.router('charter')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-charter">
-                                <i data-lucide="file-signature" class="w-4 h-4 text-violet-400"></i> Project Charter
+                            <button type="button" aria-label="Go to Stakeholders" onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-stakeholders">
+                                <i data-lucide="target" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Stakeholders</span>
                             </button>
                         </div>
                     </div>
 
                     <div class="nav-group" data-group="diagnose">
-                        <button type="button" aria-label="Toggle Diagnose & Plan section" onclick="window.toggleNavGroup('diagnose')" class="nav-group-header w-full flex items-center gap-2 px-3 py-1.5 mt-2 mb-1 text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
-                            <span class="w-5 h-5 rounded-full bg-cyan-700 text-cyan-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9313;</span>
-                            <span class="flex-1 text-left">Diagnose & Plan</span>
+                        <button type="button" aria-label="Show or hide Diagnose" onclick="window.toggleNavGroup('diagnose')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            <span class="text-slate-600 tabular-nums">2</span>
+                            <span class="flex-1 text-left">Diagnose</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
-                        <div class="nav-group-items space-y-1" id="nav-group-items-diagnose">
-                            <button aria-label="Go to Diagnosis Tools" onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-tools">
-                                <i data-lucide="git-branch" class="w-4 h-4 text-cyan-400"></i> Diagnosis Tools
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-diagnose">
+                            <button type="button" aria-label="Go to Diagnosis Tools" onclick="window.router('tools')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-tools">
+                                <i data-lucide="git-branch" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Diagnosis Tools</span>
                             </button>
-                            <button aria-label="Go to Stakeholders" onclick="window.router('stakeholders')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-stakeholders">
-                                <i data-lucide="target" class="w-4 h-4 text-indigo-400"></i> Stakeholders
-                            </button>
-                            <button aria-label="Go to Timeline" onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-gantt">
-                                <i data-lucide="calendar-clock" class="w-4 h-4 text-emerald-400"></i> Timeline
-                            </button>
-                            <button aria-label="Go to Action Plan" onclick="window.router('action-plan')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-action-plan">
-                                <i data-lucide="list-todo" class="w-4 h-4 text-cyan-300"></i> Action Plan
+                            <button type="button" aria-label="Go to Surveys &amp; Feedback" onclick="window.router('surveys')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-surveys">
+                                <i data-lucide="clipboard-list" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Surveys &amp; Feedback</span>
                             </button>
                         </div>
                     </div>
 
                     <div class="nav-group" data-group="test">
-                        <button type="button" aria-label="Toggle Test & Learn section" onclick="window.toggleNavGroup('test')" class="nav-group-header w-full flex items-center gap-2 px-3 py-1.5 mt-2 mb-1 text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
-                            <span class="w-5 h-5 rounded-full bg-amber-700 text-amber-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9314;</span>
-                            <span class="flex-1 text-left">Test & Learn</span>
+                        <button type="button" aria-label="Show or hide Test &amp; measure" onclick="window.toggleNavGroup('test')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            <span class="text-slate-600 tabular-nums">3</span>
+                            <span class="flex-1 text-left">Test &amp; measure</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
-                        <div class="nav-group-items space-y-1" id="nav-group-items-test">
-                            <button aria-label="Go to Data & SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-data">
-                                <i data-lucide="bar-chart-2" class="w-4 h-4 text-blue-400"></i> Data & SPC
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-test">
+                            <button type="button" aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-pdsa">
+                                <i data-lucide="refresh-cw" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">PDSA Cycles</span>
                             </button>
-                            <button aria-label="Go to Results & Measurements" onclick="window.router('results')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-results">
-                                <i data-lucide="clipboard-pen-line" class="w-4 h-4 text-rose-400"></i> Results & Measurements
+                            <button type="button" aria-label="Go to Data &amp; SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-data">
+                                <i data-lucide="bar-chart-2" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Data &amp; SPC</span>
                             </button>
-                            <button aria-label="Open AI Review Centre" onclick="window.router('aireview')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-purple-300 hover:bg-purple-500/20 hover:text-purple-100 transition-all border border-purple-800/50 mb-1" id="nav-aireview">
-                                <i data-lucide="sparkles" class="w-4 h-4 text-purple-400 flex-shrink-0"></i>
-                                <span class="text-sm font-semibold">AI Review Centre</span>
+                            <button type="button" aria-label="Go to Results &amp; Measurements" onclick="window.router('results')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-results">
+                                <i data-lucide="clipboard-pen-line" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Results &amp; Measurements</span>
                             </button>
-                            <button aria-label="Open QI Learning Hub" onclick="window.router('learn')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-teal-300 hover:bg-teal-500/20 hover:text-teal-100 transition-all border border-teal-800/50 mb-1" id="nav-learn">
-                                <i data-lucide="graduation-cap" class="w-5 h-5 flex-shrink-0"></i>
-                                <span class="text-sm font-semibold">QI Learning Hub</span>
+                        </div>
+                    </div>
+
+                    <div class="nav-group" data-group="manage">
+                        <button type="button" aria-label="Show or hide Manage" onclick="window.toggleNavGroup('manage')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            <span class="text-slate-600 tabular-nums">4</span>
+                            <span class="flex-1 text-left">Manage</span>
+                            <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
+                        </button>
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-manage">
+                            <button type="button" aria-label="Go to Timeline" onclick="window.router('gantt')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-gantt">
+                                <i data-lucide="calendar-clock" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Timeline</span>
                             </button>
-                            <button aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-pdsa">
-                                <i data-lucide="refresh-cw" class="w-4 h-4 text-amber-400"></i> PDSA Cycles
+                            <button type="button" aria-label="Go to Action Plan" onclick="window.router('action-plan')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-action-plan">
+                                <i data-lucide="list-todo" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Action Plan</span>
                             </button>
-                            <button aria-label="Go to Surveys" onclick="window.router('surveys')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-surveys">
-                                <i data-lucide="clipboard-list" class="w-4 h-4 text-violet-400"></i> Surveys & Feedback
+                            <button type="button" aria-label="Go to Green ED" onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-green">
+                                <i data-lucide="leaf" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Green ED</span>
                             </button>
                         </div>
                     </div>
 
                     <div class="nav-group" data-group="review">
-                        <button type="button" aria-label="Toggle Review & Sign-off section" onclick="window.toggleNavGroup('review')" class="nav-group-header w-full flex items-center gap-2 px-3 py-1.5 mt-2 mb-1 text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
-                            <span class="w-5 h-5 rounded-full bg-emerald-700 text-emerald-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9315;</span>
-                            <span class="flex-1 text-left">Review & Sign-off</span>
+                        <button type="button" aria-label="Show or hide Sign off &amp; share" onclick="window.toggleNavGroup('review')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            <span class="text-slate-600 tabular-nums">5</span>
+                            <span class="flex-1 text-left">Sign off &amp; share</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
-                        <div class="nav-group-items space-y-1" id="nav-group-items-review">
-                            <button id="nav-lead-dashboard" onclick="window.showQIPLeadDashboard()"
-                                    class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-all" title="QIP Lead Overview">
-                                <i data-lucide="layout-dashboard" class="w-4 h-4 flex-shrink-0 text-indigo-400"></i>
-                                <span class="truncate text-sm">QIP Lead Overview</span>
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-review">
+                            <button type="button" id="nav-lead-dashboard" onclick="window.showQIPLeadDashboard()" class="nav-btn hidden w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" title="QIP Lead Overview">
+                                <i data-lucide="layout-dashboard" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">QIP Lead Overview</span>
                             </button>
-                            <button id="nav-supervisor-overview" onclick="window.showSupervisorOverview()"
-                                    class="nav-btn hidden w-full text-left px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-3 text-teal-300 hover:bg-teal-500/20 hover:text-white transition-all" title="Supervisor Overview">
-                                <i data-lucide="shield-check" class="w-4 h-4 flex-shrink-0 text-teal-400"></i>
-                                <span class="truncate text-sm">Supervisor Overview</span>
+                            <button type="button" id="nav-supervisor-overview" onclick="window.showSupervisorOverview()" class="nav-btn hidden w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" title="Supervisor Overview">
+                                <i data-lucide="shield-check" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Supervisor Overview</span>
                             </button>
-                            <button aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-supervisor">
-                                <i data-lucide="check-square" class="w-4 h-4"></i> SLO 11 Sign-off
-                                <span id="nav-supervisor-badge" class="hidden ml-auto w-2 h-2 rounded-full bg-amber-400" title="New supervisor activity"></span>
+                            <button type="button" aria-label="Go to SLO 11 Sign-off" onclick="window.router('supervisor')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-supervisor">
+                                <i data-lucide="check-square" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">SLO 11 Sign-off</span><span id="nav-supervisor-badge" class="hidden ml-auto w-2 h-2 rounded-full bg-amber-400 flex-shrink-0" title="New supervisor activity"></span>
                             </button>
-                            <button aria-label="Open PDP and QI Journey Log" onclick="window.showEMQIATModal()" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-emerald-300 hover:bg-emerald-500/20 hover:text-emerald-100 transition-all border border-emerald-800/50 mb-1" id="nav-emqiat" title="A separate PDP/QI-journey tracking journal — not the EM-QIAT sign-off form itself (that's under SLO 11 Sign-off above)">
-                                <i data-lucide="file-badge" class="w-4 h-4 flex-shrink-0"></i>
-                                <span class="text-sm font-semibold">PDP &amp; QI Journey Log</span>
+                            <button type="button" aria-label="Open PDP and QI Journey Log" onclick="window.showEMQIATModal()" class="w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-emqiat" title="Your PDP goals, QI education log and training-wide QI journey (the QIAT form itself is under SLO 11 Sign-off)">
+                                <i data-lucide="notebook-pen" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">PDP &amp; QI Journey Log</span>
+                            </button>
+                            <button type="button" aria-label="Go to Publication" onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-publish">
+                                <i data-lucide="newspaper" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Publication</span>
                             </button>
                         </div>
                     </div>
 
-                    <div class="nav-group" data-group="share">
-                        <button type="button" aria-label="Toggle Share & Publish section" onclick="window.toggleNavGroup('share')" class="nav-group-header w-full flex items-center gap-2 px-3 py-1.5 mt-2 mb-1 text-xs font-bold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
-                            <span class="w-5 h-5 rounded-full bg-sky-700 text-sky-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">&#9316;</span>
-                            <span class="flex-1 text-left">Share & Publish</span>
+                    <div class="nav-group" data-group="resources">
+                        <button type="button" aria-label="Show or hide Help &amp; learning" onclick="window.toggleNavGroup('resources')" class="nav-group-header w-full flex items-center gap-2 px-3 pt-2.5 pb-1 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-300 transition-colors">
+                            
+                            <span class="flex-1 text-left">Help &amp; learning</span>
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
-                        <div class="nav-group-items space-y-1" id="nav-group-items-share">
-                            <button aria-label="Go to Publication" onclick="window.router('publish')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-publish">
-                                <i data-lucide="newspaper" class="w-4 h-4 text-sky-400"></i> Publication
+                        <div class="nav-group-items space-y-0.5" id="nav-group-items-resources">
+                            <button type="button" aria-label="Go to QIP Guide" onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-intro">
+                                <i data-lucide="book-open" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">QIP Guide</span>
                             </button>
-                            <button aria-label="Go to Green ED" onclick="window.router('green')" class="nav-btn w-full flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-white/10 hover:text-white transition-all" id="nav-green">
-                                <i data-lucide="leaf" class="w-4 h-4 text-emerald-400"></i> Green ED
+                            <button type="button" aria-label="Go to QI Learning Hub" onclick="window.router('learn')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-learn">
+                                <i data-lucide="graduation-cap" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">QI Learning Hub</span>
+                            </button>
+                            <button type="button" aria-label="Go to AI Review Centre" onclick="window.router('aireview')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-aireview">
+                                <i data-lucide="sparkles" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">AI Review Centre</span>
                             </button>
                         </div>
                     </div>
                 </nav>
-                
-                <div class="p-3 border-t border-white/10 overflow-y-auto">
-                    <div id="user-display" class="text-xs text-slate-400 mb-2 px-2 truncate"></div>
 
-                    <!-- Role-specific home button — shown/hidden by JS based on the roles a person has -->
-                    <button id="sidebar-admin-home" onclick="window.returnToProjects()"
-                        class="hidden w-full flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-2 py-2 rounded text-xs font-bold mb-2">
-                        <i data-lucide="eye" class="w-3 h-3"></i> Admin Dashboard
-                    </button>
+                <div class="px-3 pt-2 pb-3 border-t border-white/10">
+                    <div id="user-display" class="text-[11px] text-slate-400 mb-2 px-1 truncate"></div>
 
-                    <button id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
-                        <i data-lucide="folder-open" class="w-3 h-3"></i> <span id="switch-project-label">Switch Project</span>
+                    <!-- Role-specific home buttons — shown/hidden by JS based on the roles a person has -->
+                    <button type="button" id="sidebar-admin-home" onclick="window.returnToProjects()" class="hidden w-full flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
+                        <i data-lucide="eye" class="w-3.5 h-3.5"></i> Admin Dashboard
                     </button>
-                    <button aria-label="Open Help Guide" onclick="window.showHowTo()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
-                        <i data-lucide="help-circle" class="w-3 h-3"></i> Help &amp; Guide
-                    </button>
-                    <button aria-label="FRCEM Readiness Check" onclick="window.showFRCEMReadinessChecker()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
-                        <i data-lucide="clipboard-check" class="w-3 h-3"></i> FRCEM Readiness
-                    </button>
-                    <button aria-label="Version History" onclick="window.showSnapshotHistory()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
-                        <i data-lucide="history" class="w-3 h-3"></i> Version History
-                    </button>
-                    <button aria-label="Open Settings" onclick="window.openGlobalSettings()" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs mb-1">
-                        <i data-lucide="settings" class="w-3 h-3"></i> Settings
-                    </button>
-                    <!-- QIP Lead / Supervisor overview buttons — placed directly above Sign Out per explicit request, so they're always in the same predictable spot regardless of screen height -->
-                    <button id="sidebar-lead-home" onclick="window.showQIPLeadDashboard()"
-                        class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-1 border border-indigo-500/50 shadow-sm">
+                    <button type="button" id="sidebar-lead-home" onclick="window.showQIPLeadDashboard()" class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
                         <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-lead-home-label">QIP Lead Overview</span>
                     </button>
-                    <button id="sidebar-supervisor-home" onclick="window.showSupervisorOverview()"
-                        class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-2 py-2.5 rounded-lg text-xs font-bold mb-2 border border-teal-500/50 shadow-sm">
+                    <button type="button" id="sidebar-supervisor-home" onclick="window.showSupervisorOverview()" class="hidden w-full flex items-center gap-2 bg-teal-600 hover:bg-teal-500 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
                         <i data-lucide="shield-check" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-supervisor-home-label">Supervisor Overview</span>
                     </button>
 
-                    <button aria-label="Sign Out" id="logout-btn" class="w-full flex items-center gap-2 text-slate-400 hover:text-white px-2 py-2 rounded hover:bg-white/5 text-xs">
-                        <i data-lucide="log-out" class="w-3 h-3"></i> Sign Out
+                    <button type="button" id="btn-switch-project" aria-label="Switch Project" onclick="window.returnToProjects()" class="w-full flex items-center gap-2 text-slate-300 hover:text-white px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-xs font-medium mb-1.5">
+                        <i data-lucide="folder-open" class="w-3.5 h-3.5"></i> <span id="switch-project-label">Switch Project</span>
                     </button>
-                    <div id="app-version-badge" class="text-[10px] text-slate-500 text-center mt-2" title="App version — if something looks stale, hard-refresh (Ctrl/Cmd+Shift+R)"></div>
+
+                    <div class="grid grid-cols-4 gap-1">
+                        <button type="button"  aria-label="Help and guide" title="Help and guide" onclick="window.showHowTo()" class="flex flex-col items-center gap-1 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-[10px] leading-none">
+                            <i data-lucide="help-circle" class="w-4 h-4"></i>Help
+                        </button>
+                        <button type="button"  aria-label="Version history" title="Version history" onclick="window.showSnapshotHistory()" class="flex flex-col items-center gap-1 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-[10px] leading-none">
+                            <i data-lucide="history" class="w-4 h-4"></i>History
+                        </button>
+                        <button type="button"  aria-label="Settings" title="Settings" onclick="window.openGlobalSettings()" class="flex flex-col items-center gap-1 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-[10px] leading-none">
+                            <i data-lucide="settings" class="w-4 h-4"></i>Settings
+                        </button>
+                        <button type="button" id="logout-btn" aria-label="Sign out" title="Sign out" class="flex flex-col items-center gap-1 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-white/5 text-[10px] leading-none">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>Sign out
+                        </button>
+                    </div>
+                    <div id="app-version-badge" class="text-[10px] text-slate-600 text-center mt-1.5" title="App version — if something looks stale, reload the page"></div>
                 </div>
             </aside>
 
@@ -1764,15 +1764,51 @@
             navigator.serviceWorker.controller.postMessage({ type: 'GET_VERSION' }, [channel.port2]);
         }
 
+        // A tab left open keeps running the code it loaded with, so check for a
+        // new version when the tab comes back into view (and every 30 minutes),
+        // and offer a one-click reload once the new version has taken over.
+        function showUpdateBanner() {
+            if (document.getElementById('app-update-banner')) return;
+            const bar = document.createElement('div');
+            bar.id = 'app-update-banner';
+            bar.setAttribute('role', 'status');
+            bar.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 32px);background:#2d2e83;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.25);font:500 14px/1.4 Inter,system-ui,sans-serif';
+            const msg = document.createElement('span');
+            msg.textContent = 'A new version of QIP Assistant is ready.';
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.textContent = 'Reload now';
+            btn.style.cssText = 'background:#fff;color:#2d2e83;border:0;border-radius:8px;padding:6px 12px;font-weight:700;cursor:pointer';
+            btn.onclick = () => window.location.reload();
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.setAttribute('aria-label', 'Dismiss');
+            close.textContent = '\u00d7';
+            close.style.cssText = 'background:transparent;color:#c7d2fe;border:0;font-size:20px;line-height:1;cursor:pointer;padding:0 4px';
+            close.onclick = () => bar.remove();
+            bar.append(msg, btn, close);
+            document.body.appendChild(bar);
+        }
+
         if ('serviceWorker' in navigator) {
+            let hadController = !!navigator.serviceWorker.controller;
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
+                navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
                     .then(reg => {
                         console.log('Service Worker registered');
                         setTimeout(requestSWVersion, 500);
+                        const checkForUpdate = () => reg.update().catch(() => {});
+                        setInterval(checkForUpdate, 30 * 60 * 1000);
+                        document.addEventListener('visibilitychange', () => {
+                            if (document.visibilityState === 'visible') checkForUpdate();
+                        });
                     })
                     .catch(err => console.warn('Service Worker registration failed:', err));
-                navigator.serviceWorker.addEventListener('controllerchange', requestSWVersion);
+                navigator.serviceWorker.addEventListener('controllerchange', () => {
+                    requestSWVersion();
+                    if (hadController) showUpdateBanner();
+                    hadController = true;
+                });
             });
         }
         
