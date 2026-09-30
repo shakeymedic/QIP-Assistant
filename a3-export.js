@@ -132,7 +132,7 @@ async function runA3Export() {
             <meta charset="UTF-8">
             <title>A3 Problem Solving Summary</title>
             <style>
-                @page { size: A3 landscape; margin: 10mm; }
+                @page { size: A3 landscape; margin: 12mm; }
                 * { box-sizing: border-box; }
                 body { font-family: Arial, sans-serif; color: #1e293b; margin: 0; font-size: 10pt; line-height: 1.35; }
                 h1 { margin: 0; color: #2d2e83; font-size: 20pt; }

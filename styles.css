@@ -673,3 +673,20 @@ body.readonly-mode .readonly-hide { display: none !important; }
    browser laid it out, instead of re-wrapping words (which overlapped
    wrapped labels such as "Sign-off" or "Supervisor / QIAT"). */
 .pdf-export, .pdf-export * { letter-spacing: 0.01px; }
+/* In the PDF the page margins frame the report, so drop the on-screen card
+   edge and its side padding. */
+.pdf-export > * > .rounded-xl { border: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+.pdf-export > * > .rounded-xl > header { border-radius: 10px !important; }
+.pdf-export .p-8.space-y-8 { padding-left: 0 !important; padding-right: 0 !important; }
+.pdf-export > * > .rounded-xl > footer { display: none !important; }
+
+/* Sidebar: one icon colour; the active item's icon turns white with it. */
+#app-sidebar .nav-icon { color: #94a3b8; }
+#app-sidebar .nav-btn:hover .nav-icon { color: #e2e8f0; }
+#app-sidebar .nav-btn.bg-rcem-purple .nav-icon { color: #fff; }
+/* The blanket phone rules above stack every .flex.gap-2 row and grid; the
+   sidebar is already laid out for a narrow column, so keep its rows. */
+@media (max-width: 768px) {
+    #app-sidebar .flex.gap-2 { flex-direction: row; }
+    #app-sidebar .grid.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0.25rem !important; }
+}

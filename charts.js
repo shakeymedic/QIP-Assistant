@@ -1626,7 +1626,7 @@ export function exportGanttPDF() {
     const filename = `${title}_gantt_${new Date().toISOString().slice(0,10)}.pdf`;
     showToast("Generating Gantt PDF…", "info");
     html2pdf().set({
-        margin: 8,
+        margin: 12,
         filename,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false, backgroundColor: '#ffffff', allowTaint: true },

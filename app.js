@@ -422,12 +422,14 @@ Object.defineProperty(window, 'projectData', { get: () => state.projectData, set
 // Maps each collapsible sidebar group id to the router view names it
 // contains, so we can auto-expand the right group whenever the user
 // navigates to a view inside a currently-collapsed section.
+// Dashboard and Whole Project View sit above the groups, always visible.
 const NAV_GROUP_VIEWS = {
-    define: ['dashboard', 'intro', 'full', 'checklist', 'team', 'charter'],
-    diagnose: ['tools', 'stakeholders', 'gantt', 'action-plan'],
-    test: ['data', 'results', 'aireview', 'learn', 'pdsa', 'surveys'],
-    review: ['supervisor'],
-    share: ['publish', 'green']
+    plan: ['checklist', 'charter', 'team', 'stakeholders'],
+    diagnose: ['tools', 'surveys'],
+    test: ['pdsa', 'data', 'results'],
+    manage: ['gantt', 'action-plan', 'green'],
+    review: ['supervisor', 'publish'],
+    resources: ['intro', 'learn', 'aireview']
 };
 const NAV_GROUP_COLLAPSE_KEY = (groupId) => `qipNavGroupCollapsed_${groupId}`;
 
@@ -479,7 +481,7 @@ window.initNavGroups = () => {
 window.initNavGroups();
 
 // First-time-ever nudge: a brand-new project (no checklist fields filled
-// in at all) starts with only "Define & Measure" expanded, so a first-time
+// in at all) starts with only "Plan" expanded, so a first-time
 // ST4 sees a short list of steps rather than 16 destinations across 5
 // groups on day one. Only fires once ever, and only if the user has never
 // manually customised a nav group before (so it never fights an explicit
@@ -492,7 +494,7 @@ window.applyProgressiveNavDisclosure = () => {
         const fields = ['problem_desc', 'problem_context', 'problem_evidence', 'aim', 'outcome_measure', 'process_measure', 'balance_measure', 'ethics', 'lit_review', 'learning_points', 'sustainability', 'results_analysis'];
         const filled = fields.filter(f => c[f] && String(c[f]).trim()).length;
         if (filled === 0) {
-            Object.keys(NAV_GROUP_VIEWS).forEach(g => { if (g !== 'define') window.toggleNavGroup(g, false); });
+            Object.keys(NAV_GROUP_VIEWS).forEach(g => { if (g !== 'plan') window.toggleNavGroup(g, false); });
         }
     } catch (e) { /* localStorage unavailable — ignore, groups stay expanded */ }
 };

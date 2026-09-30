@@ -28,6 +28,12 @@ function esc(value) {
     })[character]);
 }
 
+// Text for a CSS content string (page header): quotes, backslashes and
+// line breaks escaped, and "<" escaped so it cannot close the <style> block.
+function cssString(value) {
+    return String(value || '').replace(/[\\"]/g, '\\$&').replace(/[\r\n]+/g, ' ').replace(/</g, '\\3C ');
+}
+
 function nl2br(value) {
     return esc(value).replace(/\n/g, '<br>');
 }
@@ -130,7 +136,30 @@ function runKaizenExport() {
         .toolbar { display: flex; gap: 8px; justify-content: center; margin: 0 0 20px; }
         .toolbar button { padding: 9px 16px; background: #2d2e83; color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; }
         a { color: #a21caf; }
-        @media print { .toolbar, .copy, .check, .no-copy { display: none !important; } body { padding: 0; } .content-box.draft { background: #f8fafc; border-color: #e2e8f0; } }
+        .tip { text-align: center; color: #64748b; font-size: 12px; margin: -12px 0 18px; }
+        /* Printed page: real margins, a running header and page numbers. */
+        @page {
+            size: A4;
+            margin: 20mm 18mm 20mm 18mm;
+            @top-left { content: "EM QIAT (2025 Update)"; font: 8pt Arial, Helvetica, sans-serif; color: #64748b; }
+            @top-right { content: "${cssString((meta.title || '').length > 70 ? (meta.title || '').slice(0, 69) + '…' : meta.title)}"; font: 8pt Arial, Helvetica, sans-serif; color: #64748b; }
+            @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 8pt Arial, Helvetica, sans-serif; color: #64748b; }
+        }
+        @page :first { @top-left { content: none; } @top-right { content: none; } }
+        @media print {
+            .toolbar, .tip, .copy, .check, .no-copy { display: none !important; }
+            html, body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            body { padding: 0; max-width: none; font-size: 10.5pt; line-height: 1.45; }
+            h1 { font-size: 17pt; }
+            .sub { font-size: 9pt; }
+            h2 { font-size: 13pt; margin: 18pt 0 6pt; padding-bottom: 3pt; border-bottom: 1px solid #f0abfc; break-after: avoid; page-break-after: avoid; }
+            h3 { font-size: 10.5pt; margin: 10pt 0 4pt; break-after: avoid; page-break-after: avoid; }
+            .hdr { font-size: 10.5pt; break-inside: avoid; }
+            .content-box { font-size: 10.5pt; padding: 8pt 10pt; orphans: 3; widows: 3; }
+            .content-box.draft { background: #f8fafc; border-color: #e2e8f0; }
+            p { orphans: 3; widows: 3; }
+            a { color: inherit; text-decoration: none; }
+        }
     </style>
 </head>
 <body>
@@ -138,6 +167,7 @@ function runKaizenExport() {
     <p class="sub">${esc(meta.title || 'Untitled QIP')} · exported ${new Date().toLocaleDateString('en-GB')} · copy each box into the matching field on risr/advance</p>
 
     <div class="toolbar"><button onclick="window.print()">Print / save as PDF</button></div>
+    <p class="tip">In the print window, choose <strong>Save as PDF</strong>, leave <strong>Margins</strong> on <strong>Default</strong> and untick <strong>Headers and footers</strong> — page numbers are already included.</p>
 
     <div class="check ${weak.length ? '' : 'good'}">
         <strong>Excellence check: ${check.strong} of ${check.total} sections strong.</strong>
@@ -150,7 +180,7 @@ function runKaizenExport() {
     <div class="hdr">
         <span>Stage of training</span><span>${e.stageOfTraining ? esc(e.stageOfTraining) : `<em class="todo-inline">${esc(deriveStageLabel(meta.trainingStage) || '[To complete, e.g. ST6]')}</em>`}</span>
         <span>Placement</span><span>${e.placement ? esc(e.placement) : '<em class="todo-inline">[To complete, e.g. ST6 year at &lt;hospital&gt;]</em>'}</span>
-        <span>Date of completion</span><span>${e.dateOfCompletion ? esc(new Date(e.dateOfCompletion + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })) : '<em class="todo-inline">[To complete]</em>'}</span>
+        <span>Date of completion</span><span>${e.dateOfCompletion ? esc(new Date(e.dateOfCompletion + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : '<em class="todo-inline">[To complete]</em>'}</span>
     </div>
 
     <p><strong>Part A</strong></p>
