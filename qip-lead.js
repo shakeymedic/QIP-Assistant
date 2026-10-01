@@ -325,7 +325,7 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                             <div>
                                 <div class="text-xs font-bold uppercase tracking-widest text-indigo-300 mb-1">Departmental QIP Lead Portal</div>
                                 <h1 class="text-2xl font-bold">QIP Supervision Dashboard</h1>
-                                <p class="text-indigo-200 text-sm mt-1">${total} QIP project${total !== 1 ? 's' : ''} ${opts.hasRole ? 'across the department' : 'shared with you'}</p>
+                                <p class="text-indigo-200 text-sm mt-1">${total} QIP project${total !== 1 ? 's' : ''} ${opts.hasRole && !opts.deptDenied ? 'across the department' : 'shared with you'}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -347,6 +347,20 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                     </div>
                 </div>
 
+                ${opts.hasRole && opts.deptDenied ? `
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-sm text-amber-900" role="status">
+                    <div class="flex items-start gap-3">
+                        <i data-lucide="lock" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                        <div class="min-w-0">
+                            <p class="font-bold">The department-wide view isn't switched on for your account yet</p>
+                            <p class="mt-1">Your account has the QIP Lead role, but it hasn't been approved to see every QIP in the department, so you can only see projects a trainee has added you to. To see them all, ask the app administrator to approve your account and send them your account ID:</p>
+                            <div class="mt-2 flex items-center gap-2 flex-wrap">
+                                <code class="bg-white border border-amber-200 rounded px-2 py-1 text-xs break-all">${escapeHtml(opts.uid || '')}</code>
+                                <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText(${escapeHtml(JSON.stringify(opts.uid || ''))}).then(() => window.showToast && window.showToast('Account ID copied', 'success'))" class="text-xs font-bold text-amber-800 underline">Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>` : ''}
                 <div class="bg-white rounded-2xl border border-slate-200 p-3 mb-4 flex flex-col md:flex-row gap-3 md:items-center">
                     <div class="relative flex-1">
                         <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>

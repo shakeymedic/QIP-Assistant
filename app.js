@@ -2658,14 +2658,18 @@ async function loadQIPLeadProjects(user) {
     const hasLeadRole = (await readUserRoles(user, 'QIP Lead')).includes('qip_lead');
     const email = (user.email || '').toLowerCase();
     let projects = [];
+    // The department-wide view is granted in the database rules only to
+    // accounts the administrator has approved (the QIP Lead role itself is
+    // self-selected), so "permission denied" here means "not approved yet":
+    // the dashboard explains that instead of showing an error.
+    let deptViewDenied = false;
     if (hasLeadRole) {
         try {
             projects = await fetchAllProjectsEnriched();
         } catch (allErr) {
             console.warn('[QIPLead] Could not fetch all projects:', allErr);
-            if (allErr?.code === 'permission-denied') {
-                showToast('Could not load all QIP projects — Firestore permission denied on the projects collection group.', 'error');
-            }
+            if (allErr?.code === 'permission-denied') deptViewDenied = true;
+            else showToast('Could not load all QIP projects — check your connection and press Refresh.', 'error');
         }
     }
     // Individually-invited projects always show, including ones the owner has
@@ -2674,15 +2678,16 @@ async function loadQIPLeadProjects(user) {
     const have = new Set(projects.map(p => p.ownerUid + '/' + p.projectId));
     const missing = invited.filter(p => !have.has(p.ownerUid + '/' + p.projectId));
     if (missing.length) projects = projects.concat(await enrichInvitedProjects(missing));
-    return { hasLeadRole, projects: markOwn(projects) };
+    return { hasLeadRole, deptViewDenied, projects: markOwn(projects) };
 }
 
 async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db) return;
     try {
-        const { hasLeadRole, projects } = await loadQIPLeadProjects(user);
+        const { hasLeadRole, deptViewDenied, projects } = await loadQIPLeadProjects(user);
         state.qipLeadProjects = projects;
         state.qipLeadHasRole = hasLeadRole;
+        state.qipLeadDeptDenied = deptViewDenied;
         state.isQIPLead = hasLeadRole || projects.length > 0;
         state._leadRefreshedAt = new Date().toISOString();
 
@@ -2701,7 +2706,9 @@ async function checkQIPLeadStatus(user) {
         const badgeText = document.getElementById('qip-lead-badge-text');
         if (badge) badge.classList.remove('hidden');
         if (badgeText) {
-            badgeText.textContent = hasLeadRole
+            badgeText.textContent = hasLeadRole && deptViewDenied
+                ? `QIP Lead — department-wide view awaiting approval; ${n} project${n !== 1 ? 's' : ''} shared with you`
+                : hasLeadRole
                 ? (n > 0 ? `You can see ${n} QIP project${n !== 1 ? 's' : ''} across the department as Departmental QIP Lead` : 'Departmental QIP Lead — no QIP projects exist yet')
                 : `You have been added as QIP Lead on ${n} project${n !== 1 ? 's' : ''}`;
         }
@@ -2728,6 +2735,8 @@ function renderRoleOverview(kind) {
     if (kind === 'lead') {
         renderQIPLeadDashboard(container, state.qipLeadProjects || [], {
             hasRole: !!state.qipLeadHasRole,
+            deptDenied: !!state.qipLeadDeptDenied,
+            uid: state.currentUser?.uid || '',
             refreshing: !!state._leadRefreshing,
             refreshedAt: state._leadRefreshedAt
         });
