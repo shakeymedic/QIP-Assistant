@@ -24,6 +24,7 @@ import { exportToA3 } from "./a3-export.js";
 import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
+import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
 import { renderLearn } from "./learn.js";
@@ -2606,7 +2607,9 @@ async function resolveOwnerNames(uids) {
 
 // Fetches each invited project and attaches the card summary. Projects that
 // can't be read are kept but flagged, so the list is honest about them.
-async function enrichInvitedProjects(projects) {
+// With `kind` and `email`, an invite whose project no longer lists that person
+// (they were removed) is dropped.
+async function enrichInvitedProjects(projects, kind, email) {
     // Older invites stored the trainee's email as their name; show their
     // profile name instead where we can read it, else keep the email.
     const emailNamed = new Set((projects || []).filter(p => !p.traineeName || p.traineeName.includes('@')).map(p => p.ownerUid).filter(Boolean));
@@ -2621,8 +2624,9 @@ async function enrichInvitedProjects(projects) {
         const traineeName = names[proj.ownerUid] || proj.traineeName;
         const d = await fetchProjectDoc(proj.ownerUid, proj.projectId);
         if (!d) return { ...proj, traineeName, _data: {}, _unavailable: true, ...summariseProject({}) };
+        if (kind && email && !stillListed(d, kind, email)) return null;
         return { ...proj, traineeName, projectTitle: d.meta?.title || proj.projectTitle, _data: d, ...summariseProject(d) };
-    }));
+    })).then(rows => rows.filter(Boolean));
 }
 
 function markOwn(rows) {
@@ -2677,7 +2681,7 @@ async function loadQIPLeadProjects(user) {
     const invited = await getQIPLeadProjects(db, email);
     const have = new Set(projects.map(p => p.ownerUid + '/' + p.projectId));
     const missing = invited.filter(p => !have.has(p.ownerUid + '/' + p.projectId));
-    if (missing.length) projects = projects.concat(await enrichInvitedProjects(missing));
+    if (missing.length) projects = projects.concat(await enrichInvitedProjects(missing, LEAD_INVITES, email));
     return { hasLeadRole, deptViewDenied, projects: markOwn(projects) };
 }
 
@@ -3140,6 +3144,9 @@ window.openProject = (id) => {
             if (firstLoad) {
                 // First snapshot: data is ready — now it's safe to navigate
                 firstLoad = false;
+                // Make sure this project's supervisors and QIP leads have
+                // per-project invites (moves older invites across). Background.
+                syncProjectInvites(db, state.currentUser, id, state.projectData).catch(() => {});
                 const topBar = document.getElementById('top-bar');
                 if(topBar) topBar.classList.remove('hidden');
                 if (window.applyProgressiveNavDisclosure) window.applyProgressiveNavDisclosure();
@@ -4161,22 +4168,19 @@ window.addSupervisorFromSettings = async function() {
         showToast('That email is already listed as a supervisor', 'info'); return;
     }
 
-    // Write supervisorInvites/{email} so supervisor sees this project on login.
-    // Only list them on the project once that has worked.
+    // Write the invite so the supervisor sees this project when they sign in
+    // (and so the database lets them sign it off). Only list them on the
+    // project once that has worked.
     try {
-        const { doc, setDoc, arrayUnion } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const inviteEntry = {
+        await writeInvite(db, SUPERVISOR_INVITES, email, {
             ownerUid: state.currentUser.uid,
             projectId: state.currentProjectId,
             projectTitle: state.projectData.meta?.title || 'Untitled QIP',
             traineeName: state.currentUser.displayName || state.currentUser.email,
-            traineeEmail: state.currentUser.email,
-            addedAt: new Date().toISOString()
-        };
-        await setDoc(doc(db, 'supervisorInvites', email),
-            { email, projects: arrayUnion(inviteEntry) }, { merge: true });
+            traineeEmail: state.currentUser.email
+        });
     } catch (e) {
-        console.warn('[Access] supervisorInvites write failed:', e);
+        console.warn('[Access] supervisor invite write failed:', e);
         showToast("Couldn't add that supervisor — please check your connection and try again.", 'error');
         return;
     }
@@ -4195,19 +4199,9 @@ window.removeSettingsSupervisor = async function(index) {
     const removed = supervisors[index];
     if (!removed) return;
     supervisors.splice(index, 1);
-    // Remove from supervisorInvites
-    try {
-        const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const email = removed.email || removed;
-        const ref = doc(db, 'supervisorInvites', email);
-        const snap = await getDoc(ref);
-        if (snap.exists()) {
-            const projects = (snap.data().projects || []).filter(
-                p => !(p.ownerUid === state.currentUser?.uid && p.projectId === state.currentProjectId)
-            );
-            await setDoc(ref, { email, projects }, { merge: false });
-        }
-    } catch (e) { console.warn('[Access] remove supervisorInvite failed:', e); }
+    // Taking them off the project's list ends their access; deleting the
+    // invite also takes the project off their overview straight away.
+    await deleteInvite(db, SUPERVISOR_INVITES, removed.email || removed, state.currentUser?.uid, state.currentProjectId);
     window.saveData();
     loadProjectAccessIntoSettings();
     showToast('Supervisor removed', 'info');
@@ -4259,8 +4253,7 @@ async function checkSupervisorStatus() {
         const email = state.currentUser.email?.toLowerCase();
         if (!email) return;
         const hasSupervisorRole = (await readUserRoles(state.currentUser, 'Supervisor')).includes('supervisor');
-        const snap = await getDoc(doc(db, 'supervisorInvites', email));
-        const invites = snap.exists() ? (snap.data().projects || []) : [];
+        const invites = await readInvites(db, SUPERVISOR_INVITES, email);
 
         const supHomeBtn = document.getElementById('sidebar-supervisor-home');
         const navBtn = document.getElementById('nav-supervisor-overview');
@@ -4282,7 +4275,7 @@ async function checkSupervisorStatus() {
             seen.add(k);
             return true;
         });
-        const enriched = await enrichInvitedProjects(unique);
+        const enriched = await enrichInvitedProjects(unique, SUPERVISOR_INVITES, email);
         state.supervisorProjects = enriched;
         state._supRefreshedAt = new Date().toISOString();
 
