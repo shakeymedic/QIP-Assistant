@@ -98,7 +98,7 @@ function wrapWords(t, perLine, maxLines) {
     return lines.slice(0, maxLines);
 }
 
-export function fishboneSVG(fishbone, problemText, { interactive = false, maxCauses = 6 } = {}) {
+export function fishboneSVG(fishbone, problemText, { interactive = false, maxCauses = 6, full = false, fontSize = 12 } = {}) {
     // Keep each category's original index so clicks edit the right one.
     const cats = ((fishbone && fishbone.categories) || [])
         .map((c, idx) => c && { ...c, _idx: idx })
@@ -106,11 +106,28 @@ export function fishboneSVG(fishbone, problemText, { interactive = false, maxCau
     const n = Math.max(cats.length, 1);
     const cols = Math.ceil(n / 2);
     const W = 1200, headW = 190, spineL = 30, spineR = W - headW - 20;
-    const boneLen = 170, slant = 70;
-    const H = 2 * (boneLen + 60);
-    const spineY = H / 2;
+    const slant = 70;
     const colW = (spineR - spineL) / cols;
-    const maxChars = Math.max(18, Math.floor((colW - slant - 24) / 5.9));
+    const fs = fontSize, k = fs / 12;                  // `fontSize` enlarges every label for print
+    const maxChars = Math.max(18, Math.floor((colW - slant - 24) / (5.9 * k)));
+    const causesOf = (cat) => (cat.causes || []).map((c, k) => ({ text: typeof c === 'string' ? c : (c && c.text) || '', k })).filter(c => c.text);
+
+    // `full` (used by the image exports) shows every cause in full, wrapped
+    // over as many lines as it needs, and makes the bones long enough to fit
+    // them. Otherwise causes are cut to one line so the on-screen view stays
+    // compact.
+    const lineH = Math.round(14 * k), gap = Math.round(8 * k);
+    const blocks = cats.map(cat => causesOf(cat).map(c => {
+        const lines = full ? wrapWords(c.text, maxChars, 99) : [truncate(c.text, maxChars)];
+        return { ...c, lines, h: lines.length * lineH + gap };
+    }));
+    const tallest = full ? Math.max(0, ...blocks.map(b => b.reduce((s, x) => s + x.h, 0))) : 0;
+    const boneLen = full ? Math.max(170, tallest + 40) : 170;
+    const probLines = wrapWords(problemText || 'Problem', Math.floor(22 / k), full ? 99 : 4);
+    const probH = Math.round(16 * k);
+    const boxH = 34 * k + probLines.length * probH;
+    const H = Math.max(2 * (boneLen + 60), full ? boxH + 40 : 0);
+    const spineY = H / 2;
     let out = '';
 
     cats.forEach((cat, i) => {
@@ -121,33 +138,36 @@ export function fishboneSVG(fishbone, problemText, { interactive = false, maxCau
         const ey = above ? spineY - boneLen : spineY + boneLen;
         out += `<line x1="${jx}" y1="${spineY}" x2="${ex}" y2="${ey}" stroke="#4338ca" stroke-width="3" stroke-linecap="round"/>`;
 
-        const causes = (cat.causes || []).map((c, k) => ({ text: typeof c === 'string' ? c : (c && c.text) || '', k })).filter(c => c.text);
-        const shown = causes.slice(0, maxCauses);
-        shown.forEach(({ text, k }, j) => {
-            const t = (j + 1) / (shown.length + 1);
+        const causes = blocks[i];
+        const shown = full ? causes : causes.slice(0, maxCauses);
+        let used = 18;                                      // distance from the spine already taken
+        shown.forEach(({ text, k: ci, lines, h }, j) => {
+            let t;
+            if (full) { t = (used + h / 2) / boneLen; used += h; }
+            else t = (j + 1) / (shown.length + 1);
             const bx = jx + (ex - jx) * t;
             const by = spineY + (ey - spineY) * t;
             const x2 = bx - 16;
+            const y0 = by + 4 * k - (lines.length - 1) * lineH / 2;
             out += `<line x1="${bx}" y1="${by}" x2="${x2}" y2="${by}" stroke="#a5b4fc" stroke-width="1.5"/>`;
-            out += `<text x="${x2 - 4}" y="${by + 4}" text-anchor="end" font-size="12" fill="#1e293b"${interactive ? ` class="fb-cause" data-cat="${cat._idx}" data-cause="${k}" style="cursor:pointer"` : ''}><title>${escapeHtml(text)}</title>${escapeHtml(truncate(text, maxChars))}</text>`;
+            out += `<text x="${x2 - 4}" y="${y0}" text-anchor="end" font-size="${fs}" fill="#1e293b"${interactive ? ` class="fb-cause" data-cat="${cat._idx}" data-cause="${ci}" style="cursor:pointer"` : ''}><title>${escapeHtml(text)}</title>${lines.length === 1 ? escapeHtml(lines[0]) : lines.map((l, m) => `<tspan x="${x2 - 4}" ${m ? `dy="${lineH}"` : `y="${y0}"`}>${escapeHtml(l)}</tspan>`).join('')}</text>`;
         });
         if (causes.length > shown.length) {
             const by = above ? ey + 14 : ey - 6;
             out += `<text x="${ex - 6}" y="${by}" text-anchor="end" font-size="11" fill="#64748b" font-style="italic">+${causes.length - shown.length} more</text>`;
         }
 
-        const label = truncate(cat.text || 'Category', 22);
-        const pw = Math.max(70, label.length * 7.6 + 24);
-        const py = above ? ey - 32 : ey + 8;
-        out += `<g${interactive ? ` class="fb-cat" data-cat="${cat._idx}" style="cursor:pointer"` : ''}><rect x="${ex - pw / 2}" y="${py}" width="${pw}" height="26" rx="6" fill="#312e81"/><text x="${ex}" y="${py + 17}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#fff">${escapeHtml(label)}</text></g>`;
+        const label = full ? String(cat.text || 'Category').trim() : truncate(cat.text || 'Category', 22);
+        const pw = Math.max(70, label.length * 7.6 * k + 24);
+        const ph = Math.round(26 * k);
+        const py = above ? ey - ph - 6 : ey + 8;
+        out += `<g${interactive ? ` class="fb-cat" data-cat="${cat._idx}" style="cursor:pointer"` : ''}><rect x="${ex - pw / 2}" y="${py}" width="${pw}" height="${ph}" rx="6" fill="#312e81"/><text x="${ex}" y="${py + ph * 0.65}" text-anchor="middle" font-size="${12.5 * k}" font-weight="700" fill="#fff">${escapeHtml(label)}</text></g>`;
         if (interactive) {
-            const ax = ex + pw / 2 + 14, ay = py + 13;
+            const ax = ex + pw / 2 + 14, ay = py + ph / 2;
             out += `<g class="fb-add" data-cat="${cat._idx}" style="cursor:pointer"><circle cx="${ax}" cy="${ay}" r="10" fill="#eef2ff" stroke="#6366f1"/><text x="${ax}" y="${ay + 4.5}" text-anchor="middle" font-size="14" font-weight="700" fill="#4338ca">+</text><title>Add a cause to ${escapeHtml(cat.text || 'this category')}</title></g>`;
         }
     });
 
-    const probLines = wrapWords(problemText || 'Problem', 22, 4);
-    const boxH = 34 + probLines.length * 16;
     const hx = spineR + 14;
     out = `
         <rect x="0" y="0" width="${W}" height="${H}" fill="#f8fafc" rx="10"/>
@@ -155,16 +175,16 @@ export function fishboneSVG(fishbone, problemText, { interactive = false, maxCau
         <polygon points="${spineR + 12},${spineY} ${spineR - 6},${spineY - 9} ${spineR - 6},${spineY + 9}" fill="#1e1b4b"/>
         ${out}
         <rect x="${hx}" y="${spineY - boxH / 2}" width="${headW}" height="${boxH}" rx="10" fill="#dc2626"/>
-        <text x="${hx + headW / 2}" y="${spineY - boxH / 2 + 18}" text-anchor="middle" font-size="10" font-weight="700" fill="#fecaca" letter-spacing="1">EFFECT / PROBLEM</text>
-        ${probLines.map((l, k) => `<text x="${hx + headW / 2}" y="${spineY - boxH / 2 + 38 + k * 16}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${escapeHtml(l)}</text>`).join('')}`;
+        <text x="${hx + headW / 2}" y="${spineY - boxH / 2 + 18 * k}" text-anchor="middle" font-size="${10 * k}" font-weight="700" fill="#fecaca" letter-spacing="1">EFFECT / PROBLEM</text>
+        ${probLines.map((l, m) => `<text x="${hx + headW / 2}" y="${spineY - boxH / 2 + 38 * k + m * probH}" text-anchor="middle" font-size="${13 * k}" font-weight="700" fill="#fff">${escapeHtml(l)}</text>`).join('')}`;
     return `<svg viewBox="0 0 ${W} ${H}" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Inter, Arial, sans-serif" role="img" aria-label="Fishbone diagram">${out}</svg>`;
 }
 
 // The shortest sensible label for the fishbone's effect box.
-export function fishboneProblem(data) {
+export function fishboneProblem(data, { full = false } = {}) {
     const p = data?.fishbone?.problem || data?.fivewhys?.problem || data?.checklist?.problem_desc || '';
     const first = String(p).split(/(?<=[.!?])\s/)[0];
-    return truncate(first, 90) || 'Problem';
+    return (full ? first.trim().replace(/\s+/g, ' ') : truncate(first, 90)) || 'Problem';
 }
 
 // ── Gantt summary (Whole Project View) ───────────────────────────────────────

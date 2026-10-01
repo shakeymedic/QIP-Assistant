@@ -1,21 +1,12 @@
 // qip-lead.js  — Departmental QIP Lead functionality
 import { state } from './state.js';
 import { showToast, escapeHtml } from './utils.js';
+import { LEAD_INVITES, readInvites, writeInvite, deleteInvite } from './invites.js';
 
-// ─── Check whether the logged-in user is a QIP Lead ───────────────────────────
-// Returns the lead's project list (may be empty) from qipLeadInvites/{email}
+// ─── Projects this person has been added to as QIP Lead ──────────────────────
 export async function getQIPLeadProjects(db, userEmail) {
     if (!db || !userEmail) return [];
-    try {
-        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const snap = await getDoc(doc(db, 'qipLeadInvites', userEmail));
-        if (snap.exists()) {
-            return snap.data().projects || [];
-        }
-    } catch (e) {
-        console.warn('[QIPLead] Could not fetch lead data:', e);
-    }
-    return [];
+    return readInvites(db, LEAD_INVITES, userEmail);
 }
 
 // ─── Add a QIP Lead to the current project ────────────────────────────────────
@@ -26,44 +17,28 @@ export async function addQIPLeadToProject(db, ownerUid, projectId, leadEmail, tr
         return false;
     }
     try {
-        const { doc, setDoc, arrayUnion, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const entry = {
+        await writeInvite(db, LEAD_INVITES, leadEmail, {
             ownerUid,
             projectId,
             projectTitle: projectTitle || 'Untitled QIP',
-            traineeName: traineeName || ownerUid,
-            addedAt: new Date().toISOString()
-        };
-        await setDoc(
-            doc(db, 'qipLeadInvites', leadEmail),
-            { email: leadEmail, projects: arrayUnion(entry) },
-            { merge: true }
-        );
+            traineeName: traineeName || ownerUid
+        });
         showToast(`QIP Lead added. ${leadEmail} will see this project when they sign in with that email.`, 'success');
         return true;
     } catch (e) {
         console.error('[QIPLead] addQIPLead error:', e);
-        showToast('Failed to add QIP Lead — check your connection.', 'error');
+        showToast('Failed to add QIP Lead — check your connection and try again.', 'error');
         return false;
     }
 }
 
 // ─── Remove a QIP Lead from a project ────────────────────────────────────────
+// Removing them from the project's list is what ends their access; deleting the
+// invite just stops the project appearing on their dashboard straight away.
 export async function removeQIPLeadFromProject(db, ownerUid, projectId, leadEmail) {
     if (!db || !leadEmail) return;
-    try {
-        const { doc, getDoc, setDoc } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
-        const ref = doc(db, 'qipLeadInvites', leadEmail);
-        const snap = await getDoc(ref);
-        if (!snap.exists()) return;
-        const projects = (snap.data().projects || []).filter(
-            p => !(p.ownerUid === ownerUid && p.projectId === projectId)
-        );
-        await setDoc(ref, { email: leadEmail, projects }, { merge: false });
-        showToast(`Removed ${leadEmail} as QIP Lead.`, 'success');
-    } catch (e) {
-        console.error('[QIPLead] removeQIPLead error:', e);
-    }
+    await deleteInvite(db, LEAD_INVITES, leadEmail, ownerUid, projectId);
+    showToast(`Removed ${leadEmail} as QIP Lead.`, 'success');
 }
 
 // ─── Render QIP Lead panel inside supervisor view ─────────────────────────────

@@ -464,7 +464,7 @@ function renderProcessVisual(container, enableInteraction = false) {
     
     if (enableInteraction && !state.isReadOnly) {
         const hint = document.createElement('div');
-        hint.className = 'mt-4 text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg';
+        hint.className = 'export-hide mt-4 text-xs text-slate-400 bg-slate-50 px-3 py-2 rounded-lg';
         hint.innerHTML = '<i data-lucide="info" class="w-3 h-3 inline"></i> Hover over steps to add or delete. Edit text directly.';
         container.appendChild(hint);
     }
@@ -501,7 +501,7 @@ function renderFiveWhysVisual(container) {
                 <label class="block text-xs font-bold text-emerald-700 uppercase tracking-wider mb-1">&#x2713; Root Cause</label>
                 <textarea ${disabledAttr} class="${inputClass} min-h-[60px] bg-emerald-50 border-emerald-300 font-medium" placeholder="What is the underlying systemic cause?" oninput="if(!this.disabled){if(!state.projectData.fivewhys)state.projectData.fivewhys={};state.projectData.fivewhys.rootCause=this.value;if(window.saveData)window.saveData();}">${escapeHtml(fw.rootCause || '')}</textarea>
             </div>
-            <p class="text-xs text-slate-400 text-center pt-2">Changes save automatically. Use this analysis to inform your Driver Diagram change ideas.</p>
+            <p class="export-hide text-xs text-slate-400 text-center pt-2">Changes save automatically. Use this analysis to inform your Driver Diagram change ideas.</p>
         </div>
     `;
 }
@@ -1640,23 +1640,78 @@ export function exportGanttPDF() {
 // ============================================================
 // DIAGRAM EXPORTS (PNG + SVG)
 // ============================================================
+const DIAGRAM_NAMES = { driver: 'Driver diagram', fishbone: 'Fishbone diagram', process: 'Process map', fivewhys: '5 Whys analysis' };
+
+// The on-screen diagrams are built from text boxes and scroll areas, which
+// html2canvas draws as a single clipped line. The image exports instead use
+// a static copy with every piece of text written out in full and wrapped,
+// the editing buttons left out, and the project title along the top.
+function buildDiagramExport() {
+    const src = document.getElementById('diagram-canvas');
+    if (!src) return null;
+    const d = state.projectData || {};
+    const wrap = document.createElement('div');
+    const width = { driver: 1400, fishbone: 1400, process: 640, fivewhys: 820 }[toolMode] || 1200;
+    wrap.style.cssText = `position:fixed;left:-${width + 200}px;top:0;width:${width}px;padding:24px;background:#f8fafc;font-family:Inter, Arial, sans-serif;`;
+    const heading = document.createElement('div');
+    heading.style.cssText = 'margin:0 0 16px;color:#1e293b;';
+    heading.innerHTML = `<div style="font-size:20px;font-weight:700;">${escapeHtml(DIAGRAM_NAMES[toolMode] || 'Diagram')}</div>`
+        + (d.meta?.title ? `<div style="font-size:14px;color:#475569;margin-top:2px;">${escapeHtml(d.meta.title)}</div>` : '');
+    wrap.appendChild(heading);
+
+    if (toolMode === 'fishbone') {
+        const box = document.createElement('div');
+        box.innerHTML = fishboneSVG(d.fishbone, fishboneProblem(d, { full: true }), { full: true });
+        wrap.appendChild(box);
+        return wrap;
+    }
+
+    const clone = src.cloneNode(true);
+    clone.removeAttribute('id');
+    clone.style.transform = 'none';
+    clone.style.minHeight = '0';
+    // Text boxes become plain blocks showing everything that was typed.
+    const live = src.querySelectorAll('textarea, input');
+    clone.querySelectorAll('textarea, input').forEach((el, i) => {
+        const div = document.createElement('div');
+        div.className = el.className;
+        div.textContent = live[i] ? live[i].value : el.value;
+        div.style.cssText = 'white-space:pre-wrap;overflow-wrap:anywhere;height:auto;overflow:visible;';
+        el.replaceWith(div);
+    });
+    clone.querySelectorAll('button, .export-hide').forEach(el => el.remove());
+    // Let every column grow to its full height instead of scrolling.
+    [clone, ...clone.querySelectorAll('*')].forEach(el => { el.style.maxHeight = 'none'; el.style.overflow = 'visible'; });
+    if (toolMode === 'driver') {
+        clone.style.flexDirection = 'row';
+        clone.querySelectorAll('.sticky').forEach(el => el.classList.remove('sticky'));
+    }
+    wrap.appendChild(clone);
+    return wrap;
+}
+
+function diagramFileName(ext) {
+    const title = (state.projectData?.meta?.title || 'diagram').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    return `${title}_${toolMode}_${new Date().toISOString().slice(0,10)}.${ext}`;
+}
+
 export function exportDiagramPNG() {
-    const container = document.getElementById('diagram-canvas');
-    if (!container) { showToast("No diagram found.", "error"); return; }
+    if (!document.getElementById('diagram-canvas')) { showToast("No diagram found.", "error"); return; }
     if (typeof html2canvas === 'undefined') { showToast("Export library not loaded — please refresh.", "error"); return; }
-    const d = state.projectData;
-    const title = (d?.meta?.title || 'diagram').replace(/[^a-z0-9]/gi, '_').toLowerCase();
     showToast("Generating diagram PNG…", "info");
-    html2canvas(container, {
+    const node = buildDiagramExport();
+    document.body.appendChild(node);
+    html2canvas(node, {
         scale: 2, useCORS: true, backgroundColor: '#f8fafc',
-        logging: false, allowTaint: true
+        logging: false, allowTaint: true, scrollX: 0, scrollY: 0,
+        windowWidth: Math.max(document.documentElement.clientWidth, node.offsetWidth + 400)
     }).then(canvas => {
         canvas.toBlob(blob => {
             if (!blob) { showToast("Diagram PNG export failed.", "error"); return; }
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `${title}_diagram_${new Date().toISOString().slice(0,10)}.png`;
+            a.download = diagramFileName('png');
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -1666,26 +1721,20 @@ export function exportDiagramPNG() {
     }).catch(err => {
         console.error('Diagram PNG export:', err);
         showToast("Diagram PNG export failed.", "error");
-    });
+    }).finally(() => node.remove());
 }
 
 export function exportDiagramSVG() {
     const container = document.getElementById('diagram-canvas');
     if (!container) { showToast("No diagram found.", "error"); return; }
-    const svg = container.querySelector('svg');
-    if (!svg) { showToast("No SVG diagram — try PNG export instead.", "info"); exportDiagramPNG(); return; }
-    const d = state.projectData;
-    const title = (d?.meta?.title || 'diagram').replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const serializer = new XMLSerializer();
-    let svgStr = serializer.serializeToString(svg);
-    if (!svgStr.includes('xmlns=')) {
-        svgStr = svgStr.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-    }
+    if (toolMode !== 'fishbone') { showToast("Only the fishbone can be saved as SVG — saving a PNG instead.", "info"); exportDiagramPNG(); return; }
+    const d = state.projectData || {};
+    const svgStr = fishboneSVG(d.fishbone, fishboneProblem(d, { full: true }), { full: true });
     const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${title}_diagram_${new Date().toISOString().slice(0,10)}.svg`;
+    a.download = diagramFileName('svg');
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

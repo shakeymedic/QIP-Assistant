@@ -3119,18 +3119,8 @@ export function renderFullProject() {
                             Fishbone (Cause &amp; Effect) Diagram
                         </h2>
                         <div class="rounded-xl border border-slate-200 overflow-x-auto mb-3">
-                            <div class="min-w-[760px]">${fishboneSVG(d.fishbone, fishboneProblem(d))}</div>
+                            <div class="min-w-[760px]">${fishboneSVG(d.fishbone, fishboneProblem(d, { full: true }), { full: true, fontSize: 17 })}</div>
                         </div>
-                        <details class="text-sm">
-                            <summary class="cursor-pointer text-xs font-semibold text-indigo-700 hover:underline">Show every cause in full</summary>
-                            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-                                ${d.fishbone.categories.filter(cat => cat.text).map(cat => `
-                                    <div class="bg-white rounded-lg border border-indigo-100 p-3">
-                                        <div class="font-bold text-indigo-800 text-sm mb-2 pb-1 border-b border-indigo-100">${escapeHtml(cat.text)}</div>
-                                        <ul class="space-y-1">${(cat.causes || []).map(cz => `<li class="text-xs text-slate-600 flex gap-1.5"><span class="text-indigo-400">&bull;</span><span>${escapeHtml(typeof cz === 'string' ? cz : cz.text || '')}</span></li>`).join('') || '<li class="text-xs text-slate-400 italic">No causes added</li>'}</ul>
-                                    </div>`).join('')}
-                            </div>
-                        </details>
                     </section>
                 ` : ''}
 
@@ -3179,7 +3169,8 @@ export function renderFullProject() {
                     // Numbered dots (matching the numbered list) spread apart for
                     // display without ever leaving their quadrant, which comes from
                     // the same saved position the Stakeholders page uses.
-                    const pos = layoutStakeholders(stakes, { w: 6, h: 6, pad: 0.6 });
+                    // `band` keeps the dots off the quadrant names along the top and bottom.
+                    const pos = layoutStakeholders(stakes, { w: 7, h: 7, pad: 0.6, band: 11 });
                     const dots = stakes.map((sh, idx) => {
                         const q = stakeholderQuadrant(sh);
                         return `<div title="${escapeHtml(sh.name || '')} \u2014 ${q.label}" style="position:absolute;left:${pos[idx].x}%;top:${100 - pos[idx].y}%;transform:translate(-50%,-50%);width:24px;height:24px;border-radius:50%;background:${q.dot};color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.25);z-index:5">${idx + 1}</div>`;
@@ -3211,8 +3202,8 @@ export function renderFullProject() {
                                     return `<li class="flex items-center gap-3 bg-white border border-slate-100 rounded-lg px-3 py-2">
                                         <span class="w-6 h-6 rounded-full text-white text-[11px] font-bold flex items-center justify-center flex-shrink-0" style="background:${q.dot}">${idx + 1}</span>
                                         <div class="flex-1 min-w-0">
-                                            <div class="font-medium text-sm text-slate-800 truncate">${escapeHtml(sh.name || '')}</div>
-                                            ${[sh.role, sh.organisation].filter(Boolean).length ? `<div class="text-xs text-slate-400 truncate">${escapeHtml([sh.role, sh.organisation].filter(Boolean).join(' \u2014 '))}</div>` : ''}
+                                            <div class="font-medium text-sm text-slate-800 break-words">${escapeHtml(sh.name || '')}</div>
+                                            ${[sh.role, sh.organisation].filter(Boolean).length ? `<div class="text-xs text-slate-400 break-words">${escapeHtml([sh.role, sh.organisation].filter(Boolean).join(' \u2014 '))}</div>` : ''}
                                         </div>
                                         <span class="text-[10px] font-bold px-2 py-1 rounded-full flex-shrink-0 ${q.chip}">${q.label}</span>
                                     </li>`;
