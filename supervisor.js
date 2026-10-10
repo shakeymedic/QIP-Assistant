@@ -118,7 +118,7 @@ export function renderSupervisorOverview(container, supervisedProjects, opts = {
                 <div class="bg-gradient-to-r from-teal-700 to-teal-600 rounded-2xl p-6 mb-5 text-white shadow-lg">
                     <div class="flex items-start justify-between gap-4 flex-wrap">
                         <div class="flex items-center gap-4">
-                            <img src="./logo.png" alt="" class="h-12 rounded-xl bg-white/10 p-1">
+                            <img src="./logo.png" alt="" class="h-12">
                             <div>
                                 <div class="text-xs font-bold uppercase tracking-widest text-teal-200 mb-1">Clinical Supervisor Portal</div>
                                 <h1 class="text-2xl font-bold">Supervisor Overview</h1>
