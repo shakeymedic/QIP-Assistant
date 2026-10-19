@@ -40,7 +40,8 @@ export async function logRoleAuditEvent(db, entry) {
 }
 
 export async function logProjectAccessEvent(db, entry) {
-    if (!db) return;
+    // Demo mode browses made-up projects locally; there is nothing to log.
+    if (!db || entry.viewerUid === 'demo') return;
     try {
         const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js');
         await addDoc(collection(db, 'projectAccessLog'), {

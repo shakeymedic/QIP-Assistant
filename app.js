@@ -1,7 +1,7 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { state, emptyProject, getDemoData, safeStorage } from "./state.js";
+import { state, emptyProject, getDemoData, getDemoCohort, safeStorage } from "./state.js";
 import { escapeHtml, jsArg, updateOnlineStatus, showToast } from "./utils.js";
 window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
 import { callAI } from "./ai.js";
@@ -24,6 +24,7 @@ import { exportToA3 } from "./a3-export.js";
 import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
+import "./hints.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
@@ -708,34 +709,34 @@ const _legacyLearnModal = `
                     <div>
                         <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-blue-600"></i> Curated Learning Resources</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <a href="https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx" target="_blank" rel="noopener"
+                            <a href="https://www.ihi.org/learn/courses/open-school" target="_blank" rel="noopener"
                                class="flex items-start gap-3 p-4 bg-blue-50 rounded-xl border border-blue-100 hover:border-blue-300 transition-colors group">
                                 <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
                                 </div>
                                 <div>
                                     <div class="font-bold text-sm text-slate-800 group-hover:text-blue-700">IHI Open School</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">Basic Certificate in QI & Safety. Free modules: Model for Improvement, PDSA cycles, Run/Control Charting. All training stages.</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Online courses in improvement science and patient safety: Model for Improvement, PDSA cycles and measurement. Needs an individual or group subscription (check whether your Trust or deanery provides one).</div>
                                 </div>
                             </a>
-                            <a href="https://www.nhselect.nhs.uk/training-development/improvement" target="_blank" rel="noopener"
+                            <a href="https://www.ihi.org/library/model-for-improvement" target="_blank" rel="noopener"
                                class="flex items-start gap-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100 hover:border-emerald-300 transition-colors group">
                                 <div class="w-8 h-8 bg-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
                                 </div>
                                 <div>
-                                    <div class="font-bold text-sm text-slate-800 group-hover:text-emerald-700">NHS Elect — QI Practitioner Programme</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">Four modules: QI Fundamentals; Measurement Frameworks & Driver Diagrams; Run Chart Interpretation; Sustaining Change. For HST trainees & operational leads.</div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-emerald-700">IHI — Model for Improvement</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Free guide to the three questions of the Model for Improvement: setting aims, establishing measures, selecting and testing changes with PDSA cycles.</div>
                                 </div>
                             </a>
-                            <a href="https://www.hqip.org.uk/resource/guide-to-quality-improvement-tools" target="_blank" rel="noopener"
+                            <a href="https://www.hqip.org.uk/guidance/guide-to-quality-improvement-methods/" target="_blank" rel="noopener"
                                class="flex items-start gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100 hover:border-orange-300 transition-colors group">
                                 <div class="w-8 h-8 bg-orange-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
                                 </div>
                                 <div>
                                     <div class="font-bold text-sm text-slate-800 group-hover:text-orange-700">HQIP — Guide to QI Tools</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">Technical overview of 11 improvement tools: Root Cause Analysis, clinical audit, Lean, SPC, and more. For all healthcare professionals.</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Guide to quality improvement tools for clinical audit and QI teams: root cause analysis, process mapping, Lean, SPC and more.</div>
                                 </div>
                             </a>
                             <a href="https://awsem.co.uk/outside-the-ed/quality-improvement/" target="_blank" rel="noopener"
@@ -748,24 +749,24 @@ const _legacyLearnModal = `
                                     <div class="text-xs text-slate-500 mt-0.5">Emergency Medicine-specific QI resources, templates, and guidance tailored to the ED environment.</div>
                                 </div>
                             </a>
-                            <a href="https://rcem.ac.uk/rcem-curriculum/" target="_blank" rel="noopener"
+                            <a href="https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf" target="_blank" rel="noopener"
                                class="flex items-start gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200 hover:border-slate-300 transition-colors group">
                                 <div class="w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
                                 </div>
                                 <div>
                                     <div class="font-bold text-sm text-slate-800 group-hover:text-slate-700">RCEM SLO 11 Guidance</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">Official RCEM curriculum guidance for SLO 11 — QI competencies, EM-QIAT requirements, and ARCP expectations at each stage.</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">RCEM guidance on SLO 11 (November 2025): QI competencies, what the QIAT needs to show and expectations at each stage.</div>
                                 </div>
                             </a>
-                            <a href="https://www.gsqia.nhs.uk/" target="_blank" rel="noopener"
+                            <a href="https://www.gloshospitals.nhs.uk/healthcare-professionals/gsqia/qi-resources/" target="_blank" rel="noopener"
                                class="flex items-start gap-3 p-4 bg-teal-50 rounded-xl border border-teal-100 hover:border-teal-300 transition-colors group">
                                 <div class="w-8 h-8 bg-teal-600 rounded-lg flex items-center justify-center flex-shrink-0">
                                     <i data-lucide="external-link" class="w-4 h-4 text-white"></i>
                                 </div>
                                 <div>
-                                    <div class="font-bold text-sm text-slate-800 group-hover:text-teal-700">GSQIA Silver Templates</div>
-                                    <div class="text-xs text-slate-500 mt-0.5">Downloadable cause-and-effect diagrams, SPC calculators, phased run charts, and progress slides. For core and HST trainees.</div>
+                                    <div class="font-bold text-sm text-slate-800 group-hover:text-teal-700">GSQIA QI Resources and Templates</div>
+                                    <div class="text-xs text-slate-500 mt-0.5">Gloucestershire Safety and Quality Improvement Academy: downloadable run chart, SPC, fishbone and driver diagram templates.</div>
                                 </div>
                             </a>
                         </div>
@@ -2193,6 +2194,7 @@ window.saveData = async function(skipHistory = false) {
 // field, never the trainee's checklist/PDSA/chart content, so browsing the rest of
 // the project in "View Full Project" mode stays genuinely read-only.
 window.saveSupervisorAssessment = async function() {
+    if (state.isDemoMode) { showToast('Demo: shown here only, nothing is saved.', 'info'); return; }
     if (!state.isSupervisorViewing || !state.supervisorTargetUid || !state.currentProjectId || !state.projectData) return;
     if (!db) { showToast("Database not connected. Changes not saved.", "warning"); return; }
     try {
@@ -2455,18 +2457,11 @@ if (auth) {
             document.getElementById('app-sidebar').classList.add('lg:flex');
             document.getElementById('auth-screen').classList.add('hidden');
 
-            // Show role-specific sidebar buttons immediately from localStorage cache
-            // (will be confirmed/hidden by Firestore check below)
-            const cachedLead = safeStorage.get('rcem_is_qip_lead');
-            const cachedSupervisor = safeStorage.get('rcem_is_supervisor');
-            if (cachedLead) {
-                const leadBtn = document.getElementById('sidebar-lead-home');
-                if (leadBtn) leadBtn.classList.remove('hidden');
-            }
-            if (cachedSupervisor) {
-                const supBtn = document.getElementById('sidebar-supervisor-home');
-                if (supBtn) supBtn.classList.remove('hidden');
-            }
+            // The Supervisor and QIP Lead buttons are always shown; the cached
+            // role only decides whether they look active until Firestore confirms.
+            state.supervisorHasRole = !!safeStorage.get('rcem_is_supervisor');
+            state.isQIPLead = !!safeStorage.get('rcem_is_qip_lead');
+            updateRoleButtons();
             // Hide register screen if somehow visible
             const rs = document.getElementById('register-screen');
             if (rs) rs.classList.add('hidden');
@@ -2686,7 +2681,7 @@ async function loadQIPLeadProjects(user) {
 }
 
 async function checkQIPLeadStatus(user) {
-    if (!user?.uid || !user?.email || !db) return;
+    if (!user?.uid || !user?.email || !db || state.isDemoMode) return;
     try {
         const { hasLeadRole, deptViewDenied, projects } = await loadQIPLeadProjects(user);
         state.qipLeadProjects = projects;
@@ -2698,10 +2693,15 @@ async function checkQIPLeadStatus(user) {
         const leadHomeBtn = document.getElementById('sidebar-lead-home');
         const navBtn = document.getElementById('nav-lead-dashboard');
         const badge = document.getElementById('qip-lead-badge');
+        updateRoleButtons();
         if (!state.isQIPLead) {
-            // Role removed since last visit: clear the cached button too.
+            // Role removed since last visit: clear the cache. The sidebar button
+            // stays, so the view (which explains how to get access) is reachable.
             safeStorage.remove('rcem_is_qip_lead');
-            [leadHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            [navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            const lbl = document.getElementById('sidebar-lead-home-label');
+            if (lbl) lbl.textContent = 'QIP Lead Overview';
+            rerenderOverviewIfShowing('lead');
             return;
         }
         safeStorage.set('rcem_is_qip_lead', '1');
@@ -2733,6 +2733,106 @@ function isOverviewShowing(kind) {
     return !!(c && !c.classList.contains('hidden') && c.dataset.overview === kind && !state.projectData);
 }
 
+// ─── Supervisor / QIP Lead view switcher ─────────────────────────────────────
+// Both views are always reachable from the sidebar and the projects page.
+// The role only decides whether the button looks active; without it, the
+// view explains what it is for and how to get access.
+function updateRoleButtons() {
+    const show = (id, active) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('hidden');
+        el.classList.toggle('role-btn-inactive', !active);
+    };
+    show('sidebar-supervisor-home', !!state.supervisorHasRole);
+    show('sidebar-lead-home', !!state.isQIPLead);
+    const sw = document.getElementById('role-view-switcher');
+    if (sw) sw.classList.remove('hidden');
+}
+
+function roleSwitcherHTML(active) {
+    const pill = (kind, label, icon, onclick) => {
+        const on = kind === active;
+        return `<button type="button" onclick="${onclick}" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${on ? 'bg-rcem-purple text-white shadow-sm' : 'text-slate-600 hover:bg-white hover:text-rcem-purple'}" ${on ? 'aria-current="page"' : ''}>
+            <i data-lucide="${icon}" class="w-3.5 h-3.5"></i>${label}</button>`;
+    };
+    return `<div class="inline-flex flex-wrap items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl p-1 mb-4" role="navigation" aria-label="Switch view">
+        <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2">View</span>
+        ${pill('own', 'My projects', 'folder-open', 'window.returnToProjects()')}
+        ${pill('supervisor', 'Supervisor view', 'shield-check', 'window.showSupervisorOverview()')}
+        ${pill('lead', 'QIP Lead view', 'layout-dashboard', 'window.showQIPLeadDashboard()')}
+    </div>`;
+}
+
+// Shown at the top of a role view when the account doesn't have that role yet.
+function roleNoticeHTML(kind) {
+    if (state.isDemoMode) {
+        return `<div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-sm text-amber-900 flex items-start gap-3" role="status">
+            <i data-lucide="info" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+            <p><strong>Demo:</strong> these are made-up trainee projects showing what a ${kind === 'lead' ? 'Departmental QIP Lead' : 'Clinical Supervisor'} sees. Open one to browse it read-only${kind === 'supervisor' ? ' or try the sign-off page' : ''}. Nothing here is saved.</p>
+        </div>`;
+    }
+    const isLead = kind === 'lead';
+    const hasAccess = isLead ? state.isQIPLead : (state.supervisorHasRole || (state.supervisorProjects || []).length > 0);
+    if (hasAccess) return '';
+    const roleKey = isLead ? 'qip_lead' : 'supervisor';
+    const roleName = isLead ? 'Departmental QIP Lead' : 'Clinical Supervisor';
+    const what = isLead
+        ? 'The QIP Lead view is a dashboard of the QI projects in your department: progress, stalled projects and sign-off status, with a CSV export for governance meetings.'
+        : 'The Supervisor view lists the trainees who have added you as their supervisor, so you can browse their QIP read-only, add comments and sign off SLO 11 for ARCP.';
+    const how = isLead
+        ? 'Trainees can also add you as QIP Lead on their project (Settings → Project access); those projects appear here even without the role. Seeing every project in the department needs the administrator to approve your account.'
+        : 'Trainees add you by your email address in Settings → Project access on their project. Their projects then appear here automatically.';
+    return `<div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm" role="status">
+        <div class="flex items-start gap-3">
+            <div class="w-10 h-10 rounded-xl ${isLead ? 'bg-indigo-100 text-indigo-600' : 'bg-teal-100 text-teal-600'} flex items-center justify-center flex-shrink-0">
+                <i data-lucide="${isLead ? 'layout-dashboard' : 'shield-check'}" class="w-5 h-5"></i>
+            </div>
+            <div class="min-w-0">
+                <p class="font-bold text-slate-800">Your account doesn't have the ${roleName} role yet</p>
+                <p class="text-sm text-slate-600 mt-1">${what}</p>
+                <p class="text-sm text-slate-600 mt-1">${how}</p>
+                ${state.isMasterAdmin ? '<p class="text-xs text-slate-500 mt-1">You are signed in as the master admin: the Admin Dashboard already shows every project.</p>' : ''}
+                <div class="mt-3 flex flex-wrap items-center gap-2">
+                    <button type="button" onclick="window.addAccountRole('${roleKey}')" class="${isLead ? 'bg-indigo-600 hover:bg-indigo-500' : 'bg-teal-600 hover:bg-teal-500'} text-white text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-1.5">
+                        <i data-lucide="user-plus" class="w-3.5 h-3.5"></i> Add the ${roleName} role to my account
+                    </button>
+                    <span class="text-[11px] text-slate-400">Adding a role is logged for audit purposes. You can remove it in Settings.</span>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
+
+// Adds a role from the role view itself (same write and audit log as Settings).
+window.addAccountRole = async function(role) {
+    if (!state.currentUser || !db || state.isDemoMode) return;
+    try {
+        const snap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
+        const roles = snap.exists() ? (snap.data().roles || []) : [];
+        if (!roles.includes(role)) roles.push(role);
+        await setDoc(doc(db, 'qipUsers', state.currentUser.uid), { email: state.currentUser.email || '', roles }, { merge: true });
+        logRoleAuditEvent(db, {
+            uid: state.currentUser.uid,
+            email: state.currentUser.email || '',
+            displayName: state.currentUser.displayName || '',
+            role,
+            action: 'added',
+            source: 'role_view'
+        });
+        showToast('Role added', 'success');
+        await window.refreshRoleOverview(role === 'qip_lead' ? 'lead' : 'supervisor', { silent: true });
+    } catch (e) {
+        showToast('Failed to add the role: ' + e.message, 'error');
+    }
+};
+
+function decorateRoleOverview(container, kind) {
+    const host = container.querySelector('.max-w-6xl') || container.querySelector('.max-w-5xl') || container;
+    host.insertAdjacentHTML('afterbegin', roleSwitcherHTML(kind) + roleNoticeHTML(kind));
+    if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [host] });
+}
+
 function renderRoleOverview(kind) {
     const container = overviewContainer();
     if (!container) return;
@@ -2750,6 +2850,7 @@ function renderRoleOverview(kind) {
             refreshedAt: state._supRefreshedAt
         });
     }
+    decorateRoleOverview(container, kind);
 }
 
 function rerenderOverviewIfShowing(kind) {
@@ -2772,6 +2873,7 @@ function openRoleOverview(kind) {
 }
 
 window.refreshRoleOverview = async function(kind, opts = {}) {
+    if (state.isDemoMode) { rerenderOverviewIfShowing(kind); return; }
     if (!state.currentUser || !db) return;
     const flag = kind === 'lead' ? '_leadRefreshing' : '_supRefreshing';
     if (state[flag]) return;
@@ -2802,7 +2904,7 @@ window.viewLeadProject = async function(idx) {
     if (!proj) return;
     if (proj._unavailable) { showToast('That project could not be loaded — it may have been deleted or your access removed.', 'error'); return; }
     setBusy(true);
-    const fresh = await fetchProjectDoc(proj.ownerUid, proj.projectId);
+    const fresh = state.isDemoMode ? null : await fetchProjectDoc(proj.ownerUid, proj.projectId);
     setBusy(false);
     if (fresh) Object.assign(proj, { _data: fresh, projectTitle: fresh.meta?.title || proj.projectTitle, ...summariseProject(fresh) });
     const data = normaliseProjectData(cloneProjectData(fresh || proj._data));
@@ -2833,7 +2935,8 @@ window.viewLeadProject = async function(idx) {
     if (headerTitle) headerTitle.textContent = title + ' — QIP Lead View';
     showReadOnlyBanner(title, 'lead');
     window.router('dashboard');
-    showToast('Viewing read-only' + (fresh ? '' : ' (offline copy — may not be the latest)'), fresh ? 'info' : 'warning');
+    if (state.isDemoMode) showToast('Demo project — viewing read-only', 'info');
+    else showToast('Viewing read-only' + (fresh ? '' : ' (offline copy — may not be the latest)'), fresh ? 'info' : 'warning');
 };
 
 window.returnFromLeadView = function() { openRoleOverview('lead'); };
@@ -2911,9 +3014,9 @@ async function loadProjectList() {
             : (demo.pdsa || []).length;
         const demoTeamMembers = (demo.teamMembers || []).length;
         listEl.innerHTML = `<div class="bg-white p-6 rounded-xl shadow-sm border-l-4 border-l-rcem-purple relative cursor-pointer group hover:shadow-md transition-all" onclick="window.openDemoProject()">
-             <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-bl">Gold Standard</div>
-             <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">Improving Sepsis 6 Delivery in the ED</h3>
-             <p class="text-xs text-slate-500 mb-4">Dr. J. Bloggs (ST6 Emergency Medicine)</p>
+             <div class="absolute top-0 right-0 bg-emerald-100 text-emerald-800 text-[10px] font-bold px-2 py-1 uppercase tracking-wide rounded-bl">Worked example</div>
+             <h3 class="font-bold text-lg text-slate-800 mb-1 group-hover:text-rcem-purple transition-colors">${escapeHtml(demo.meta.title)}</h3>
+             <p class="text-xs text-slate-500 mb-4">${escapeHtml(demo.meta.owner)} · fictional example project</p>
              <div class="flex gap-2 text-xs font-medium text-slate-500 flex-wrap">
                 <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="activity" class="w-3 h-3"></i> ${demoDataPoints} Data Points</span>
                 <span class="bg-slate-100 px-2 py-1 rounded border border-slate-200 flex items-center gap-1"><i data-lucide="refresh-cw" class="w-3 h-3"></i> ${demoPdsaCycles} PDSA Cycles</span>
@@ -3315,10 +3418,18 @@ function initAuthHandlers() {
             const wm = document.getElementById('demo-watermark');
             if (state.isDemoMode) { 
                 if(wm) wm.classList.remove('hidden'); 
+                loadDemoRoleViews();
                 loadProjectList(); 
             } 
             else { 
                 if(wm) wm.classList.add('hidden'); 
+                // Swap the demo trainee projects back for the account's own.
+                state.supervisorProjects = [];
+                state.qipLeadProjects = [];
+                state.supervisorHasRole = !!safeStorage.get('rcem_is_supervisor');
+                state.isQIPLead = !!safeStorage.get('rcem_is_qip_lead');
+                if (state.currentUser && state.currentUser.uid !== 'demo') { checkQIPLeadStatus(state.currentUser); checkSupervisorStatus(); }
+
                 if (state.currentUser) loadProjectList(); 
                 else {
                     const authScreen = document.getElementById('auth-screen');
@@ -3344,6 +3455,7 @@ function initAuthHandlers() {
             const wm = document.getElementById('demo-watermark');
             if(wm) wm.classList.remove('hidden');
             if(demoToggle) demoToggle.checked = true;
+            loadDemoRoleViews();
             loadProjectList();
             showToast("Demo mode activated", "success");
         };
@@ -3356,9 +3468,25 @@ if (document.readyState === 'loading') {
     initAuthHandlers();
 }
 
+// Demo mode: sample trainee projects for the Supervisor and QIP Lead views,
+// opened locally (nothing is fetched from or written to the database).
+function loadDemoRoleViews() {
+    const rows = getDemoCohort().map((p, i) => {
+        const data = normaliseProjectData(p.data);
+        return { ownerUid: 'demo-trainee-' + (i + 1), projectId: 'DEMO-' + (i + 1), traineeName: p.traineeName, traineeEmail: p.traineeEmail,
+            projectTitle: data.meta?.title || 'QIP', addedAt: p.addedAt, _data: data, ...summariseProject(data) };
+    });
+    state.supervisorProjects = rows.map(r => ({ ...r }));
+    state.qipLeadProjects = rows.map(r => ({ ...r, _isOwn: false }));
+    state.supervisorHasRole = true;
+    state.qipLeadHasRole = true;
+    state.isQIPLead = true;
+    state._supRefreshedAt = state._leadRefreshedAt = new Date().toISOString();
+    updateRoleButtons();
+}
+
 window.openDemoProject = () => {
-    state.projectData = getDemoData();
-    migrateProjectData(state.projectData);
+    state.projectData = normaliseProjectData(getDemoData());
     state.currentProjectId = 'DEMO';
     resetHistory(state.projectData);
 
@@ -4248,21 +4376,28 @@ window.removeSettingsLead = async function(index) {
 
 // Check if logged-in user is a supervisor for any projects
 async function checkSupervisorStatus() {
-    if (!state.currentUser || state.isMasterAdmin || !db) return;
+    if (!state.currentUser || !db || state.isDemoMode) return;
     try {
         const email = state.currentUser.email?.toLowerCase();
         if (!email) return;
         const hasSupervisorRole = (await readUserRoles(state.currentUser, 'Supervisor')).includes('supervisor');
         const invites = await readInvites(db, SUPERVISOR_INVITES, email);
+        state.supervisorHasRole = hasSupervisorRole || invites.length > 0;
+        updateRoleButtons();
 
         const supHomeBtn = document.getElementById('sidebar-supervisor-home');
         const navBtn = document.getElementById('nav-supervisor-overview');
         const badge = document.getElementById('supervisor-badge');
         if (!hasSupervisorRole && invites.length === 0) {
-            // Role removed since last visit: clear the cached button too.
+            // Role removed since last visit: clear the cache. The sidebar button
+            // stays, so the view (which explains how to get access) is reachable.
             safeStorage.remove('rcem_is_supervisor');
-            [supHomeBtn, navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            [navBtn, badge].forEach(el => el && el.classList.add('hidden'));
+            const lbl = document.getElementById('sidebar-supervisor-home-label');
+            if (lbl) lbl.textContent = 'Supervisor Overview';
+            if (supHomeBtn) supHomeBtn.classList.remove('hidden');
             state.supervisorProjects = [];
+            rerenderOverviewIfShowing('supervisor');
             return;
         }
         safeStorage.set('rcem_is_supervisor', '1');
@@ -4307,7 +4442,7 @@ async function enterSupervisedProject(idx, action) {
     const p = (state.supervisorProjects || [])[idx];
     if (!p) return null;
     setBusy(true);
-    const fresh = await fetchProjectDoc(p.ownerUid, p.projectId);
+    const fresh = state.isDemoMode ? null : await fetchProjectDoc(p.ownerUid, p.projectId);
     setBusy(false);
     if (fresh) Object.assign(p, { _data: fresh, _unavailable: false, projectTitle: fresh.meta?.title || p.projectTitle, ...summariseProject(fresh) });
     if (!fresh && (p._unavailable || !p._data || Object.keys(p._data).length === 0)) {
@@ -4336,7 +4471,7 @@ async function enterSupervisedProject(idx, action) {
         projectTitle: data.meta?.title || p.projectTitle || 'Untitled QIP',
         action: action || 'viewed'
     });
-    if (!fresh) showToast('Showing the last loaded copy — could not fetch the latest version.', 'warning');
+    if (!fresh && !state.isDemoMode) showToast('Showing the last loaded copy — could not fetch the latest version.', 'warning');
     return p;
 }
 

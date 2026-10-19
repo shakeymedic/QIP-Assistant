@@ -450,7 +450,7 @@ export function assessEmqiat(data) {
 // the assessor will agree it meets the standard.
 export const RCEM_SOURCES = [
     ['RCEM: SLO 11 \u2013 Quality Improvement Guidance and QIAT Support (Nov 2025)', 'https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf'],
-    ['RCEM: The QI Assessment \u2013 A How-To Guide (v4, 2022)', 'https://rcemcurriculum.co.uk/wp-content/uploads/2022/09/Generic-QIAT-How-to-Guide-v4.pdf'],
+    ['RCEM: The QI Assessment \u2013 A How-To Guide (v4, 2022; older \u2014 read the 2025 guidance first)', 'https://rcemcurriculum.co.uk/wp-content/uploads/2022/09/Generic-QIAT-How-to-Guide-v4.pdf'],
     ['RCEM Quality Improvement Guide (2022)', 'https://rcem.ac.uk/wp-content/uploads/2022/09/RCEM_Quality_Improvement_Guide_2022_v4.pdf'],
     ['NES Quality Improvement Journey', QI_JOURNEY_URL]
 ];

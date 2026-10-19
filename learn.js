@@ -696,16 +696,15 @@ function tabResources() {
             head: 'RCEM', icon: 'award', color: 'purple',
             links: [
                 ['https://rcem.ac.uk/quality-improvement/', 'purple', 'RCEM Quality Improvement Hub', 'National QIP registration, resources, and the RCEM QI Programme overview. Register for the 2026 cycle here.', '2026'],
-                ['https://res.cloudinary.com/studio-republic/images/v1664466808/RCEM_Quality_Improvement_Guide_2022_v4/RCEM_Quality_Improvement_Guide_2022_v4.pdf', 'purple', 'RCEM Quality Improvement Guide (2022)', 'The official RCEM guide to running a QIP — methodology, assessment, and portfolio requirements. Essential reading.', 'PDF'],
+                ['https://rcem.ac.uk/wp-content/uploads/2022/09/RCEM_Quality_Improvement_Guide_2022_v4.pdf', 'purple', 'RCEM Quality Improvement Guide (2022)', 'The official RCEM guide to running a QIP — methodology, assessment, and portfolio requirements. Essential reading.', 'PDF'],
                 ['https://rcem.ac.uk/em-curriculum/', 'purple', 'RCEM Curriculum & SLO 11 Guidance', 'EM Curriculum 2021 (v1.5, updated Aug 2025). Includes SLO 11 guidance, QIAT documentation, and ARCP requirements at each stage.', 'Curriculum'],
-                ['https://heeoe.hee.nhs.uk/sites/default/files/the_quality_improvement_project_-_guidance_for_examination_candidates.pdf', 'indigo', 'FRCEM QIP Guidance for Examination Candidates', 'Detailed guidance on what the QIP assessment requires, marking domains, and how to structure your write-up.', 'FRCEM'],
+                ['https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf', 'indigo', 'RCEM SLO 11 Guidance (November 2025)', 'RCEM guidance on SLO 11 — participating in and promoting quality and safety improvement — and what the QIAT needs to show.', 'PDF'],
             ]
         },
         {
             head: 'IHI (Institute for Healthcare Improvement)', icon: 'flask-conical', color: 'blue',
             links: [
-                ['https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx', 'blue', 'IHI Open School — Free QI Courses', 'Free online certificate in Quality Improvement and Patient Safety. Includes QI 101–103 (Model for Improvement, PDSA cycles, run charts). Highly recommended for all trainees.', 'Free'],
-                ['https://www.ihi.org/', 'blue', 'IHI Open School', 'Free online courses in improvement science, including practical learning on the Model for Improvement, PDSA cycles, measurement and patient safety.', 'Free'],
+                ['https://www.ihi.org/learn/courses/open-school', 'blue', 'IHI Open School', 'Online courses in improvement science and patient safety, including the Model for Improvement, PDSA cycles and measurement. Needs an individual or group subscription; check whether your Trust or deanery provides one.', 'Subscription'],
                 ['https://www.ihi.org/library/model-for-improvement', 'blue', 'IHI Model for Improvement', 'The three foundational questions and PDSA cycle methodology explained in detail with examples.', 'Reference'],
                 ['https://www.ihi.org/library/tools/plan-do-study-act-pdsa-worksheet', 'blue', 'IHI PDSA Worksheet', 'Downloadable PDSA cycle documentation worksheet. Use to structure each cycle in your QIP.', 'Tool'],
                 ['https://www.ihi.org/library/model-for-improvement/testing-changes', 'blue', 'Testing Changes with PDSA', 'IHI guidance on running effective PDSA tests of change, including scaling, timing, and iteration strategy.', 'Guide'],
@@ -715,22 +714,22 @@ function tabResources() {
             head: 'NHS England & Improvement', icon: 'building-2', color: 'teal',
             links: [
                 ['https://www.england.nhs.uk/nhsimpact/improvement-resources/', 'teal', 'NHS England Improvement Resources', 'Hub for QI tools, frameworks, and guidance from NHS England. Includes the Model for Improvement, spread and adoption frameworks.', 'NHS'],
-                ['https://learninghub.nhs.uk/Resource/60096', 'teal', 'Handbook of Quality and Service Improvement Tools', 'NHS England\'s comprehensive handbook covering process mapping, cause-and-effect, measurement, and statistical tools. Available on the NHS Learning Hub.', 'Handbook'],
+                ['https://learninghub.nhs.uk/Resource/60096', 'teal', 'Handbook of Quality and Service Improvement Tools', 'NHS England\'s comprehensive handbook covering process mapping, cause-and-effect, measurement, and statistical tools. Available on the NHS Learning Hub (free account needed).', 'Handbook'],
                 ['https://www.england.nhs.uk/improvement-hub/wp-content/uploads/sites/44/2011/06/service_improvement_guide_2014.pdf', 'teal', 'First Steps Towards QI (NHS England)', 'Introductory guide to service improvement — useful for early-stage trainees explaining QI concepts clearly.', 'PDF'],
             ]
         },
         {
             head: 'HQIP & Audit', icon: 'bar-chart-2', color: 'orange',
             links: [
-                ['https://www.hqip.org.uk/resource/guide-to-quality-improvement-tools', 'orange', 'HQIP Guide to QI Tools', 'Healthcare Quality Improvement Partnership guide covering Root Cause Analysis, clinical audit, Lean, SPC, Pareto, and more.', 'Guide'],
+                ['https://www.hqip.org.uk/guidance/guide-to-quality-improvement-methods/', 'orange', 'HQIP Guide to QI Tools', 'Healthcare Quality Improvement Partnership guide covering Root Cause Analysis, clinical audit, Lean, SPC, Pareto, and more.', 'Guide'],
                 ['https://www.ahrq.gov/evidencenow/tools/pdsa-form.html', 'orange', 'AHRQ PDSA Form', 'Fillable PDSA documentation form from the Agency for Healthcare Research and Quality. Useful for structuring your cycle write-up.', 'Tool'],
             ]
         },
         {
             head: 'Statistical & Charts', icon: 'activity', color: 'rose',
             links: [
-                ['https://www.ihi.org/sites/default/files/2023-11/100MLives_UsingPDSACyclesinCommunitySettings.pdf', 'rose', 'IHI — Using PDSA Cycles in Practice (Case Studies)', 'Real-world case studies of PDSA cycles, including how to scope tests, what constitutes a cycle, and common pitfalls.', 'Case Study'],
-                ['https://qilothian.scot.nhs.uk/resourcesandtemplates', 'rose', 'NHS Lothian QI Templates', 'Downloadable SPC calculators, run chart templates, driver diagram frameworks, and PDSA worksheets.', 'Templates'],
+                ['https://www.ihi.org/sites/default/files/2023-11/100MLives_UsingPDSACyclesinCommunitySettings.pdf', 'rose', 'IHI — Using PDSA Cycles in Community Settings', 'Real-world case studies of PDSA cycles, including how to scope tests, what constitutes a cycle, and common pitfalls.', 'Case Study'],
+                ['https://qilothian.scot.nhs.uk/qi-tools-and-resources-2', 'rose', 'NHS Lothian QI Tools and Resources', 'QI tools and templates from Lothian Quality, including measurement, run charts, driver diagrams and PDSA.', 'Templates'],
             ]
         },
     ];

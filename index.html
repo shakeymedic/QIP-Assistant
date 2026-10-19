@@ -518,6 +518,13 @@
                                     </button>
                                 </div>
                             </header>
+                            <!-- View switcher: the Supervisor and QIP Lead views are always reachable -->
+                            <div id="role-view-switcher" class="hidden inline-flex flex-wrap items-center gap-1 bg-slate-100 border border-slate-200 rounded-xl p-1 mb-6" role="navigation" aria-label="Switch view">
+                                <span class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider px-2">View</span>
+                                <span class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-rcem-purple text-white shadow-sm" aria-current="page"><i data-lucide="folder-open" class="w-3.5 h-3.5"></i>My projects</span>
+                                <button type="button" onclick="window.showSupervisorOverview()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-white hover:text-rcem-purple transition-colors"><i data-lucide="shield-check" class="w-3.5 h-3.5"></i>Supervisor view</button>
+                                <button type="button" onclick="window.showQIPLeadDashboard()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-slate-600 hover:bg-white hover:text-rcem-purple transition-colors"><i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>QIP Lead view</button>
+                            </div>
                             <!-- Supervisor badge — shown when user has supervised projects -->
                             <!-- Supervisor access banner — shown when user is a Clinical Supervisor -->
                             <div id="supervisor-badge" class="hidden mb-6 bg-teal-600 rounded-2xl p-5 flex items-center justify-between shadow-sm">
@@ -702,7 +709,7 @@
                             <ul class="list-disc pl-5 text-sm text-blue-600">
                                 <li><a href="https://www.nice.org.uk/guidance" target="_blank" class="font-bold hover:underline">NICE Guidelines Database</a></li>
                                 <li><a href="https://rightdecisions.scot.nhs.uk/" target="_blank" class="font-bold hover:underline">Right Decision Service</a></li>
-                                <li><a href="https://rcem.ac.uk/quality-standards/" target="_blank" class="font-bold hover:underline">RCEM Quality Standards</a></li>
+                                <li><a href="https://rcem.ac.uk/clinical-standards-and-guidance/" target="_blank" rel="noopener" class="font-bold hover:underline">RCEM Clinical Standards and Guidance</a></li>
                             </ul>
                         </div>
                         <div id="patient-tracker-container" class="mt-6"></div>
