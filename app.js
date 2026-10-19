@@ -25,6 +25,8 @@ import { renderSupervisorDashboard, renderSupervisorOverview } from "./superviso
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 import "./hints.js";
+import "./modal-a11y.js";
+import { impossibleValueMessage } from "./data-entry.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
 
 import { renderSurveys, addSurvey, deleteSurvey, importSurveyCSV, updateSurveySummary, updateSurveyTitle, aiAnalyseSurvey } from "./surveys.js";
@@ -520,19 +522,17 @@ window.router = (view) => {
     if (navLearnBtn) navLearnBtn.style.color = (view === 'learn') ? 'white' : '';
     window.expandNavGroupForView(view);
 
-    const sidebar = document.getElementById('app-sidebar');
-    if (sidebar && sidebar.classList.contains('z-50')) { 
-        sidebar.classList.add('hidden'); 
-        sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full'); 
-    }
+    window.closeMobileMenu?.();
 
     if (state.isReadOnly && state.projectData && !state._readOnlySnapshot) {
         state._readOnlySnapshot = JSON.stringify(state.projectData);
     }
 
     if (view === 'supervisor') {
+        R.updateNavigationUI(view);   // keep the sidebar chip in step with this project
         renderSupervisorDashboard();
     } else if (view === 'learn') {
+        R.updateNavigationUI(view);
         renderLearn();
     } else {
         R.renderAll(view);
@@ -1559,8 +1559,12 @@ window.howtoNav = function(view) {
     window.closeHowTo();
     if (state.projectData) {
         window.router(view);
+    } else if (state.isDemoMode && typeof window.openDemoProject === 'function') {
+        // In demo mode, open the worked example so the card leads somewhere
+        window.openDemoProject();
+        setTimeout(() => { if (state.projectData) window.router(view); }, 400);
     } else {
-        showToast('Open a project first to navigate there.', 'info');
+        showToast('Open or create a project first, then this takes you straight to that section.', 'info');
     }
 };
 
@@ -2249,6 +2253,15 @@ window.quickAddDataPoint = async function() {
         showToast('Please enter a date and a number', 'error');
         return;
     }
+    const rangeMsg = impossibleValueMessage(value);
+    if (rangeMsg) {
+        valEl?.classList.add('border-red-400');
+        valEl?.setAttribute('aria-invalid', 'true');
+        showToast(rangeMsg, 'error');
+        return;
+    }
+    valEl?.classList.remove('border-red-400');
+    valEl?.removeAttribute('aria-invalid');
     const grade = phaseEl?.value || '';
     if (!Array.isArray(state.projectData.chartData)) state.projectData.chartData = [];
     state.projectData.chartData.push({ id: Date.now().toString(36) + Math.random().toString(36).slice(2, 7), date, value, grade, note: '' });
@@ -2996,8 +3009,10 @@ async function loadProjectList() {
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.add('hidden');
 
-    // Auto-show How-To guide for first-time visitors
-    if (!safeStorage.get('qip_howto_seen')) {
+    // Auto-show How-To guide for first-time visitors, once per visit
+    // (not again every time they come back to My Projects)
+    if (!safeStorage.get('qip_howto_seen') && !window._howtoAutoShown) {
+        window._howtoAutoShown = true;
         setTimeout(() => window.showHowTo(), 800);
     }
 
@@ -3058,6 +3073,10 @@ async function loadProjectList() {
 }
 
 window.createNewProject = async () => {
+    if (state.isDemoMode) {
+        showToast('Demo mode can\'t create projects. Sign in to start your own, or open the worked example to explore.', 'info');
+        return;
+    }
     const modal      = document.getElementById('new-project-modal');
     const titleInput = document.getElementById('new-project-title');
     const oldSubmit  = document.getElementById('new-project-submit');
@@ -3356,13 +3375,8 @@ function initAuthHandlers() {
     if(mobileMenuBtn) {
         mobileMenuBtn.addEventListener('click', () => {
             const sidebar = document.getElementById('app-sidebar');
-            if (sidebar.classList.contains('hidden')) {
-                sidebar.classList.remove('hidden'); 
-                sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-            } else {
-                sidebar.classList.add('hidden'); 
-                sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
-            }
+            if (sidebar.classList.contains('hidden')) window.openMobileMenu();
+            else window.closeMobileMenu();
         });
     }
 
@@ -3491,7 +3505,7 @@ window.openDemoProject = () => {
     resetHistory(state.projectData);
 
     const header = document.getElementById('project-header-title');
-    if(header) header.textContent = state.projectData.meta.title + " (DEMO)";
+    if(header) header.textContent = state.projectData.meta.title;
     
     const topBar = document.getElementById('top-bar');
     if(topBar) topBar.classList.remove('hidden');
@@ -4498,3 +4512,24 @@ window.reviewSupervisedProject = async function(idx) {
 };
 
 window.returnFromSupervisorView = function() { openRoleOverview('supervisor'); };
+
+// ── Phone/tablet navigation drawer ─────────────────────────────────────────
+window.openMobileMenu = () => {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar) return;
+    sidebar.classList.remove('hidden');
+    sidebar.classList.add('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+    document.getElementById('mobile-menu-btn')?.setAttribute('aria-expanded', 'true');
+    document.getElementById('mobile-menu-close')?.focus();
+};
+window.closeMobileMenu = () => {
+    const sidebar = document.getElementById('app-sidebar');
+    if (!sidebar || !sidebar.classList.contains('z-50')) return;
+    sidebar.classList.add('hidden');
+    sidebar.classList.remove('flex', 'fixed', 'inset-0', 'z-50', 'w-full');
+    const btn = document.getElementById('mobile-menu-btn');
+    if (btn) { btn.setAttribute('aria-expanded', 'false'); btn.focus(); }
+};
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && document.getElementById('app-sidebar')?.classList.contains('z-50')) window.closeMobileMenu();
+});

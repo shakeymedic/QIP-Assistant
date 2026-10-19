@@ -317,13 +317,11 @@ body {
    FORM ELEMENTS
    ========================================================================== */
 
-input:focus,
-textarea:focus,
-select:focus {
-    outline: none;
-    ring: 2px;
-    ring-color: #2d2e83;
-    border-color: transparent;
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+    outline: 2px solid #2d2e83;
+    outline-offset: 1px;
 }
 
 textarea {
@@ -525,10 +523,18 @@ textarea {
         font-size: 16px !important;
     }
     
-    /* Force stacked columns on mobile */
+    /* Force stacked columns on mobile. minmax(0,1fr) stops wide children
+       (tables, long words) from pushing the column past the screen edge. */
     .grid {
-        grid-template-columns: 1fr !important;
+        grid-template-columns: minmax(0, 1fr) !important;
         gap: 1rem !important;
+    }
+    .grid > * {
+        min-width: 0;
+    }
+    #app-sidebar .grid.grid-cols-5 {
+        grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+        gap: 0.25rem !important;
     }
     
     /* Enable smooth touch scrolling for wide data tables */
@@ -538,8 +544,9 @@ textarea {
         border-radius: 0.5rem;
     }
     
-    table {
-        min-width: 600px; 
+    /* Wide tables scroll inside their own box rather than widening the page */
+    .overflow-x-auto table {
+        min-width: 600px;
     }
     
     /* Maximise screen space on small devices */
@@ -551,13 +558,9 @@ textarea {
         padding: 1rem !important;
     }
 
-    /* Stack buttons vertically on mobile */
+    /* Let rows of buttons wrap onto a new line instead of running off screen */
     .flex.gap-2 {
-        flex-direction: column;
-    }
-    
-    .flex.gap-2 button {
-        width: 100%;
+        flex-wrap: wrap;
     }
 }
 
@@ -731,5 +734,19 @@ h1 .qip-hint-btn, h2 .qip-hint-btn { width: 18px; height: 18px; font-size: 11px;
 .qip-hint-foot { font-size: 11px; color: #94a3b8; margin: 4px 0 0; }
 @media print { .qip-hint-btn, #qip-hint-pop { display: none !important; } }
 /* Keep hint buttons small even inside the mobile "stack buttons" rules. */
+/* Bigger invisible tap area around the small "?" so it is easy to hit on a phone */
+.qip-hint-btn { position: relative; }
+.qip-hint-btn::before { content: ""; position: absolute; inset: -10px; }
 button.qip-hint-btn { width: 16px !important; min-width: 0 !important; display: inline-flex !important; flex: 0 0 auto !important; }
 h1 button.qip-hint-btn, h2 button.qip-hint-btn { width: 18px !important; }
+
+/* ── Usability fixes (19 Oct 2026 review) ───────────────────────────────── */
+/* The top bar must stay on one line (the title truncates instead) */
+#top-bar, #top-bar .flex { flex-wrap: nowrap !important; }
+/* slate-400 grey on white is only 2.6:1; use slate-500 (4.8:1) for text in the main pages */
+#content-area .text-slate-400 { color: #64748b; }
+
+/* Controls that only appear on hover can't be found on a touch screen, so show them there */
+@media (hover: none) {
+    [class*="group-hover:opacity-100"] { opacity: 1 !important; }
+}

@@ -190,7 +190,7 @@ function renderToolUI() {
                 <i data-lucide="image-down" class="w-4 h-4"></i> PNG
             </button>
             <button aria-label="Export Diagram as SVG" onclick="window.exportDiagramSVG()" class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded font-medium flex items-center gap-1 text-sm hover:bg-emerald-100 transition-all" title="Download diagram as SVG">
-                <i data-lucide="vector" class="w-4 h-4"></i> SVG
+                <i data-lucide="file-code" class="w-4 h-4"></i> SVG
             </button>
             <button aria-label="Toggle Help" onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
                 <i data-lucide="help-circle" class="w-5 h-5"></i>
@@ -346,7 +346,7 @@ function renderDriverVisual(container, enableInteraction = false) {
         `;
         
         const itemsContainer = document.createElement('div');
-        itemsContainer.className = 'flex-1 space-y-3 overflow-y-auto max-h-[400px] pr-1';
+        itemsContainer.className = 'flex-1 space-y-3 pr-1';
         
         col.items.forEach((item, itemIdx) => {
             const card = document.createElement('div');
@@ -648,6 +648,7 @@ function dateMarkers(dates) {
     const d = state.projectData || {};
     const ann = {};
     let outside = 0;
+    const cycleCount = (d.pdsa || []).filter(p => p && (p.startDate || p.start)).length;
     (d.pdsa || []).forEach((p, i) => {
         const start = p && (p.startDate || p.start);
         if (!start) return;
@@ -656,7 +657,10 @@ function dateMarkers(dates) {
         // A title that already carries its number ("PDSA 3: …") is used as is.
         const own = /^\s*(pdsa|cycle)\s*\d+/i.test(p.title || '');
         const full = own ? String(p.title).trim() : `PDSA ${i + 1}: ${p.title || `Cycle ${i + 1}`}`;
-        const content = full.length > 30 ? full.slice(0, 29) + '…' : full;
+        // With more than three cycles the full names pile on top of each
+        // other, so show just the cycle number ("PDSA 2a"); the PDSA page has the names.
+        const code = (full.match(/^\s*((?:pdsa|cycle)\s*\d+[a-z]?)/i) || [])[1] || `PDSA ${i + 1}`;
+        const content = cycleCount > 3 ? code : (full.length > 30 ? full.slice(0, 29) + '…' : full);
         ann[`pdsa_${i}`] = {
             type: 'line', xMin: x, xMax: x, borderColor: 'rgba(243, 111, 33, 0.85)', borderWidth: 2, borderDash: [5, 4],
             label: {
@@ -674,7 +678,7 @@ function dateMarkers(dates) {
         ann[`event_${i}`] = {
             type: 'line', xMin: x, xMax: x, borderColor: colour, borderWidth: 2, borderDash: [2, 3],
             label: {
-                display: true, content: ev.label || 'Event', position: 'end', yAdjust: (i % 3) * 22,
+                display: true, content: (ev.label || 'Event').length > 26 ? (ev.label || '').slice(0, 25) + '…' : (ev.label || 'Event'), position: 'end', yAdjust: (i % 3) * 22,
                 backgroundColor: colour, color: '#fff', padding: { x: 6, y: 3 }, borderRadius: 4,
                 font: { size: 10, weight: 'bold', family: CHART_FONT }
             }
