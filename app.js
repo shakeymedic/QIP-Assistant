@@ -25,6 +25,7 @@ import { renderSupervisorDashboard, renderSupervisorOverview } from "./superviso
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 import "./hints.js";
+import { QI } from "./qi-constants.js";
 import "./modal-a11y.js";
 import { impossibleValueMessage } from "./data-entry.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
@@ -697,16 +698,16 @@ const _legacyLearnModal = `
                         <h3 class="font-bold text-slate-800 mb-3 flex items-center gap-2"><i data-lucide="map" class="w-4 h-4 text-rcem-purple"></i> What is Expected at Each Stage?</h3>
                         <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div class="bg-blue-50 rounded-xl p-4 border border-blue-100">
-                                <div class="font-bold text-blue-800 text-sm mb-1">ACCS (ST1–ST2)</div>
+                                <div class="font-bold text-blue-800 text-sm mb-1">ACCS</div>
                                 <p class="text-xs text-blue-700 leading-relaxed">Contribute to a departmental project. Demonstrate basic understanding of QI principles and reflect on team dynamics.</p>
                             </div>
                             <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
-                                <div class="font-bold text-indigo-800 text-sm mb-1">Intermediate (ST3)</div>
-                                <p class="text-xs text-indigo-700 leading-relaxed">Understand QI methods, execute data analysis, and evaluate the impact of clinical changes. At least 2 PDSA cycles.</p>
+                                <div class="font-bold text-indigo-800 text-sm mb-1">Intermediate</div>
+                                <p class="text-xs text-indigo-700 leading-relaxed">Understand QI methods, analyse data, and evaluate the impact of changes you have tested in PDSA cycles.</p>
                             </div>
                             <div class="bg-purple-50 rounded-xl p-4 border border-purple-100">
-                                <div class="font-bold text-purple-800 text-sm mb-1">HST (ST4–ST6)</div>
-                                <p class="text-xs text-purple-700 leading-relaxed">Provide clinical leadership, drive safety culture, and manage governance. ST6: lead, complete, and write up a robust QIP. 3+ iterative PDSA cycles for Excellent.</p>
+                                <div class="font-bold text-purple-800 text-sm mb-1">Higher</div>
+                                <p class="text-xs text-purple-700 leading-relaxed">Provide clinical leadership, drive safety culture, and manage governance. Lead and complete a robust QIP with iterative PDSA cycles and mature reflection.</p>
                             </div>
                         </div>
                     </div>
@@ -727,7 +728,7 @@ const _legacyLearnModal = `
                                     <tr><td class="p-2 border border-slate-200 font-medium">Narrative Structure</td><td class="p-2 border border-slate-200 text-slate-600">Clear problem ID; relevant local context; cohesive structure</td><td class="p-2 border border-slate-200 text-slate-600">Compelling narrative flow; fluid transitions; clear logical progression</td></tr>
                                     <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Engagement & Team</td><td class="p-2 border border-slate-200 text-slate-600">Identified team members; defined roles; documented contributions</td><td class="p-2 border border-slate-200 text-slate-600">Interdisciplinary team; documented management of resistance; patient co-design</td></tr>
                                     <tr><td class="p-2 border border-slate-200 font-medium">Problem Analysis</td><td class="p-2 border border-slate-200 text-slate-600">Baseline audit; critical appraisal of clinical literature</td><td class="p-2 border border-slate-200 text-slate-600">Multiple analysis tools (SWOT, PEST, Ishikawa, FMEA); option appraisal</td></tr>
-                                    <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Change Management</td><td class="p-2 border border-slate-200 text-slate-600">Basic Model for Improvement; <strong>at least 2 PDSA cycles</strong></td><td class="p-2 border border-slate-200 text-slate-600">Gantt charts; stakeholder forcefields; <strong>3+ distinct, iterative PDSA cycles</strong></td></tr>
+                                    <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Change Management</td><td class="p-2 border border-slate-200 text-slate-600">Model for Improvement; more than one PDSA cycle</td><td class="p-2 border border-slate-200 text-slate-600">Gantt charts; stakeholder forcefields; <strong>3+ distinct, iterative PDSA cycles</strong></td></tr>
                                     <tr><td class="p-2 border border-slate-200 font-medium">Measuring Outcomes</td><td class="p-2 border border-slate-200 text-slate-600">Outcome, process, and balancing measures; basic data tables</td><td class="p-2 border border-slate-200 text-slate-600">Annotated run charts or SPC charts; justified metrics</td></tr>
                                     <tr class="bg-slate-50"><td class="p-2 border border-slate-200 font-medium">Reflection</td><td class="p-2 border border-slate-200 text-slate-600">Basic personal reflection; future project steps identified</td><td class="p-2 border border-slate-200 text-slate-600">Deep, self-aware reflection; personal strengths/weaknesses; sustainability analysis</td></tr>
                                 </tbody>
@@ -1231,15 +1232,15 @@ window.showFRCEMReadinessChecker = function() {
           wc: wc2(c.aim||'') + wc2(c.outcome_measure||'') + wc2(c.process_measure||'') + wc2(c.balance_measure||'') },
         { num:4, title:'Change Management & PDSA Cycles', icon:'refresh-cw',
           sat: !!(pdsa.length >= 2),
-          exc: !!(pdsa.length >= 3 && changeIdeas.length >= 1),
-          satMissing: [pdsa.length<2 && ('At least 2 PDSA cycles (you have '+pdsa.length+')')].filter(Boolean),
-          excMissing: [pdsa.length<3 && ('3+ iterative PDSA cycles (you have '+pdsa.length+')'), changeIdeas.length<1 && 'Structured change ideas defined'].filter(Boolean),
+          exc: !!(pdsa.length >= QI.PDSA_TYPICAL && changeIdeas.length >= 1),
+          satMissing: [pdsa.length<2 && ('More than one PDSA cycle, each with a prediction (you have '+pdsa.length+')')].filter(Boolean),
+          excMissing: [pdsa.length<QI.PDSA_TYPICAL && ('Iterative cycles, each building on the last (you have '+pdsa.length+'; most projects need '+QI.PDSA_TYPICAL+' or more)'), changeIdeas.length<1 && 'Structured change ideas defined'].filter(Boolean),
           wc: pdsa.reduce((acc,p) => acc + wc2(p.plan||p.desc||'') + wc2(p.study||'') + wc2(p.act||''), 0) },
         { num:5, title:'Data Collection & Run Chart', icon:'bar-chart-2',
-          sat: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= 8),
-          exc: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= 12 && c.results_analysis && (d.chartEvents?.length||0) >= 1),
-          satMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<8 && ('8+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')')].filter(Boolean),
-          excMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<12 && ('12+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')'), !c.results_analysis && 'Results analysis narrative', !(d.chartEvents?.length>=1) && 'Chart event markers annotating interventions'].filter(Boolean),
+          sat: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= QI.BASELINE_MIN),
+          exc: !!((getPrimaryMeasure(d)?.chartData?.length||0) >= QI.BASELINE_TARGET && c.results_analysis && (d.chartEvents?.length||0) >= 1),
+          satMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<QI.BASELINE_MIN && (QI.BASELINE_MIN+'+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')')].filter(Boolean),
+          excMissing: [(getPrimaryMeasure(d)?.chartData?.length||0)<QI.BASELINE_TARGET && (QI.BASELINE_TARGET+'+ data points (you have '+(getPrimaryMeasure(d)?.chartData?.length||0)+')'), !c.results_analysis && 'Results analysis narrative', !(d.chartEvents?.length>=1) && 'Chart event markers annotating interventions'].filter(Boolean),
           wc: wc2(c.results_analysis||'') },
         { num:6, title:'Reflection & Sustainability', icon:'lightbulb',
           sat: !!(c.learning_points && c.sustainability),
@@ -1254,10 +1255,10 @@ window.showFRCEMReadinessChecker = function() {
           excMissing: [Object.keys(c.hraChecklist||{}).length<4 && 'HRA checklist fully completed (all 4 questions)'].filter(Boolean),
           wc: wc2(c.ethics||'') },
         { num:8, title:'References & Formatting', icon:'bookmark',
-          sat: !!((c.referencesList?.length||0) >= 3),
-          exc: !!((c.referencesList?.length||0) >= 5),
-          satMissing: [(c.referencesList?.length||0)<3 && ('3+ Vancouver references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
-          excMissing: [(c.referencesList?.length||0)<5 && ('5+ Vancouver references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
+          sat: !!((c.referencesList?.length||0) >= QI.REFERENCES_MIN),
+          exc: !!((c.referencesList?.length||0) >= QI.REFERENCES_GOOD),
+          satMissing: [(c.referencesList?.length||0)<QI.REFERENCES_MIN && (QI.REFERENCES_MIN+'+ references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
+          excMissing: [(c.referencesList?.length||0)<QI.REFERENCES_GOOD && (QI.REFERENCES_GOOD+'+ references (you have '+(c.referencesList?.length||0)+')')].filter(Boolean),
           wc: 0 }
     ];
     const metSat = domains.filter(x => x.sat).length;

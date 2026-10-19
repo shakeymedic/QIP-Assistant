@@ -13,8 +13,8 @@
 // real RCEM form.
 
 export function deriveStageLabel(trainingStage) {
-    if (trainingStage === 'higher') return 'ST6/ST7 (Higher Specialty Training) \u2014 confirm exact ST year';
-    if (trainingStage === 'intermediate') return 'ST4/ST5 (Intermediate Training) \u2014 confirm exact ST year';
+    if (trainingStage === 'higher') return 'Higher Specialty Training \u2014 add your ST year';
+    if (trainingStage === 'intermediate') return 'Intermediate Training \u2014 add your ST year';
     return trainingStage || '';
 }
 
@@ -111,6 +111,7 @@ export function hasAnyProjectData(data) {
 }
 
 import { chooseBaseline, median, runChartSignals, primaryChartData } from "./project-metrics.js";
+import { QI } from "./qi-constants.js";
 
 // ---------------------------------------------------------------------------
 // The live form's wording (risr/advance "EM QIAT (2025 Update)"), kept in one
@@ -216,7 +217,7 @@ export function deriveJourneyFromProject(data) {
         spread: /spread|other (site|department|trust|hospital)|region|network|roll/i.test([c.sustainability, c.spreadPlan?.whoAdopts, c.spreadPlan?.maintenancePlan].filter(Boolean).join(' ')),
         leadershipTeams: logs.length >= 1 || team.some(m => /lead/i.test(m.role || '')),
         projectManagementCommunication: (data.gantt || []).length > 0 || logs.length >= 2,
-        measurement: points >= 10
+        measurement: points >= QI.BASELINE_MIN
     };
 }
 
@@ -323,6 +324,10 @@ export function assessEmqiat(data) {
     const ticked = QI_JOURNEY_ITEMS.filter(([k]) => journey[k]).map(([, l]) => l);
     const higher = data.meta?.trainingStage === 'higher' || /st[4-7]|higher/i.test(e.stageOfTraining || '');
     const finalYear = isFinalYear(data);
+    // Has the trainee written anything on the form yet? (Project evidence is checked separately.)
+    const started = Object.keys(raw).some(k => k !== 'overview' && k !== 'curriculum' && k !== 'qiJourney' && typeof raw[k] === 'string' && raw[k].trim())
+        || Object.values(raw.overview || {}).some(v => String(v || '').trim())
+        || ticked.length > 0;
     const items = [];
     const add = (key, num, title, checks, extra = {}) => {
         const rawText = key === 'overview' ? Object.values(raw.overview || {}).join(' ') : raw[key];
@@ -423,15 +428,15 @@ export function assessEmqiat(data) {
     add('curriculum', '', 'Curriculum link', [
         { ok: !higher || !!cur.higherSlo11Kc1, text: 'Higher SLO11 Key Capability 1 selected (clinical leadership on effective QI work)' },
         { ok: !higher || !!cur.higherSlo11Kc2 || !has(`${e.reflections || ''} ${e.role || ''} ${ovText}`, /safety|governance|incident|risk/i), text: 'Key Capability 2 selected if your project touches departmental safety or governance' }
-    ], { empty: higher && !cur.higherSlo11Kc1 && !cur.higherSlo11Kc2 });
+    ], { empty: !started || (higher && !cur.higherSlo11Kc1 && !cur.higherSlo11Kc2) });
 
     // Project evidence behind the answers — fixed elsewhere in the app.
     const pts = (Array.isArray(data.measures) && data.measures[0]?.chartData ? data.measures[0].chartData : data.chartData || []).length;
     add('project', '', 'Project evidence behind your answers', [
         { ok: !!c.aim_target, text: 'Numeric target set for your aim (Define & Measure)', view: 'checklist' },
         { ok: !!(c.outcome_measure && c.process_measure && c.balance_measure), text: 'Outcome, process and balancing measures defined (Define & Measure)', view: 'checklist' },
-        { ok: pts >= 12, text: `12+ data points on your run chart (you have ${pts})`, view: 'data' },
-        { ok: pdsa.length >= 3, text: `3+ PDSA cycles (you have ${pdsa.length})`, view: 'pdsa' },
+        { ok: pts >= QI.BASELINE_TARGET, text: `${QI.BASELINE_TARGET}+ data points on your run chart (you have ${pts})`, view: 'data' },
+        { ok: pdsa.length >= QI.PDSA_TYPICAL, text: `Iterative testing: ${QI.PDSA_TYPICAL}+ PDSA cycles (you have ${pdsa.length})`, view: 'pdsa' },
         { ok: pdsa.length > 0 && pdsa.every(p => has(`${p.plan || ''} ${p.desc || ''} ${p.prediction || ''}`, /predict/i) && (p.study || '').trim()), text: 'Every PDSA cycle has a prediction and a Study write-up', view: 'pdsa' },
         { ok: (data.stakeholders || []).length >= 3, text: 'Stakeholder map with 3+ groups', view: 'stakeholders' },
         { ok: !!(c.sustainability && c.learning_points), text: 'Sustainability plan and learning points written', view: 'checklist' }
@@ -439,7 +444,7 @@ export function assessEmqiat(data) {
 
     const scored = items.filter(i => !i.optional);
     const strong = scored.filter(i => i.status === 'strong').length;
-    return { items, strong, total: scored.length, finalYear, higher, rcem: rcemDescriptors(data, { higher, ovText, ticked }) };
+    return { items, strong, total: scored.length, started, finalYear, higher, rcem: rcemDescriptors(data, { higher, ovText, ticked }) };
 }
 
 // ── RCEM grade descriptors ───────────────────────────────────────────────────
@@ -460,7 +465,7 @@ function projectShowsImprovement(data) {
         .filter(p => p && p.date && !isNaN(Number(p.value)))
         .map(p => ({ ...p, value: Number(p.value) }))
         .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    if (pts.length < 10) return false;
+    if (pts.length < QI.BASELINE_MIN) return false;
     const med = median(chooseBaseline(pts, data.pdsa).values);
     const sig = runChartSignals(pts.map(p => p.value), med);
     return sig.shift || sig.trend;

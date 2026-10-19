@@ -1,4 +1,5 @@
 import { state } from "./state.js";
+import { QI, DATA_STORY } from "./qi-constants.js";
 import { escapeHtml, showToast, autoResizeTextarea } from "./utils.js";
 import { fishboneSVG, fishboneProblem } from "./diagrams.js";
 import {
@@ -13,7 +14,7 @@ let zoomLevel = 1.0;
 const TOOL_HELP = {
     fishbone: {
         title: "Fishbone Ishikawa Diagram",
-        desc: "A root cause analysis tool using the 6M framework.",
+        desc: "A cause-and-effect (Ishikawa) diagram: brainstorm why the problem happens, grouped under Patient, Staff, Equipment, Process, Environment and Management.",
         tips: "Click + beside a category to add a cause, a cause to edit or remove it, and a category to rename it. Aim for 3-5 causes per category."
     },
     driver: {
@@ -36,7 +37,7 @@ const TOOL_HELP = {
 const CHART_EDUCATION = {
     run: {
         title: "Run Chart Guidance",
-        desc: "A run chart plots your data in date order against the median of your baseline. The baseline is your earliest Phase if you tag points with phases, otherwise the points before your first PDSA cycle, otherwise your first 12 points. The median is drawn solid over the baseline and dashed where it is extended. Aim for 10 to 12 baseline points before your first change.",
+        desc: "A run chart plots your data in date order against the median of your baseline. The baseline is your earliest Phase if you tag points with phases, otherwise the points before your first PDSA cycle, otherwise your first " + QI.BASELINE_TARGET + " points. The median is drawn solid over the baseline and dashed where it is extended. Aim for " + QI.BASELINE_MIN + " to " + QI.BASELINE_TARGET + " baseline points before your first change.",
         rules: [
             "Shift: 6 or more consecutive points all above or all below the median. Points exactly on the median neither count nor break the run.",
             "Trend: 5 or more consecutive points all going up or all going down. A repeated value neither counts nor breaks it.",
@@ -46,7 +47,7 @@ const CHART_EDUCATION = {
     },
     spc: {
         title: "Statistical Process Control (XmR) Chart Guidance",
-        desc: "An XmR (individuals) chart plots your data against the mean with upper and lower control limits (mean ± 2.66 × the average moving range). It helps separate common cause variation from special cause variation. Limits are provisional until you have around 15 points.",
+        desc: "An XmR (individuals) chart plots your data against the mean with upper and lower control limits (mean ± 2.66 × the average moving range). It helps separate common cause variation from special cause variation. Limits are provisional until you have around " + QI.SPC_MIN + " points.",
         rules: [
             "Rule 1: a single point outside the control limits.",
             "Rule 2: 8 or more consecutive points on the same side of the mean.",
@@ -302,7 +303,7 @@ function renderDriverVisual(container, enableInteraction = false) {
         { 
             title: 'Aim', 
             color: 'bg-indigo-50 border-indigo-200 text-indigo-900', 
-            items: [state.projectData.checklist?.aim || 'Define Aim in Checklist first'], 
+            items: [state.projectData.checklist?.aim || 'Set your SMART aim on Define & Measure first'], 
             type: 'aim',
             readonly: true,
             icon: 'target'
@@ -1786,7 +1787,7 @@ export function updateChartEducation() {
     // Open by default while a project is still getting going; tucked away once
     // there's enough data that the chart speaks for itself.
     const n = (state.projectData?.chartData || []).length;
-    const wasOpen = p.querySelector('details')?.dataset.mode === chartMode ? p.querySelector('details').open : n < 10;
+    const wasOpen = p.querySelector('details')?.dataset.mode === chartMode ? p.querySelector('details').open : n < QI.BASELINE_MIN;
     p.innerHTML = `
         <details data-mode="${chartMode}" ${wasOpen ? 'open' : ''}>
             <summary class="font-bold text-slate-700 text-sm flex items-center gap-2 cursor-pointer list-none">

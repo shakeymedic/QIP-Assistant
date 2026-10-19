@@ -1,3 +1,4 @@
+import { QI } from "./qi-constants.js";
 // project-metrics.js
 //
 // Pure, DOM-free calculations shared by the trainee dashboard, the QIP Lead /
@@ -24,8 +25,8 @@ export function computeReadiness(d) {
         { label: 'SMART Aim', met: !!c.aim },
         { label: 'Measures Defined', met: !!(c.outcome_measure || c.process_measure) },
         { label: 'Driver Diagram', met: (d.drivers?.primary?.length > 0) },
-        { label: isHigher ? '3+ PDSA Cycles' : '1+ PDSA Cycle', met: isHigher ? pdsa.length >= 3 : pdsa.length >= 1 },
-        { label: 'Data Chart with Analysis', met: (primaryChartData(d).length >= 5 && !!c.results_analysis) },
+        { label: isHigher ? `${QI.PDSA_TYPICAL}+ PDSA cycles (iterative testing)` : '1+ PDSA cycle', met: isHigher ? pdsa.length >= QI.PDSA_TYPICAL : pdsa.length >= 1 },
+        { label: `Run chart with ${QI.BASELINE_MIN}+ points and an interpretation`, met: (primaryChartData(d).length >= QI.BASELINE_MIN && !!c.results_analysis) },
         { label: 'Learning Reflections', met: !!c.learning_points },
         { label: 'Sustainability Plan', met: !!c.sustainability },
         { label: 'QI Team Defined', met: (d.teamMembers?.length >= 1) },
@@ -96,7 +97,7 @@ export function chooseBaseline(points, pdsa) {
         if (before.length >= 2) return { values: before, count: before.length, source: 'pre-pdsa' };
     }
 
-    const values = pts.slice(0, Math.min(12, pts.length)).map(p => Number(p.value));
+    const values = pts.slice(0, Math.min(QI.BASELINE_TARGET, pts.length)).map(p => Number(p.value));
     return { values, count: values.length, source: 'first-points' };
 }
 

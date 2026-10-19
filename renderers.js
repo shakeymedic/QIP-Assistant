@@ -13,6 +13,7 @@ import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withU
 import { renderDataTable, refreshEntryForm } from "./data-entry.js";
 import { renderEMQIATForm, emqiatPlainText } from "./emqiat.js";
 import { assessEmqiat } from "./emqiat-shared.js";
+import { QI, DATA_STORY } from "./qi-constants.js";
 import { stakeholderQuadrant, layoutStakeholders, fishboneSVG, fishboneProblem, ganttSummaryHTML, processFlowHTML } from "./diagrams.js";
 
 // ==========================================
@@ -78,7 +79,7 @@ export function updateNavigationUI(currentView) {
         if (!d) return;
         
         if(id === 'checklist' && d.checklist && d.checklist.aim && d.checklist.problem_desc) status = '✓';
-        else if(id === 'data' && primaryChartData(d).length >= 6) status = '✓';
+        else if(id === 'data' && primaryChartData(d).length >= QI.BASELINE_MIN) status = '✓';
         else if(id === 'pdsa' && d.pdsa && d.pdsa.length > 0) status = '✓';
         else if(id === 'team' && d.teamMembers && d.teamMembers.length > 0) status = '✓';
         else if(id === 'publish' && d.checklist && d.checklist.ethics) status = '✓';
@@ -106,7 +107,7 @@ export function updateNavigationUI(currentView) {
             !!(c2.aim),
             !!(d2.drivers && (d2.drivers.primary?.length > 0 || d2.drivers.changes?.length > 0)),
             !!(d2.pdsa && d2.pdsa.length > 0),
-            !!(primaryChartData(d2).length >= 6),
+            !!(primaryChartData(d2).length >= QI.BASELINE_MIN),
             !!(c2.learning_points),
             !!(c2.sustainability || c2.spreadPlan?.whoAdopts),
             !!(c2.ethics)
@@ -202,6 +203,14 @@ export function renderDashboard() {
     if (qaDate && !qaDate.value) {
         qaDate.value = new Date().toISOString().split('T')[0];
     }
+    // Default the phase to Baseline until data exist, then to the phase of the latest point
+    const qaPhase = document.getElementById('quick-add-phase');
+    if (qaPhase) {
+        const pts = primaryChartData(d);
+        const last = pts.length ? pts[pts.length - 1] : null;
+        const want = last && last.grade && [...qaPhase.options].some(o => o.value === last.grade) ? last.grade : 'Baseline';
+        qaPhase.value = want;
+    }
     // Clarify which measure Quick Add targets when a project has more than one
     const qaLabel = document.getElementById('quick-add-target-label');
     if (qaLabel) {
@@ -236,7 +245,7 @@ function updatePortfolioReadiness() {
                 </div>
                 <div>
                     <div class="text-sm font-bold text-slate-800">${headline}</div>
-                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. EM QIAT: ${qiat.strong} of ${qiat.total} sections strong.</div>
+                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. ${qiat.started ? `EM QIAT: ${qiat.strong} of ${qiat.total} sections strong.` : 'EM QIAT form not started yet.'}</div>
                 </div>
             </div>
             <div class="space-y-2">
@@ -272,8 +281,8 @@ function emqiatReadinessLine() {
             class="mt-4 w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${all ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100'}">
             <i data-lucide="clipboard-check" class="w-5 h-5 ${all ? 'text-emerald-600' : 'text-indigo-600'} flex-shrink-0"></i>
             <span class="flex-1">
-                <span class="block text-xs font-bold text-slate-800">EM QIAT: ${res.strong} of ${res.total} sections strong</span>
-                <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : 'See exactly what each answer still needs'}</span>
+                <span class="block text-xs font-bold text-slate-800">${res.started ? `EM QIAT: ${res.strong} of ${res.total} sections strong` : 'EM QIAT form: not started'}</span>
+                <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : res.started ? 'See exactly what each answer still needs' : 'The annual form for your ARCP — fill it in on SLO 11 Sign-off once your project has something to say'}</span>
             </span>
             <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
         </button>`;
@@ -342,8 +351,8 @@ function renderQICoachBanner() {
     } else if (drivers.primary.length === 0) {
         tip = "Build your Driver Diagram in the Tools section. What are the main factors affecting your aim?";
         icon = 'git-branch';
-    } else if (data.length < 6) {
-        tip = `You have ${data.length} data points. Collect at least 12 baseline points before making changes for a reliable run chart.`;
+    } else if (data.length < QI.BASELINE_MIN) {
+        tip = `You have ${data.length} data point${data.length === 1 ? '' : 's'}. Aim for ${QI.BASELINE_MIN} to ${QI.BASELINE_TARGET} baseline points before your first change (one a week from ${QI.SAMPLE_PER_POINT} patients is plenty) so the run chart rules mean something.`;
         icon = 'bar-chart-2';
     } else if (pdsa.length === 0) {
         tip = "Ready to test a change? Document your first PDSA cycle. Ensure you write down a prediction in the Plan section.";
@@ -624,7 +633,7 @@ export function renderChecklist() {
                 <!-- SWOT / PEST collapsible panel -->
                 <div class="border border-slate-200 rounded-lg overflow-hidden mt-2">
                     <button onclick="window.toggleSWOTPESTPanel()" class="w-full flex items-center justify-between px-4 py-3 bg-slate-50 hover:bg-slate-100 text-sm font-semibold text-slate-700 transition-all">
-                        <span class="flex items-center gap-2"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i> SWOT / PEST Analysis</span>
+                        <span class="flex items-center gap-2" data-hint="swot"><i data-lucide="layout-grid" class="w-4 h-4 text-indigo-500"></i> SWOT / PEST Analysis</span>
                         <i id="swot-chevron" data-lucide="chevron-down" class="w-4 h-4 text-slate-400 transition-transform" style="${swotOpen ? 'transform: rotate(180deg)' : ''}"></i>
                     </button>
                     <div id="swot-pest-body" class="${swotOpen ? '' : 'hidden'} p-4">
@@ -802,7 +811,7 @@ export function renderChecklist() {
                 const hra = c.hraChecklist || {};
                 const answered = [hra.q1, hra.q2, hra.q3, hra.q4].filter(v => v && v !== '');
                 if (answered.length === 4) {
-                    const needsEthics = hra.q2 === 'yes';
+                    const needsEthics = hra.q1 === 'yes' || hra.q2 === 'yes';
                     return `<div class="mb-4 p-3 rounded-lg border ${needsEthics ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}">
                         <p class="text-sm font-bold ${needsEthics ? 'text-red-800' : 'text-emerald-800'}">
                             ${needsEthics ? '⚠️ Likely requires formal ethics approval — consult your Trust R&D department.' : '✓ Likely qualifies as Service Evaluation / QI — no formal ethics approval required.'}
@@ -907,7 +916,7 @@ export function renderChecklist() {
             <div class="mt-4 border border-teal-200 rounded-lg overflow-hidden">
                 <div class="bg-teal-50 px-4 py-3 flex items-center gap-2">
                     <i data-lucide="rocket" class="w-4 h-4 text-teal-600"></i>
-                    <span class="text-sm font-bold text-teal-800">Sustainability &amp; Spread Planner</span>
+                    <span class="text-sm font-bold text-teal-800" data-hint="sustainability summary">Sustainability &amp; Spread Planner</span>
                 </div>
                 <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -949,7 +958,7 @@ export function renderChecklist() {
                 <i data-lucide="chevron-down" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
             </h2>
             <div>
-                <p class="text-xs text-slate-500 mb-3">Proactively identify where your QI process could fail, assess risk (Likelihood × Severity × Detectability = RPN), and plan mitigations. RPN ≥ 50 = High risk (red), ≥ 20 = Medium (amber), &lt; 20 = Low (green).</p>
+                <p class="text-xs text-slate-500 mb-3">Proactively identify where your QI process could fail, assess risk (Likelihood × Severity × Detectability = RPN), and plan mitigations. Scores run 1 to 5, so the maximum RPN is 125; in this app RPN ≥ 50 = High risk (red), ≥ 20 = Medium (amber), &lt; 20 = Low (green).</p>
                 <div class="overflow-x-auto">
                     <table class="w-full text-xs border-collapse" id="fmea-table">
                         <thead>
@@ -1018,11 +1027,11 @@ function renderSignalPanel() {
     const { rule1, rule2, rule3, data, median, baseline, unit } = sig;
     const medText = median === null || median === undefined ? '–' : withUnit(median, unit);
     const n = data.length;
-    const fewBaseline = baseline && baseline.count < 10;
+    const fewBaseline = baseline && baseline.count < QI.BASELINE_MIN;
     const baselineNote = baseline ? `Median ${escapeHtml(medText)} from ${escapeHtml(baseline.text)}.` : '';
     const cautions = [];
-    if (n < 10) cautions.push(`With ${n} points the run chart rules can't say much yet — keep collecting (10+ is a good start).`);
-    else if (fewBaseline) cautions.push('Your baseline has fewer than 10 points, so treat the median (and any signals) with some caution.');
+    if (n < QI.BASELINE_MIN) cautions.push(`With ${n} points the run chart rules can't say much yet — keep collecting (${QI.BASELINE_MIN} to ${QI.BASELINE_TARGET} is the target).`);
+    else if (fewBaseline) cautions.push(`Your baseline has fewer than ${QI.BASELINE_MIN} points, so treat the median (and any signals) with some caution.`);
     const cautionHtml = cautions.length ? `<p class="text-xs text-slate-500 mt-2">${cautions.join(' ')}</p>` : '';
 
     if (!rule1 && !rule2 && !rule3) {
@@ -1568,7 +1577,7 @@ export function addCycleToIdea(ideaIdx) {
     // Apply template plan text if selected
     const CYCLE_TEMPLATES = {
         education: { plan: 'Deliver a focused education session to the target staff group explaining the change and expected benefits. Gather attendance records.', prediction: 'Following education, compliance with the target behaviour will increase by at least 20% in the subsequent audit cycle.' },
-        audit:     { plan: 'Conduct a prospective audit of [N] consecutive cases against the standard. Use the agreed data collection tool.', prediction: 'Baseline compliance rate will be documented, providing a reference point for subsequent intervention cycles.' },
+        audit:     { plan: 'Conduct a prospective audit of [N] consecutive cases against the standard. Use the agreed data collection tool.', prediction: 'Feeding the audit result back to the team at the next meeting will raise compliance by at least 10 percentage points over the following fortnight; the effect will fade without a further change. (Collecting the baseline itself is not a PDSA cycles.' },
         checklist: { plan: 'Introduce a one-page process checklist at the point of care and trial with the next 10 eligible patients or episodes.', prediction: 'Completion rates will improve as the checklist acts as a cognitive prompt for the required steps.' },
         reminder:  { plan: 'Design and place a visual reminder (poster, badge card, or screen saver) in the clinical area. Record whether staff notice or reference it.', prediction: 'Visibility of the reminder will prompt behaviour change for at least 30% of staff during the trial period.' },
         protocol:  { plan: 'Draft an updated SOP/protocol and share for peer review. Pilot the revised protocol with the next 5 eligible cases.', prediction: 'A clear, accessible protocol will reduce variation in practice and improve compliance with the intended standard.' }
@@ -3679,6 +3688,9 @@ export function openTopicBank() {
 export function selectTopic(title, desc) {
     const problemInput = document.getElementById('check-problem');
     if(problemInput) problemInput.value = desc;
+    // The wizard has its own problem box; fill it too, or Next saves the empty box over the choice.
+    const wizardInput = document.getElementById('onboarding-problem');
+    if (wizardInput) wizardInput.value = desc;
     window.saveChecklistField('problem_desc', desc);
     document.getElementById('topic-bank-modal').classList.add('hidden');
     showToast("Topic selected", "success");
@@ -3695,6 +3707,9 @@ export function openSmartAimBuilder() {
     document.getElementById('smart-target').value = '';
     document.getElementById('smart-timeframe').value = '';
     document.getElementById('smart-setting').value = 'the Emergency Department';
+    // A live example date, about five months ahead (the old placeholder said "June 2024")
+    const ahead = new Date(); ahead.setMonth(ahead.getMonth() + 5);
+    document.getElementById('smart-timeframe').placeholder = 'e.g. end of ' + ahead.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
     
     const updatePreview = () => {
         const dir = document.getElementById('smart-direction').value;

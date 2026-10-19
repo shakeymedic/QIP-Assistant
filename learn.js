@@ -137,7 +137,7 @@ function tabRCEM() {
         // ACCS
         '<div class="bg-blue-50 border border-blue-200 rounded-xl p-4">' +
         '<div class="flex items-center gap-2 mb-2">' +
-        '<span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">ACCS ST1–2</span></div>' +
+        '<span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full">ACCS</span></div>' +
         '<ul class="text-xs text-blue-800 space-y-1.5 leading-relaxed">' +
         '<li class="flex gap-1.5"><span class="text-blue-500 font-bold mt-0.5">•</span>Contribute to a departmental QI project or clinical audit</li>' +
         '<li class="flex gap-1.5"><span class="text-blue-500 font-bold mt-0.5">•</span>Understand QI principles and common methods</li>' +
@@ -148,23 +148,23 @@ function tabRCEM() {
         // Intermediate
         '<div class="bg-indigo-50 border border-indigo-200 rounded-xl p-4">' +
         '<div class="flex items-center gap-2 mb-2">' +
-        '<span class="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">Intermediate ST3</span></div>' +
+        '<span class="bg-indigo-600 text-white text-xs font-bold px-2 py-1 rounded-full">Intermediate</span></div>' +
         '<ul class="text-xs text-indigo-800 space-y-1.5 leading-relaxed">' +
         '<li class="flex gap-1.5"><span class="text-indigo-500 font-bold mt-0.5">•</span>Apply QI methodology to a clinical problem</li>' +
         '<li class="flex gap-1.5"><span class="text-indigo-500 font-bold mt-0.5">•</span>Collect, analyse, and interpret project data</li>' +
-        '<li class="flex gap-1.5"><span class="text-indigo-500 font-bold mt-0.5">•</span>Execute at least <strong>2 PDSA cycles</strong> and evaluate impact</li>' +
+        '<li class="flex gap-1.5"><span class="text-indigo-500 font-bold mt-0.5">•</span>Test changes in PDSA cycles and evaluate their impact</li>' +
         '<li class="flex gap-1.5"><span class="text-indigo-500 font-bold mt-0.5">•</span>Engage stakeholders in change</li>' +
         '</ul></div>' +
 
         // HST
         '<div class="bg-purple-50 border border-purple-200 rounded-xl p-4">' +
         '<div class="flex items-center gap-2 mb-2">' +
-        '<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">HST ST4–6</span></div>' +
+        '<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Higher</span></div>' +
         '<ul class="text-xs text-purple-800 space-y-1.5 leading-relaxed">' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Lead a QIP from initiation to write-up</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Demonstrate safety culture leadership</li>' +
-        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Satisfactory:</strong> lead; ≥2 PDSA cycles; data analysis</li>' +
-        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Excellent (ST6):</strong> ≥3 iterative PDSA cycles; run/SPC charts; interdisciplinary team; sustained improvement</li>' +
+        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Satisfactory:</strong> lead a project, with multidisciplinary working and mature reflection on the QI methods and leadership used</li>' +
+        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Excellent:</strong> diverse QI methods tailored to the problem, regional or national presentation, innovation or perseverance, strategic contribution to the department\'s improvement programme</li>' +
         '</ul></div>' +
 
         '</div>';
@@ -172,9 +172,9 @@ function tabRCEM() {
     var slo11 =
         card(
             sectionHead('award', 'SLO 11 — Quality Improvement & Patient Safety', 'rcem-purple') +
-            '<p class="text-sm text-slate-600 mb-4 leading-relaxed">SLO 11 is one of 12 Specialty Learning Outcomes in the <strong>RCEM 2021 Curriculum (updated August 2025, v1.5)</strong>. ' +
+            '<p class="text-sm text-slate-600 mb-4 leading-relaxed">SLO 11 is one of 12 Specialty Learning Outcomes in the <strong>RCEM 2021 Curriculum (2025 update)</strong>. ' +
             'It requires trainees to demonstrate participation in and promotion of activity to improve the quality and safety of patient care. ' +
-            'The <strong>QIAT (Quality Improvement Assessment Tool)</strong> was updated November 2025 to align with current AOMRC guidance and is now live on eportfolio.</p>' +
+            'The <strong>EM QIAT (Quality Improvement Assessment Tool)</strong> was updated in 2025 (v7) and is live on risr/advance.</p>' +
 
             '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
             infoBox('emerald',
@@ -191,11 +191,11 @@ function tabRCEM() {
             infoBox('amber',
                 '<div class="font-bold text-sm text-amber-800 mb-2 flex items-center gap-2"><i data-lucide="clipboard-list" class="w-4 h-4"></i>EM QIAT on ePortfolio</div>' +
                 '<ul class="text-xs text-amber-700 space-y-1">' +
-                '<li>• Completed for each QI phase in the QIAT framework</li>' +
-                '<li>• Replaces the old QIP assessment form</li>' +
-                '<li>• Supervisor sign-off required at each stage</li>' +
-                '<li>• Covers: Problem Identification, Evidence Base, Team & Stakeholders, Planning, Implementation, Evaluation</li>' +
-                '<li>• Use the EM QIAT Journal in this app to draft entries</li>' +
+                '<li>• One form a year, completed before your ARCP and sent to a supervisor or assessor (Part B)</li>' +
+                '<li>• Replaces the old QIP assessment form (2025 update, v7)</li>' +
+                '<li>• Covers: your QI PDP for the year, QI education, project involvement, the QI Journey stages you gained experience in, reflections, and next year\'s PDP</li>' +
+                '<li>• The form itself says it is not mandatory to lead a QI project in every year of training</li>' +
+                '<li>• Draft it on SLO 11 Sign-off in this app, then paste into risr/advance</li>' +
                 '</ul>'
             ) +
             '</div>',
@@ -212,18 +212,18 @@ function tabRCEM() {
             '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700">Minimum Evidence</th>' +
             '<th class="text-left p-2.5 border border-slate-200 font-bold text-emerald-700">For Excellent</th>' +
             '</tr></thead><tbody>' +
-            '<tr><td class="p-2.5 border border-slate-200 font-medium">ACCS (ST1–2)</td>' +
+            '<tr><td class="p-2.5 border border-slate-200 font-medium">ACCS</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Contribution to departmental project; reflection; QIAT submitted</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Active role with documented impact; patient safety reflection</td></tr>' +
-            '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Intermediate (ST3)</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Independent QIP; 2 PDSA cycles; data collected and analysed; QIAT signed off</td>' +
+            '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Intermediate</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Participation in a QI project linked to the QI Journey stages you chose; multidisciplinary working; reflection on the methods; QIAT completed</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Run chart; stakeholder engagement; written report or presentation</td></tr>' +
-            '<tr><td class="p-2.5 border border-slate-200 font-medium">HST (ST4–5)</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Lead a QIP; ≥2 PDSA cycles; demonstrate change in practice</td>' +
+            '<tr><td class="p-2.5 border border-slate-200 font-medium">Higher</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Lead a QI project with mature reflection; multidisciplinary working; account of the QI methods and leadership skills used</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Interdisciplinary team; SPC charts; governance involvement; spread plan</td></tr>' +
-            '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">ST6 (pre-CCT)</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Complete QIP write-up submitted for FRCEM assessment; ≥2 PDSA; QIAT completed</td>' +
-            '<td class="p-2.5 border border-slate-200 text-emerald-700"><strong>≥3 iterative PDSA cycles; annotated run/SPC charts; sustainability plan; dissemination</strong></td></tr>' +
+            '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Final year (pre-CCT)</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">As for Higher, plus a summary of your QI and leadership development across the whole of EM training, with specific examples; QIAT completed</td>' +
+            '<td class="p-2.5 border border-slate-200 text-emerald-700"><strong>Diverse QI methods tailored to the problem; regional or national presentation; innovation, team leadership or perseverance; contribution to the department\'s improvement strategy; higher-level QI learning such as coaching</strong></td></tr>' +
             '</tbody></table></div>',
             'mb-6'
         );
@@ -236,10 +236,8 @@ function tabRCEM() {
             '<div class="flex items-start gap-3">' +
             '<i data-lucide="info" class="w-5 h-5 text-indigo-600 flex-shrink-0 mt-0.5"></i>' +
             '<div><p class="text-sm text-indigo-800 font-semibold">2025 Curriculum Update</p>' +
-            '<p class="text-xs text-indigo-700 mt-1 leading-relaxed">The RCEM curriculum was updated in August 2025 (v1.5, effective 6 August 2025). ' +
-            'Key changes for SLO11: the QIAT form now replaces the older QIP assessment tool, two new Key Capabilities were added addressing leadership culture and emotional intelligence, ' +
-            'and evidence options have been broadened to be less prescriptive. ' +
-            'The underlying clinical syllabus and training structure remain unchanged. ' +
+            '<p class="text-xs text-indigo-700 mt-1 leading-relaxed">The RCEM 2021 curriculum had a 2025 update, and the EM QIAT form was updated with it (v7). ' +
+            'For SLO 11 the QIAT form replaces the older QIP assessment tool, and the acceptable evidence is broad: audit and re-audit, service evaluation, process improvement, guideline development and patient safety or experience work all count. ' +
             'Always verify current requirements at <strong>rcem.ac.uk/em-curriculum</strong>.</p>' +
             '</div></div>'
         ) +
@@ -316,7 +314,7 @@ function tabNational() {
         '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Your own identified clinical problem</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500">•</span>You design the data collection and analysis</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Demonstrates personal leadership and QI skills</li>' +
-        '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Required for FRCEM assessment (ST6)</li>' +
+        '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Evidence for SLO 11 and the EM QIAT</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Must show iterative PDSA cycles</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500">•</span>Written up as 3,000–4,000 word report</li>' +
         '</ul>' +
@@ -376,7 +374,7 @@ function tabMethods() {
         infoBox('blue',
             '<p class="text-xs text-blue-800"><strong>Key principle:</strong> The three questions come first — then test changes with PDSA cycles. ' +
             'Too many QIPs jump straight to "fixing" the problem without first establishing a clear aim and measurement framework. ' +
-            'Answer all three questions before you collect a single data point.</p>'
+            'Answer all three questions before you test a change. Collecting baseline data is part of answering the second question, so it comes early.</p>'
         ),
         'mb-6'
     );
@@ -422,7 +420,7 @@ function tabMethods() {
 
         infoBox('amber',
             '<p class="text-xs text-amber-800"><strong>FRCEM tip:</strong> Each PDSA cycle must be distinct and documented with predictions, results, and a clear rationale for the Act decision. ' +
-            'A satisfactory project shows ≥2 cycles; excellent requires ≥3 iterative cycles where each one clearly builds on the last. ' +
+            'RCEM sets no number of cycles: run as many as it takes to see a sustained shift, with each one building on the last. Most first projects need three or more. ' +
             'Use the Change Ideas board in this app to document each cycle properly.</p>'
         ),
         'mb-6'
@@ -519,7 +517,7 @@ function tabTools() {
             what: 'A proactive risk assessment tool. Identifies what could go wrong with a proposed change, how likely it is, how severe the impact would be, and how detectable it is. Produces a Risk Priority Number (RPN) for each failure mode.',
             when: 'Before implementing a change, particularly for patient safety-critical interventions.',
             nav: 'Checklist → FMEA section',
-            tips: 'Score Likelihood × Severity × Detectability (1–5 each). Address failure modes with the highest RPN first. Document mitigations for each.'
+            tips: 'Score Likelihood × Severity × Detectability (1–5 each, so the maximum RPN is 125). Address failure modes with the highest RPN first. Document mitigations for each.'
         },
         {
             icon: 'bar-chart', color: 'orange', name: 'Pareto Chart',
@@ -533,14 +531,14 @@ function tabTools() {
             what: 'A graph of data plotted over time with the median marked. Used to detect non-random patterns (signals) — shifts, trends, or runs — that suggest your change is having a real effect.',
             when: 'Throughout the project — as your primary ongoing measurement tool.',
             nav: 'Data → Chart type → Run',
-            tips: 'Annotate your PDSA cycle start dates as vertical lines. A run of 8+ points above or below the median is a signal of real change. Collect at least 10 data points before annotating.'
+            tips: 'Annotate your PDSA cycle start dates as vertical lines. A run of 6 or more points above or below the median (a shift), or 5 or more all rising or falling (a trend), is a signal of real change. Collect 10 to 12 baseline points before your first change.'
         },
         {
             icon: 'activity', color: 'indigo', name: 'SPC Chart (Statistical Process Control)',
             what: 'A run chart with statistically calculated control limits (UCL/LCL, ±3σ). The app checks four standard SPC signals: a point outside limits, 8 points on one side of the mean, 2 of 3 points beyond 2σ on the same side, and a moving range greater than 3.27 × the average moving range.',
-            when: 'When you have ≥15–20 data points and want to demonstrate statistical evidence of improvement for your FRCEM write-up.',
+            when: 'When you have 15 to 20 or more data points and want to show statistical evidence of a change. Limits calculated across all your points will blur a real improvement; the run chart is enough for most first projects.',
             nav: 'Data → Chart type → SPC',
-            tips: 'For FRCEM Excellent, you need annotated run or SPC charts. SPC charts are particularly persuasive. Aim for data collected at regular intervals throughout your project and investigate every special-cause signal in context.'
+            tips: 'Annotated run or SPC charts are the strongest evidence of improvement. SPC charts are particularly persuasive. Aim for data collected at regular intervals throughout your project and investigate every special-cause signal in context.'
         },
         {
             icon: 'users', color: 'teal', name: 'Stakeholder Analysis',
@@ -626,7 +624,7 @@ function tabFRCEM() {
             ['Narrative Structure', 'Clear problem identification; relevant local context; cohesive logical structure throughout', 'Compelling narrative flow with fluid transitions; the "so what?" is evident at every stage; engaging for the reader'],
             ['Engagement & Team', 'Named team members with defined roles; documented contributions from ≥2 stakeholder groups', 'Interdisciplinary team; documented management of resistance; patient or carer co-design; explicit leadership role'],
             ['Problem Analysis', 'Baseline audit data; critical appraisal of ≥3 relevant clinical literature sources', 'Multiple analysis tools (SWOT/PEST, Ishikawa, FMEA); option appraisal; gap analysis linking evidence to local context'],
-            ['Change Management', 'Basic Model for Improvement applied; ≥2 distinct PDSA cycles documented with predictions and learning', 'Gantt charts used; stakeholder forcefield analysis; ≥3 iterative PDSA cycles each building on previous learning; change package described'],
+            ['Change Management', 'Model for Improvement applied; more than one PDSA cycle documented with predictions and learning', 'Gantt chart or timeline; stakeholder analysis; iterative PDSA cycles each building on previous learning; change package described'],
             ['Measuring Outcomes', 'Outcome, process, and balancing measures defined; basic data table or graph; data collected over time', 'Annotated run charts or SPC charts; justified choice of metrics; statistical signals of improvement described'],
             ['Reflection & Learning', 'Basic personal reflection; lessons learned identified; next steps suggested', 'Deep self-aware reflection; personal strengths and weaknesses addressed; sustainability analysis; spread plan for the wider system'],
         ].map(function(row, i) {
@@ -663,7 +661,7 @@ function tabFRCEM() {
         sectionHead('alert-circle', 'Common Pitfalls to Avoid', 'rose') +
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
         [
-            ['Only one audit cycle', 'A single audit-re-audit is NOT a QIP. You need at least 2 PDSA cycles with evidence of iterative improvement and learning between them.'],
+            ['Only one audit cycle', 'A single audit and re-audit is not a QIP. You need repeated PDSA cycles with evidence of iterative improvement and learning between them.'],
             ['No PDSA predictions', 'Every PDSA cycle must start with a specific prediction. "We expected improvement" is not a prediction. State exactly what you expected to happen and why.'],
             ['No annotated charts', 'Data in a table is insufficient for Excellent. Plot your data over time with PDSA cycle dates marked. Use the Data view in this app to generate run/SPC charts.'],
             ['Vague team description', 'List every team member with their role and specific contribution. For Excellent, you need evidence of managing a team — including how you addressed resistance or conflict.'],
@@ -751,27 +749,27 @@ function tabResources() {
 
 function tabGlossary() {
     var terms = [
-        ['Aim Statement', 'The project goal expressed in SMART format: Specific, Measurable, Achievable, Relevant, and Time-bound. Every QIP starts here. Example: "To increase the proportion of sepsis patients receiving antibiotics within 60 minutes from 45% to 80% by December 2025 in Heartlands ED."'],
-        ['Audit Cycle', 'A baseline measurement against a standard, followed by an intervention, followed by a re-measurement. Distinguished from QIP in that it does not require iterative PDSA testing. Required as the baseline data for a QIP but not sufficient on its own.'],
+        ['Aim Statement', 'The project goal expressed in SMART format: Specific, Measurable, Achievable, Relevant, and Time-bound. Every QIP starts here. Example: "To increase the proportion of sepsis patients receiving antibiotics within 60 minutes from 45% to 80% within six months in our ED."'],
+        ['Audit Cycle', 'A baseline measurement against a standard, followed by an intervention, followed by a re-measurement. Distinguished from a QIP in that it does not test changes iteratively. A baseline audit is a good starting point for a QIP, but it is not a PDSA cycle and not sufficient on its own.'],
         ['Balancing Measure', 'A metric that monitors unintended consequences of your change. Answers: "What might get worse as a result of our improvement?" e.g. If you improve sepsis treatment time, does overall triage throughput decrease?'],
         ['Change Idea', 'A specific intervention to be tested through a PDSA cycle. Linked to a secondary driver in the driver diagram. Multiple change ideas can be tested within one project, each with their own iterative cycles.'],
         ['Control Chart (SPC Chart)', 'A run chart with statistically calculated upper and lower control limits (UCL/LCL at ±3σ). The app checks four special-cause rules: a point outside limits, 8 points on one side of the mean, 2 of 3 consecutive points beyond 2σ on the same side, and a moving range greater than 3.27 × the average moving range.'],
         ['Driver Diagram', 'A visual map connecting the project Aim to Primary Drivers (main categories), Secondary Drivers (specific contributing factors), and Change Ideas (interventions). The backbone of any well-structured QIP.'],
         ['FMEA', 'Failure Mode and Effects Analysis. A proactive risk assessment tool identifying what could go wrong with a proposed change, scored by Likelihood × Severity × Detectability to produce a Risk Priority Number (RPN).'],
-        ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (People, Process, Environment, Equipment, Policy) to identify why a problem exists.'],
+        ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (in this app: Patient, Staff, Equipment, Process, Environment, Management) to identify why a problem exists.'],
         ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Demonstrates project management skills for the Excellent marking criterion in Change Management.'],
-        ['IHI Open School', 'The Institute for Healthcare Improvement\'s free online education platform. Courses QI 101–103 cover the Model for Improvement, PDSA cycles, and run chart interpretation. Recommended for all trainees.'],
+        ['IHI Open School', 'The Institute for Healthcare Improvement\'s online education platform. Courses QI 101–103 cover the Model for Improvement, PDSA cycles and run chart interpretation. Most courses need a subscription; check whether your Trust or deanery provides one.'],
         ['Inter-Rater Reliability (Kappa)', 'Cohen\'s Kappa measures how much two or more assessors agree when independently rating the same thing, correcting for chance agreement. Relevant when a measure depends on subjective judgement, e.g. two clinicians independently scoring the same screening tool. Not built into this app\'s charts — calculate separately and report the value in your write-up.'],
         ['Model for Improvement', 'The QI framework developed by Associates in Process Improvement. Built around three questions (Aim, Measurement, Change Ideas) and tested iteratively using PDSA cycles. The standard methodology for healthcare QI.'],
         ['Outcome Measure', 'The metric that tracks whether things improved for the patient. The primary measure of whether your project achieved its aim. e.g. % of patients receiving the correct treatment within target time.'],
         ['Pareto Chart', 'A bar chart ranking causes by frequency with a cumulative percentage line. Based on the Pareto principle (80% of problems from 20% of causes). Used to prioritise interventions.'],
         ['PDSA Cycle', 'Plan-Do-Study-Act. A structured test of a change idea. Plan: state objective and prediction; Do: implement the test; Study: compare results to prediction; Act: adopt, adapt, or abandon based on learning.'],
         ['Process Measure', 'Tracks whether the change you implemented is actually being carried out. Bridges the gap between your intervention and the outcome. e.g. % of patients screened with sepsis tool (process) → % treated within 1hr (outcome).'],
-        ['QIAT', 'Quality Improvement Assessment Tool. Updated November 2025, now live on RCEM eportfolio. Replaces the old QIP assessment form. Completed for each QI phase with supervisor sign-off.'],
+        ['QIAT', 'EM Quality Improvement Assessment Tool. The annual form on risr/advance (2025 update, v7) summarising all your QI activity for the year: PDP, QI education, project involvement, QI Journey stages and reflections, completed before ARCP and reviewed by a supervisor or assessor.'],
         ['RCEM National QIP', 'An annual national quality improvement programme run by RCEM for participating Type 1 EDs. Three topics per year. Provides standardised data collection and national benchmarking.'],
-        ['Run Chart', 'A graph of data plotted over time with the median line marked. Non-random patterns (shifts of ≥8 points, trends, unusual runs) indicate genuine change. The standard plotting tool for QI data.'],
-        ['SMART Aim', 'Specific, Measurable, Achievable, Relevant, Time-bound. The required format for your QIP aim statement. "To improve sepsis care" is not SMART; "To increase antibiotic administration within 60 minutes from 45% to 80% by December 2025" is.'],
-        ['SLO 11', 'Specialty Learning Outcome 11 in the RCEM 2021 Curriculum (updated Aug 2025). Covers Quality Improvement and Patient Safety. Requires a QIP with QIAT sign-off at each stage of training.'],
+        ['Run Chart', 'A graph of data plotted over time with the median line marked. Non-random patterns (a shift of 6 or more points on one side of the median, a trend of 5 or more, an astronomical point) indicate genuine change. The standard plotting tool for QI data.'],
+        ['SMART Aim', 'Specific, Measurable, Achievable, Relevant, Time-bound. The required format for your QIP aim statement. "To improve sepsis care" is not SMART; "To increase antibiotic administration within 60 minutes from 45% to 80% by the end of the rotation" is.'],
+        ['SLO 11', 'Specialty Learning Outcome 11 in the RCEM 2021 Curriculum (updated Aug 2025). Covers Quality Improvement and Patient Safety. Evidenced each year through the EM QIAT form; leading a project every year is not mandatory.'],
         ['Special Cause Variation', 'A signal in your data (points outside control limits on an SPC chart, or non-random patterns on a run chart) indicating that something has genuinely changed the process — not just random noise.'],
         ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. Required for the Excellent marking descriptor in Reflection & Sustainability.'],
         ['Stakeholder Forcefield Analysis', 'Identifies forces supporting and opposing your change, scored by strength. Helps plan engagement strategy and is evidence of the Excellent criterion for Change Management.'],
