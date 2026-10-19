@@ -25,7 +25,9 @@ export const emptyProject = {
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
         owner: null,
-        trainingStage: ""
+        trainingStage: "",
+        rotationEnd: "",
+        projectKind: ""
     },
     checklist: {
         problem_desc: "",
@@ -48,12 +50,14 @@ export const emptyProject = {
         abstract_results: "",
         abstract_conclusions: "",
         operational_definition: "",
+        outcomeKind: "",
         learning_points: "",
         sustainability: "",
         results_text: "",
         results_analysis: "",
         next_pdp: ""
     },
+    dataPlan: { source: "", collector: "", cadence: "", sample: "", start: "" },
     drivers: {
         primary: [],
         secondary: [],
@@ -365,8 +369,11 @@ export function getDemoData() {
             updated: new Date().toISOString(),
             owner: 'Dr Alex Morgan (ST6)',
             trainingStage: 'higher',
-            arcpDate: '2026-12-04'
+            arcpDate: '2026-12-04',
+            rotationEnd: '2026-08-04',
+            projectKind: 'qip'
         },
+        dataPlan: { source: 'EPR sepsis flag and drug administration record, weekly extract by the audit team', collector: 'Dr Alex Morgan with the audit and QI team', cadence: 'weekly', sample: 'All eligible patients that week (about 15 to 25)', start: '2025-06-02' },
         checklist: {
             problem_desc: 'Patients with red-flag sepsis in our ED wait too long for their first dose of IV antibiotics. Over 13 weeks of baseline data (June to August 2025, 247 patients) a median of 42% received antibiotics within 60 minutes of triage. National guidance (NICE NG51) recommends antibiotics within one hour for people at high risk of severe illness or death from sepsis. Case review of 120 late doses found the main causes were waiting for a prescriber and hunting for equipment.',
             problem_context: 'Fictional district general hospital ED with about 85,000 attendances a year, 24-hour consultant presence and frequent crowding in Majors. Sepsis screening is part of nurse triage. The project was registered with the Trust audit and QI team and sponsored by the ED clinical lead.',
@@ -380,6 +387,7 @@ export function getDemoData() {
             outcome_measure: '% of adult red-flag sepsis patients receiving IV antibiotics within 60 minutes of triage (weekly, all eligible patients from the EPR sepsis flag).',
             process_measure: 'Median minutes from triage to first IV antibiotic (weekly); reasons for delay in late cases (Pareto); sepsis trolley daily check completion; staff confidence finding sepsis kit (1–5 survey, before and after).',
             balance_measure: 'Inappropriate sepsis antibiotic starts per month (pharmacy review); time to assessment for other Majors patients; prompt override rate.',
+            outcomeKind: 'percentage',
             operational_definition: 'Numerator: adults (16+) with a red-flag sepsis criterion recorded at triage who receive a first IV antibiotic dose within 60 minutes of the triage time stamp. Denominator: all adults with a red-flag sepsis criterion recorded at triage in that week, excluding patients on an end-of-life pathway and transfers who received antibiotics before arrival. Source: EPR sepsis flag and drug administration record, extracted every Monday for the previous week (Monday to Sunday).',
             ethics: 'Classed as service evaluation and quality improvement using the HRA decision tool, so no research ethics review was needed. Registered with the Trust audit and QI team. Data were extracted without patient identifiers and stored on the Trust network. The PGD was approved by the Trust medicines committee before PDSA 3.',
             hraChecklist: { q1: 'no', q2: 'no', q3: 'no', q4: 'no', notes: 'HRA decision tool completed May 2025: not research. Registered with the Trust audit and QI team (fictional reference QI-2025-031).' },

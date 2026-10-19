@@ -9,11 +9,13 @@ import {
 import { runFullAIAssessment, runSectionAI } from "./ai-review.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
 import { renderSurveys } from "./surveys.js";
-import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withUnit } from "./project-metrics.js";
+import { primaryChartData, computeReadiness, baselineMedian, formatUkDate, withUnit, chooseBaseline } from "./project-metrics.js";
 import { renderDataTable, refreshEntryForm } from "./data-entry.js";
 import { renderEMQIATForm, emqiatPlainText } from "./emqiat.js";
 import { assessEmqiat } from "./emqiat-shared.js";
 import { QI, DATA_STORY } from "./qi-constants.js";
+import { STARTER_PROJECTS, applyStarterProject, starterCardHtml, OP_DEF_TEMPLATES } from "./idea-bank.js";
+import { coachAim, coachHtml } from "./aim-coach.js";
 import { stakeholderQuadrant, layoutStakeholders, fishboneSVG, fishboneProblem, ganttSummaryHTML, processFlowHTML } from "./diagrams.js";
 
 // ==========================================
@@ -295,6 +297,8 @@ function renderARCPCountdown() {
 
     const arcpDate = state.projectData?.meta?.arcpDate;
     if (input) input.value = arcpDate || '';
+    const rotInput = document.getElementById('rotation-end-input');
+    if (rotInput) rotInput.value = state.projectData?.meta?.rotationEnd || '';
 
     if (!arcpDate) {
         display.innerHTML = `<p class="text-xs text-slate-400">Set your ARCP date below to see your countdown.</p>`;
@@ -525,6 +529,61 @@ function renderRecentActivity() {
 // page). Flags any narrative definition that has no linked tracked data
 // yet, since writing a lovely balancing-measure description without ever
 // tracking data against it is a common first-timer QIP pitfall.
+// Operational definition, measure kind and the data collection plan, shown
+// with the family of measures so the "what counts" questions are answered
+// before the first data point. Also used on the Data & SPC page.
+export function baselineProgressHtml(d) {
+    const n = window.baselinePointCount ? window.baselinePointCount() : 0;
+    const pdsaStarted = Array.isArray(d.pdsa) && d.pdsa.length > 0;
+    const pct = Math.min(100, Math.round((n / QI.BASELINE_TARGET) * 100));
+    const msg = pdsaStarted ? `${n} baseline point${n === 1 ? '' : 's'} before the first PDSA cycle.`
+        : n >= QI.BASELINE_TARGET ? `${n} baseline points: enough to set your target and plan the first PDSA cycle.`
+        : n >= QI.BASELINE_MIN ? `${n} of ${QI.BASELINE_TARGET} baseline points: the run chart rules now mean something. Finalise your aim and plan the first change.`
+        : `${n} of ${QI.BASELINE_TARGET} baseline points collected. Keep going before testing a change.`;
+    return `<div class="mt-2">
+        <div class="flex items-center justify-between text-xs mb-1"><span class="font-semibold text-slate-600">Baseline progress</span><span class="text-slate-500">${n} / ${QI.BASELINE_TARGET}</span></div>
+        <div class="w-full bg-slate-200 rounded-full h-1.5"><div class="h-1.5 rounded-full ${n >= QI.BASELINE_MIN ? 'bg-emerald-500' : 'bg-amber-400'}" style="width:${pct}%"></div></div>
+        <p class="text-xs text-slate-500 mt-1">${msg}</p>
+    </div>`;
+}
+
+function renderMeasureDefinitionBlock(d, c) {
+    const plan = d.dataPlan || {};
+    const kind = c.outcomeKind || '';
+    const kinds = [['percentage', 'Percentage'], ['time', 'Time (minutes/hours)'], ['count', 'Count or rate']];
+    const planField = (key, label, ph, type = 'text') => `<div><label class="block text-[11px] font-bold text-slate-500 mb-1">${label}</label><input type="${type}" value="${escapeHtml(plan[key] || '')}" onchange="window.saveDataPlanField('${key}', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="${escapeHtml(ph)}"></div>`;
+    return `
+        <div class="mt-4 border-t border-slate-100 pt-4 space-y-4">
+            <div>
+                <div class="flex flex-wrap items-center gap-3 mb-1">
+                    <label class="block text-sm font-medium text-slate-700">Operational definition <span class="text-xs text-slate-400 font-normal">what exactly counts, so anyone would collect it the same way</span></label>
+                    <span class="text-xs text-slate-500 ml-auto">Outcome measure is a:</span>
+                    <select onchange="window.setOutcomeKind(this.value)" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                        <option value="" ${kind ? '' : 'selected'}>Choose…</option>
+                        ${kinds.map(([v, l]) => `<option value="${v}" ${kind === v ? 'selected' : ''}>${l}</option>`).join('')}
+                    </select>
+                </div>
+                <textarea id="check-opdef" onchange="window.saveChecklistField('operational_definition', this.value)"
+                    class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
+                    placeholder="Choose the kind of number above to get a template with the gaps to fill.">${escapeHtml(c.operational_definition || '')}</textarea>
+            </div>
+            <div class="bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <p class="text-xs font-bold text-slate-600 uppercase mb-2 flex items-center gap-2"><i data-lucide="clipboard-list" class="w-3.5 h-3.5 text-indigo-500"></i> Data collection plan</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    ${planField('source', 'Where the data comes from', 'e.g. EPR sepsis flag and drug chart')}
+                    ${planField('collector', 'Who collects it', 'e.g. me, with the audit department\'s weekly extract')}
+                    <div><label class="block text-[11px] font-bold text-slate-500 mb-1">How often</label>
+                        <select onchange="window.saveDataPlanField('cadence', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                            ${['', 'daily', 'weekly', 'fortnightly', 'monthly'].map(v => `<option value="${v}" ${(plan.cadence || '') === v ? 'selected' : ''}>${v ? v[0].toUpperCase() + v.slice(1) : 'Choose…'}</option>`).join('')}
+                        </select></div>
+                    ${planField('sample', 'Sample per point', 'e.g. first ' + QI.SAMPLE_PER_POINT + ' eligible patients each week')}
+                    ${planField('start', 'Baseline starts', '', 'date')}
+                </div>
+                ${baselineProgressHtml(d)}
+            </div>
+        </div>`;
+}
+
 function renderMeasureRoleCoverage(d, c) {
     const coverage = window.getMeasureRoleCoverage ? window.getMeasureRoleCoverage() : null;
     if (!coverage) return '';
@@ -681,9 +740,10 @@ export function renderChecklist() {
                             <i data-lucide="external-link" class="w-3 h-3"></i> SMART aims guide
                         </a>
                     </div>
-                    <textarea id="check-aim" onchange="window.saveChecklistField('aim', this.value)" oninput="window.updateFieldWC(this,'wc-aim')"
+                    <textarea id="check-aim" onchange="window.saveChecklistField('aim', this.value)" oninput="window.updateFieldWC(this,'wc-aim'); window.refreshAimCoach('check-aim','aim-coach-box')"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-rcem-purple focus:border-transparent"
                         placeholder="To [increase/decrease] [measure] from [baseline] to [target] by [date]">${escapeHtml(c.aim || '')}</textarea>
+                    <div id="aim-coach-box">${coachHtml(coachAim(c.aim, { rotationEnd: d.meta?.rotationEnd, arcpDate: d.meta?.arcpDate, baselineCount: window.baselinePointCount() }), escapeHtml)}</div>
                     <div class="flex justify-end mt-1 mb-2">
                         <span id="wc-aim" class="text-xs ${(() => { const w = wc(c.aim||''); return w===0?'text-slate-300':w<10?'text-amber-500':w<80?'text-emerald-600 font-medium':'text-amber-600 font-medium'; })()}">${wc(c.aim||'')}w</span>
                     </div>
@@ -723,7 +783,7 @@ export function renderChecklist() {
             <h2 id="cs-header-3" onclick="window.toggleChecklistSection(3)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
                 Family of Measures
-                ${csDot(!!(c.outcome_measure && c.process_measure))}
+                ${csDot(!!(c.outcome_measure && c.process_measure && c.balance_measure))}
                 <a onclick="event.stopPropagation();" href="https://www.ihi.org/library/model-for-improvement/establishing-measures" target="_blank" rel="noopener" class="ml-auto text-xs text-slate-500 border border-slate-200 bg-slate-50 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1">
                     <i data-lucide="external-link" class="w-3 h-3"></i> Measures guide
                 </a>
@@ -751,7 +811,7 @@ export function renderChecklist() {
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">
-                        <span class="text-amber-600">●</span> Balancing Measure
+                        <span class="text-amber-600">●</span> Balancing Measure *
                     </label>
                     <textarea id="check-balance" onchange="window.saveChecklistField('balance_measure', this.value)"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[80px]"
@@ -759,6 +819,7 @@ export function renderChecklist() {
                 </div>
             </div>
             ${renderMeasureRoleCoverage(d, c)}
+            ${renderMeasureDefinitionBlock(d, c)}
         </section>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
@@ -1149,6 +1210,21 @@ export function renderDataView() {
     const opDefEl = document.getElementById('operational-definition');
     if (opDefEl && d.checklist) {
         opDefEl.value = d.checklist.operational_definition || '';
+    }
+
+    // Data collection plan summary and baseline progress
+    const planEl = document.getElementById('data-plan-summary');
+    if (planEl) {
+        const p = d.dataPlan || {};
+        const bits = [];
+        if (p.source) bits.push(`<strong>From:</strong> ${escapeHtml(p.source)}`);
+        if (p.collector) bits.push(`<strong>By:</strong> ${escapeHtml(p.collector)}`);
+        if (p.cadence) bits.push(`<strong>Every:</strong> ${escapeHtml(p.cadence)}`);
+        if (p.sample) bits.push(`<strong>Sample:</strong> ${escapeHtml(p.sample)}`);
+        if (p.start) bits.push(`<strong>Baseline from:</strong> ${escapeHtml(formatUkDate(p.start))}`);
+        planEl.innerHTML = (bits.length ? `<p class="text-xs text-slate-600 leading-relaxed">${bits.join(' · ')}</p>`
+            : `<p class="text-xs text-slate-400">No data collection plan yet. <button type="button" onclick="window.goToField('checklist','check-opdef')" class="text-indigo-600 hover:underline">Write one on Define &amp; Measure</button> so every point is collected the same way.</p>`)
+            + baselineProgressHtml(d);
     }
 
     renderDataTable();
@@ -3651,17 +3727,6 @@ export function removeFishCause(catIndex, causeIndex) {
 // 13. MODALS AND EXTENDED TOOLS
 // ==========================================
 
-const TOPIC_BANK = [
-    { title: "Sepsis 6 Pathway Compliance", desc: "Improving time to antibiotics for red flag sepsis in the Emergency Department." },
-    { title: "Fracture Clinic Referrals", desc: "Reducing inappropriate and incomplete referrals to the orthopaedic fracture clinic." },
-    { title: "Paracetamol Overdose", desc: "Improving compliance with the TOXBASE paracetamol overdose treatment pathway." },
-    { title: "NEWS2 Escalation", desc: "Improving time to medical review for patients triggering a NEWS2 score >= 7." },
-    { title: "Discharge Summaries", desc: "Improving the quality and timeliness of ED discharge summaries sent to primary care." },
-    { title: "Analgesia in Triage", desc: "Reducing time to initial analgesia for patients presenting with severe pain." },
-    { title: "VTE Risk Assessment", desc: "Increasing compliance with VTE risk assessments for patients in ED observation wards." },
-    { title: "Frailty Assessment", desc: "Improving early identification and Comprehensive Geriatric Assessment for frail patients." }
-];
-
 export function openTopicBank() {
     const modal = document.getElementById('topic-bank-modal');
     const list = document.getElementById('topic-list');
@@ -3669,13 +3734,10 @@ export function openTopicBank() {
     if (!modal || !list || !search) return;
 
     const renderList = (filter = "") => {
-        const filtered = TOPIC_BANK.filter(t => t.title.toLowerCase().includes(filter.toLowerCase()) || t.desc.toLowerCase().includes(filter.toLowerCase()));
-        list.innerHTML = filtered.map(t => `
-            <div class="border border-slate-200 p-3 rounded-lg hover:bg-slate-50 cursor-pointer" onclick="window.selectTopic('${escapeHtml(t.title)}', '${escapeHtml(t.desc)}')">
-                <h4 class="font-bold text-slate-800 text-sm">${t.title}</h4>
-                <p class="text-xs text-slate-500 mt-1">${t.desc}</p>
-            </div>
-        `).join('');
+        const f = filter.toLowerCase();
+        const filtered = STARTER_PROJECTS.filter(t => [t.title, t.area, t.problem, t.outcome].join(' ').toLowerCase().includes(f));
+        list.innerHTML = filtered.length ? filtered.map(t => starterCardHtml(t, escapeHtml)).join('')
+            : '<p class="text-sm text-slate-400 p-3">Nothing matches. Try a broader word, such as "time" or "older".</p>';
     };
 
     search.oninput = (e) => renderList(e.target.value);
@@ -3685,16 +3747,43 @@ export function openTopicBank() {
     modal.classList.add('flex');
 }
 
-export function selectTopic(title, desc) {
-    const problemInput = document.getElementById('check-problem');
-    if(problemInput) problemInput.value = desc;
-    // The wizard has its own problem box; fill it too, or Next saves the empty box over the choice.
-    const wizardInput = document.getElementById('onboarding-problem');
-    if (wizardInput) wizardInput.value = desc;
-    window.saveChecklistField('problem_desc', desc);
+export function selectTopic(id) {
+    const d = state.projectData;
+    if (!d) return;
+    const c = d.checklist || {};
+    const hasWords = ['problem_desc', 'aim', 'outcome_measure'].some(k => String(c[k] || '').trim());
+    let overwrite = false;
+    if (hasWords) {
+        overwrite = window.confirm('Replace what you have already written (problem, aim, measures, drivers and change ideas) with this starter? Cancel keeps your words and only fills the blanks.');
+    }
+    if (!applyStarterProject(id, overwrite)) return;
+    // Any open editor shows the new text straight away
+    const fill = (elId, val) => { const el = document.getElementById(elId); if (el) el.value = val || ''; };
+    fill('check-problem', d.checklist.problem_desc);
+    fill('onboarding-problem', d.checklist.problem_desc);
+    fill('check-aim', d.checklist.aim);
+    fill('onboarding-aim', d.checklist.aim);
     document.getElementById('topic-bank-modal').classList.add('hidden');
-    showToast("Topic selected", "success");
+    const t = document.getElementById('project-header-title');
+    if (t && d.meta?.title) t.textContent = d.meta.title;
+    if (document.getElementById('check-problem')) renderChecklist();
 }
+
+// Baseline points so far on the primary measure (phase-tagged, pre-PDSA or first 12)
+window.baselinePointCount = function () {
+    const d = state.projectData;
+    if (!d) return 0;
+    const pts = primaryChartData(d).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    return chooseBaseline(pts, d.pdsa || []).count;
+};
+
+window.refreshAimCoach = function (textareaId, boxId) {
+    const el = document.getElementById(textareaId);
+    const box = document.getElementById(boxId);
+    if (!el || !box) return;
+    const d = state.projectData || {};
+    box.innerHTML = coachHtml(coachAim(el.value, { rotationEnd: d.meta?.rotationEnd, arcpDate: d.meta?.arcpDate, baselineCount: window.baselinePointCount() }), escapeHtml);
+};
 
 export function openSmartAimBuilder() {
     const modal = document.getElementById('smart-aim-modal');
@@ -3703,7 +3792,7 @@ export function openSmartAimBuilder() {
     // Clear the values each time it's opened to ensure clean building process
     document.getElementById('smart-direction').value = 'increase';
     document.getElementById('smart-measure').value = '';
-    document.getElementById('smart-baseline').value = '';
+    document.getElementById('smart-baseline').value = window.baselinePointCount() >= QI.BASELINE_MIN ? '' : '[to be measured]';
     document.getElementById('smart-target').value = '';
     document.getElementById('smart-timeframe').value = '';
     document.getElementById('smart-setting').value = 'the Emergency Department';
@@ -3720,6 +3809,12 @@ export function openSmartAimBuilder() {
         const setting = document.getElementById('smart-setting').value || '[setting]';
         
         document.getElementById('smart-preview').textContent = `To ${dir} ${measure} from ${baseline} to ${target} by ${timeframe} in ${setting}.`;
+        const coachBox = document.getElementById('smart-coach');
+        if (coachBox) {
+            const d = state.projectData || {};
+            const filledAny = [measure, baseline, target, timeframe].some(v => !/^\[.*\]$/.test(v));
+            coachBox.innerHTML = filledAny ? coachHtml(coachAim(document.getElementById('smart-preview').textContent, { rotationEnd: d.meta?.rotationEnd, arcpDate: d.meta?.arcpDate, baselineCount: window.baselinePointCount() }), escapeHtml) : '';
+        }
     };
     
     ['smart-direction', 'smart-measure', 'smart-baseline', 'smart-target', 'smart-timeframe', 'smart-setting'].forEach(id => {
@@ -3735,10 +3830,12 @@ export function saveConstructedSmartAim() {
     const aim = document.getElementById('smart-preview').textContent;
     const aimInput = document.getElementById('check-aim');
     if(aimInput) aimInput.value = aim;
+    const wizardAim = document.getElementById('onboarding-aim');
+    if (wizardAim) { wizardAim.value = aim; if (window.onboardingAimChanged) window.onboardingAimChanged(); }
     window.saveChecklistField('aim', aim);
     document.getElementById('smart-aim-modal').classList.add('hidden');
     showToast("SMART Aim saved", "success");
-    renderChecklist();
+    if (document.getElementById('check-aim')) renderChecklist();
 }
 
 export async function openGoldenThreadValidator() {
@@ -3987,6 +4084,37 @@ window.applyPDSATemplate = function(id) {
     const planEl = document.getElementById('pdsa-plan');
     if (titleEl && !titleEl.value) titleEl.value = t.title;
     if (planEl && !planEl.value) planEl.value = t.plan;
+};
+
+window.saveDataPlanField = function (key, value) {
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.dataPlan || typeof state.projectData.dataPlan !== 'object') state.projectData.dataPlan = {};
+    state.projectData.dataPlan[key] = value;
+    if (window.saveData) window.saveData();
+};
+
+window.setOutcomeKind = function (kind) {
+    if (!state.projectData || state.isReadOnly) return;
+    const c = state.projectData.checklist || (state.projectData.checklist = {});
+    c.outcomeKind = kind;
+    const current = String(c.operational_definition || '').trim();
+    const isTemplate = !current || Object.values(OP_DEF_TEMPLATES).includes(current);
+    if (kind && isTemplate) {
+        c.operational_definition = OP_DEF_TEMPLATES[kind];
+        const el = document.getElementById('check-opdef'); if (el) el.value = c.operational_definition;
+        const el2 = document.getElementById('operational-definition'); if (el2) el2.value = c.operational_definition;
+    } else if (kind && !isTemplate) {
+        showToast('Your operational definition was kept. Clear it to get the template.', 'info');
+    }
+    if (window.saveData) window.saveData();
+};
+
+// Rotation end date save (dashboard)
+window.saveRotationEnd = function (val) {
+    if (!state.projectData || state.isReadOnly) return;
+    if (!state.projectData.meta) state.projectData.meta = {};
+    state.projectData.meta.rotationEnd = val || '';
+    if (window.saveData) window.saveData();
 };
 
 // ARCP date save

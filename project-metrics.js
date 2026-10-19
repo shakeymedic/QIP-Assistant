@@ -23,7 +23,7 @@ export function computeReadiness(d) {
     const criteria = [
         { label: 'Clear Problem Statement', met: !!c.problem_desc },
         { label: 'SMART Aim', met: !!c.aim },
-        { label: 'Measures Defined', met: !!(c.outcome_measure || c.process_measure) },
+        { label: 'Outcome, process and balancing measures', met: !!(c.outcome_measure && c.process_measure && c.balance_measure) },
         { label: 'Driver Diagram', met: (d.drivers?.primary?.length > 0) },
         { label: isHigher ? `${QI.PDSA_TYPICAL}+ PDSA cycles (iterative testing)` : '1+ PDSA cycle', met: isHigher ? pdsa.length >= QI.PDSA_TYPICAL : pdsa.length >= 1 },
         { label: `Run chart with ${QI.BASELINE_MIN}+ points and an interpretation`, met: (primaryChartData(d).length >= QI.BASELINE_MIN && !!c.results_analysis) },

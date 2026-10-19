@@ -77,6 +77,7 @@ function migrateProjectData(d) {
         d.charter.aimMigrated = true;
     }
     if (!Array.isArray(d.teamMembers)) d.teamMembers = [];
+    if (!d.dataPlan || typeof d.dataPlan !== 'object') d.dataPlan = { source: '', collector: '', cadence: '', sample: '', start: '' };
     if (!d.charter.teamMigrated) {
         // Charter rows not already on the QI Team (by name) are added to it
         const known = new Set(d.teamMembers.map(m => String(m?.name || '').trim().toLowerCase()).filter(Boolean));
