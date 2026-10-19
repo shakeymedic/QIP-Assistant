@@ -143,6 +143,13 @@ export async function renderTools(targetId = 'diagram-canvas', overrideMode = nu
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
+const TOOL_ONE_LINERS = {
+    driver: 'Driver diagram: the aim on the left, what must be true to reach it in the middle, the changes you could test on the right. Start here.',
+    fishbone: 'Fishbone: brainstorm with the team why the problem happens, one category per bone. Use it when the drivers are not obvious.',
+    process: 'Process map: the patient\'s journey step by step as it really happens. The waits and hand-offs are where the change ideas are.',
+    fivewhys: '5 Whys: ask "why?" until you reach a system cause you can change, not a person to blame.'
+};
+
 function renderToolUI() {
     const header = document.querySelector('#view-tools header');
     if(!header) return;
@@ -196,6 +203,10 @@ function renderToolUI() {
             <button aria-label="Toggle Help" onclick="window.toggleToolHelp()" class="text-slate-400 hover:text-rcem-purple p-2 rounded-lg hover:bg-slate-100 transition-colors" title="Help">
                 <i data-lucide="help-circle" class="w-5 h-5"></i>
             </button>
+        </div>
+        <div class="w-full flex flex-wrap items-center gap-2 text-xs text-slate-600 -mt-1">
+            <span>${TOOL_ONE_LINERS[toolMode] || ''}</span>
+            <button type="button" onclick="window.showExample('${toolMode}')" class="text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-0.5 rounded hover:bg-indigo-100 inline-flex items-center gap-1"><i data-lucide="eye" class="w-3 h-3"></i> Show me an example</button>
         </div>
     `;
 

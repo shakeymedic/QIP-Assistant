@@ -390,7 +390,7 @@ export function getDemoData() {
             outcomeKind: 'percentage',
             operational_definition: 'Numerator: adults (16+) with a red-flag sepsis criterion recorded at triage who receive a first IV antibiotic dose within 60 minutes of the triage time stamp. Denominator: all adults with a red-flag sepsis criterion recorded at triage in that week, excluding patients on an end-of-life pathway and transfers who received antibiotics before arrival. Source: EPR sepsis flag and drug administration record, extracted every Monday for the previous week (Monday to Sunday).',
             ethics: 'Classed as service evaluation and quality improvement using the HRA decision tool, so no research ethics review was needed. Registered with the Trust audit and QI team. Data were extracted without patient identifiers and stored on the Trust network. The PGD was approved by the Trust medicines committee before PDSA 3.',
-            hraChecklist: { q1: 'no', q2: 'no', q3: 'no', q4: 'no', notes: 'HRA decision tool completed May 2025: not research. Registered with the Trust audit and QI team (fictional reference QI-2025-031).' },
+            hraChecklist: { q1: 'no', q2: 'no', q3: 'yes', q4: 'no', notes: 'HRA decision tool completed May 2025: not research. Registered with the Trust audit and QI team (fictional reference QI-2025-031).' },
             swot: {
                 strengths: 'Engaged band 7 sepsis champion; consultant sponsor; sepsis flag already in the EPR, so data are easy to extract.',
                 weaknesses: 'Crowding in Majors; high agency nurse use on nights; no protected QI time.',

@@ -16,6 +16,7 @@ import { assessEmqiat } from "./emqiat-shared.js";
 import { QI, DATA_STORY } from "./qi-constants.js";
 import { STARTER_PROJECTS, applyStarterProject, starterCardHtml, OP_DEF_TEMPLATES } from "./idea-bank.js";
 import { coachAim, coachHtml } from "./aim-coach.js";
+import { nextStep } from "./next-step.js";
 import { stakeholderQuadrant, layoutStakeholders, fishboneSVG, fishboneProblem, ganttSummaryHTML, processFlowHTML } from "./diagrams.js";
 
 // ==========================================
@@ -337,48 +338,26 @@ function renderARCPCountdown() {
 function renderQICoachBanner() {
     const banner = document.getElementById('qi-coach-banner');
     if (!banner) return;
-    
     const d = state.projectData;
-    const checks = d.checklist || {};
-    const pdsa = d.pdsa || [];
-    const data = d.chartData || [];
-    const drivers = d.drivers || { primary: [], secondary: [], changes: [] };
-    
-    let tip = '';
-    let icon = 'lightbulb';
-    let color = 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200';
-    
-    if (!checks.problem_desc) {
-        tip = "Start by defining your problem statement in Define & Measure. Use the Topic Ideas Bank if you need inspiration!";
-    } else if (!checks.aim) {
-        tip = "Now set a SMART aim: Specific, Measurable, Achievable, Relevant, Time-bound. Use the Interactive Builder.";
-    } else if (drivers.primary.length === 0) {
-        tip = "Build your Driver Diagram in the Tools section. What are the main factors affecting your aim?";
-        icon = 'git-branch';
-    } else if (data.length < QI.BASELINE_MIN) {
-        tip = `You have ${data.length} data point${data.length === 1 ? '' : 's'}. Aim for ${QI.BASELINE_MIN} to ${QI.BASELINE_TARGET} baseline points before your first change (one a week from ${QI.SAMPLE_PER_POINT} patients is plenty) so the run chart rules mean something.`;
-        icon = 'bar-chart-2';
-    } else if (pdsa.length === 0) {
-        tip = "Ready to test a change? Document your first PDSA cycle. Ensure you write down a prediction in the Plan section.";
-        icon = 'refresh-cw';
-        color = 'bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200';
-    } else if (!checks.ethics) {
-        tip = "Don't forget governance! Document your ethical considerations and any approvals needed.";
-        icon = 'shield-check';
-    } else {
-        tip = "Excellent progress! Keep iterating through PDSA cycles. Remember to use the Golden Thread Validator to ensure coherence.";
-        icon = 'trophy';
-        color = 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200';
-    }
-    
+    const ns = nextStep(d);
+    const tones = {
+        amber: 'bg-gradient-to-r from-amber-50 to-amber-100 border-amber-200',
+        blue: 'bg-gradient-to-r from-sky-50 to-blue-100 border-blue-200',
+        emerald: 'bg-gradient-to-r from-emerald-50 to-emerald-100 border-emerald-200',
+        rose: 'bg-gradient-to-r from-rose-50 to-rose-100 border-rose-200',
+        purple: 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200'
+    };
+    const go = ns.action.view === 'wizard' ? 'window.startOnboarding()' : `window.router('${ns.action.view}')`;
     banner.innerHTML = `
-        <div class="${color} border rounded-xl p-4 flex items-start gap-4">
+        <div class="${tones[ns.tone] || tones.amber} border rounded-xl p-4 flex items-start gap-4">
             <div class="flex-shrink-0 w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center">
-                <i data-lucide="${icon}" class="w-5 h-5 text-rcem-purple"></i>
+                <i data-lucide="${ns.icon}" class="w-5 h-5 text-rcem-purple"></i>
             </div>
-            <div class="flex-1">
-                <div class="text-xs font-bold text-slate-500 uppercase mb-1">QI Coach Tip</div>
-                <p class="text-sm text-slate-700">${tip}</p>
+            <div class="flex-1 min-w-0">
+                <div class="text-xs font-bold text-slate-500 uppercase mb-1">Your next step <span class="font-normal normal-case text-slate-400">· step ${ns.stage} of 16</span></div>
+                <p class="text-sm font-bold text-slate-800">${ns.title}</p>
+                <p class="text-sm text-slate-700 mt-0.5">${ns.text}</p>
+                <button type="button" onclick="${go}" class="mt-2 text-xs bg-rcem-purple text-white px-3 py-1.5 rounded-lg font-medium hover:bg-indigo-800 inline-flex items-center gap-1">${escapeHtml(ns.action.label)} <i data-lucide="arrow-right" class="w-3 h-3"></i></button>
             </div>
         </div>
     `;
@@ -957,7 +936,10 @@ export function renderChecklist() {
                 <span class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center text-sm font-bold">7</span>
                 Learning & Sustainability
                 ${csDot(!!(c.learning_points && c.sustainability))}
-                <i data-lucide="chevron-down" id="cs-chevron-7" class="w-4 h-4 text-slate-400 flex-shrink-0 ml-auto"></i>
+                <button onclick="window.openHandoverNote();event.stopPropagation();" class="ml-auto text-xs text-teal-700 border border-teal-200 bg-teal-50 px-2 py-1 rounded hover:bg-teal-100 flex items-center gap-1" title="A one-page note for your successor and sponsor: aim, measures, data plan, what was tested, who owns what next">
+                    <i data-lucide="file-output" class="w-3 h-3"></i> Handover note
+                </button>
+                <i data-lucide="chevron-down" id="cs-chevron-7" class="w-4 h-4 text-slate-400 flex-shrink-0"></i>
             </h2>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -970,7 +952,7 @@ export function renderChecklist() {
                     <label class="block text-sm font-medium text-slate-700 mb-1">Sustainability Summary</label>
                     <textarea id="check-sustainability" onchange="window.saveChecklistField('sustainability', this.value)"
                         class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[100px]"
-                        placeholder="High-level sustainability narrative for the FRCEM submission.">${escapeHtml(c.sustainability || '')}</textarea>
+                        placeholder="Who owns each change after you leave, how the measure keeps being collected, and who will see the run chart.">${escapeHtml(c.sustainability || '')}</textarea>
                 </div>
             </div>
             <!-- Sustainability & Spread Planner -->
@@ -1653,7 +1635,7 @@ export function addCycleToIdea(ideaIdx) {
     // Apply template plan text if selected
     const CYCLE_TEMPLATES = {
         education: { plan: 'Deliver a focused education session to the target staff group explaining the change and expected benefits. Gather attendance records.', prediction: 'Following education, compliance with the target behaviour will increase by at least 20% in the subsequent audit cycle.' },
-        audit:     { plan: 'Conduct a prospective audit of [N] consecutive cases against the standard. Use the agreed data collection tool.', prediction: 'Feeding the audit result back to the team at the next meeting will raise compliance by at least 10 percentage points over the following fortnight; the effect will fade without a further change. (Collecting the baseline itself is not a PDSA cycles.' },
+        audit:     { plan: 'Conduct a prospective audit of [N] consecutive cases against the standard. Use the agreed data collection tool.', prediction: 'Feeding the audit result back to the team at the next meeting will raise compliance by at least 10 percentage points over the following fortnight; the effect will fade without a further change. (Collecting the baseline itself is not a PDSA cycle.)' },
         checklist: { plan: 'Introduce a one-page process checklist at the point of care and trial with the next 10 eligible patients or episodes.', prediction: 'Completion rates will improve as the checklist acts as a cognitive prompt for the required steps.' },
         reminder:  { plan: 'Design and place a visual reminder (poster, badge card, or screen saver) in the clinical area. Record whether staff notice or reference it.', prediction: 'Visibility of the reminder will prompt behaviour change for at least 30% of staff during the trial period.' },
         protocol:  { plan: 'Draft an updated SOP/protocol and share for peer review. Pilot the revised protocol with the next 5 eligible cases.', prediction: 'A clear, accessible protocol will reduce variation in practice and improve compliance with the intended standard.' }
@@ -2039,12 +2021,13 @@ export function renderPDSA() {
                                                 </div>
                                                 <div>
                                                     <label class="text-xs font-bold text-sky-600 flex items-center gap-1 mb-0.5">
-                                                        <span class="w-4 h-4 rounded-full bg-sky-100 flex items-center justify-center text-[10px]">P</span> Prediction
-                                                        <span class="text-[9px] font-normal text-sky-400 normal-case">(ARCP required)</span>
+                                                        <span class="w-4 h-4 rounded-full bg-sky-100 flex items-center justify-center text-[10px]">P</span> Prediction <span class="text-red-400">*</span>
+                                                        <span class="text-[9px] font-normal text-sky-400 normal-case">(the EM QIAT asks for it)</span>
                                                     </label>
                                                     <textarea onchange="window.updateCycleInIdea(${ideaIdx}, ${cycleIdx}, 'prediction', this.value)"
-                                                        class="w-full p-2 bg-sky-50/50 border border-sky-200 rounded text-sm min-h-[70px]"
-                                                        placeholder="What do you predict will happen and why? Be specific and measurable.">${escapeHtml(p.prediction||'')}</textarea>
+                                                        class="w-full p-2 bg-sky-50/50 border ${String(p.prediction||'').trim() ? 'border-sky-200' : 'border-amber-300'} rounded text-sm min-h-[70px]"
+                                                        placeholder="A number and a reason: e.g. screening on that desk will reach 50% because the prompt removes the need to remember.">${escapeHtml(p.prediction||'')}</textarea>
+                                                    ${/^\s*(it|things?|compliance|this)?\s*(will|should)\s+(improve|get better|increase|go up|help)\s*\.?\s*$/i.test(p.prediction||'') ? '<p class="text-[11px] text-amber-700 mt-1">"It will improve" is a hope, not a prediction. Say by how much and why, so the Study step can test it.</p>' : ''}
                                                 </div>
                                             </div>
                                             <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -2083,6 +2066,7 @@ export function renderPDSA() {
                                                 <textarea onchange="window.updateCycleInIdea(${ideaIdx}, ${cycleIdx}, 'act', this.value)"
                                                     class="w-full p-2 bg-emerald-50/50 border border-emerald-100 rounded text-sm min-h-[60px]"
                                                     placeholder="Will you ADOPT, ADAPT, or ABANDON this change? Why? What is your next cycle?">${escapeHtml(p.act||'')}</textarea>
+                                                ${autoDec === 'adopted' ? `<p class="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded px-2 py-1 mt-1"><strong>Adopted? Scale it up.</strong> The next cycle tests the same change bigger: more shifts, the whole week, a second area. Keep the measure running so the run chart shows whether the gain holds.</p>` : autoDec === 'abandoned' ? `<p class="text-[11px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-2 py-1 mt-1">Abandoning a change is a result, not a failure: record what you learned and pick the next idea from the driver diagram.</p>` : ''}
                                             </div>
                                         </div>
                                     </div>
@@ -4086,6 +4070,38 @@ window.applyPDSATemplate = function(id) {
     if (planEl && !planEl.value) planEl.value = t.plan;
 };
 
+// Fill-in-the-blanks interpretation of the current run chart
+window.insertInterpretationTemplate = function (kind) {
+    const box = document.getElementById('results-text');
+    const d = state.projectData;
+    if (!box || !d) return;
+    const sig = window.lastRunChartSignals;
+    const pts = primaryChartData(d).slice().sort((a, b) => new Date(a.date) - new Date(b.date));
+    const n = pts.length;
+    const first = n ? formatUkDate(pts[0].date) : '[start date]';
+    const last = n ? formatUkDate(pts[n - 1].date) : '[end date]';
+    const med = sig && sig.median !== null && sig.median !== undefined ? withUnit(sig.median, sig.unit) : '[median]';
+    const base = sig && sig.baseline ? sig.baseline.count : window.baselinePointCount();
+    const pdsa = Array.isArray(d.pdsa) ? d.pdsa : [];
+    const cycleNames = pdsa.map((p, i) => p.title || `PDSA ${i + 1}`);
+    let text = '';
+    if (kind === 'none') {
+        text = `Between ${first} and ${last} we collected ${n} weekly points${base ? ` (${base} baseline)` : ''}. The baseline median was ${med}. There is no shift (${QI.RUN_SHIFT} or more consecutive points on one side of the median) and no trend (${QI.RUN_TREND} or more rising or falling), so the variation so far looks random around the median: ${pdsa.length ? `the changes tested (${cycleNames.join(', ')}) have not yet produced a measurable improvement` : 'no change has been tested yet'}. This is a result, not a failure: [what we think explains it, e.g. the change only reached one shift] and the next cycle will [what changes next].`;
+    } else if (kind === 'shift') {
+        text = `Between ${first} and ${last} we collected ${n} weekly points, with a baseline median of ${med} from ${base} points. From [date of the first point in the run] there is a shift: ${QI.RUN_SHIFT} or more consecutive points [above/below] the median, which lines up with [${cycleNames[cycleNames.length - 1] || 'PDSA cycle'}] starting on [date]. The new level is about [new value]. We are [confident/cautious] this is a real change because [reason, e.g. it has held for N weeks across all shifts]. The balancing measure ([balancing measure]) [did/did not] worsen.`;
+    } else if (kind === 'trend') {
+        text = `Between ${first} and ${last} we collected ${n} weekly points, with a baseline median of ${med}. From [date] the points [rise/fall] for ${QI.RUN_TREND} or more weeks in a row, a trend, which coincides with [${cycleNames[cycleNames.length - 1] || 'the change'}]. A trend suggests a gradual change rather than a step: [why that fits, e.g. staff were trained in batches]. We will know it is sustained when [what would convince us, e.g. the points settle at a new level for 8 weeks].`;
+    } else if (kind === 'unusual') {
+        text = `Between ${first} and ${last} we collected ${n} weekly points, with a baseline median of ${med}. The point on [date] (value [value]) is far from the others. We checked the data entry and it was [correct/an error, now fixed]. The likely special cause was [e.g. a bank holiday weekend, a department move, an outbreak]. Apart from that point the variation looks random around the median.`;
+    }
+    if (!text) return;
+    const existing = box.value.trim();
+    box.value = existing ? existing + '\n\n' + text : text;
+    box.dispatchEvent(new Event('change'));
+    box.focus();
+    showToast('Template inserted. Replace everything in square brackets.', 'info');
+};
+
 window.saveDataPlanField = function (key, value) {
     if (!state.projectData || state.isReadOnly) return;
     if (!state.projectData.dataPlan || typeof state.projectData.dataPlan !== 'object') state.projectData.dataPlan = {};
@@ -4223,7 +4239,43 @@ window.showExample = function(section) {
     const c = getDemoData().checklist;
     const box = (label, text) => `<div><strong class="block text-xs text-slate-500 uppercase mb-1">${label}</strong>
                 <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded whitespace-pre-line">${escapeHtml(text)}</p></div>`;
+    const demo = getDemoData();
+    const list = (arr) => `<ul class="list-disc pl-5 text-sm text-slate-700 space-y-0.5">${(arr || []).map(x => `<li>${escapeHtml(typeof x === 'string' ? x : (x && x.text) || '')}</li>`).join('')}</ul>`;
     const examples = {
+        driver: {
+            title: 'Driver Diagram — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <p class="text-xs text-slate-500">Read it left to right: the aim, the handful of things that must be true for the aim to be met (primary drivers), the more specific factors under each (secondary drivers), and the change ideas you could test against them.</p>
+                ${box('Aim', demo.checklist.aim)}
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Primary drivers</strong>${list(demo.drivers.primary)}</div>
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Secondary drivers</strong>${list(demo.drivers.secondary)}</div>
+                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Change ideas</strong>${list(demo.drivers.changes)}</div>
+            </div>`
+        },
+        fishbone: {
+            title: 'Fishbone (cause and effect) — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <p class="text-xs text-slate-500">The problem goes in the head; each bone is a category of cause. It is a brainstorming tool for the team, not a diagram to be complete. The causes you can do something about become drivers and change ideas.</p>
+                ${box('Problem (the fish head)', demo.fishbone.problem)}
+                ${(demo.fishbone.categories || []).map(cat => `<div><strong class="block text-xs text-slate-500 uppercase mb-1">${escapeHtml(cat.text)}</strong>${list(cat.causes)}</div>`).join('')}
+            </div>`
+        },
+        process: {
+            title: 'Process Map — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <p class="text-xs text-slate-500">Walk the patient's journey step by step as it actually happens, not as the policy says. Delays, hand-offs and "wait for" steps are where change ideas live.</p>
+                <ol class="list-decimal pl-5 text-sm text-slate-700 space-y-0.5">${(demo.process || []).map(s => `<li>${escapeHtml(s)}</li>`).join('')}</ol>
+            </div>`
+        },
+        fivewhys: {
+            title: '5 Whys — Example (Sepsis Project)',
+            content: `<div class="space-y-3">
+                <p class="text-xs text-slate-500">Start with the problem and ask "why?" until you reach something you can change. Five is a guide, not a rule; stop when the answer is a system, not a person.</p>
+                ${box('Problem', demo.fivewhys.problem)}
+                ${[1, 2, 3, 4, 5].map(i => box('Why ' + i, demo.fivewhys['why' + i])).join('')}
+                ${box('Root cause', demo.fivewhys.rootCause)}
+            </div>`
+        },
         problem: {
             title: 'Problem Definition — Example (Sepsis Project)',
             content: `<div class="space-y-4">

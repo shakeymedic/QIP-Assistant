@@ -353,11 +353,11 @@
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
                         <div class="nav-group-items space-y-0.5" id="nav-group-items-test">
-                            <button type="button" aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-pdsa">
-                                <i data-lucide="refresh-cw" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">PDSA Cycles</span>
-                            </button>
                             <button type="button" aria-label="Go to Data &amp; SPC" onclick="window.router('data')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-data">
                                 <i data-lucide="bar-chart-2" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Data &amp; SPC</span>
+                            </button>
+                            <button type="button" aria-label="Go to PDSA Cycles" onclick="window.router('pdsa')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-pdsa">
+                                <i data-lucide="refresh-cw" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">PDSA Cycles</span>
                             </button>
                             <button type="button" aria-label="Go to Results &amp; Measurements" onclick="window.router('results')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-results">
                                 <i data-lucide="clipboard-pen-line" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Results &amp; Measurements</span>
@@ -869,7 +869,14 @@
                                     <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2">
                                         <i data-lucide="file-text" class="w-4 h-4 text-blue-500"></i> Results Interpretation
                                     </h3>
-                                    <textarea id="results-text" class="w-full p-2 border rounded text-sm" rows="4" placeholder="Describe what the data shows..." onchange="window.saveResults(this.value)"></textarea>
+                                    <div class="flex flex-wrap gap-1.5 mb-2 text-[11px]">
+                                        <span class="text-slate-500 self-center">Start from a template:</span>
+                                        <button type="button" onclick="window.insertInterpretationTemplate('none')" class="px-2 py-0.5 rounded border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700">No change yet</button>
+                                        <button type="button" onclick="window.insertInterpretationTemplate('shift')" class="px-2 py-0.5 rounded border border-amber-200 bg-amber-50 hover:bg-amber-100 text-amber-800">Shift</button>
+                                        <button type="button" onclick="window.insertInterpretationTemplate('trend')" class="px-2 py-0.5 rounded border border-orange-200 bg-orange-50 hover:bg-orange-100 text-orange-800">Trend</button>
+                                        <button type="button" onclick="window.insertInterpretationTemplate('unusual')" class="px-2 py-0.5 rounded border border-red-200 bg-red-50 hover:bg-red-100 text-red-800">Unusual point</button>
+                                    </div>
+                                    <textarea id="results-text" class="w-full p-2 border rounded text-sm" rows="5" placeholder="What does the chart show? The templates above write a first draft from your data; replace everything in square brackets." onchange="window.saveResults(this.value)"></textarea>
                                     <button aria-label="Analyse Chart with AI" onclick="window.aiAnalyseChart()" id="btn-ai-chart" class="w-full mt-2 border border-purple-200 text-purple-700 py-2 rounded-lg font-bold hover:bg-purple-50 transition-colors flex items-center justify-center gap-2">
                                         <i data-lucide="sparkles" class="w-4 h-4"></i> AI Analyse
                                     </button>
