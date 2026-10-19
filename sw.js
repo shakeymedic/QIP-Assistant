@@ -2,7 +2,7 @@
 // every logged version string below derives from this constant, so the two can
 // never drift out of sync the way they previously did (constant said v3.24.0,
 // the install/load log lines still said v3.15.17/v3.15.19).
-const SW_VERSION = 'v3.34.0';
+const SW_VERSION = 'v3.35.0';
 const CACHE_NAME = `rcem-qip-${SW_VERSION}`;
 const STATIC_CACHE = `rcem-qip-static-${SW_VERSION}`;
 const DYNAMIC_CACHE = `rcem-qip-dynamic-${SW_VERSION}`;
@@ -38,6 +38,7 @@ const STATIC_ASSETS = [
     '/patient-tracker.js',
     '/green-calculator.js',
     '/hints.js',
+    '/modal-a11y.js',
     '/styles.css',
     '/manifest.json',
     '/logo.png'
@@ -45,8 +46,8 @@ const STATIC_ASSETS = [
 
 const CDN_ASSETS = [
     'https://cdn.tailwindcss.com',
-    'https://unpkg.com/lucide@latest',
-    'https://cdn.jsdelivr.net/npm/chart.js',
+    'https://unpkg.com/lucide@1.59.0/dist/umd/lucide.min.js',
+    'https://cdn.jsdelivr.net/npm/chart.js@4.5.1',
     'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js',
     'https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js',
     'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js',

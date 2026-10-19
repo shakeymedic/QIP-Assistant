@@ -53,7 +53,7 @@ export function renderAll(view) {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-function updateNavigationUI(currentView) {
+export function updateNavigationUI(currentView) {
     // Grey out project nav items when no project is loaded
     // 'learn' intentionally excluded — always accessible regardless of project state
     const allProjectNavIds = ['dashboard', 'checklist', 'team', 'charter', 'tools', 'pdsa', 'data', 'results', 'publish', 'surveys', 'stakeholders', 'gantt', 'action-plan', 'supervisor', 'green', 'full'];
@@ -116,9 +116,9 @@ function updateNavigationUI(currentView) {
         const score = domains.filter(Boolean).length;
         const pct = Math.round((score / 8) * 100);
         const chipColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
-        chip.innerHTML = `<button type="button" onclick="window.showFRCEMReadinessChecker && window.showFRCEMReadinessChecker()" title="Project readiness: ${score} of 8 key elements in place. Click for details." aria-label="Project readiness ${score} of 8 — show details" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+        chip.innerHTML = `<button type="button" onclick="window.showFRCEMReadinessChecker && window.showFRCEMReadinessChecker()" title="Project sections: ${score} of 8 key parts filled in. This checks the sections exist, not how good they are. Click for details." aria-label="Project sections filled in: ${score} of 8. Show details" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <div class="flex-1 bg-white/15 rounded-full h-1.5"><div class="${chipColor} h-1.5 rounded-full transition-all" style="width:${pct}%"></div></div>
-            <span class="text-[11px] font-semibold text-slate-300 whitespace-nowrap">${score}/8 ready</span>
+            <span class="text-[11px] font-semibold text-slate-300 whitespace-nowrap">${score}/8 sections</span>
         </button>`;
     } else if (chip) {
         chip.innerHTML = '';
@@ -222,17 +222,23 @@ export function renderDashboard() {
 function updatePortfolioReadiness() {
     // Same scoring the QIP Lead and Supervisor overviews show (project-metrics.js).
     const { criteria, metCount, percent, isHigher } = computeReadiness(state.projectData);
+    // "Ready" must agree with the EM-QIAT form the supervisor actually reviews,
+    // so all key elements being present is not enough on its own.
+    const qiat = assessEmqiat(state.projectData || {});
+    const qiatAllStrong = qiat.strong === qiat.total;
+    const headline = percent < 100 ? 'Work in progress'
+        : (qiatAllStrong ? 'Ready for submission' : 'Key elements in place: now strengthen your EM-QIAT answers');
 
     const container = document.getElementById('readiness-content');
     if (container) {
         container.innerHTML = `
             <div class="flex items-center gap-4 mb-4">
-                <div class="w-16 h-16 rounded-full flex items-center justify-center font-black text-xl ${percent === 100 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
+                <div class="w-16 h-16 rounded-full flex-shrink-0 flex items-center justify-center font-black text-xl ${percent === 100 && qiatAllStrong ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}">
                     ${percent}%
                 </div>
                 <div>
-                    <div class="text-sm font-bold text-slate-800">${percent === 100 ? 'Ready for Submission!' : 'Work in Progress'}</div>
-                    <div class="text-xs text-slate-500">Met ${metCount} of ${criteria.length} key requirements for ${isHigher ? 'Higher' : 'ACCS'} level.</div>
+                    <div class="text-sm font-bold text-slate-800">${headline}</div>
+                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. EM-QIAT: ${qiat.strong} of ${qiat.total} sections strong.</div>
                 </div>
             </div>
             <div class="space-y-2">
@@ -244,7 +250,7 @@ function updatePortfolioReadiness() {
                 `).join('')}
             </div>
             ${emqiatReadinessLine()}
-            ${percent < 100 ? `
+            ${percent < 100 || !qiatAllStrong ? `
                 <div class="flex gap-2 mt-4">
                     <button onclick="window.openGoldenThreadValidator()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
                         <i data-lucide="shield-check" class="w-4 h-4"></i> Golden Thread
@@ -268,7 +274,7 @@ function emqiatReadinessLine() {
             class="mt-4 w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${all ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100'}">
             <i data-lucide="clipboard-check" class="w-5 h-5 ${all ? 'text-emerald-600' : 'text-indigo-600'} flex-shrink-0"></i>
             <span class="flex-1">
-                <span class="block text-xs font-bold text-slate-800">EM QIAT: ${res.strong} of ${res.total} sections strong</span>
+                <span class="block text-xs font-bold text-slate-800">EM-QIAT: ${res.strong} of ${res.total} sections strong</span>
                 <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : 'See exactly what each answer still needs'}</span>
             </span>
             <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
@@ -1252,7 +1258,17 @@ export function renderResultsView() {
         const stats = _resultsBeforeAfterStats(m.chartData);
         const sparkline = _resultsSparklineSVG(m.chartData);
         const pctDisplay = stats.pctChange === null ? '—' : `${stats.pctChange > 0 ? '+' : ''}${stats.pctChange.toFixed(0)}%`;
-        const pctColor = stats.pctChange === null ? 'text-slate-400' : (stats.pctChange < 0 ? 'text-emerald-600' : (stats.pctChange > 0 ? 'text-amber-600' : 'text-slate-500'));
+        // Whether a rise is good depends on the measure, so infer the wanted
+        // direction from where the target sits relative to the baseline median.
+        // With no target there's no way to tell, so stay neutral.
+        const target = parseFloat(m.chartSettings?.target);
+        const before = parseFloat(stats.beforeMedian);
+        const wanted = (Number.isFinite(target) && Number.isFinite(before) && target !== before) ? Math.sign(target - before) : 0;
+        const pctColor = stats.pctChange === null ? 'text-slate-400'
+            : (stats.pctChange === 0 || wanted === 0) ? 'text-slate-600'
+            : (Math.sign(stats.pctChange) === wanted ? 'text-emerald-600' : 'text-amber-600');
+        const pctTitle = wanted === 0 ? 'Set a target on the Data & SPC page so this can show whether the change is an improvement'
+            : (wanted > 0 ? 'Higher is better for this measure (target is above the baseline)' : 'Lower is better for this measure (target is below the baseline)');
         return `
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
                 <div class="flex justify-between items-start mb-3">
@@ -1279,7 +1295,7 @@ export function renderResultsView() {
                     </div>
                     <div class="bg-slate-50 rounded-lg p-2">
                         <div class="text-[10px] uppercase text-slate-400 font-bold">% Change</div>
-                        <div class="text-sm font-bold ${pctColor}">${stats.singlePhase ? '—' : pctDisplay}</div>
+                        <div class="text-sm font-bold ${pctColor}" title="${pctTitle}">${stats.singlePhase ? '—' : pctDisplay}</div>
                     </div>
                 </div>
                 <p class="text-[11px] text-slate-400 mt-2 text-center">N = ${stats.n} data point${stats.n === 1 ? '' : 's'}${stats.singlePhase ? ' · tag a second Phase/Cycle to compare Before vs After' : ''}</p>
@@ -1816,7 +1832,7 @@ export function renderPDSA() {
                     const cycleCount = cycles.length;
                     const progress   = Math.min(cycleCount, 3);
                     const progressPct = Math.round((progress / 3) * 100);
-                    const progressLabel = cycleCount >= 3 ? '✓ FRCEM Excellent threshold met' : `${cycleCount}/3 cycles — ${3 - cycleCount} more for FRCEM Excellent`;
+                    const progressLabel = cycleCount >= 3 ? '✓ 3 or more cycles: shows iterative testing' : `${cycleCount}/3 cycles: ${3 - cycleCount} more to show iterative testing`;
 
                     const statusColors = { active: 'bg-emerald-100 text-emerald-700', planning: 'bg-blue-100 text-blue-700', completed: 'bg-slate-100 text-slate-600', abandoned: 'bg-red-100 text-red-700' };
                     const statusCls = statusColors[idea.status] || statusColors.active;
@@ -1832,7 +1848,7 @@ export function renderPDSA() {
                                     <div class="flex items-center gap-2 flex-wrap">
                                         <input value="${escapeHtml(idea.title || '')}"
                                             onchange="window.updateChangeIdea(${ideaIdx}, 'title', this.value)"
-                                            class="font-bold text-slate-800 bg-transparent border-0 border-b-2 border-transparent hover:border-slate-300 focus:border-rcem-purple outline-none transition-colors flex-1 min-w-0 text-sm"
+                                            class="font-bold text-slate-800 bg-transparent border-0 border-b-2 border-transparent hover:border-slate-300 focus:border-rcem-purple outline-none transition-colors flex-1 min-w-[10rem] text-sm"
                                             placeholder="Change idea title">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${statusCls}">
                                             <select onchange="window.updateChangeIdea(${ideaIdx}, 'status', this.value)"
@@ -1885,9 +1901,9 @@ export function renderPDSA() {
                                 return `
                                 <div class="border-t border-slate-100">
                                     <!-- Cycle mini-header (always visible) -->
-                                    <div class="px-5 py-3 flex items-center gap-3 cursor-pointer hover:bg-slate-50 transition-colors" onclick="document.getElementById('cycle-body-${pfx}').classList.toggle('hidden'); this.querySelector('.cycle-chevron').classList.toggle('rotate-180')">
+                                    <div class="px-5 py-3 flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1 cursor-pointer hover:bg-slate-50 transition-colors" onclick="document.getElementById('cycle-body-${pfx}').classList.toggle('hidden'); this.querySelector('.cycle-chevron').classList.toggle('rotate-180')">
                                         <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">${cycleIdx + 1}</span>
-                                        <span class="flex-1 font-medium text-sm text-slate-700 truncate">${escapeHtml(p.title || 'Cycle ' + (cycleIdx + 1))}</span>
+                                        <span class="flex-1 min-w-[8rem] font-medium text-sm text-slate-700 truncate">${escapeHtml(p.title || 'Cycle ' + (cycleIdx + 1))}</span>
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${sCls}">${p.status || 'planning'}</span>
                                         ${p.startDate || p.start ? `<span class="text-xs text-slate-400">${formatDate(p.startDate || p.start)}</span>` : ''}
                                         ${autoDec ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${dCls}">${autoDec}</span>` : ''}
@@ -2166,6 +2182,10 @@ export function renderStakeholders() {
     
     const canvas = document.getElementById('stakeholder-canvas');
     if (!canvas) return;
+
+    // On a phone the matrix cards overlap, so start with the list unless
+    // the person has asked for the matrix.
+    if (window.innerWidth < 640 && !window._stakeMatrixChosen) { toggleStakeView(); return; }
     
     const stakes = d.stakeholders || [];
 
@@ -2392,7 +2412,7 @@ export function toggleStakeView() {
                     </h2>
                 </div>
                 <div class="flex gap-2">
-                    <button onclick="window.renderStakeholders()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
+                    <button onclick="window._stakeMatrixChosen = true; window.renderStakeholders()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
                         <i data-lucide="grid-3x3" class="w-4 h-4"></i> Matrix View
                     </button>
                     <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
@@ -2837,7 +2857,7 @@ export function renderGantt() {
         <div class="overflow-x-auto border border-slate-200 rounded-lg">
             <div style="min-width: ${totalDays * dayWidth + 200}px">
                 <div class="flex border-b border-slate-200 bg-slate-50 sticky top-0 z-10">
-                    <div class="w-48 flex-shrink-0 px-3 py-2 font-bold text-xs text-slate-500 uppercase border-r border-slate-200">Task</div>
+                    <div class="w-40 sm:w-64 flex-shrink-0 px-3 py-2 font-bold text-xs text-slate-500 uppercase border-r border-slate-200">Task</div>
                     <div class="flex-1 flex overflow-hidden">
                         ${timeHeaders}
                     </div>
@@ -2853,7 +2873,7 @@ export function renderGantt() {
                     
                     return `
                         <div class="flex border-b border-slate-100 hover:bg-slate-50 group">
-                            <div class="w-48 flex-shrink-0 px-3 py-3 border-r border-slate-100 flex items-center justify-between">
+                            <div class="w-40 sm:w-64 flex-shrink-0 px-3 py-3 border-r border-slate-100 flex items-center justify-between">
                                 <button type="button" onclick="window.openGanttModal(${i})" class="truncate text-sm text-slate-700 flex items-center gap-2 text-left hover:text-rcem-purple" title="Edit: ${escapeHtml(t.name || 'Untitled')}">
                                     ${t.milestone ? '<i data-lucide="flag" class="w-3 h-3 text-amber-500 flex-shrink-0"></i>' : ''}
                                     <span class="truncate">${escapeHtml(t.name || 'Untitled')}</span>
@@ -3815,13 +3835,25 @@ export function showHelp() {
     showToast("QI Coach: Start with Define & Measure, then build your Driver Diagram, add data, and document PDSA cycles.", "info");
 }
 
-export function startTour() {
-    if (typeof driver === 'undefined') {
+export function startTour(_retried) {
+    // The tour points at sidebar items, which are disabled until a project is open
+    if (!state.projectData) {
+        if (state.isDemoMode && typeof window.openDemoProject === 'function' && !_retried) {
+            window.openDemoProject();
+            setTimeout(() => startTour(true), 600);
+            return;
+        }
+        showToast("Open a project first, then start the guided tour.", "info");
+        return;
+    }
+    // driver.js 1.x IIFE build exposes the factory at window.driver.js.driver
+    const driverFactory = window.driver?.js?.driver || window.driver?.driver;
+    if (typeof driverFactory !== 'function') {
         showToast("Guided tour unavailable — check your internet connection and try again.", "info");
         return;
     }
     try {
-        const driverObj = driver.driver({
+        const driverObj = driverFactory({
             showProgress: true,
             animate: true,
             overlayColor: '#1e1b4b',
@@ -3830,14 +3862,14 @@ export function startTour() {
                 { element: '#nav-dashboard',     popover: { title: '📊 Dashboard',           description: 'Your project at a glance — progress score, chart preview, team summary and portfolio readiness.' }},
                 { element: '#nav-checklist',     popover: { title: '📋 Define & Measure',     description: 'Start here. Write your problem statement, set a SMART aim, define measures, and complete your evidence & ethics review.' }},
                 { element: '#nav-tools',         popover: { title: '🔧 Diagnosis Tools',      description: 'Fishbone diagram, Driver diagram, and 5-Whys analysis to identify and understand root causes.' }},
-                { element: '#nav-data',          popover: { title: '📈 Run Chart & SPC',      description: 'Add data points and track your measure over time. SPC rules are applied automatically to detect improvement signals.' }},
+                { element: '#nav-data',          popover: { title: '📈 Data & SPC',      description: 'Add data points and track your measure over time. SPC rules are applied automatically to detect improvement signals.' }},
                 { element: '#nav-pdsa',          popover: { title: '🔄 PDSA Cycles',          description: 'Log each Plan-Do-Study-Act cycle with predictions, outcomes and learning. Cycles annotate directly on your run chart.' }},
-                { element: '#nav-team',          popover: { title: '👥 Team',                 description: 'Record team members, their roles and your specific contributions. Required for ARCP portfolio evidence.' }},
+                { element: '#nav-team',          popover: { title: '👥 Team & Leadership',                 description: 'Record team members, their roles and your specific contributions. Required for ARCP portfolio evidence.' }},
                 { element: '#nav-stakeholders',  popover: { title: '🗣️ Stakeholders',         description: 'Map stakeholders by power and interest. Track engagement strategies.' }},
-                { element: '#nav-gantt',         popover: { title: '📅 Gantt Chart',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
-                { element: '#nav-surveys',       popover: { title: '📝 Surveys',              description: 'Log and analyse patient or staff feedback to support your change package.' }},
-                { element: '#nav-supervisor',    popover: { title: '🏆 Portfolio Readiness',  description: 'Check SLO11 sign-off criteria. See exactly what evidence is complete and what still needs work.' }},
-                { element: '#nav-publish',       popover: { title: '🚀 Publish & Export',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or Kaizen report in one click.' }}
+                { element: '#nav-gantt',         popover: { title: '📅 Timeline',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
+                { element: '#nav-surveys',       popover: { title: '📝 Surveys & Feedback',              description: 'Log and analyse patient or staff feedback to support your change package.' }},
+                { element: '#nav-supervisor',    popover: { title: '🏆 SLO 11 Sign-off',  description: 'Check SLO11 sign-off criteria. See exactly what evidence is complete and what still needs work.' }},
+                { element: '#nav-publish',       popover: { title: '🚀 Publication',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or EM-QIAT portfolio PDF for risr/advance.' }}
             ]
         });
         driverObj.drive();

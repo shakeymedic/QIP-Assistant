@@ -40,6 +40,14 @@ function activeUnit() {
     return (m && m.unit) ? m.unit.trim() : '';
 }
 
+// A percentage can't be below 0 or above 100; returns a message if so.
+export function impossibleValueMessage(value) {
+    const m = window.getActiveMeasure ? window.getActiveMeasure() : null;
+    const isPct = (m && (m.measureType === 'proportion' || /%|percent/i.test(m.unit || '')));
+    if (isPct && (value < 0 || value > 100)) return 'This measure is a percentage, so the value must be between 0 and 100.';
+    return '';
+}
+
 function commit(message) {
     points().sort((a, b) => String(a.date).localeCompare(String(b.date)));
     if (window.saveData) window.saveData();
@@ -126,6 +134,9 @@ export function addDataPoint() {
     if (!date) { showToast('Please enter a valid date', 'error'); return; }
     flagInvalid(valueEl, isNaN(value));
     if (isNaN(value)) { showToast('Please enter a number for the value', 'error'); return; }
+    const rangeMsg = impossibleValueMessage(value);
+    flagInvalid(valueEl, !!rangeMsg);
+    if (rangeMsg) { showToast(rangeMsg, 'error'); return; }
 
     const point = { id: newId(), date, value, grade: (phaseEl?.value || '').trim(), note: (noteEl?.value || '').trim() };
     points().push(point);
