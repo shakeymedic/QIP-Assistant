@@ -1,7 +1,7 @@
 // emqiat-shared.js
 //
 // Pure derivation helpers shared between:
-//   - emqiat.js       (the in-app EM-QIAT form, used as placeholder/"suggested"
+//   - emqiat.js       (the in-app EM QIAT form, used as placeholder/"suggested"
 //                       text so a trainee sees a sensible starting point without
 //                       it silently becoming their submitted answer)
 //   - kaizen-export.js (the copy-paste export, which now PREFERS whatever the
@@ -20,13 +20,13 @@ export function deriveStageLabel(trainingStage) {
 
 export function deriveTeam(data) {
     const charter = data.charter || {};
-    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
+    const team = (Array.isArray(data.teamMembers) && data.teamMembers.length) ? data.teamMembers : (charter.team || []);
     return team.map(m => `${m.name || ''}${m.role ? ' (' + m.role + ')' : ''}`).filter(Boolean).join(', ');
 }
 
 export function deriveRole(data) {
     const charter = data.charter || {};
-    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
+    const team = (Array.isArray(data.teamMembers) && data.teamMembers.length) ? data.teamMembers : (charter.team || []);
     const leadEntry = team.find(m => /lead/i.test(m.role || '') && !/deputy|co-|assist/i.test(m.role || ''));
     return leadEntry ? 'Lead' : '';
 }
@@ -45,7 +45,7 @@ export function deriveOverview(data) {
 
     return {
         background: checklist.problem_desc || '',
-        aim: charter.aim || checklist.aim || '',
+        aim: checklist.aim || charter.aim || '',
         understandingProblem: checklist.problem_evidence || checklist.problem_context || '',
         measures: measuresLines,
         interventions: interventionsSummary,
@@ -76,7 +76,7 @@ export function deriveNextYearPdp(data) {
 }
 
 // ---------------------------------------------------------------------------
-// The app already had a separate, richer "EM-QIAT Journal" modal (see
+// The app already had a separate, richer "EM QIAT Journal" modal (see
 // window.showEMQIATModal in app.js) storing PDP goals/review, a structured QI
 // education log, and a CCT summary under data.emqiat.* (a DIFFERENT object to
 // data.emqiatForm.* used by the newer inline form below — the two were kept
@@ -172,7 +172,7 @@ export const OVERVIEW_PARTS = [
 
 function teamList(data) {
     const charter = data.charter || {};
-    return (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
+    return (Array.isArray(data.teamMembers) && data.teamMembers.length) ? data.teamMembers : (charter.team || []);
 }
 
 function cycleTitle(p, i) {

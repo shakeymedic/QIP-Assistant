@@ -317,7 +317,7 @@ export function renderSupervisorDashboard() {
 
         <div id="slo11-signoff" class="bg-white p-4 md:p-6 rounded-xl shadow-sm border border-slate-200 mb-6 scroll-mt-24">
             <h2 class="text-xl md:text-2xl font-bold text-slate-800 mb-1">SLO 11 Supervisor Review &amp; Sign-off</h2>
-            <p class="text-slate-600 mb-6 text-sm md:text-base">Your Educational or Clinical Supervisor reviews the EM-QIAT above and signs off here before your ARCP.</p>
+            <p class="text-slate-600 mb-6 text-sm md:text-base">Your Educational or Clinical Supervisor reviews the EM QIAT above and signs off here before your ARCP.</p>
             ${reviewSection}
         </div>
 
@@ -325,7 +325,7 @@ export function renderSupervisorDashboard() {
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
 
-    // The real EM-QIAT form — editable for the trainee, read-only for everyone else.
+    // The real EM QIAT form — editable for the trainee, read-only for everyone else.
     const emqiatContainer = document.getElementById('emqiat-form-container');
     if (emqiatContainer) renderEMQIATForm(emqiatContainer, { readOnly: !isOwner });
 

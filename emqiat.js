@@ -522,7 +522,7 @@ window.copyEmqiatAll = function() {
 function projectFacts(data) {
     const c = data.checklist || {};
     const cut = (t, n = 600) => { t = String(t || '').trim(); return t.length > n ? t.slice(0, n) + '…' : t; };
-    const team = (data.charter?.team?.length ? data.charter.team : data.teamMembers || []).map(m => `${m.role || ''}${m.grade ? ' (' + m.grade + ')' : ''}`).filter(Boolean);
+    const team = (data.teamMembers?.length ? data.teamMembers : data.charter?.team || []).map(m => `${m.role || ''}${m.grade ? ' (' + m.grade + ')' : ''}`).filter(Boolean);
     const lines = [
         `Title: ${cut(data.meta?.title, 200)}`,
         c.problem_desc && `Problem: ${cut(c.problem_desc)}`,

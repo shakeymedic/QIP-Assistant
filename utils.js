@@ -41,14 +41,14 @@ export function getProjectExportGaps(data) {
     const charter = data.charter || {};
 
     if (!checklist.problem_desc) gaps.push('Problem description (Analysis of Problem) is empty.');
-    if (!(charter.aim || checklist.aim)) gaps.push('Project aim is empty.');
+    if (!(checklist.aim || charter.aim)) gaps.push('Project aim is empty.');
     if (!checklist.outcome_measure) gaps.push('Outcome measure is empty.');
 
     const changeIdeas = Array.isArray(data.changeIdeas) ? data.changeIdeas : [];
     const pdsa = Array.isArray(data.pdsa) ? data.pdsa : [];
     if (changeIdeas.length === 0 && pdsa.length === 0) gaps.push('No Change Ideas or PDSA cycles recorded yet.');
 
-    const team = (Array.isArray(charter.team) && charter.team.length) ? charter.team : (data.teamMembers || []);
+    const team = (Array.isArray(data.teamMembers) && data.teamMembers.length) ? data.teamMembers : (charter.team || []);
     if (!team || team.length === 0) gaps.push('No team members listed.');
 
     if (!checklist.results_analysis && !checklist.results_text) gaps.push('Results analysis is empty.');

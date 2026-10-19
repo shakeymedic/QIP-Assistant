@@ -156,7 +156,7 @@ export const HINTS = {
         tips: ['Build changes into systems (checklists, IT, induction) so they do not depend on one person.', 'Name an owner and a monitoring routine with an escalation point.'],
         examples: ['Trolley checks are on the daily nursing checklist; the PGD is in the competency booklet; the EPR prompt is permanent; the outcome is reported monthly at governance with escalation below 85% for two months.']
     },
-    'who will adopt this?': { title: 'Who will adopt this?', what: 'The next teams or sites that could take up the change.', examples: ['The neighbouring ED in our Trust, then the acute medical unit.'] },
+    'who will adopt this': { title: 'Who will adopt this?', what: 'The next teams or sites that could take up the change.', examples: ['The neighbouring ED in our Trust, then the acute medical unit.'] },
     'infrastructure required': { title: 'Infrastructure required', what: 'What another team would need to copy the change: equipment, training, IT, approvals.', examples: ['A second set of trolleys, PGD training slots and the EPR prompt switched on at the second site.'] },
     'maintenance plan': { title: 'Maintenance plan', what: 'Who keeps the change going day to day and how they will know if it slips.', examples: ['The sepsis champion owns trolley checks and the monthly audit; the consultant sponsor owns the governance report.'] },
     'spread timeline': { title: 'Spread timeline', what: 'When each next team or site is expected to adopt the change.', examples: ['Second ED from September 2026; acute medical unit scoping in early 2027.'] },
@@ -189,9 +189,9 @@ export const HINTS = {
     'project scope – out': { title: 'Scope: out', what: 'What the project deliberately does not cover, so it stays manageable.', examples: ['Children; end-of-life care; care after admission to a ward.'] },
     'benefits': { title: 'Benefits', what: 'The expected benefits, how each will be measured and who gains.', examples: ['Faster antibiotics for sepsis — % within 60 minutes — patients.'] },
     'costs': { title: 'Costs', what: 'Money, equipment and staff time needed, and who holds the budget. Many QI projects are cost-neutral; say so.', examples: ['Sepsis trolleys borrowed from theatres — £0 — ED matron.'] },
-    'qsir milestones': {
-        title: 'QSIR milestones',
-        what: 'Target dates for each phase of the NHS QSIR (Quality, Service Improvement and Redesign) project framework, from start-out to sustain and share.'
+    'milestones': {
+        title: 'Milestones',
+        what: 'Key dates for the project, taken from your Timeline. Mark a Timeline task as a milestone to show it here. The NHS QSIR phases are a useful set: scope, measure and understand, design and plan, pilot and implement, sustain and share, from start-out to sustain and share.'
     },
     'project team': { title: 'Project team', what: 'Who is on the team, their role and how much time they will give.', examples: ['Sepsis champion (band 7) — trolley and checks — 2 hours a week.'] },
     'additional resources': { title: 'Additional resources', what: 'Anything else you need, such as analyst time or space on a committee agenda.' },
@@ -312,11 +312,11 @@ export const HINTS = {
     // ── Sign-off ────────────────────────────────────────────────────────────
     'slo 11 supervisor review & sign-off': {
         title: 'SLO 11 sign-off',
-        what: 'Your supervisor reviews your EM-QIAT and signs off SLO 11 here before ARCP. Add your supervisor by email in Settings → Project access so they can see the project.'
+        what: 'Your supervisor reviews your EM QIAT and signs off SLO 11 here before ARCP. Add your supervisor by email in Settings → Project access so they can see the project.'
     },
     'departmental qip lead visibility': { title: 'QIP Lead visibility', what: 'Departmental QIP Leads can see every QIP in the department by default. You can hide this project from that blanket view; people you add individually can still see it.' },
 
-    // ── EM-QIAT overview (only inside the EM-QIAT form) ─────────────────────
+    // ── EM QIAT overview (only inside the EM QIAT form) ─────────────────────
     'emqiat:background': { title: 'Background', what: 'One or two sentences on the problem and your baseline data.', examples: ['A median of 42% of red-flag sepsis patients in our ED received IV antibiotics within 60 minutes of triage (13 weeks of baseline data, 247 patients).'] },
     'emqiat:aim': { title: 'Aim', what: 'Your SMART aim, as in Define & Measure.', examples: ['Increase this from 42% to 90% by 31 May 2026.'] },
     'emqiat:understanding the problem': { title: 'Understanding the problem', what: 'The diagnostic work you did (process map, fishbone, 5 Whys, Pareto, surveys) and what it showed.', examples: ['Process mapping, a fishbone and a Pareto chart of 120 late cases showed the main causes were waiting for a prescriber and finding equipment.'] },
@@ -366,7 +366,7 @@ function scan() {
         if (el.dataset.hintDone) return;
         el.dataset.hintDone = '1';
         // Labels that wrap a radio/checkbox ("Yes", "No") are answers, not questions.
-        if (el.tagName === 'LABEL' && el.querySelector('input')) return;
+        if (el.tagName === 'LABEL' && el.querySelector('input[type="radio"], input[type="checkbox"]')) return;
         // The full project view and exports are read-through pages: skip them.
         if (el.closest('#view-full, #view-intro, #view-learn')) return;
         const key = hintKeyFor(el);
@@ -391,8 +391,12 @@ let hideTimer = null;
 function fieldFor(btn) {
     const label = btn.parentElement;
     if (!label || label.tagName !== 'LABEL') return null;
-    const scope = label.parentElement;
-    const field = scope && scope.querySelector('textarea, input[type="text"], input:not([type])');
+    const sel = 'textarea, input[type="text"], input:not([type])';
+    // The label's own field first (wrapped, or via for=); only fall back to
+    // the surrounding block when the label wraps nothing of its own.
+    const field = label.querySelector(sel)
+        || (label.control && label.control.matches(sel) ? label.control : null)
+        || (label.parentElement && label.parentElement.querySelector(sel));
     if (!field || field.readOnly || field.disabled) return null;
     return field;
 }
@@ -458,7 +462,11 @@ function place(btn) {
     pop.style.left = left + 'px';
     const below = r.bottom + 8;
     const ph = pop.offsetHeight;
-    pop.style.top = (below + ph > window.innerHeight - 8 && r.top - ph - 8 > 8 ? r.top - ph - 8 : below) + 'px';
+    let top = (below + ph > window.innerHeight - 8 && r.top - ph - 8 > 8) ? r.top - ph - 8 : below;
+    // Never run off the bottom of a small screen: pull it up, and let the
+    // popover's own scrollbar handle anything still too tall.
+    if (top + ph > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 8 - ph);
+    pop.style.top = top + 'px';
 }
 
 function show(btn, pin) {
