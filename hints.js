@@ -107,6 +107,11 @@ export const HINTS = {
         what: 'A precise description of how a measure is calculated, so anyone collecting the data would get the same answer: numerator, denominator, inclusions, exclusions, data source and timing.',
         examples: ['Numerator: adults with a red-flag sepsis criterion at triage who receive a first IV antibiotic within 60 minutes of the triage time stamp. Denominator: all adults with a red-flag criterion at triage that week, excluding end-of-life care and transfers already given antibiotics. Source: EPR, extracted every Monday.']
     },
+    'data collection plan': {
+        title: 'Data collection plan',
+        what: 'Who collects what, from where, how often and from how many patients, written down before the first point so the baseline and every later point are collected the same way.',
+        tips: ['Weekly points from a small sample (10 to 20 patients) beat a monthly total.', 'If the EPR gives the figure for free, use every eligible patient.', 'Start the baseline as soon as registration allows: 10 to 12 weekly points is about three months.']
+    },
     'ethics & governance': {
         title: 'Ethics and governance',
         what: 'Confirms the project is QI or service evaluation, not research, and is registered with your Trust. Use the HRA decision tool if unsure; QI usually needs local registration but not research ethics approval.',
