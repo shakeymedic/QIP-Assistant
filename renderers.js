@@ -1,4 +1,4 @@
-import { state, safeStorage } from "./state.js";
+import { state, safeStorage, getDemoData } from "./state.js";
 import { escapeHtml, jsArg, showToast, autoResizeTextarea, formatDate } from "./utils.js";
 import { 
     renderChart, deleteDataPoint, downloadCSVTemplate, renderTools, 
@@ -664,7 +664,7 @@ export function renderChecklist() {
                 <div>
                     <div class="flex items-center justify-between mb-1">
                         <label class="block text-sm font-medium text-slate-700">Aim Statement *</label>
-                        <a href="https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx" target="_blank" rel="noopener" class="flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline">
+                        <a href="https://www.ihi.org/library/model-for-improvement/setting-aims" target="_blank" rel="noopener" class="flex items-center gap-1 text-[10px] text-indigo-500 hover:text-indigo-700 hover:underline">
                             <i data-lucide="external-link" class="w-3 h-3"></i> SMART aims guide
                         </a>
                     </div>
@@ -711,7 +711,7 @@ export function renderChecklist() {
                 <span class="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-sm font-bold">3</span>
                 Family of Measures
                 ${csDot(!!(c.outcome_measure && c.process_measure))}
-                <a onclick="event.stopPropagation();" href="https://www.hqip.org.uk/resource/guide-to-quality-improvement-tools" target="_blank" rel="noopener" class="ml-auto text-xs text-slate-500 border border-slate-200 bg-slate-50 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1">
+                <a onclick="event.stopPropagation();" href="https://www.ihi.org/library/model-for-improvement/establishing-measures" target="_blank" rel="noopener" class="ml-auto text-xs text-slate-500 border border-slate-200 bg-slate-50 px-2 py-1 rounded hover:bg-slate-100 flex items-center gap-1">
                     <i data-lucide="external-link" class="w-3 h-3"></i> Measures guide
                 </a>
                 <button onclick="window.showExample('measures');event.stopPropagation();" class="text-xs text-indigo-600 border border-indigo-200 bg-indigo-50 px-2 py-1 rounded hover:bg-indigo-100 flex items-center gap-1">
@@ -1768,13 +1768,13 @@ export function renderPDSA() {
                 <div class="mt-5 pt-4 border-t border-slate-100">
                     <p class="text-xs font-bold text-slate-500 uppercase mb-2">QI Resources</p>
                     <div class="space-y-1.5">
-                        <a href="https://www.ihi.org/education/IHIOpenSchool/Pages/default.aspx" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
-                            <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0"></i> IHI Open School — PDSA Basics
+                        <a href="https://www.ihi.org/library/model-for-improvement/testing-changes" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
+                            <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0"></i> IHI — Testing Changes with PDSA
                         </a>
                         <a href="https://awsem.co.uk/outside-the-ed/quality-improvement/" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
                             <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0"></i> AWSEM — EM QI Hub
                         </a>
-                        <a href="https://rcem.ac.uk/rcem-curriculum/" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
+                        <a href="https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf" target="_blank" rel="noopener" class="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 hover:underline">
                             <i data-lucide="external-link" class="w-3 h-3 flex-shrink-0"></i> RCEM SLO 11 Guidance
                         </a>
                     </div>
@@ -4055,18 +4055,17 @@ window.deleteReference = function(idx) {
 // NEW: See Example modal
 // ==========================================
 window.showExample = function(section) {
-    const { getDemoData } = window._demoDataGetter || {};
-    // We'll use inline demo content
+    // Built from the demo project, so the examples always match it.
+    const c = getDemoData().checklist;
+    const box = (label, text) => `<div><strong class="block text-xs text-slate-500 uppercase mb-1">${label}</strong>
+                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded whitespace-pre-line">${escapeHtml(text)}</p></div>`;
     const examples = {
         problem: {
             title: 'Problem Definition — Example (Sepsis Project)',
             content: `<div class="space-y-4">
-                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Problem Statement</strong>
-                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">Retrospective audit of 150 consecutive patients with Red Flag Sepsis over 3 months revealed only 42% received IV antibiotics within 60 minutes of the sepsis trigger. This is significantly below the RCEM Clinical Standard of 90%.</p></div>
-                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Department Context</strong>
-                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">District General Hospital ED, approximately 85,000 attendances per year. 24-hour consultant presence. Regular corridor care with occupancy often exceeding 150%.</p></div>
-                <div><strong class="block text-xs text-slate-500 uppercase mb-1">Baseline Evidence</strong>
-                <p class="text-sm text-slate-700 bg-blue-50 p-3 rounded">Baseline audit: 42% compliance (n=150). RCEM Sepsis Audit 2022: national median 67%. NCEPOD 2015 highlighted antibiotic delays as key driver of preventable mortality.</p></div>
+                ${box('Problem Statement', c.problem_desc)}
+                ${box('Department Context', c.problem_context)}
+                ${box('Baseline Evidence', c.problem_evidence)}
             </div>`
         },
         aim: {
@@ -4074,23 +4073,24 @@ window.showExample = function(section) {
             content: `<div class="space-y-3">
                 <div class="bg-amber-50 p-4 rounded-xl border border-amber-200">
                     <strong class="block text-xs text-amber-600 uppercase mb-1">SMART Aim Statement</strong>
-                    <p class="text-sm font-medium text-slate-800">"To increase the percentage of patients with Red Flag Sepsis who receive IV antibiotics within 60 minutes of the sepsis trigger from 42% to 90% by June 2024 in the Emergency Department."</p>
+                    <p class="text-sm font-medium text-slate-800">"${escapeHtml(c.aim)}"</p>
                 </div>
                 <div class="grid grid-cols-2 gap-2 text-xs">
-                    <div class="bg-slate-50 p-2 rounded"><strong>Specific:</strong> IV antibiotics within 60 min, Red Flag Sepsis</div>
-                    <div class="bg-slate-50 p-2 rounded"><strong>Measurable:</strong> % compliance (42% → 90%)</div>
-                    <div class="bg-slate-50 p-2 rounded"><strong>Achievable:</strong> National median 67% — ambitious but evidenced</div>
-                    <div class="bg-slate-50 p-2 rounded"><strong>Relevant:</strong> RCEM Clinical Standard</div>
-                    <div class="bg-slate-50 p-2 rounded col-span-2"><strong>Time-bound:</strong> June 2024 (12 months)</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Specific:</strong> adults with red-flag sepsis; IV antibiotics within 60 minutes of triage</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Measurable:</strong> weekly % from the EPR (median 42% → 90%)</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Achievable:</strong> agreed with the team after the baseline review showed fixable causes</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Relevant:</strong> national guidance (NICE NG51) recommends antibiotics within one hour for people at high risk</div>
+                    <div class="bg-slate-50 p-2 rounded col-span-2"><strong>Time-bound:</strong> by 31 May 2026 (about 12 months)</div>
                 </div>
             </div>`
         },
         measures: {
             title: 'Family of Measures — Example (Sepsis Project)',
             content: `<div class="space-y-3">
-                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500 mt-0.5"></span><div><strong class="text-xs">Outcome Measure:</strong><p class="text-sm text-slate-600">% of Red Flag Sepsis patients receiving IV antibiotics within 60 minutes of trigger</p></div></div>
-                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-500 mt-0.5"></span><div><strong class="text-xs">Process Measure:</strong><p class="text-sm text-slate-600">Door-to-needle time in minutes; % of patients screened at triage; % of Sepsis 6 bundles completed</p></div></div>
-                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-amber-500 mt-0.5"></span><div><strong class="text-xs">Balancing Measure:</strong><p class="text-sm text-slate-600">Inappropriate antibiotic prescribing rate; patient complaints about cannulation; staff overtime hours</p></div></div>
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-emerald-500 mt-0.5"></span><div><strong class="text-xs">Outcome Measure:</strong><p class="text-sm text-slate-600">${escapeHtml(c.outcome_measure)}</p></div></div>
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-blue-500 mt-0.5"></span><div><strong class="text-xs">Process Measure:</strong><p class="text-sm text-slate-600">${escapeHtml(c.process_measure)}</p></div></div>
+                <div class="flex gap-2 items-start"><span class="flex-shrink-0 w-4 h-4 rounded-full bg-amber-500 mt-0.5"></span><div><strong class="text-xs">Balancing Measure:</strong><p class="text-sm text-slate-600">${escapeHtml(c.balance_measure)}</p></div></div>
+                ${box('Operational definition', c.operational_definition)}
             </div>`
         }
     };
@@ -4110,7 +4110,7 @@ window.showExample = function(section) {
             <div class="bg-indigo-50 border-b border-indigo-200 p-5 flex justify-between items-start">
                 <div>
                     <h3 class="font-bold text-slate-800">${escapeHtml(ex.title)}</h3>
-                    <p class="text-xs text-slate-500 mt-0.5">From the demo Sepsis 6 project — for illustration only</p>
+                    <p class="text-xs text-slate-500 mt-0.5">From the fictional demo sepsis project — for illustration only</p>
                 </div>
                 <button onclick="document.getElementById('example-modal').remove()" class="text-slate-400 hover:text-slate-700 p-1 rounded hover:bg-slate-100">
                     <i data-lucide="x" class="w-5 h-5"></i>

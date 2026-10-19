@@ -690,3 +690,46 @@ body.readonly-mode .readonly-hide { display: none !important; }
     #app-sidebar .flex.gap-2 { flex-direction: row; }
     #app-sidebar .grid.grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)) !important; gap: 0.25rem !important; }
 }
+
+/* Supervisor / QIP Lead sidebar buttons when the account doesn't have that
+   role: still reachable (the view explains how to get access), but quieter. */
+#app-sidebar .role-btn-inactive {
+    background-color: rgba(255, 255, 255, 0.05);
+    color: rgb(203 213 225);
+    font-weight: 500;
+}
+#app-sidebar .role-btn-inactive:hover { background-color: rgba(255, 255, 255, 0.1); color: #fff; }
+
+/* ── Hover / tap hints (hints.js) ───────────────────────────────────────── */
+.qip-hint-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 16px; height: 16px; margin-left: 6px; vertical-align: middle;
+    border-radius: 9999px; border: 1px solid #c7d2fe; background: #eef2ff;
+    color: #4338ca; font-size: 10px; font-weight: 700; line-height: 1;
+    cursor: help; flex-shrink: 0; padding: 0;
+}
+.qip-hint-btn:hover, .qip-hint-btn[aria-expanded="true"] { background: #4338ca; color: #fff; border-color: #4338ca; }
+.qip-hint-btn:focus-visible { outline: 2px solid #4338ca; outline-offset: 2px; }
+h1 .qip-hint-btn, h2 .qip-hint-btn { width: 18px; height: 18px; font-size: 11px; }
+#qip-hint-pop {
+    position: fixed; z-index: 9999; max-height: min(70vh, 520px); overflow-y: auto;
+    background: #fff; color: #334155; border: 1px solid #e2e8f0; border-radius: 12px;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18); padding: 14px 16px;
+    font-size: 13px; line-height: 1.45; text-transform: none; letter-spacing: normal; font-weight: 400;
+}
+#qip-hint-pop[hidden] { display: none; }
+.qip-hint-title { font-weight: 700; color: #1e293b; font-size: 14px; margin-bottom: 4px; }
+.qip-hint-what { margin: 0 0 8px; }
+.qip-hint-tips { margin: 0 0 8px; padding-left: 18px; list-style: disc; }
+.qip-hint-tips li { margin-bottom: 3px; }
+.qip-hint-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #64748b; margin: 8px 0 4px; }
+.qip-hint-example { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 3px solid #6366f1; border-radius: 8px; padding: 8px 10px; margin-bottom: 6px; }
+.qip-hint-example p { margin: 0; font-style: italic; }
+.qip-hint-actions { display: flex; gap: 8px; margin-top: 6px; }
+.qip-hint-actions button { font-size: 11px; font-weight: 600; color: #4338ca; background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 6px; padding: 2px 8px; }
+.qip-hint-actions button:hover { background: #e0e7ff; }
+.qip-hint-foot { font-size: 11px; color: #94a3b8; margin: 4px 0 0; }
+@media print { .qip-hint-btn, #qip-hint-pop { display: none !important; } }
+/* Keep hint buttons small even inside the mobile "stack buttons" rules. */
+button.qip-hint-btn { width: 16px !important; min-width: 0 !important; display: inline-flex !important; flex: 0 0 auto !important; }
+h1 button.qip-hint-btn, h2 button.qip-hint-btn { width: 18px !important; }
