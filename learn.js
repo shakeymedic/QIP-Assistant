@@ -773,6 +773,18 @@ function tabGlossary() {
         ['Special Cause Variation', 'A signal in your data (points outside control limits on an SPC chart, or non-random patterns on a run chart) indicating that something has genuinely changed the process — not just random noise.'],
         ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. Required for the Excellent marking descriptor in Reflection & Sustainability.'],
         ['Stakeholder Forcefield Analysis', 'Identifies forces supporting and opposing your change, scored by strength. Helps plan engagement strategy and is evidence of the Excellent criterion for Change Management.'],
+        ['Baseline', 'The measurements taken before any change is tested: ideally 10 to 12 weekly points. The baseline median is the line on the run chart that later points are compared with. A single audit figure is not a baseline.'],
+        ['Common Cause Variation', 'The ordinary week-to-week wobble of a stable process. Points scatter randomly around the median with no shift or trend. Reacting to it as if it were change is the commonest mistake in reading a chart.'],
+        ['Data Collection Plan', 'Written before the first point: where the data come from, who collects them, how often, from how many patients, and when the baseline starts. It keeps every point comparable with every other.'],
+        ['Handover', 'What you give your successor and sponsor when you rotate: the aim, measures, data plan, what was tested and decided, and who owns each change now. The app writes a one-page handover note from the project.'],
+        ['Median', 'The middle value when the baseline points are put in order. Run charts use the median rather than the mean because a single unusual week does not drag it about.'],
+        ['Operational Definition', 'Exactly what counts: numerator, denominator, who is excluded, where the figure comes from and when it is extracted, written so that anyone would collect the same number.'],
+        ['Registration', 'Telling your Trust audit, quality improvement or clinical governance department about the project before you look at patient records. It is the usual local permission for improvement work and gives you a reference number for the EM QIAT.'],
+        ['Sampling', 'Measuring a small, consistent slice each week (for example the first 20 eligible patients) instead of every case. Ten to twenty consecutive patients per point is enough for a run chart, provided the rule is the same every week.'],
+        ['Service Evaluation', 'Work that asks "what standard does this service achieve?" using routine care and routine data. With clinical audit and QI it does not need research ethics approval, which is what the HRA decision tool confirms; local registration is still needed.'],
+        ['Shift', 'Six or more consecutive points on one side of the median on a run chart. The commonest sign that a change has moved the process. Points exactly on the median are skipped when counting.'],
+        ['Sponsor', 'The consultant who agrees the aim, unblocks changes and keeps the project alive after you rotate. Every first project needs one; add them to the team so they appear on the charter.'],
+        ['Trend', 'Five or more consecutive points all rising or all falling on a run chart, suggesting a gradual change rather than a step. Repeated values count once.'],
         ['Vancouver Referencing', 'The citation style required for FRCEM QIP write-ups. References are numbered sequentially in text and listed in order of appearance. Format: Author(s). Title. Journal. Year;Volume(Issue):Pages.'],
     ];
 

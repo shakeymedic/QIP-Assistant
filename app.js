@@ -27,6 +27,7 @@ import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 import "./hints.js";
 import { QI } from "./qi-constants.js";
 import "./modal-a11y.js";
+import { showPageBanner } from "./page-banners.js";
 import { impossibleValueMessage } from "./data-entry.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
 
@@ -570,6 +571,7 @@ window.router = (view) => {
     } else {
         R.renderAll(view);
     }
+    if (!state.isReadOnly) showPageBanner(view);
 
     if (state.isReadOnly) startReadOnlyLock();
 };

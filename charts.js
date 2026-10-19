@@ -941,7 +941,11 @@ function renderSPCChart(ctx, canvasId) {
     const values = pts.map(p => p.value);
     const labels = dates.map(dt => formatUkDate(dt, true));
     const allNonNegative = values.every(v => v >= 0);
-    const spc = spcCalc(values, { floor: allNonNegative ? 0 : null, ceiling: info.isPercent && values.every(v => v <= 100) ? 100 : null });
+    // Freeze the limits on the baseline once it is big enough, so points after
+    // the first change are judged against the process as it was.
+    const spcBaseline = chooseBaseline(pts, state.projectData?.pdsa);
+    const frozen = spcBaseline.count >= QI.BASELINE_MIN && spcBaseline.count < pts.length;
+    const spc = spcCalc(values, { floor: allNonNegative ? 0 : null, ceiling: info.isPercent && values.every(v => v <= 100) ? 100 : null, limitFrom: frozen ? spcBaseline.values : null });
     const { mean, ucl, lcl, flags, movingRanges, mrLimit } = spc;
 
     const colourFor = (f) => f.includes('ooc') ? '#ef4444' : f.includes('run') ? '#f59e0b' : f.includes('twoOfThree') ? '#8b5cf6' : f.includes('movingRange') ? '#0f766e' : '#64748b';
@@ -969,8 +973,10 @@ function renderSPCChart(ctx, canvasId) {
     const opts = baseOptions(info);
     opts.plugins.subtitle = {
         display: true,
-        text: pts.length < 15
-            ? `XmR chart · limits are provisional with fewer than 15 points (you have ${pts.length})`
+        text: frozen
+            ? `XmR chart · limits frozen on the ${spcBaseline.count} baseline points; later points are judged against them`
+            : pts.length < QI.SPC_MIN
+            ? `XmR chart · limits are provisional with fewer than ${QI.SPC_MIN} points (you have ${pts.length})`
             : `XmR chart · limits from all ${pts.length} points`,
         color: '#64748b', font: { size: 11, family: CHART_FONT }, padding: { bottom: 8 }
     };

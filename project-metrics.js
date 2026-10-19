@@ -330,11 +330,15 @@ export function runChartSignals(values, med) {
 
 // XmR (individuals) chart limits and the four special-cause tests the app
 // shows. Limits come from all the points supplied.
+// opts.limitFrom: values the mean and limits are computed from (e.g. the
+// baseline), so later points are judged against the process as it was.
 export function spcCalc(values, opts = {}) {
     const n = values.length;
-    const mean = values.reduce((a, b) => a + b, 0) / n;
+    const basis = Array.isArray(opts.limitFrom) && opts.limitFrom.length >= 2 ? opts.limitFrom : values;
+    const mean = basis.reduce((a, b) => a + b, 0) / basis.length;
+    const basisMrs = basis.slice(1).map((v, i) => Math.abs(v - basis[i]));
+    const avgMR = basisMrs.length ? basisMrs.reduce((a, b) => a + b, 0) / basisMrs.length : 0;
     const mrs = values.slice(1).map((v, i) => Math.abs(v - values[i]));
-    const avgMR = mrs.length ? mrs.reduce((a, b) => a + b, 0) / mrs.length : 0;
     let ucl = mean + 2.66 * avgMR;
     let lcl = mean - 2.66 * avgMR;
     if (opts.floor !== undefined && opts.floor !== null) lcl = Math.max(opts.floor, lcl);

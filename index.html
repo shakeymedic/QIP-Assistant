@@ -416,8 +416,8 @@
                             <i data-lucide="chevron-down" class="w-3.5 h-3.5 nav-group-chevron transition-transform duration-200 flex-shrink-0"></i>
                         </button>
                         <div class="nav-group-items space-y-0.5" id="nav-group-items-resources">
-                            <button type="button" aria-label="Go to QIP Guide" onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-intro">
-                                <i data-lucide="book-open" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">QIP Guide</span>
+                            <button type="button" aria-label="Go to Your first QIP" onclick="window.router('intro')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-intro">
+                                <i data-lucide="book-open" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">Your first QIP</span>
                             </button>
                             <button type="button" aria-label="Go to QI Learning Hub" onclick="window.router('learn')" class="nav-btn w-full flex items-center gap-3 px-3 py-[5px] rounded-lg text-sm text-slate-300 hover:bg-white/5 hover:text-white transition-colors" id="nav-learn">
                                 <i data-lucide="graduation-cap" class="nav-icon w-4 h-4 flex-shrink-0"></i><span class="truncate">QI Learning Hub</span>
@@ -567,42 +567,191 @@
                     </div>
 
                     <div id="view-intro" class="view-section hidden max-w-5xl mx-auto">
-                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6 relative">
-                            <img src="./logo.png" alt="EM Evidence logo" class="absolute top-6 right-6 w-24 h-auto">
-                            <h2 class="text-2xl font-bold text-slate-800 mb-4 pr-28">RCEM Quality Improvement Guide and QIAT 2025</h2>
-                            
-                            <p class="text-slate-600 mb-4">The Royal College of Emergency Medicine requires you to participate in quality improvement throughout your training. Specialty Learning Outcome 11 mandates continuous assessment of your skills in patient safety and service improvement.</p>
-                            
-                            <h3 class="text-lg font-bold text-slate-800 mt-6 mb-2">The Quality Improvement Assessment Tool (QIAT)</h3>
-                            <p class="text-slate-600 mb-4">You must complete a QIAT form annually on the risr/advance ePortfolio. Your Educational Supervisor reviews and signs this off before your Annual Review of Competence Progression. The form itself says it is not mandatory to lead a QI project in every year of training: audit and re-audit, service evaluation, process improvement, guideline development and patient safety work all count as engagement. What matters is that you can show what you did, what you learned and where it sits on the QI Journey.</p>
-                            
-                            <h3 class="text-lg font-bold text-slate-800 mt-6 mb-2">Quality Improvement Methodology and Theory</h3>
-                            <p class="text-slate-600 mb-4">The RCEM recommends the Model for Improvement. This model asks three fundamental questions.</p>
+                        <div class="bg-gradient-to-r from-rcem-purple to-indigo-600 rounded-2xl p-6 mb-6 text-white relative">
+                            <img src="./logo.png" alt="EM Evidence logo" class="absolute top-6 right-6 w-20 h-auto opacity-90">
+                            <h2 class="text-2xl font-bold pr-28">Your first QIP in eight steps</h2>
+                            <p class="text-indigo-100 text-sm mt-2 pr-28 max-w-2xl">Never done a quality improvement project? This page is the whole method on one screen: what each step is for, how much is enough, and what a weak and a strong version look like. Each step links to the page in the app that does it.</p>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button type="button" onclick="window.startOnboarding && window.startOnboarding()" class="text-xs font-bold bg-white text-rcem-purple px-3 py-1.5 rounded-lg hover:bg-indigo-50">Start the setup wizard</button>
+                                <button type="button" onclick="window.router('learn')" class="text-xs font-bold bg-white/15 text-white px-3 py-1.5 rounded-lg hover:bg-white/25">Go deeper in the Learning Hub</button>
+                            </div>
+                        </div>
+
+                        <!-- Audit or QIP -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-1">Audit or QIP? Decide first</h3>
+                            <p class="text-sm text-slate-600 mb-4">Both are worthwhile and both count towards your EM QIAT. The difference is what you do after the first measurement.</p>
+                            <div class="grid md:grid-cols-2 gap-4 text-sm">
+                                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4">
+                                    <p class="font-bold text-slate-700 mb-2">Clinical audit</p>
+                                    <ul class="list-disc pl-5 space-y-1 text-slate-600">
+                                        <li>Measures practice against a standard, usually once</li>
+                                        <li>Output: a compliance rate and a report</li>
+                                        <li>Re-audit after an intervention, often months later</li>
+                                        <li>Cannot tell whether a change caused the difference</li>
+                                    </ul>
+                                </div>
+                                <div class="bg-indigo-50 border border-indigo-100 rounded-lg p-4">
+                                    <p class="font-bold text-indigo-900 mb-2">Quality improvement project</p>
+                                    <ul class="list-disc pl-5 space-y-1 text-indigo-900">
+                                        <li>Aim with a number and a date</li>
+                                        <li>The same measure collected weekly, before and after changes</li>
+                                        <li>Small changes tested in PDSA cycles; keep what works</li>
+                                        <li>A run chart shows whether each change made a difference</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">An audit you have already done is a good start: its result is baseline evidence and its standard becomes your target. The next step is to measure the same thing every week rather than once.</p>
+                        </div>
+
+                        <!-- The eight steps -->
+                        <div class="space-y-4 mb-6">
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-rcem-purple text-white flex items-center justify-center font-bold flex-shrink-0">1</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Choose a problem that fits one rotation</h3>
+                                        <p class="text-sm text-slate-600 mt-1">One process, in one area, that the EPR already records, that happens often enough to measure weekly, and that a consultant and the nurses who do the work care about. Narrow beats ambitious: a project you finish is worth more than one you start.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">"Improve sepsis care in the ED." Too big to measure, no single process, no end.</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">"Adults with red-flag sepsis at triage do not reliably receive IV antibiotics within 60 minutes." One step, one group, one place, one number.</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: the setup wizard checks feasibility and offers fifteen starter projects that pass these tests.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold flex-shrink-0">2</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Register it and find a sponsor</h3>
+                                        <p class="text-sm text-slate-600 mt-1">Before you open a single patient record, register the project with your Trust audit or clinical governance department: that is the usual permission to use patient data for improvement. Agree a consultant sponsor who will keep the project alive after you rotate. Both take a week or two, so do them first.</p>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: wizard step 3, then the Ethics &amp; Governance section of Define &amp; Measure (the HRA decision tool tells you it is not research).</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center font-bold flex-shrink-0">3</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Draft the aim, then finalise it once you have a baseline</h3>
+                                        <p class="text-sm text-slate-600 mt-1">One sentence: direction, the measure, from the baseline to a target, by a date, in a place. You will not know the baseline yet, so write "[to be measured]" and come back once you have about ten weekly points. Avoid 100%: it is rarely achievable and makes a real improvement look like a failure.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">"To improve antibiotic timing for septic patients." No number, no date, no place, and "improve" cannot be measured.</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">"To increase the percentage of adults with red-flag sepsis who receive IV antibiotics within 60 minutes of triage from 42% to 90% by 31 May 2027 in the Emergency Department."</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: the aim coach on Define &amp; Measure reads your aim and says what is missing.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center font-bold flex-shrink-0">4</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Choose three measures and define them exactly</h3>
+                                        <p class="text-sm text-slate-600 mt-1">The <strong>outcome</strong> measure is what patients care about. The <strong>process</strong> measure shows the steps are happening. The <strong>balancing</strong> measure checks nothing else got worse. Then write the operational definition: numerator, denominator, who is excluded, where the data come from, so anyone would collect it the same way.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">Outcome: "sepsis compliance". Who counts? Compliance with what? Measured how?</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">"Numerator: adults with a red-flag criterion at triage given a first IV antibiotic within 60 minutes of the triage time stamp. Denominator: all such adults that week, excluding end-of-life pathway and transfers already treated. Source: EPR sepsis flag and drug record, extracted each Monday."</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: choose the kind of number (percentage, time or count) on Define &amp; Measure and the operational definition template appears with the gaps to fill.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-sky-600 text-white flex items-center justify-center font-bold flex-shrink-0">5</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Collect the baseline before you change anything</h3>
+                                        <p class="text-sm text-slate-600 mt-1">A little, often. One point a week, each from a small sample of 10 to 20 consecutive eligible patients (or every eligible patient if the EPR gives it for free). Aim for 10 to 12 weekly points before the first change: that is about three months, which is why registration and the data plan come first. Below ten points the run chart cannot separate a real change from noise.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">200 sets of notes reviewed once, giving a single figure of 42%. You cannot see whether 42% is typical, improving or getting worse.</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">The first 20 eligible patients each week for 12 weeks: twelve points between 36% and 48%, median 42%. Now a change that lifts the line is visible.</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: the data collection plan and baseline progress bar on Define &amp; Measure and Data &amp; SPC; the dashboard counts your baseline points for you.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-indigo-600 text-white flex items-center justify-center font-bold flex-shrink-0">6</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Work out why it happens</h3>
+                                        <p class="text-sm text-slate-600 mt-1">With the team, build a driver diagram: what has to be true for the aim to be met (primary drivers), the specific factors under each (secondary drivers) and the change ideas that address them. If the causes are not obvious, brainstorm with a fishbone, walk the process map, or ask "why?" five times. Causes you can act on become change ideas; the rest are context.</p>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: the Diagnosis Tools page, each with a one-line explainer and a worked example from the demo project.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold flex-shrink-0">7</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Test small changes in PDSA cycles</h3>
+                                        <p class="text-sm text-slate-600 mt-1">Pick one change idea and test it small: one shift, one desk, five patients. Write a prediction first (a number and a reason), do it, study the result against the prediction, then decide: adopt, adapt or abandon. Adopted? The next cycle tests the same change bigger. Keep the weekly measure running throughout so the run chart shows the effect. Most first projects need around three cycles to show a sustained shift; there is no set number.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">Plan: "Teach everyone about sepsis." Prediction: "It will improve." Nothing to test, nothing to compare.</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">Plan: "Sepsis grab bag in resus for two weeks, day shifts." Prediction: "Time to antibiotics on those shifts will fall below 60 minutes for at least 7 of 10 patients, because the equipment hunt is the biggest delay in the Pareto chart."</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: PDSA Cycles, where the prediction is required and an adopted cycle prompts you to scale up.</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200">
+                                <div class="flex items-start gap-3">
+                                    <span class="w-8 h-8 rounded-full bg-rose-500 text-white flex items-center justify-center font-bold flex-shrink-0">8</span>
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-slate-800">Read the chart, hand it over, sign it off</h3>
+                                        <p class="text-sm text-slate-600 mt-1">A run chart with the baseline median tells you whether anything changed: a shift is 6 or more points in a row on one side of the median, a trend is 5 or more rising or falling. "No change yet" is a valid finding; say why and what you will test next. Before your rotation ends, write who owns each change, how the measure keeps being collected and who will see the chart, then give your successor and sponsor the handover note. Finally complete the EM QIAT with your supervisor before ARCP.</p>
+                                        <div class="grid md:grid-cols-2 gap-3 mt-3 text-xs">
+                                            <div class="bg-red-50 border border-red-100 rounded-lg p-3"><p class="font-bold text-red-700 mb-1">Weak</p><p class="text-red-900">"Compliance went from 42% to 61%." Two numbers, no chart, no idea whether the 61% was one good week.</p></div>
+                                            <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-3"><p class="font-bold text-emerald-700 mb-1">Strong</p><p class="text-emerald-900">"From the week the PGD started there are 9 consecutive points above the baseline median of 42%, a shift, with the new level about 70%. The balancing measure (inappropriate antibiotic starts) did not rise."</p></div>
+                                        </div>
+                                        <p class="text-xs text-slate-500 mt-2">In the app: interpretation templates on Data &amp; SPC, the handover note under Learning &amp; Sustainability, and the EM QIAT on SLO 11 Sign-off.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- How much data -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+                            <h3 class="text-lg font-bold text-slate-800 mb-3">How much data is enough?</h3>
+                            <div class="grid md:grid-cols-3 gap-3 text-sm">
+                                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><p class="font-bold text-slate-700">Per point</p><p class="text-slate-600 mt-1">10 to 20 consecutive eligible patients, or every eligible patient if the EPR gives it for free. Same sample rule every week.</p></div>
+                                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><p class="font-bold text-slate-700">Before the first change</p><p class="text-slate-600 mt-1">10 to 12 weekly points. Fewer and the run chart rules do not work; more is rarely needed.</p></div>
+                                <div class="bg-slate-50 border border-slate-200 rounded-lg p-4"><p class="font-bold text-slate-700">To call it a change</p><p class="text-slate-600 mt-1">A shift of 6 or more points on one side of the median, or a trend of 5 or more, that lines up with a change you made. SPC limits need about 15 points.</p></div>
+                            </div>
+                            <p class="text-xs text-slate-500 mt-3">If the event is rare (a few a week), use fortnightly points or widen the definition rather than waiting months for one number.</p>
+                        </div>
+
+                        <!-- RCEM context (kept from the original guide) -->
+                        <details class="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mb-6">
+                            <summary class="text-lg font-bold text-slate-800 cursor-pointer">RCEM, SLO 11 and the EM QIAT</summary>
+                            <p class="text-slate-600 mt-4 mb-4">The Royal College of Emergency Medicine requires you to participate in quality improvement throughout your training. Specialty Learning Outcome 11 covers your skills in patient safety and service improvement.</p>
+                            <h4 class="font-bold text-slate-800 mt-4 mb-2">The Quality Improvement Assessment Tool (EM QIAT)</h4>
+                            <p class="text-slate-600 mb-4">You complete an EM QIAT form annually on the risr/advance ePortfolio. Your Educational Supervisor reviews and signs this off before your Annual Review of Competence Progression. The form itself says it is not mandatory to lead a QI project in every year of training: audit and re-audit, service evaluation, process improvement, guideline development and patient safety work all count as engagement. What matters is that you can show what you did, what you learned and where it sits on the QI Journey.</p>
+                            <h4 class="font-bold text-slate-800 mt-4 mb-2">The Model for Improvement</h4>
+                            <p class="text-slate-600 mb-2">The RCEM recommends the Model for Improvement, which asks three questions.</p>
                             <ul class="list-disc pl-5 mb-4 text-slate-600">
                                 <li>What are we trying to accomplish? This is your SMART aim.</li>
-                                <li>How will we know that a change is an improvement? These are your outcome, process, and balance measures.</li>
-                                <li>What change can we make that will result in improvement? These are your specific change ideas.</li>
+                                <li>How will we know that a change is an improvement? These are your outcome, process and balancing measures.</li>
+                                <li>What change can we make that will result in improvement? These are your change ideas.</li>
                             </ul>
-                            <p class="text-slate-600 mb-4">You test these change ideas using Plan, Do, Study, Act cycles. You plan the test, carry it out, study the results using run charts, and act on what you learn. You should run multiple, small cycles rather than one large intervention.</p>
-
-                            <h3 class="text-lg font-bold text-slate-800 mt-6 mb-2">Example Case: Asthma Discharge Standards</h3>
-                            <p class="text-slate-600 mb-4">A Higher Specialist Trainee noticed poor compliance with RCEM asthma discharge standards. They reviewed the data and found patients lacked documented peak flows and showed poor inhaler technique.</p>
+                            <h4 class="font-bold text-slate-800 mt-4 mb-2">What each stage of training expects</h4>
                             <ul class="list-disc pl-5 mb-4 text-slate-600">
-                                <li><strong>Aim:</strong> 80 percent of asthmatic patients discharged from the emergency department will meet RCEM standards by July 2025.</li>
-                                <li><strong>Methodology:</strong> The trainee used driver diagrams to identify root causes. They implemented changes over six Plan, Do, Study, Act cycles.</li>
-                                <li><strong>Changes:</strong> Initial cycles focused on staff reminders and educational updates. Later cycles focused on improving digital documentation templates.</li>
-                                <li><strong>Results:</strong> Continuous data collection showed sustained improvement on a statistical process control chart. The trainee involved nurses, junior doctors, and consultants to ensure the changes remained sustainable.</li>
+                                <li><strong>ACCS:</strong> participate effectively in a departmental project and understand basic improvement principles.</li>
+                                <li><strong>Intermediate:</strong> progress to independent data analysis, evaluate changes and reflect on your project outcomes.</li>
+                                <li><strong>Higher:</strong> provide clinical leadership, drive effective change and support a culture of good clinical governance within the department.</li>
                             </ul>
-
-                            <h3 class="text-lg font-bold text-slate-800 mt-6 mb-2">Progressive Competency Requirements</h3>
-                            <ul class="list-disc pl-5 mb-4 text-slate-600">
-                                <li><strong>Core Trainees:</strong> You must participate effectively in a departmental project and understand basic improvement principles.</li>
-                                <li><strong>Intermediate Trainees:</strong> You must progress to independent data analysis, evaluate changes, and reflect on your project outcomes.</li>
-                                <li><strong>Higher Trainees:</strong> You must provide clinical leadership, drive effective change, and support a culture of good clinical governance within the department.</li>
-                            </ul>
-                            
-                            <button aria-label="Start Your Project" onclick="window.router('dashboard')" class="mt-4 bg-rcem-purple text-white px-6 py-2 rounded font-bold hover:bg-purple-800">Start Your Project</button>
-                        </div>
+                            <button aria-label="Start Your Project" onclick="window.router('dashboard')" class="mt-2 bg-rcem-purple text-white px-6 py-2 rounded font-bold hover:bg-purple-800">Go to the dashboard</button>
+                        </details>
                     </div>
 
                     <div id="view-dashboard" class="view-section hidden space-y-6 max-w-6xl mx-auto">
@@ -766,7 +915,7 @@
                                 <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
                                     <div class="flex flex-wrap bg-slate-100 p-1 rounded-lg gap-0.5" id="chart-mode-controls">
                                         <button aria-label="View Run Chart" onclick="window.setChartMode('run')" data-mode="run" id="btn-chart-run" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-slate-800 text-white shadow">Run</button>
-                                        <button aria-label="View SPC Chart" onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC</button>
+                                        <button aria-label="View SPC Chart" onclick="window.setChartMode('spc')" data-mode="spc" id="btn-chart-spc" title="Advanced: control limits from the baseline. Most first projects only need the run chart." class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">SPC <span class="font-normal text-slate-400">(advanced)</span></button>
                                         <button aria-label="View Histogram" onclick="window.setChartMode('histogram')" data-mode="histogram" id="btn-chart-histogram" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Histogram</button>
                                         <button aria-label="View Pareto Chart" onclick="window.setChartMode('pareto')" data-mode="pareto" id="btn-chart-pareto" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Pareto</button>
                                         <button aria-label="View Before/After Chart" onclick="window.setChartMode('beforeafter')" data-mode="beforeafter" id="btn-chart-beforeafter" class="px-3 py-1.5 rounded-lg text-xs font-bold bg-white text-slate-600 border border-slate-300 hover:bg-slate-50">Before/After</button>
