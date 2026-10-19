@@ -224,6 +224,8 @@ export function previewPastedData() {
     const fresh = [];
     let dupes = 0;
     res.rows.forEach(r => {
+        const rangeMsg = impossibleValueMessage(Number(r.value));
+        if (rangeMsg) { res.errors.push(`${formatUkDate(r.date)}: ${r.value} is outside 0–100 for a percentage`); return; }
         const key = `${r.date}|${r.value}`;
         if (existing.has(key) || seenInPaste.has(key)) { dupes++; return; }
         seenInPaste.add(key);
@@ -400,6 +402,9 @@ export function saveDataPointEdit(id) {
     if (!date) { showToast('Please enter a valid date', 'error'); return; }
     flagInvalid(valueEl, isNaN(value));
     if (isNaN(value)) { showToast('Please enter a number for the value', 'error'); return; }
+    const rangeMsg = impossibleValueMessage(value);
+    flagInvalid(valueEl, !!rangeMsg);
+    if (rangeMsg) { showToast(rangeMsg, 'error'); return; }
     p.date = date;
     p.value = value;
     p.grade = row.querySelector('.edit-grade').value.trim();

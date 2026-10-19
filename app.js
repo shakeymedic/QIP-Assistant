@@ -66,6 +66,37 @@ function migrateProjectData(d) {
     if (!Array.isArray(d.charter.milestones) || d.charter.milestones.length !== 6) {
         d.charter.milestones = charterDefaults.milestones;
     }
+    // The charter used to hold its own copies of the aim, the team and the
+    // milestone dates. It now reads them from Define & Measure, Team &
+    // Leadership and the Timeline, so carry over anything that only ever
+    // existed in the charter (once; the flags stop a deleted item coming back).
+    if (!d.checklist || typeof d.checklist !== 'object') d.checklist = {};
+    if (!d.charter.aimMigrated) {
+        if (!d.checklist.aim && d.charter.aim) d.checklist.aim = d.charter.aim;
+        d.charter.aimMigrated = true;
+    }
+    if (!Array.isArray(d.teamMembers)) d.teamMembers = [];
+    if (!d.charter.teamMigrated) {
+        // Charter rows not already on the QI Team (by name) are added to it
+        const known = new Set(d.teamMembers.map(m => String(m?.name || '').trim().toLowerCase()).filter(Boolean));
+        d.charter.team.filter(m => m && (m.name || m.role) && !known.has(String(m.name || '').trim().toLowerCase())).forEach((m, i) => {
+            d.teamMembers.push({
+                id: `${Date.now()}${i}`, name: m.name || '', role: m.role || '', grade: '',
+                responsibilities: m.timeCommitment ? `Time commitment: ${m.timeCommitment}` : '',
+                initials: (m.name || '').split(' ').map(w => w[0] || '').join('').substring(0, 3).toUpperCase()
+            });
+        });
+        d.charter.teamMigrated = true;
+    }
+    if (!Array.isArray(d.gantt)) d.gantt = [];
+    if (!d.charter.milestonesMigrated) {
+        d.charter.milestones.forEach((ms, i) => {
+            if (!ms || !ms.targetDate || !ms.phase) return;
+            if (d.gantt.some(t => t && t.name === ms.phase)) return;
+            d.gantt.push({ id: `${Date.now().toString(36)}m${i}`, name: ms.phase, start: ms.targetDate, end: ms.targetDate, type: 'plan', owner: '', milestone: true, dependency: '' });
+        });
+        d.charter.milestonesMigrated = true;
+    }
     if (!Array.isArray(d.actionPlan)) d.actionPlan = [];
     // Ensure changeIdeas exists
     if (!Array.isArray(d.changeIdeas)) d.changeIdeas = [];
@@ -113,11 +144,11 @@ function migrateProjectData(d) {
     d.chartData = activeMeasure.chartData;
     d.chartSettings = activeMeasure.chartSettings;
 
-    // ─── EM-QIAT (2025 Update) form migration ──────────────────────────────
+    // ─── EM QIAT (2025 Update) form migration ──────────────────────────────
     // Replaces the old invented "trainee level + 3 generic capabilities"
-    // supervisor checklist with fields that mirror the real RCEM EM-QIAT form
+    // supervisor checklist with fields that mirror the real RCEM EM QIAT form
     // field-for-field. Stored under d.emqiatForm — deliberately a DIFFERENT
-    // key from d.emqiat (the older, separate "EM-QIAT Journal" modal below,
+    // key from d.emqiat (the older, separate "EM QIAT Journal" modal below,
     // window.showEMQIATModal) so the two never collide on the same object.
     // Additive only — never overwrites data already there.
     if (!d.emqiatForm || typeof d.emqiatForm !== 'object') d.emqiatForm = {};
@@ -985,7 +1016,7 @@ window.applyTemplate = function(templateId) {
     }
 };
 
-// ─── EM-QIAT Journal ─────────────────────────────────────────────────────────
+// ─── EM QIAT Journal ─────────────────────────────────────────────────────────
 const QI_JOURNEY_PHASES = [
     { id: 'creatingConditions', title: 'Creating Conditions', description: 'Securing organisational support, building relationships, establishing governance, and creating the conditions necessary for improvement work to begin.' },
     { id: 'understandingSystems', title: 'Understanding Systems', description: 'Mapping processes, collecting baseline data, conducting root cause analysis (driver diagrams, fishbone, 5 Whys), and understanding the problem from a systems perspective.' },
@@ -1026,7 +1057,7 @@ window.showEMQIATModal = function() {
                         <i data-lucide="file-badge" class="w-6 h-6"></i>
                         <div>
                             <h2 class="text-lg font-bold">PDP &amp; QI Journey Log</h2>
-                            <p class="text-xs text-emerald-100">SLO 11 &amp; 12 development tracker — PDP goals, QI-journey maturity ratings, education log, and CCT summary. This feeds suggestions into the EM-QIAT form under “SLO 11 Sign-off”, but is a separate journal, not the sign-off form itself.</p>
+                            <p class="text-xs text-emerald-100">SLO 11 &amp; 12 development tracker — PDP goals, QI-journey maturity ratings, education log, and CCT summary. This feeds suggestions into the EM QIAT form under “SLO 11 Sign-off”, but is a separate journal, not the sign-off form itself.</p>
                         </div>
                     </div>
                     <button onclick="document.getElementById('emqiat-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -1301,7 +1332,7 @@ window.showFRCEMReadinessChecker = function() {
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs text-slate-500">
                     This checks the same underlying project data as the Dashboard's "Portfolio Readiness" card and the
                     <button onclick="document.getElementById('frcem-readiness-modal').remove(); window.openGoldenThreadValidator()" class="font-bold text-rcem-purple hover:underline">Golden Thread Validator</button>,
-                    just broken down against the 8 FRCEM marking domains specifically. For the real EM-QIAT (2025 Update) form your supervisor signs off on, see
+                    just broken down against the 8 FRCEM marking domains specifically. For the real EM QIAT (2025 Update) form your supervisor signs off on, see
                     <button onclick="document.getElementById('frcem-readiness-modal').remove(); window.router('supervisor')" class="font-bold text-rcem-purple hover:underline">SLO 11 Sign-off</button>.
                 </div>
             </div>
@@ -4533,3 +4564,14 @@ window.closeMobileMenu = () => {
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && document.getElementById('app-sidebar')?.classList.contains('z-50')) window.closeMobileMenu();
 });
+
+// Jump to a field on another page (used by the charter's "Edit on …" links)
+window.goToField = (view, id) => {
+    window.router(view);
+    setTimeout(() => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof el.focus === 'function') el.focus({ preventScroll: true });
+    }, 150);
+};

@@ -153,10 +153,10 @@ export const emptyProject = {
         lastSupervisorActivityAt: '',
         traineeSeenAt: ''
     },
-    // Mirrors the real RCEM EM-QIAT (2025 Update) form field-for-field, so what a
+    // Mirrors the real RCEM EM QIAT (2025 Update) form field-for-field, so what a
     // supervisor reviews here is the same content that gets submitted on
     // kaizenep.com — not a separate invented summary. Deliberately a DIFFERENT
-    // key from data.emqiat (the older, separate "EM-QIAT Journal" modal’s PDP/
+    // key from data.emqiat (the older, separate "EM QIAT Journal" modal’s PDP/
     // education-log/CCT-summary data — see window.showEMQIATModal in app.js) to
     // avoid the two features colliding on the same object.
     emqiatForm: {
@@ -204,7 +204,7 @@ export const emptyProject = {
 // of the app, so demo mode shows each feature with realistic content: change
 // ideas with linked PDSA cycles, several measures of each role and chart type,
 // chart event markers, SWOT/PEST, FMEA, 5 Whys, charter, action plan, spread
-// plan, references, patient feedback, the EM-QIAT form and journal, and a
+// plan, references, patient feedback, the EM QIAT form and journal, and a
 // supervisor sign-off. The department, people and data are made up.
 
 // Monday-dated weekly points from a start date, one per value.
@@ -518,20 +518,8 @@ export function getDemoData() {
                 { description: 'Sepsis trolleys (borrowed from theatres)', estimatedCost: '£0', stakeholder: 'ED matron' },
                 { description: 'PGD training (2 hours per nurse, in protected teaching time)', estimatedCost: 'Staff time only', stakeholder: 'Nursing education' }
             ],
-            milestones: [
-                { phase: 'Start Out', targetDate: '2025-05-30' },
-                { phase: 'Define & Scope', targetDate: '2025-06-30' },
-                { phase: 'Measure & Understand', targetDate: '2025-08-31' },
-                { phase: 'Design & Plan', targetDate: '2025-09-12' },
-                { phase: 'Pilot & Implement', targetDate: '2026-03-01' },
-                { phase: 'Sustain & Share', targetDate: '2026-05-31' }
-            ],
-            team: [
-                { name: 'Alex Morgan', role: 'Project lead', timeCommitment: '3 hours/week' },
-                { name: 'Sam Patel', role: 'Sepsis champion', timeCommitment: '2 hours/week' },
-                { name: 'Jordan Lee', role: 'PGD lead', timeCommitment: '1 hour/week' },
-                { name: 'Chris Evans', role: 'EPR analyst', timeCommitment: '4 hours in total' }
-            ],
+            // Milestones and the team are read from the Timeline and QI Team
+            aimMigrated: true, teamMigrated: true, milestonesMigrated: true,
             additionalResources: 'EPR analyst time for the prompt and data extract; space in the medicines committee agenda.',
             lineManagerName: 'Dr Priya Shah',
             lineManagerSignatureDate: '2025-05-21'

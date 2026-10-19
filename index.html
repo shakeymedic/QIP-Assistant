@@ -716,7 +716,6 @@
                                 <li><a href="https://rcem.ac.uk/clinical-standards-and-guidance/" target="_blank" rel="noopener" class="font-bold hover:underline">RCEM Clinical Standards and Guidance</a></li>
                             </ul>
                         </div>
-                        <div id="patient-tracker-container" class="mt-6"></div>
                     </div>
 
                     <div id="view-team" class="view-section hidden max-w-5xl mx-auto">
@@ -967,7 +966,6 @@
                             <div class="flex bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
                                 <button aria-label="View RCEM Abstract Format" onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button>
                                 <button aria-label="View RCEM Report Format" onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Report</button>
-                                <button aria-label="View EM QIAT form" onclick="window.switchPublishMode('qiat')" id="btn-mode-qiat" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">EM QIAT</button>
                             </div>
                         </header>
                         <div id="publish-content"></div>
@@ -1464,8 +1462,8 @@
                 <button aria-label="Export QIAT Portfolio as PDF" onclick="window.exportToKaizen(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
                     <div class="bg-purple-100 text-purple-600 p-2 rounded-lg shrink-0"><i data-lucide="clipboard-check" class="w-5 h-5"></i></div>
                     <div>
-                        <div class="font-bold text-slate-800 text-sm">EM-QIAT (2025 Update) — PDF</div>
-                        <div class="text-xs text-slate-500 mt-0.5">The authoritative, field-for-field EM-QIAT export — the same content your supervisor reviews on the SLO 11 Sign-off page. Use this one for your portfolio.</div>
+                        <div class="font-bold text-slate-800 text-sm">EM QIAT (2025 Update) — PDF</div>
+                        <div class="text-xs text-slate-500 mt-0.5">The authoritative, field-for-field EM QIAT export — the same content your supervisor reviews on the SLO 11 Sign-off page. Use this one for your portfolio.</div>
                     </div>
                 </button>
                 <button aria-label="Export A3 Summary as PDF" onclick="window.exportToA3(); window.closeExportCenter();" class="w-full flex items-start gap-3 p-3 rounded-xl border border-slate-200 hover:border-rcem-purple hover:bg-indigo-50 text-left transition-all">
@@ -1648,7 +1646,7 @@
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="trending-up" class="w-4 h-4 text-emerald-500 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Run Chart &amp; SPC</span>
+                            <span class="font-bold text-sm text-slate-800">Data &amp; SPC</span>
                         </div>
                         <p class="text-xs text-slate-500 leading-snug">Add data points. SPC rules applied automatically to detect improvement signals</p>
                     </div>
@@ -1666,7 +1664,7 @@
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="users" class="w-4 h-4 text-violet-500 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Team &amp; Stakeholders</span>
+                            <span class="font-bold text-sm text-slate-800">Team &amp; Leadership</span>
                         </div>
                         <p class="text-xs text-slate-500 leading-snug">Log team members, roles, contributions &amp; stakeholder map</p>
                     </div>
@@ -1675,7 +1673,7 @@
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="calendar-range" class="w-4 h-4 text-orange-500 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Gantt Chart</span>
+                            <span class="font-bold text-sm text-slate-800">Timeline</span>
                         </div>
                         <p class="text-xs text-slate-500 leading-snug">Project timeline with milestones and key dates</p>
                     </div>
@@ -1684,7 +1682,7 @@
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="message-square" class="w-4 h-4 text-pink-500 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Surveys</span>
+                            <span class="font-bold text-sm text-slate-800">Surveys &amp; Feedback</span>
                         </div>
                         <p class="text-xs text-slate-500 leading-snug">Record &amp; analyse patient or staff feedback for your change package</p>
                     </div>
@@ -1693,19 +1691,19 @@
                          class="bg-slate-50 border border-slate-200 hover:border-rcem-purple rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="award" class="w-4 h-4 text-yellow-500 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Portfolio Readiness</span>
+                            <span class="font-bold text-sm text-slate-800">SLO 11 Sign-off</span>
                         </div>
-                        <p class="text-xs text-slate-500 leading-snug">SLO11 sign-off tracker. See exactly what evidence is still missing</p>
+                        <p class="text-xs text-slate-500 leading-snug">Your EM QIAT form, readiness check and supervisor sign-off</p>
                     </div>
 
                     <div onclick="window.closeHowTo(); if(window.howtoNav) window.howtoNav('publish');"
                          class="col-span-2 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 hover:border-amber-400 rounded-xl p-3 cursor-pointer transition-all group">
                         <div class="flex items-center gap-2 mb-1.5">
                             <i data-lucide="rocket" class="w-4 h-4 text-amber-600 flex-shrink-0"></i>
-                            <span class="font-bold text-sm text-slate-800">Publish &amp; Export</span>
+                            <span class="font-bold text-sm text-slate-800">Publication</span>
                             <span class="text-[10px] font-bold bg-amber-500 text-white px-1.5 py-0.5 rounded ml-auto">PPTX · POSTER · ABSTRACT</span>
                         </div>
-                        <p class="text-xs text-slate-500 leading-snug">Generate a complete portfolio-ready PowerPoint, RCEM abstract, QIP poster or EM-QIAT portfolio PDF</p>
+                        <p class="text-xs text-slate-500 leading-snug">Generate a complete portfolio-ready PowerPoint, RCEM abstract, QIP poster or EM QIAT portfolio PDF</p>
                     </div>
                 </div>
 

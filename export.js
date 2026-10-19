@@ -34,7 +34,7 @@ export async function exportPPTX() {
     const SLATE_LIGHT = "F8FAFC";
     const BORDER_COLOR = "E2E8F0";
 
-    const LOGO_URL = 'https://wmebemqipassist.netlify.app/logo.png';
+    const LOGO_URL = new URL('./logo.png', window.location.href).href;   // same origin, so previews and offline use work too
 
     // Helper function for slide headers
     const addHeader = (slideObj, titleText) => {

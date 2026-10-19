@@ -6,7 +6,6 @@ import {
 } from "./charts.js";
 
 // Import external modules to populate missing DOM elements
-import { renderPatientTracker } from "./patient-tracker.js";
 import { runFullAIAssessment, runSectionAI } from "./ai-review.js";
 import { renderGreenCalculator, calculateCarbonSavings } from "./green-calculator.js";
 import { renderSurveys } from "./surveys.js";
@@ -29,7 +28,6 @@ export function renderAll(view) {
         case 'dashboard': renderDashboard(); break;
         case 'checklist': 
             renderChecklist(); 
-            if (typeof renderPatientTracker === 'function' && state.projectData) renderPatientTracker(state.projectData, window.saveData);
             break; 
         case 'team': renderTeam(); break;
         case 'charter': renderCharter(); break;
@@ -222,12 +220,12 @@ export function renderDashboard() {
 function updatePortfolioReadiness() {
     // Same scoring the QIP Lead and Supervisor overviews show (project-metrics.js).
     const { criteria, metCount, percent, isHigher } = computeReadiness(state.projectData);
-    // "Ready" must agree with the EM-QIAT form the supervisor actually reviews,
+    // "Ready" must agree with the EM QIAT form the supervisor actually reviews,
     // so all key elements being present is not enough on its own.
     const qiat = assessEmqiat(state.projectData || {});
     const qiatAllStrong = qiat.strong === qiat.total;
     const headline = percent < 100 ? 'Work in progress'
-        : (qiatAllStrong ? 'Ready for submission' : 'Key elements in place: now strengthen your EM-QIAT answers');
+        : (qiatAllStrong ? 'Ready for submission' : 'Key elements in place: now strengthen your EM QIAT answers');
 
     const container = document.getElementById('readiness-content');
     if (container) {
@@ -238,7 +236,7 @@ function updatePortfolioReadiness() {
                 </div>
                 <div>
                     <div class="text-sm font-bold text-slate-800">${headline}</div>
-                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. EM-QIAT: ${qiat.strong} of ${qiat.total} sections strong.</div>
+                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. EM QIAT: ${qiat.strong} of ${qiat.total} sections strong.</div>
                 </div>
             </div>
             <div class="space-y-2">
@@ -270,11 +268,11 @@ function emqiatReadinessLine() {
     const res = assessEmqiat(state.projectData || {});
     const all = res.strong === res.total;
     return `
-        <button onclick="window.router('publish'); setTimeout(() => window.switchPublishMode && window.switchPublishMode('qiat'), 50);"
+        <button onclick="window.router('supervisor')"
             class="mt-4 w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-colors ${all ? 'border-emerald-200 bg-emerald-50 hover:bg-emerald-100' : 'border-indigo-200 bg-indigo-50 hover:bg-indigo-100'}">
             <i data-lucide="clipboard-check" class="w-5 h-5 ${all ? 'text-emerald-600' : 'text-indigo-600'} flex-shrink-0"></i>
             <span class="flex-1">
-                <span class="block text-xs font-bold text-slate-800">EM-QIAT: ${res.strong} of ${res.total} sections strong</span>
+                <span class="block text-xs font-bold text-slate-800">EM QIAT: ${res.strong} of ${res.total} sections strong</span>
                 <span class="block text-[11px] text-slate-500">${all ? 'Ready to paste into risr/advance' : 'See exactly what each answer still needs'}</span>
             </span>
             <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
@@ -2509,16 +2507,27 @@ function ensureCharter(d) {
             targetDate: c.milestones[index]?.targetDate || ''
         }));
     }
-    if (!c.aim && d.checklist?.aim) c.aim = d.checklist.aim;
+    // The aim is written once, on Define & Measure; the charter mirrors it.
+    c.aim = d.checklist?.aim || '';
     if (!c.rationale && d.checklist?.problem_desc) c.rationale = d.checklist.problem_desc;
-    if (c.team.length === 0 && Array.isArray(d.teamMembers) && d.teamMembers.length > 0) {
-        c.team = d.teamMembers.map(member => ({
-            name: member.name || '',
-            role: member.role || member.grade || '',
-            timeCommitment: ''
-        }));
-    }
     return c;
+}
+
+// Read-only block for charter fields that live on another page
+function charterLinked(label, bodyHtml, view, fieldId, pageName) {
+    return `
+        <div class="block">
+            <span class="block text-xs font-bold uppercase tracking-wide text-slate-500 mb-1">${label}</span>
+            <div class="w-full p-2.5 border border-slate-200 bg-slate-50 rounded-lg text-sm text-slate-700">${bodyHtml}</div>
+            <button type="button" onclick="window.goToField('${view}', '${fieldId}')" class="mt-1 text-xs font-medium text-indigo-600 hover:underline">Edit on ${pageName} &rarr;</button>
+        </div>
+    `;
+}
+
+function charterMilestoneTasks(d) {
+    const tasks = Array.isArray(d.gantt) ? d.gantt.filter(t => t && t.name) : [];
+    const flagged = tasks.filter(t => t.milestone);
+    return (flagged.length ? flagged : tasks).slice().sort((x, y) => String(x.start || '').localeCompare(String(y.start || '')));
 }
 
 function charterInput(label, field, value, type = 'text', placeholder = '') {
@@ -2547,7 +2556,8 @@ export function renderCharter() {
     const container = document.getElementById('charter-container');
     if (!d || !container) return;
     const c = ensureCharter(d);
-    const teamSyncAvailable = Array.isArray(d.teamMembers) && d.teamMembers.length > 0;
+    const team = Array.isArray(d.teamMembers) ? d.teamMembers : [];
+    const milestoneTasks = charterMilestoneTasks(d);
 
     container.innerHTML = `
         <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -2571,7 +2581,7 @@ export function renderCharter() {
                     ${charterInput('Executive sponsor', 'execSponsor', c.execSponsor, 'text', 'Name / role')}
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    ${charterTextarea('Aim', 'aim', c.aim, 'SMART aim statement')}
+                    ${charterLinked('Aim', c.aim ? `<span class="whitespace-pre-wrap">${escapeHtml(c.aim)}</span>` : '<span class="italic text-slate-400">No SMART aim written yet.</span>', 'checklist', 'check-aim', 'Define &amp; Measure')}
                     ${charterTextarea('Rationale', 'rationale', c.rationale, 'Why is this work needed?')}
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
@@ -2611,13 +2621,19 @@ export function renderCharter() {
             </section>
 
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                <h3 class="font-bold text-slate-800 mb-4 flex items-center gap-2"><i data-lucide="milestone" class="w-4 h-4 text-violet-500"></i> QSIR Milestones</h3>
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">${c.milestones.map((milestone, index) => `<label class="bg-slate-50 border border-slate-200 rounded-lg p-3"><span class="block text-sm font-medium text-slate-700 mb-2">${escapeHtml(milestone.phase)}</span><input type="date" value="${escapeHtml(milestone.targetDate || '')}" onchange="window.updateCharterMilestone(${index}, this.value)" class="w-full p-2 border border-slate-300 rounded text-sm"></label>`).join('')}</div>
+                <div class="flex justify-between items-center gap-4 mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="milestone" class="w-4 h-4 text-violet-500"></i> Milestones</h3><p class="text-xs text-slate-500 mt-1">Taken from your Timeline${milestoneTasks.some(t => t.milestone) ? ' (tasks marked as milestones)' : ''}.</p></div>
+                    <button type="button" onclick="window.router('gantt')" class="text-xs font-medium text-indigo-600 hover:underline whitespace-nowrap">Edit on Timeline &rarr;</button>
+                </div>
+                ${milestoneTasks.length ? `<div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Milestone</th><th class="px-3 py-2 text-left">Date</th><th class="px-3 py-2 text-left">Owner</th></tr></thead><tbody class="divide-y divide-slate-100">${milestoneTasks.map(t => `<tr><td class="px-3 py-2">${escapeHtml(t.name)}</td><td class="px-3 py-2 whitespace-nowrap">${escapeHtml(formatDate(t.end || t.start))}</td><td class="px-3 py-2">${escapeHtml(t.owner || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-slate-500 italic">No tasks on the Timeline yet.</p>'}
             </section>
 
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4"><div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users-round" class="w-4 h-4 text-pink-500"></i> Project Team</h3><p class="text-xs text-slate-500 mt-1">Team members and their planned contribution.</p></div><div class="flex gap-2"><button onclick="window.addCharterTeamMember()" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-indigo-700"><i data-lucide="plus" class="w-4 h-4"></i> Add member</button>${teamSyncAvailable ? '<button onclick="window.syncCharterTeam()" class="bg-pink-50 text-pink-700 border border-pink-200 px-3 py-1.5 rounded text-sm flex items-center gap-1 hover:bg-pink-100"><i data-lucide="refresh-cw" class="w-4 h-4"></i> Sync QI Team</button>' : ''}</div></div>
-                ${c.team.length ? `<div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Name</th><th class="px-3 py-2 text-left">Role</th><th class="px-3 py-2 text-left">Time commitment</th><th class="px-2 py-2"></th></tr></thead><tbody class="divide-y divide-slate-100">${c.team.map((member, index) => `<tr><td class="p-1"><input value="${escapeHtml(member.name || '')}" onchange="window.updateCharterTeamMember(${index}, 'name', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Name"></td><td class="p-1"><input value="${escapeHtml(member.role || '')}" onchange="window.updateCharterTeamMember(${index}, 'role', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Role"></td><td class="p-1"><input value="${escapeHtml(member.timeCommitment || '')}" onchange="window.updateCharterTeamMember(${index}, 'timeCommitment', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="e.g. 2 hours/week"></td><td class="p-1 text-center"><button onclick="window.removeCharterTeamMember(${index})" class="text-slate-300 hover:text-red-500 p-1" title="Remove team member"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-slate-500 italic">No team members added yet.</p>'}
+                <div class="flex justify-between items-center gap-4 mb-4">
+                    <div><h3 class="font-bold text-slate-800 flex items-center gap-2"><i data-lucide="users-round" class="w-4 h-4 text-pink-500"></i> Project Team</h3><p class="text-xs text-slate-500 mt-1">Your QI Team, as recorded on Team &amp; Leadership.</p></div>
+                    <button type="button" onclick="window.router('team')" class="text-xs font-medium text-indigo-600 hover:underline whitespace-nowrap">Edit on Team &amp; Leadership &rarr;</button>
+                </div>
+                ${team.length ? `<div class="overflow-x-auto border border-slate-200 rounded-lg"><table class="w-full text-sm"><thead class="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th class="px-3 py-2 text-left">Name</th><th class="px-3 py-2 text-left">Role</th><th class="px-3 py-2 text-left">Grade</th><th class="px-3 py-2 text-left">Contribution</th></tr></thead><tbody class="divide-y divide-slate-100">${team.map(m => `<tr><td class="px-3 py-2">${escapeHtml(m.name || '')}</td><td class="px-3 py-2">${escapeHtml(m.role || '')}</td><td class="px-3 py-2">${escapeHtml(m.grade || '')}</td><td class="px-3 py-2">${escapeHtml(m.responsibilities || '')}</td></tr>`).join('')}</tbody></table></div>` : '<p class="text-sm text-slate-500 italic">No team members added yet.</p>'}
             </section>
 
             <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
@@ -2646,20 +2662,6 @@ export function removeCharterBenefit(index) { ensureCharter(state.projectData).b
 export function addCharterCost() { const c = ensureCharter(state.projectData); c.costs.push({ description: '', estimatedCost: '', stakeholder: '' }); saveCharter(); renderCharter(); }
 export function updateCharterCost(index, field, value) { const row = ensureCharter(state.projectData).costs[index]; if (row) { row[field] = value; saveCharter(); } }
 export function removeCharterCost(index) { ensureCharter(state.projectData).costs.splice(index, 1); saveCharter(); renderCharter(); }
-export function updateCharterMilestone(index, value) { const row = ensureCharter(state.projectData).milestones[index]; if (row) { row.targetDate = value; saveCharter(); } }
-export function addCharterTeamMember() { const c = ensureCharter(state.projectData); c.team.push({ name: '', role: '', timeCommitment: '' }); saveCharter(); renderCharter(); }
-export function updateCharterTeamMember(index, field, value) { const row = ensureCharter(state.projectData).team[index]; if (row) { row[field] = value; saveCharter(); } }
-export function removeCharterTeamMember(index) { ensureCharter(state.projectData).team.splice(index, 1); saveCharter(); renderCharter(); }
-export function syncCharterTeam() {
-    const d = state.projectData;
-    const c = ensureCharter(d);
-    const existingCommitments = new Map(c.team.map(member => [`${member.name}|${member.role}`, member.timeCommitment || '']));
-    c.team = (d.teamMembers || []).map(member => ({
-        name: member.name || '', role: member.role || member.grade || '',
-        timeCommitment: existingCommitments.get(`${member.name || ''}|${member.role || member.grade || ''}`) || ''
-    }));
-    saveCharter(); renderCharter(); showToast('Charter team synced from QI Team', 'success');
-}
 
 export function printCharter() {
     const d = state.projectData;
@@ -2670,7 +2672,7 @@ export function printCharter() {
     const rows = (items, fields) => items.length ? `<table><thead><tr>${fields.map(field => `<th>${field.label}</th>`).join('')}</tr></thead><tbody>${items.map(item => `<tr>${fields.map(field => `<td>${text(item[field.key])}</td>`).join('')}</tr>`).join('')}</tbody></table>` : '<p>Not specified.</p>';
     const popup = window.open('', '_blank');
     if (!popup) { showToast('Please allow pop-ups to export the project charter', 'error'); return; }
-    popup.document.write(`<!DOCTYPE html><html><head><title>Project Charter</title><style>body{font-family:Arial,sans-serif;color:#1e293b;line-height:1.45;padding:32px;max-width:1000px;margin:auto}.header{border-bottom:3px solid #2d2e83;padding-bottom:16px;margin-bottom:24px}h1{color:#2d2e83;margin:0 0 6px;font-size:26px}h2{color:#2d2e83;font-size:16px;margin:22px 0 8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.meta{background:#f8fafc;border:1px solid #cbd5e1;padding:10px;border-radius:4px}.label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:bold}.box{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:4px;min-height:28px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}th{background:#eef2ff;color:#312e81}.print{display:block;margin:20px auto;padding:10px 18px;background:#2d2e83;color:white;border:0;border-radius:4px;cursor:pointer}@media print{body{padding:0}.print{display:none}.grid{grid-template-columns:repeat(3,1fr)}section{break-inside:avoid}}</style></head><body><div class="header"><h1>Project Charter</h1><p><strong>${text(d.meta?.title || 'Untitled QIP')}</strong></p></div><div class="grid"><div class="meta"><div class="label">Prepared by</div>${text(c.preparedBy)}</div><div class="meta"><div class="label">Date</div>${text(c.date)}</div><div class="meta"><div class="label">Executive sponsor</div>${text(c.execSponsor)}</div></div>${section('Aim', text(c.aim))}${section('Rationale', text(c.rationale))}<div class="grid"><div class="meta"><div class="label">Key area of focus</div>${text(c.keyAreaOfFocus)}</div><div class="meta"><div class="label">Start date</div>${text(c.startDate)}</div><div class="meta"><div class="label">End date</div>${text(c.endDate)}</div></div>${section('Objectives', text(c.objectives))}<div class="grid">${section('Project Scope – IN', text(c.scopeIn))}${section('Project Scope – OUT', text(c.scopeOut))}</div>${section('Benefits', rows(c.benefits, [{ key: 'benefit', label: 'Benefit' }, { key: 'measure', label: 'Measure' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('Costs', rows(c.costs, [{ key: 'description', label: 'Description' }, { key: 'estimatedCost', label: 'Estimated cost' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('QSIR Milestones', rows(c.milestones, [{ key: 'phase', label: 'Phase' }, { key: 'targetDate', label: 'Target completion date' }]))}${section('Team', rows(c.team, [{ key: 'name', label: 'Name' }, { key: 'role', label: 'Role' }, { key: 'timeCommitment', label: 'Time commitment' }]))}${section('Additional resources', text(c.additionalResources))}<div class="grid"><div class="meta"><div class="label">Line manager name</div>${text(c.lineManagerName)}</div><div class="meta"><div class="label">Signature date</div>${text(c.lineManagerSignatureDate)}</div></div><button class="print" onclick="window.print()">Print to PDF</button><script>window.onload=function(){setTimeout(function(){window.print()},500)}</script></body></html>`);
+    popup.document.write(`<!DOCTYPE html><html><head><title>Project Charter</title><style>body{font-family:Arial,sans-serif;color:#1e293b;line-height:1.45;padding:32px;max-width:1000px;margin:auto}.header{border-bottom:3px solid #2d2e83;padding-bottom:16px;margin-bottom:24px}h1{color:#2d2e83;margin:0 0 6px;font-size:26px}h2{color:#2d2e83;font-size:16px;margin:22px 0 8px}.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.meta{background:#f8fafc;border:1px solid #cbd5e1;padding:10px;border-radius:4px}.label{font-size:10px;text-transform:uppercase;color:#64748b;font-weight:bold}.box{background:#f8fafc;border:1px solid #cbd5e1;padding:12px;border-radius:4px;min-height:28px}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #cbd5e1;padding:8px;text-align:left;vertical-align:top}th{background:#eef2ff;color:#312e81}.print{display:block;margin:20px auto;padding:10px 18px;background:#2d2e83;color:white;border:0;border-radius:4px;cursor:pointer}@media print{body{padding:0}.print{display:none}.grid{grid-template-columns:repeat(3,1fr)}section{break-inside:avoid}}</style></head><body><div class="header"><h1>Project Charter</h1><p><strong>${text(d.meta?.title || 'Untitled QIP')}</strong></p></div><div class="grid"><div class="meta"><div class="label">Prepared by</div>${text(c.preparedBy)}</div><div class="meta"><div class="label">Date</div>${text(c.date)}</div><div class="meta"><div class="label">Executive sponsor</div>${text(c.execSponsor)}</div></div>${section('Aim', text(c.aim))}${section('Rationale', text(c.rationale))}<div class="grid"><div class="meta"><div class="label">Key area of focus</div>${text(c.keyAreaOfFocus)}</div><div class="meta"><div class="label">Start date</div>${text(c.startDate)}</div><div class="meta"><div class="label">End date</div>${text(c.endDate)}</div></div>${section('Objectives', text(c.objectives))}<div class="grid">${section('Project Scope – IN', text(c.scopeIn))}${section('Project Scope – OUT', text(c.scopeOut))}</div>${section('Benefits', rows(c.benefits, [{ key: 'benefit', label: 'Benefit' }, { key: 'measure', label: 'Measure' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('Costs', rows(c.costs, [{ key: 'description', label: 'Description' }, { key: 'estimatedCost', label: 'Estimated cost' }, { key: 'stakeholder', label: 'Stakeholder' }]))}${section('Milestones', rows(charterMilestoneTasks(d).map(t => ({ name: t.name, date: formatDate(t.end || t.start), owner: t.owner || '' })), [{ key: 'name', label: 'Milestone' }, { key: 'date', label: 'Date' }, { key: 'owner', label: 'Owner' }]))}${section('Team', rows(Array.isArray(d.teamMembers) ? d.teamMembers : [], [{ key: 'name', label: 'Name' }, { key: 'role', label: 'Role' }, { key: 'grade', label: 'Grade' }, { key: 'responsibilities', label: 'Contribution' }]))}${section('Additional resources', text(c.additionalResources))}<div class="grid"><div class="meta"><div class="label">Line manager name</div>${text(c.lineManagerName)}</div><div class="meta"><div class="label">Signature date</div>${text(c.lineManagerSignatureDate)}</div></div><button class="print" onclick="window.print()">Print to PDF</button><script>window.onload=function(){setTimeout(function(){window.print()},500)}</script></body></html>`);
     popup.document.close();
 }
 
@@ -2728,11 +2730,6 @@ window.removeCharterBenefit = removeCharterBenefit;
 window.addCharterCost = addCharterCost;
 window.updateCharterCost = updateCharterCost;
 window.removeCharterCost = removeCharterCost;
-window.updateCharterMilestone = updateCharterMilestone;
-window.addCharterTeamMember = addCharterTeamMember;
-window.updateCharterTeamMember = updateCharterTeamMember;
-window.removeCharterTeamMember = removeCharterTeamMember;
-window.syncCharterTeam = syncCharterTeam;
 window.printCharter = printCharter;
 window.renderActionPlan = renderActionPlan;
 window.addActionPlanRow = addActionPlanRow;
@@ -3399,14 +3396,15 @@ export function renderFullProject() {
 // 11. PUBLISH VIEW
 // ==========================================
 
-export function renderPublish(mode = 'qiat') {
+export function renderPublish(mode = 'abstract') {
     const d = state.projectData;
     if (!d) return;
     
     const content = document.getElementById('publish-content');
     if (!content) return;
     
-    ['qiat', 'abstract', 'report'].forEach(m => {
+    if (mode === 'qiat') mode = 'abstract';   // the EM QIAT form now lives only on SLO 11 Sign-off
+    ['abstract', 'report'].forEach(m => {
         const btn = document.getElementById(`btn-mode-${m}`);
         if (btn) {
             btn.className = mode === m
@@ -3415,20 +3413,11 @@ export function renderPublish(mode = 'qiat') {
         }
     });
     
-    if (mode === 'qiat') {
-        // The same EM QIAT (2025 Update) form as the SLO 11 page — one set of
-        // answers, laid out exactly like the live risr/advance form.
-        content.innerHTML = `
-            <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 mb-4 text-sm text-indigo-900 flex items-start gap-2">
-                <i data-lucide="info" class="w-4 h-4 flex-shrink-0 mt-0.5"></i>
-                <span>This is your EM QIAT, question for question as it appears on risr/advance. It is the same form your supervisor reviews on the <button onclick="window.router('supervisor')" class="font-bold underline">SLO 11 Sign-off</button> page \u2014 answers save automatically. Use <strong>Copy</strong> on each answer, or <strong>Export for risr/advance</strong>, to paste them in.</span>
-            </div>
-            <div id="publish-emqiat"></div>`;
-        renderEMQIATForm(document.getElementById('publish-emqiat'), { readOnly: !!state.isReadOnly });
-    } else if (mode === 'abstract') {
-        content.innerHTML = renderAbstractForm(d);
+    const qiatNote = `<div class="mb-4 text-sm text-slate-600 flex items-center gap-2 bg-indigo-50 border border-indigo-100 rounded-lg p-3"><i data-lucide="clipboard-check" class="w-4 h-4 text-indigo-500 flex-shrink-0"></i><span>Looking for the EM QIAT form? It is on <button onclick="window.router('supervisor')" class="font-bold text-indigo-700 underline">SLO 11 Sign-off</button>, where your supervisor reviews it.</span></div>`;
+    if (mode === 'abstract') {
+        content.innerHTML = qiatNote + renderAbstractForm(d);
     } else {
-        content.innerHTML = renderReportForm(d);
+        content.innerHTML = qiatNote + renderReportForm(d);
     }
     
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -3869,7 +3858,7 @@ export function startTour(_retried) {
                 { element: '#nav-gantt',         popover: { title: '📅 Timeline',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
                 { element: '#nav-surveys',       popover: { title: '📝 Surveys & Feedback',              description: 'Log and analyse patient or staff feedback to support your change package.' }},
                 { element: '#nav-supervisor',    popover: { title: '🏆 SLO 11 Sign-off',  description: 'Check SLO11 sign-off criteria. See exactly what evidence is complete and what still needs work.' }},
-                { element: '#nav-publish',       popover: { title: '🚀 Publication',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or EM-QIAT portfolio PDF for risr/advance.' }}
+                { element: '#nav-publish',       popover: { title: '🚀 Publication',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or EM QIAT portfolio PDF for risr/advance.' }}
             ]
         });
         driverObj.drive();

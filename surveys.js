@@ -1,6 +1,7 @@
 import { state } from "./state.js";
 import { showToast, escapeHtml, jsArg } from "./utils.js";
 import { callAI } from "./ai.js";
+import { renderPatientTracker } from "./patient-tracker.js";
 
 export function renderSurveys() {
     const d = state.projectData;
@@ -16,7 +17,7 @@ export function renderSurveys() {
                 <h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
                     <i data-lucide="clipboard-list" class="text-violet-500"></i> Surveys and Feedback
                 </h2>
-                <p class="text-slate-500 text-sm mt-1">Manage questionnaires, staff surveys, and qualitative data.</p>
+                <p class="text-slate-500 text-sm mt-1">Questionnaires, staff surveys, qualitative data and the patient and public involvement log.</p>
             </div>
             <button onclick="window.addSurvey()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 flex items-center gap-2">
                 <i data-lucide="plus" class="w-4 h-4"></i> New Survey
@@ -89,8 +90,9 @@ export function renderSurveys() {
         });
     }
 
-    html += `</div>`;
+    html += `</div><div id="patient-tracker-container" class="mt-6"></div>`;
     container.innerHTML = html;
+    renderPatientTracker(d, window.saveData);
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
