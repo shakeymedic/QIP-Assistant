@@ -1,4 +1,5 @@
 import { state } from "./state.js";
+import { QI } from "./qi-constants.js";
 import { escapeHtml, showToast } from "./utils.js";
 
 // ==========================================
@@ -43,7 +44,8 @@ function renderOnboardingStep() {
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1.5">Training stage — this changes what “good” looks like throughout the app</label>
                     <div class="flex gap-3">
                         <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-accs" value="accs" ${stage==='accs'?'checked':''} class="text-rcem-purple"> ACCS <span class="text-xs text-slate-400">(participation)</span></label>
-                        <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-higher" value="higher" ${stage==='higher'?'checked':''} class="text-rcem-purple"> Higher (ST4–ST6) <span class="text-xs text-slate-400">(leadership)</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-intermediate" value="intermediate" ${stage==='intermediate'?'checked':''} class="text-rcem-purple"> Intermediate <span class="text-xs text-slate-400">(participation, data and evaluation)</span></label>
+                        <label class="flex items-center gap-2 cursor-pointer text-sm"><input type="radio" name="onboarding-stage" id="onboarding-stage-higher" value="higher" ${stage==='higher'?'checked':''} class="text-rcem-purple"> Higher <span class="text-xs text-slate-400">(leadership)</span></label>
                     </div>
                 </div>
                 <p class="text-sm text-slate-600 leading-relaxed">Every great QIP starts with a clear problem. What is the specific issue in the Emergency Department you want to solve?</p>
@@ -115,7 +117,7 @@ function renderOnboardingStep() {
 
                 <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 flex items-start gap-2">
                     <i data-lucide="info" class="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5"></i>
-                    <p class="text-xs text-amber-800 leading-relaxed"><strong>Before you test a change:</strong> have you already collected roughly 10-12 baseline data points for your outcome measure? A PDSA cycle is much more convincing when you can compare it against a proper baseline, not just a couple of readings. If not yet, it is fine to record "Cycle 1: gather baseline data" as your first PDSA instead.</p>
+                    <p class="text-xs text-amber-800 leading-relaxed"><strong>Before you test a change:</strong> collect your baseline first, roughly ${QI.BASELINE_MIN} to ${QI.BASELINE_TARGET} points for your outcome measure (one a week from ${QI.SAMPLE_PER_POINT} patients is plenty). A PDSA cycle is much more convincing against a proper baseline than against a couple of readings. Collecting the baseline is not itself a PDSA cycle: put it on your Timeline, and plan the first cycle for when the baseline is in.</p>
                 </div>
                 
                 <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-4">

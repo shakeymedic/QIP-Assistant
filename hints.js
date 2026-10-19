@@ -12,6 +12,7 @@
 // The examples are illustrative and fictional; they are not RCEM text.
 
 import { escapeHtml } from "./utils.js";
+import { QI, DATA_STORY } from "./qi-constants.js";
 
 // key → { title, what, tips?, examples? }
 // Keys are normalised label text. "context:label" keys apply only inside an
@@ -41,7 +42,7 @@ export const HINTS = {
     'baseline evidence & data': {
         title: 'Baseline evidence and data',
         what: 'The data showing how big the problem is before you change anything. Ideally collected over time (weekly or daily), so you can plot a run chart and see normal variation.',
-        tips: ['Aim for at least 10–12 data points before your first change.', 'Say how and when the data were collected and how many patients were included.', 'Add a breakdown of causes if you have one (a Pareto chart is ideal).'],
+        tips: [DATA_STORY, 'Say how and when the data were collected and how many patients were included.', 'Add a breakdown of causes if you have one (a Pareto chart is ideal).'],
         examples: ['Weekly data June–August 2025: median 42% (range 38–46%) received antibiotics within 60 minutes. Median time from triage to antibiotics 94 minutes. Review of 120 late cases: waiting for a prescriber 41, equipment not found 33, difficult cannulation 17.']
     },
     'strengths': { ref: 'swot' }, 'weaknesses': { ref: 'swot' }, 'opportunities': { ref: 'swot' }, 'threats': { ref: 'swot' },
@@ -123,7 +124,7 @@ export const HINTS = {
     },
     'reference list': {
         title: 'Reference list',
-        what: 'The sources you used, with one line on why each matters. Five or more good references is a sensible target for a higher-trainee project.',
+        what: `The sources you used, with one line on why each matters. ${QI.REFERENCES_MIN} good references is a sensible minimum; ${QI.REFERENCES_GOOD} or more for a higher-trainee project.`,
         examples: ['National Institute for Health and Care Excellence. Suspected sepsis: recognition, diagnosis and early management (NG51). Key point: antibiotics within one hour for people at high risk.']
     },
     'additional notes / narrative': {
@@ -168,8 +169,8 @@ export const HINTS = {
     },
     'failure mode & effect analysis': {
         title: 'Failure Mode and Effects Analysis (FMEA)',
-        what: 'A structured look at each step of a process: how it could fail, what the effect would be, and how likely, severe and detectable each failure is. Multiply the three scores (1–10 each) to get a risk priority number (RPN) and tackle the highest first.',
-        examples: ['Step: prescribe first dose. Failure: no prescriber available. Effect: delay of 30+ minutes. Likelihood 8, severity 8, detectability 4 (RPN 256). Mitigation: nurse PGD.']
+        what: 'A structured look at each step of a process: how it could fail, what the effect would be, and how likely, severe and detectable each failure is. Score each from 1 to 5 and multiply the three to get a risk priority number (RPN, maximum 125); tackle the highest first.',
+        examples: ['Step: prescribe first dose. Failure: no prescriber available. Effect: delay of 30+ minutes. Likelihood 4, severity 4, detectability 3 (RPN 48). Mitigation: nurse PGD.']
     },
     'patient and public involvement': {
         title: 'Patient and public involvement',
@@ -191,7 +192,7 @@ export const HINTS = {
     'costs': { title: 'Costs', what: 'Money, equipment and staff time needed, and who holds the budget. Many QI projects are cost-neutral; say so.', examples: ['Sepsis trolleys borrowed from theatres — £0 — ED matron.'] },
     'milestones': {
         title: 'Milestones',
-        what: 'Key dates for the project, taken from your Timeline. Mark a Timeline task as a milestone to show it here. The NHS QSIR phases are a useful set: scope, measure and understand, design and plan, pilot and implement, sustain and share, from start-out to sustain and share.'
+        what: 'Key dates for the project, taken from your Timeline. Mark a Timeline task as a milestone to show it here. A useful set of phases: start out, define and scope, measure and understand, design and plan, pilot and implement, sustain and share.'
     },
     'project team': { title: 'Project team', what: 'Who is on the team, their role and how much time they will give.', examples: ['Sepsis champion (band 7) — trolley and checks — 2 hours a week.'] },
     'additional resources': { title: 'Additional resources', what: 'Anything else you need, such as analyst time or space on a committee agenda.' },
@@ -226,7 +227,7 @@ export const HINTS = {
     'diagnosis tools': {
         title: 'Diagnosis tools',
         what: 'Tools for understanding the problem before changing anything.',
-        tips: ['Driver diagram: links your aim to the factors that drive it and the change ideas to test.', 'Fishbone: groups possible causes (people, methods, equipment, environment, measurement, management).', 'Process map: walks through each step as it really happens, to spot delays and waste.', '5 Whys: keeps asking "why?" to get from a symptom to a root cause.']
+        tips: ['Driver diagram: links your aim to the factors that drive it and the change ideas to test.', 'Fishbone: groups possible causes (patient, staff, equipment, process, environment, management).', 'Process map: walks through each step as it really happens, to spot delays and waste.', '5 Whys: keeps asking "why?" to get from a symptom to a root cause.']
     },
     'driver diagram': {
         title: 'Driver diagram',
@@ -359,7 +360,7 @@ function hintKeyFor(el) {
     return resolve(norm) ? norm : null;
 }
 
-const SCAN_SELECTOR = '#content-area label, #content-area h1, #content-area h2, #content-area h3, #content-area h4, [data-hint]';
+const SCAN_SELECTOR = '#content-area label, #content-area h1, #content-area h2, #content-area h3, #content-area h4, #content-area summary, [data-hint]';
 
 function scan() {
     document.querySelectorAll(SCAN_SELECTOR).forEach(el => {

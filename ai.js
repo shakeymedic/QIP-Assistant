@@ -35,7 +35,7 @@ function getTrainingStageContext() {
     if (stage === 'accs') {
         return "\nTraining Stage: ACCS. Focus on learning, contribution, and personal development.";
     } else if (stage === 'intermediate') {
-        return "\nTraining Stage: Intermediate (ST4/ST5). Focus on taking an increasing share of the project work, engaging the team and interpreting the data.";
+        return "\nTraining Stage: Intermediate. Focus on taking an increasing share of the project work, engaging the team and interpreting the data.";
     } else if (stage === 'higher') {
         return "\nTraining Stage: Higher EM Training. Focus on decision-making, stakeholder engagement, team management, and driving the improvement cycle.";
     }
