@@ -1,7 +1,7 @@
 // learn.js
 // ─── QI Learning Hub — Full View Renderer ─────────────────────────────────────
 // Tabs: RCEM Requirements | National QIPs | QI Methods | QI Tools |
-//       FRCEM Guide | Resources | Glossary
+//       Resources | Glossary
 
 let learnActiveTab = 'rcem';
 
@@ -14,7 +14,6 @@ export function renderLearn() {
         ['national',  'building-2',  'National QIPs'],
         ['methods',   'flask-conical','QI Methods'],
         ['tools',     'wrench',      'QI Tools'],
-        ['frcem',     'file-text',   'FRCEM Guide'],
         ['resources', 'book-open',   'Resources'],
         ['glossary',  'book-marked', 'Glossary']
     ];
@@ -40,7 +39,7 @@ export function renderLearn() {
         '<div>' +
         '<h1 class="text-2xl font-bold">QI Learning Hub</h1>' +
         '<p class="text-indigo-200 text-sm mt-1">Everything you need to plan, execute, and present a QIP that meets RCEM standards — ' +
-        'framework, methodology, tools, FRCEM marking criteria, and curated resources in one place.</p>' +
+        'framework, methodology, tools, what the EM QIAT form asks for, and curated resources in one place.</p>' +
         '</div></div></div>' +
 
         // Tab bar
@@ -75,7 +74,6 @@ function renderLearnTabContent(tab) {
         case 'national':  return tabNational();
         case 'methods':   return tabMethods();
         case 'tools':     return tabTools();
-        case 'frcem':     return tabFRCEM();
         case 'resources': return tabResources();
         case 'glossary':  return tabGlossary();
         default:          return tabRCEM();
@@ -161,7 +159,7 @@ function tabRCEM() {
         '<div class="flex items-center gap-2 mb-2">' +
         '<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Higher</span></div>' +
         '<ul class="text-xs text-purple-800 space-y-1.5 leading-relaxed">' +
-        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Lead a QIP from initiation to write-up</li>' +
+        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Lead a QIP from initiation to completion</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Demonstrate safety culture leadership</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Satisfactory:</strong> lead a project, with multidisciplinary working and mature reflection on the QI methods and leadership used</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Excellent:</strong> diverse QI methods tailored to the problem, regional or national presentation, innovation or perseverance, strategic contribution to the department\'s improvement programme</li>' +
@@ -217,7 +215,7 @@ function tabRCEM() {
             '<td class="p-2.5 border border-slate-200 text-slate-600">Active role with documented impact; patient safety reflection</td></tr>' +
             '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Intermediate</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Participation in a QI project linked to the QI Journey stages you chose; multidisciplinary working; reflection on the methods; QIAT completed</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Run chart; stakeholder engagement; written report or presentation</td></tr>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Run chart; stakeholder engagement; results presented to the department</td></tr>' +
             '<tr><td class="p-2.5 border border-slate-200 font-medium">Higher</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Lead a QI project with mature reflection; multidisciplinary working; account of the QI methods and leadership skills used</td>' +
             '<td class="p-2.5 border border-slate-200 text-slate-600">Interdisciplinary team; SPC charts; governance involvement; spread plan</td></tr>' +
@@ -419,7 +417,7 @@ function tabMethods() {
         '</div>' +
 
         infoBox('amber',
-            '<p class="text-xs text-amber-800"><strong>FRCEM tip:</strong> Each PDSA cycle must be distinct and documented with predictions, results, and a clear rationale for the Act decision. ' +
+            '<p class="text-xs text-amber-800"><strong>Tip:</strong> Each PDSA cycle must be distinct and documented with predictions, results, and a clear rationale for the Act decision. ' +
             'RCEM sets no number of cycles: run as many as it takes to see a sustained shift, with each one building on the last. Most first projects need three or more. ' +
             'Use the Change Ideas board in this app to document each cycle properly.</p>'
         ),
@@ -429,7 +427,7 @@ function tabMethods() {
     var driver = card(
         sectionHead('git-branch', 'Driver Diagrams', 'violet') +
         '<p class="text-sm text-slate-600 mb-4 leading-relaxed">A driver diagram is a visual map connecting your project Aim to the factors (drivers) that influence it, ' +
-        'and the specific changes you will test. It is the most important planning tool in QI and forms a strong backbone for your write-up.</p>' +
+        'and the specific changes you will test. It is the most important planning tool in QI and gives you a clear account of your project for the EM QIAT form.</p>' +
 
         '<div class="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-4">' +
         '<div class="flex flex-wrap items-center gap-3 text-xs font-semibold text-center">' +
@@ -484,7 +482,27 @@ function tabMethods() {
         '</div>'
     );
 
-    return '<div class="space-y-6">' + mfi + pdsa + driver + measures + '</div>';
+    var pitfalls = card(
+        sectionHead('alert-circle', 'Common Pitfalls to Avoid', 'rose') +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
+        [
+            ['Only one audit cycle', 'A single audit and re-audit is not a QIP. You need repeated PDSA cycles with evidence of iterative improvement and learning between them.'],
+            ['No PDSA predictions', 'Every PDSA cycle must start with a specific prediction. "We expected improvement" is not a prediction. State exactly what you expected to happen and why.'],
+            ['No annotated charts', 'A table of before-and-after numbers does not show whether a change worked. Plot your data over time with PDSA cycle dates marked. Use the Data view in this app to generate run/SPC charts.'],
+            ['Vague team description', 'List every team member with their role and specific contribution. The EM QIAT asks how you worked with the team, including how you handled resistance or disagreement.'],
+            ['No balancing measure', 'Failing to monitor unintended consequences is a common oversight. Always include at least one balancing measure (e.g. did your intervention affect another process negatively?).'],
+            ['Unsupported aim', 'Your SMART aim must be directly supported by your baseline data. State the gap between your baseline and your target and say why that target is realistic.'],
+        ].map(function(p) {
+            return '<div class="bg-rose-50 rounded-lg p-3 border border-rose-100">' +
+                '<div class="font-bold text-xs text-rose-800 mb-1 flex items-center gap-1.5">' +
+                '<i data-lucide="x-circle" class="w-3.5 h-3.5 flex-shrink-0"></i>' + p[0] + '</div>' +
+                '<p class="text-xs text-rose-700 leading-relaxed">' + p[1] + '</p></div>';
+        }).join('') +
+        '</div>'
+    );
+
+
+    return '<div class="space-y-6">' + mfi + pdsa + driver + measures + pitfalls + '</div>';
 }
 
 // ─── Tab 4: QI Tools ──────────────────────────────────────────────────────────
@@ -579,106 +597,6 @@ function tabTools() {
         html + '</div>';
 }
 
-// ─── Tab 5: FRCEM Guide ───────────────────────────────────────────────────────
-
-function tabFRCEM() {
-    var format = card(
-        sectionHead('file-text', 'Submission Format Requirements', 'slate') +
-        '<div class="grid grid-cols-2 sm:grid-cols-4 gap-3">' +
-        '<div class="bg-slate-50 rounded-xl p-3 text-center border border-slate-200">' +
-        '<div class="text-2xl font-black text-rcem-purple">3–4k</div>' +
-        '<div class="text-xs font-semibold text-slate-600">Word count</div>' +
-        '<div class="text-xs text-slate-400 mt-0.5">Excluding references and figures</div>' +
-        '</div>' +
-        '<div class="bg-slate-50 rounded-xl p-3 text-center border border-slate-200">' +
-        '<div class="text-2xl font-black text-rcem-purple">11pt</div>' +
-        '<div class="text-xs font-semibold text-slate-600">Font size</div>' +
-        '<div class="text-xs text-slate-400 mt-0.5">Arial or Times New Roman</div>' +
-        '</div>' +
-        '<div class="bg-slate-50 rounded-xl p-3 text-center border border-slate-200">' +
-        '<div class="text-2xl font-black text-rcem-purple">2×</div>' +
-        '<div class="text-xs font-semibold text-slate-600">Line spacing</div>' +
-        '<div class="text-xs text-slate-400 mt-0.5">Double-spaced throughout</div>' +
-        '</div>' +
-        '<div class="bg-slate-50 rounded-xl p-3 text-center border border-slate-200">' +
-        '<div class="text-2xl font-black text-rcem-purple">Van</div>' +
-        '<div class="text-xs font-semibold text-slate-600">Referencing</div>' +
-        '<div class="text-xs text-slate-400 mt-0.5">Vancouver style</div>' +
-        '</div>' +
-        '</div>',
-        'mb-6'
-    );
-
-    var rubric = card(
-        sectionHead('clipboard-check', 'Marking Rubric — Domain by Domain', 'emerald') +
-        '<p class="text-xs text-slate-500 mb-4">Each domain is marked Unsatisfactory / Satisfactory / Excellent. ' +
-        'All domains must reach Satisfactory for an overall pass. Excellence in most domains is needed for an Excellent overall.</p>' +
-        '<div class="overflow-x-auto">' +
-        '<table class="w-full text-xs border-collapse">' +
-        '<thead><tr class="bg-slate-50">' +
-        '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700 w-1/4">Domain</th>' +
-        '<th class="text-left p-2.5 border border-slate-200 font-bold text-amber-700">Satisfactory</th>' +
-        '<th class="text-left p-2.5 border border-slate-200 font-bold text-emerald-700">Excellent</th>' +
-        '</tr></thead><tbody>' +
-        [
-            ['Narrative Structure', 'Clear problem identification; relevant local context; cohesive logical structure throughout', 'Compelling narrative flow with fluid transitions; the "so what?" is evident at every stage; engaging for the reader'],
-            ['Engagement & Team', 'Named team members with defined roles; documented contributions from ≥2 stakeholder groups', 'Interdisciplinary team; documented management of resistance; patient or carer co-design; explicit leadership role'],
-            ['Problem Analysis', 'Baseline audit data; critical appraisal of ≥3 relevant clinical literature sources', 'Multiple analysis tools (SWOT/PEST, Ishikawa, FMEA); option appraisal; gap analysis linking evidence to local context'],
-            ['Change Management', 'Model for Improvement applied; more than one PDSA cycle documented with predictions and learning', 'Gantt chart or timeline; stakeholder analysis; iterative PDSA cycles each building on previous learning; change package described'],
-            ['Measuring Outcomes', 'Outcome, process, and balancing measures defined; basic data table or graph; data collected over time', 'Annotated run charts or SPC charts; justified choice of metrics; statistical signals of improvement described'],
-            ['Reflection & Learning', 'Basic personal reflection; lessons learned identified; next steps suggested', 'Deep self-aware reflection; personal strengths and weaknesses addressed; sustainability analysis; spread plan for the wider system'],
-        ].map(function(row, i) {
-            var bg = (i % 2 === 0) ? '' : 'class="bg-slate-50"';
-            return '<tr ' + bg + '><td class="p-2.5 border border-slate-200 font-semibold text-slate-800">' + row[0] + '</td>' +
-                '<td class="p-2.5 border border-slate-200 text-slate-600">' + row[1] + '</td>' +
-                '<td class="p-2.5 border border-slate-200 text-slate-600">' + row[2] + '</td></tr>';
-        }).join('') +
-        '</tbody></table></div>',
-        'mb-6'
-    );
-
-    var structure = card(
-        sectionHead('layout', 'Suggested Write-Up Structure', 'violet') +
-        '<div class="space-y-3">' +
-        [
-            ['Introduction (200–300 words)', 'State the clinical problem, why it matters in your ED, the relevant national standard or guideline, and your SMART aim. Introduce the team.'],
-            ['Background & Evidence Review (400–500 words)', 'Critical appraisal of ≥3 key papers. Demonstrate understanding of the evidence base. Include any relevant RCEM, NICE, or national guidance. Identify the gap between best practice and your current practice.'],
-            ['Problem Analysis (300–400 words)', 'Describe your baseline data collection (audit). Present a fishbone or driver diagram. Include SWOT/PEST or FMEA if available. Describe your measurement framework (outcome/process/balancing measures).'],
-            ['Change Ideas & PDSA Cycles (600–800 words)', 'For each PDSA cycle: state the change idea, your prediction, what you did (Do), what you found (Study), and your decision (Act). Each cycle should build iteratively on the previous. Include your driver diagram linking change ideas to primary drivers.'],
-            ['Results & Data (300–400 words)', 'Present your outcome, process, and balancing measures over time. Include an annotated run chart or SPC chart. Describe any signals of improvement. Note any unintended consequences.'],
-            ['Reflection & Sustainability (300–400 words)', 'Reflect on the project process — what worked, what did not, what you would do differently. Include a sustainability plan and spread strategy. Address your personal learning.'],
-            ['References', 'Vancouver format. Numbered in order of citation. Include DOI where available.'],
-        ].map(function(s) {
-            return '<div class="flex gap-3"><div class="w-2 bg-violet-200 rounded-full flex-shrink-0 self-stretch"></div>' +
-                '<div><div class="font-semibold text-sm text-slate-800">' + s[0] + '</div>' +
-                '<p class="text-xs text-slate-500 mt-0.5 leading-relaxed">' + s[1] + '</p></div></div>';
-        }).join('') +
-        '</div>',
-        'mb-6'
-    );
-
-    var pitfalls = card(
-        sectionHead('alert-circle', 'Common Pitfalls to Avoid', 'rose') +
-        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
-        [
-            ['Only one audit cycle', 'A single audit and re-audit is not a QIP. You need repeated PDSA cycles with evidence of iterative improvement and learning between them.'],
-            ['No PDSA predictions', 'Every PDSA cycle must start with a specific prediction. "We expected improvement" is not a prediction. State exactly what you expected to happen and why.'],
-            ['No annotated charts', 'Data in a table is insufficient for Excellent. Plot your data over time with PDSA cycle dates marked. Use the Data view in this app to generate run/SPC charts.'],
-            ['Vague team description', 'List every team member with their role and specific contribution. For Excellent, you need evidence of managing a team — including how you addressed resistance or conflict.'],
-            ['No balancing measure', 'Failing to monitor unintended consequences is a common oversight. Always include at least one balancing measure (e.g. did your intervention affect another process negatively?).'],
-            ['Unsupported aim', 'Your SMART aim must be directly supported by your baseline data. The gap between your baseline and your target must be explicitly stated and justified.'],
-        ].map(function(p) {
-            return '<div class="bg-rose-50 rounded-lg p-3 border border-rose-100">' +
-                '<div class="font-bold text-xs text-rose-800 mb-1 flex items-center gap-1.5">' +
-                '<i data-lucide="x-circle" class="w-3.5 h-3.5 flex-shrink-0"></i>' + p[0] + '</div>' +
-                '<p class="text-xs text-rose-700 leading-relaxed">' + p[1] + '</p></div>';
-        }).join('') +
-        '</div>'
-    );
-
-    return '<div class="space-y-6">' + format + rubric + structure + pitfalls + '</div>';
-}
-
 // ─── Tab 6: Resources ─────────────────────────────────────────────────────────
 
 function tabResources() {
@@ -757,7 +675,7 @@ function tabGlossary() {
         ['Driver Diagram', 'A visual map connecting the project Aim to Primary Drivers (main categories), Secondary Drivers (specific contributing factors), and Change Ideas (interventions). The backbone of any well-structured QIP.'],
         ['FMEA', 'Failure Mode and Effects Analysis. A proactive risk assessment tool identifying what could go wrong with a proposed change, scored by Likelihood × Severity × Detectability to produce a Risk Priority Number (RPN).'],
         ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (in this app: Patient, Staff, Equipment, Process, Environment, Management) to identify why a problem exists.'],
-        ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Demonstrates project management skills for the Excellent marking criterion in Change Management.'],
+        ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Shows the project was planned and managed, which the EM QIAT asks about in the leadership and project sections.'],
         ['IHI Open School', 'The Institute for Healthcare Improvement\'s online education platform. Courses QI 101–103 cover the Model for Improvement, PDSA cycles and run chart interpretation. Most courses need a subscription; check whether your Trust or deanery provides one.'],
         ['Inter-Rater Reliability (Kappa)', 'Cohen\'s Kappa measures how much two or more assessors agree when independently rating the same thing, correcting for chance agreement. Relevant when a measure depends on subjective judgement, e.g. two clinicians independently scoring the same screening tool. Not built into this app\'s charts — calculate separately and report the value in your write-up.'],
         ['Model for Improvement', 'The QI framework developed by Associates in Process Improvement. Built around three questions (Aim, Measurement, Change Ideas) and tested iteratively using PDSA cycles. The standard methodology for healthcare QI.'],
@@ -771,8 +689,8 @@ function tabGlossary() {
         ['SMART Aim', 'Specific, Measurable, Achievable, Relevant, Time-bound. The required format for your QIP aim statement. "To improve sepsis care" is not SMART; "To increase antibiotic administration within 60 minutes from 45% to 80% by the end of the rotation" is.'],
         ['SLO 11', 'Specialty Learning Outcome 11 in the RCEM 2021 Curriculum (updated Aug 2025). Covers Quality Improvement and Patient Safety. Evidenced each year through the EM QIAT form; leading a project every year is not mandatory.'],
         ['Special Cause Variation', 'A signal in your data (points outside control limits on an SPC chart, or non-random patterns on a run chart) indicating that something has genuinely changed the process — not just random noise.'],
-        ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. Required for the Excellent marking descriptor in Reflection & Sustainability.'],
-        ['Stakeholder Forcefield Analysis', 'Identifies forces supporting and opposing your change, scored by strength. Helps plan engagement strategy and is evidence of the Excellent criterion for Change Management.'],
+        ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. The EM QIAT asks what will happen to the project after you leave, so write one before you rotate.'],
+        ['Stakeholder Forcefield Analysis', 'Identifies forces supporting and opposing your change, scored by strength. Helps plan your engagement strategy and gives you something concrete to describe in the EM QIAT team and stakeholder section.'],
         ['Baseline', 'The measurements taken before any change is tested: ideally 10 to 12 weekly points. The baseline median is the line on the run chart that later points are compared with. A single audit figure is not a baseline.'],
         ['Common Cause Variation', 'The ordinary week-to-week wobble of a stable process. Points scatter randomly around the median with no shift or trend. Reacting to it as if it were change is the commonest mistake in reading a chart.'],
         ['Data Collection Plan', 'Written before the first point: where the data come from, who collects them, how often, from how many patients, and when the baseline starts. It keeps every point comparable with every other.'],
@@ -785,7 +703,7 @@ function tabGlossary() {
         ['Shift', 'Six or more consecutive points on one side of the median on a run chart. The commonest sign that a change has moved the process. Points exactly on the median are skipped when counting.'],
         ['Sponsor', 'The consultant who agrees the aim, unblocks changes and keeps the project alive after you rotate. Every first project needs one; add them to the team so they appear on the charter.'],
         ['Trend', 'Five or more consecutive points all rising or all falling on a run chart, suggesting a gradual change rather than a step. Repeated values count once.'],
-        ['Vancouver Referencing', 'The citation style required for FRCEM QIP write-ups. References are numbered sequentially in text and listed in order of appearance. Format: Author(s). Title. Journal. Year;Volume(Issue):Pages.'],
+        ['Vancouver Referencing', 'The citation style most medical journals and conferences use. References are numbered sequentially in text and listed in order of appearance. Format: Author(s). Title. Journal. Year;Volume(Issue):Pages.'],
     ];
 
     terms.sort(function(a, b) { return a[0].localeCompare(b[0]); });
