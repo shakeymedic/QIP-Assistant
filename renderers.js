@@ -118,7 +118,7 @@ export function updateNavigationUI(currentView) {
         const score = domains.filter(Boolean).length;
         const pct = Math.round((score / 8) * 100);
         const chipColor = pct >= 75 ? 'bg-emerald-500' : pct >= 40 ? 'bg-amber-500' : 'bg-red-500';
-        chip.innerHTML = `<button type="button" onclick="window.showFRCEMReadinessChecker && window.showFRCEMReadinessChecker()" title="Project sections: ${score} of 8 key parts filled in. This checks the sections exist, not how good they are. Click for details." aria-label="Project sections filled in: ${score} of 8. Show details" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
+        chip.innerHTML = `<button type="button" onclick="window.router('supervisor')" title="Project sections: ${score} of 8 key parts filled in. This checks the sections exist, not how good they are. Click to open the EM QIAT check." aria-label="Project sections filled in: ${score} of 8. Open the EM QIAT check" class="w-full flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition-colors">
             <div class="flex-1 bg-white/15 rounded-full h-1.5"><div class="${chipColor} h-1.5 rounded-full transition-all" style="width:${pct}%"></div></div>
             <span class="text-[11px] font-semibold text-slate-300 whitespace-nowrap">${score}/8 sections</span>
         </button>`;
@@ -265,8 +265,8 @@ function updatePortfolioReadiness() {
                     <button onclick="window.openGoldenThreadValidator()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
                         <i data-lucide="shield-check" class="w-4 h-4"></i> Golden Thread
                     </button>
-                    <button onclick="window.showFRCEMReadinessChecker()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
-                        <i data-lucide="clipboard-check" class="w-4 h-4"></i> FRCEM Domains
+                    <button onclick="window.router('supervisor')" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                        <i data-lucide="clipboard-check" class="w-4 h-4"></i> EM QIAT check
                     </button>
                 </div>
             ` : ''}
@@ -3882,9 +3882,9 @@ export async function openGoldenThreadValidator() {
                         ${renderRow('Sustainability planned', result.sustainabilityPlan)}
                     </div>
                     <div class="mt-4 pt-4 border-t border-slate-100 text-xs text-slate-400">
-                        This is an AI coherence check on your project's logic (does A lead to B). For a checklist-style
-                        breakdown against FRCEM marking domains, see the
-                        <button onclick="document.getElementById('golden-thread-modal').classList.add('hidden'); window.showFRCEMReadinessChecker()" class="font-bold text-rcem-purple hover:underline">FRCEM Readiness Checker</button>.
+                        This is an AI coherence check on your project's logic (does A lead to B). The only assessed output is the EM QIAT form:
+                        check it question by question on
+                        <button onclick="document.getElementById('golden-thread-modal').classList.add('hidden'); window.router('supervisor')" class="font-bold text-rcem-purple hover:underline">SLO 11 Sign-off</button>.
                     </div>
                 `;
             } else {
