@@ -1,4 +1,5 @@
 import { state } from "./state.js";
+import { surveyTemplateRowHtml } from "./step-helpers.js";
 import { showToast, escapeHtml, jsArg } from "./utils.js";
 import { callAI } from "./ai.js";
 import { renderPatientTracker } from "./patient-tracker.js";
@@ -24,6 +25,7 @@ export function renderSurveys() {
             </button>
         </header>
         <div class="space-y-6">
+        ${surveyTemplateRowHtml()}
     `;
 
     if (d.surveys.length === 0) {

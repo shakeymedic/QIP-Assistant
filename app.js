@@ -28,6 +28,7 @@ import "./hints.js";
 import { QI } from "./qi-constants.js";
 import "./modal-a11y.js";
 import { showPageBanner } from "./page-banners.js";
+import "./step-helpers.js"; // one-tap starters: timeline draft, survey templates, team roles, stakeholders, actions
 import { impossibleValueMessage } from "./data-entry.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
 
@@ -1845,6 +1846,7 @@ window.showHelp = R.showHelp;
 window.startTour = R.startTour;
 
 window.renderSurveys = renderSurveys;
+window.renderGantt = R.renderGantt;
 window.addSurvey = addSurvey;
 window.deleteSurvey = deleteSurvey;
 window.importSurveyCSV = importSurveyCSV;
