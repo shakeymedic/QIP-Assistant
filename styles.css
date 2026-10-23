@@ -545,7 +545,7 @@ textarea {
     }
     
     /* Wide tables scroll inside their own box rather than widening the page */
-    .overflow-x-auto table {
+    .overflow-x-auto table:not([class*="min-w-"]) {
         min-width: 600px;
     }
     
@@ -561,6 +561,54 @@ textarea {
     /* Let rows of buttons wrap onto a new line instead of running off screen */
     .flex.gap-2 {
         flex-wrap: wrap;
+    }
+
+    /* A card that spans two or three columns on a desktop grid (col-span-2/3)
+       would otherwise force an extra, empty implicit column once the grid is
+       collapsed to one column above, pushing every odd card into a 0px track
+       (seen on the Quick Guide and the dashboard). Make it span the one column. */
+    .grid > [class*="col-span-"] {
+        grid-column: 1 / -1 !important;
+    }
+
+    /* Page headers: title on one line, action buttons on the next, instead of
+       both being squeezed side by side (QI Team, Stakeholders, Timeline...). */
+    header.flex.justify-between,
+    .view-section header.flex,
+    .flex.justify-between.items-center.mb-6,
+    .flex.justify-between.items-center.mb-4 {
+        flex-wrap: wrap;
+        row-gap: 0.75rem;
+    }
+    header.flex.justify-between > .flex.gap-2,
+    header.flex.justify-between > .flex.items-center.gap-2 {
+        width: 100%;
+    }
+
+    /* Page titles are sized for a laptop; bring them down a step on phones. */
+    .view-section h1.text-3xl { font-size: 1.5rem; line-height: 2rem; }
+    .view-section h2.text-2xl { font-size: 1.25rem; line-height: 1.75rem; }
+
+    /* Two-column grids explicitly marked to stay two-up on phones
+       (dashboard stat cards). */
+    .grid.grid-cols-2.mobile-keep {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.75rem !important;
+    }
+}
+
+/* Finger-sized hit areas for icon-only buttons (edit/delete pencils and bins)
+   on touch screens, without changing how they look with a mouse. */
+@media (pointer: coarse) {
+    button.p-1:has(> svg:only-child),
+    button.p-1\.5:has(> svg:only-child),
+    button.p-2:has(> svg:only-child),
+    button.p-0\.5:has(> svg:only-child) {
+        min-width: 40px;
+        min-height: 40px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
     }
 }
 

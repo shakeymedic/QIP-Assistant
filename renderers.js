@@ -631,6 +631,14 @@ export function renderChecklist() {
             </h1>
             <p class="text-slate-500 mt-2">Complete these sections to build a solid QIP foundation</p>
         </header>
+
+        <!-- Section jump bar: this page is long on a phone, so each section is one tap away -->
+        <nav aria-label="Jump to section" class="checklist-jump flex gap-1.5 overflow-x-auto scrollbar-thin -mx-1 px-1 pb-2 mb-4 sticky top-0 z-10 bg-slate-50/95 backdrop-blur">
+            ${[[1,'Problem',!!c.problem_desc],[2,'Aim',!!c.aim],[3,'Measures',!!(c.outcome_measure && c.process_measure && c.balance_measure)],[4,'Ethics',!!(c.ethics || Object.values(c.hraChecklist||{}).some(v=>v))],[5,'Literature',!!(c.lit_review || (d.referencesList && d.referencesList.length > 0))],[6,'Results',!!c.results_analysis],[7,'Learning',!!(c.learning_points && c.sustainability)],[8,'FMEA',fmea.length > 0]].map(([n,label,done]) => `
+                <button type="button" onclick="window.jumpToChecklistSection(${n})" class="flex-shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-semibold border ${done ? 'bg-emerald-50 border-emerald-200 text-emerald-700' : 'bg-white border-slate-200 text-slate-600'} hover:border-rcem-purple">
+                    <span class="w-4 h-4 rounded-full ${done ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-600'} text-[10px] flex items-center justify-center">${done ? '✓' : n}</span>${label}
+                </button>`).join('')}
+        </nav>
         
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
             <h2 id="cs-header-1" onclick="window.toggleChecklistSection(1)" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-4 cursor-pointer select-none">
@@ -994,7 +1002,7 @@ export function renderChecklist() {
 
         <!-- Section 8: FMEA Risk Table -->
         <section class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 mb-6">
-            <h2 onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1 cursor-pointer select-none">
+            <h2 id="fmea-section" onclick="this.nextElementSibling.classList.toggle('hidden')" class="text-lg font-bold text-slate-800 flex items-center gap-2 mb-1 cursor-pointer select-none">
                 <span class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-sm font-bold">8</span>
                 Failure Mode &amp; Effect Analysis (FMEA)
                 ${csDot(fmea.length > 0)}
@@ -2277,6 +2285,9 @@ export function renderStakeholders() {
                     <button onclick="window.toggleStakeView()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
                         <i data-lucide="list" class="w-4 h-4"></i> List View
                     </button>
+                    <button onclick="window.addStarterStakeholders()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded text-sm flex items-center gap-1" title="Add the usual ED stakeholders, then drag them into position">
+                        <i data-lucide="wand-2" class="w-4 h-4"></i> Usual ED stakeholders
+                    </button>
                     <button onclick="window.addStakeholder()" class="bg-rcem-purple text-white px-3 py-1.5 rounded text-sm flex items-center gap-1">
                         <i data-lucide="plus" class="w-4 h-4"></i> Add
                     </button>
@@ -2479,6 +2490,9 @@ export function toggleStakeView() {
                     </h2>
                 </div>
                 <div class="flex gap-2">
+                    <button onclick="window.addStarterStakeholders()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-1.5 rounded text-sm flex items-center gap-1" title="Add the usual ED stakeholders, then drag them into position">
+                        <i data-lucide="wand-2" class="w-4 h-4"></i> Usual ED stakeholders
+                    </button>
                     <button onclick="window._stakeMatrixChosen = true; window.renderStakeholders()" class="bg-slate-100 text-slate-700 px-3 py-1.5 rounded text-sm flex items-center gap-1">
                         <i data-lucide="grid-3x3" class="w-4 h-4"></i> Matrix View
                     </button>
@@ -2762,7 +2776,10 @@ export function renderActionPlan() {
     container.innerHTML = `
         <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
             <div><h2 class="text-2xl font-bold text-slate-800 flex items-center gap-2"><i data-lucide="list-todo" class="text-cyan-500"></i> Action Plan</h2><p class="text-slate-500 text-sm mt-1">Turn objectives and change ideas into visible, owned actions.</p></div>
-            <button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"><i data-lucide="plus" class="w-4 h-4"></i> Add action</button>
+            <div class="flex gap-2 flex-wrap">
+                <button onclick="window.addActionsFromChangeIdeas()" class="bg-indigo-50 text-indigo-700 border border-indigo-200 px-3 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-100 transition-colors text-sm" title="One action per change idea that does not have one yet"><i data-lucide="wand-2" class="w-4 h-4"></i> From change ideas</button>
+                <button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-indigo-700 transition-colors"><i data-lucide="plus" class="w-4 h-4"></i> Add action</button>
+            </div>
         </header>
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
             ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow(${jsArg(row.id)})" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
@@ -2825,10 +2842,11 @@ export function renderGantt() {
         container.innerHTML = `
             <div class="text-center py-12">
                 <i data-lucide="calendar-clock" class="w-16 h-16 text-slate-300 mx-auto mb-4"></i>
-                <p class="text-slate-500 mb-4">No tasks yet. Add your project timeline.</p>
-                <button onclick="window.openGanttModal()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg">
-                    Add First Task
-                </button>
+                <p class="text-slate-500 mb-4">No tasks yet. Draft the whole timeline from your rotation end date, or add tasks one by one.</p>
+                <div class="flex flex-wrap gap-2 justify-center">
+                    <button onclick="window.draftTimeline()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2"><i data-lucide="wand-2" class="w-4 h-4"></i> Draft a timeline</button>
+                    <button onclick="window.openGanttModal()" class="bg-slate-200 text-slate-800 px-4 py-2 rounded-lg">Add First Task</button>
+                </div>
             </div>
         `;
         if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -3993,6 +4011,23 @@ window.updateFieldWC = function(el, spanId) {
 };
 
 // Define & Measure section accordion toggle
+// Jump bar on Define & Measure: open the section if it is folded, then scroll to it.
+window.jumpToChecklistSection = function(n) {
+    const header = document.getElementById('cs-header-' + n) || document.getElementById('fmea-section');
+    if (!header) return;
+    const section = header.closest('section') || header;
+    const folded = Array.from(section.children).some(ch => ch !== header && ch.style.display === 'none');
+    if (folded && document.getElementById('cs-header-' + n)) window.toggleChecklistSection(n);
+    if (n === 8 && header.nextElementSibling?.classList.contains('hidden')) header.nextElementSibling.classList.remove('hidden');
+    const bar = document.querySelector('.checklist-jump');
+    const offset = bar ? bar.getBoundingClientRect().height + 8 : 0;
+    const area = document.getElementById('content-area');
+    if (area) {
+        const top = header.getBoundingClientRect().top - area.getBoundingClientRect().top + area.scrollTop - offset;
+        area.scrollTo({ top, behavior: 'smooth' });
+    } else header.scrollIntoView({ behavior: 'smooth', block: 'start' });
+};
+
 window.toggleChecklistSection = function(n) {
     const header = document.getElementById('cs-header-' + n);
     const icon = document.getElementById('cs-chevron-' + n);
