@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- From the site's manifest.json: theme #2d2e83, background #1e293b -->
+    <color name="qip_dark">#2D2E83</color>
+    <color name="qip_background">#1E293B</color>
+    <color name="icon_background">#FFFFFF</color>
+</resources>
