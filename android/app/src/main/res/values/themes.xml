@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The launcher screen is see-through, as in Bubblewrap's and the major incident app's TWA (which run
+         on Jake's S25+): the library draws its own splash, then hands over to Chrome. -->
+    <style name="Theme.QipAssist" parent="@android:style/Theme.Translucent.NoTitleBar" />
+</resources>
