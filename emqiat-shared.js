@@ -199,6 +199,14 @@ function firstSentence(text, max = 220) {
     return out;
 }
 
+// Size of the RACI chart (Team & Leadership), counting only filled-in rows.
+function raciSize(data) {
+    const r = data && data.raci;
+    if (!r || !Array.isArray(r.tasks) || !Array.isArray(r.people) || !r.people.length) return { tasks: 0, people: 0, agreed: '' };
+    const tasks = r.tasks.filter(t => t && t.cells && Object.keys(t.cells).length).length;
+    return { tasks, people: r.people.length, agreed: tasks && /^\d{4}-\d{2}-\d{2}$/.test(r.agreed || '') ? r.agreed : '' };
+}
+
 // Which QI Journey stages the project itself shows evidence of.
 export function deriveJourneyFromProject(data) {
     const c = data.checklist || {};
@@ -216,7 +224,7 @@ export function deriveJourneyFromProject(data) {
         implement: pdsa.some(p => p && (p.status === 'complete' || /adopt/i.test(p.act || ''))),
         spread: /spread|other (site|department|trust|hospital)|region|network|roll/i.test([c.sustainability, c.spreadPlan?.whoAdopts, c.spreadPlan?.maintenancePlan].filter(Boolean).join(' ')),
         leadershipTeams: logs.length >= 1 || team.some(m => /lead/i.test(m.role || '')),
-        projectManagementCommunication: (data.gantt || []).length > 0 || logs.length >= 2,
+        projectManagementCommunication: (data.gantt || []).length > 0 || logs.length >= 2 || raciSize(data).tasks > 0,
         measurement: points >= QI.BASELINE_MIN
     };
 }
@@ -270,6 +278,8 @@ export function deriveTeamNarrative(data) {
     const lines = [];
     if (team.length) lines.push(`Core team: ${team.map(m => `${m.name || ''}${m.role ? ' (' + m.role + ')' : ''}`.trim()).filter(Boolean).join(', ')}.`);
     if (stakeholders.length) lines.push(`Stakeholders engaged: ${stakeholders.map(s => `${s.name || s}${s.role ? ' — ' + s.role : ''}`).join(', ')}.`);
+    const raci = raciSize(data);
+    if (raci.tasks) lines.push(`Who did what: set out in a RACI chart of ${raci.tasks} task${raci.tasks !== 1 ? 's' : ''} across ${raci.people} people or groups${raci.agreed ? `, last agreed with the team on ${raci.agreed}` : ''}.`);
     if (logs.length) lines.push(`How I engaged them:\n${logs.map(l => `• ${l.date ? l.date + ': ' : ''}${l.note || ''}`).join('\n')}`);
     if (!lines.length) return '';
     lines.push('[Add: how you worked as a team (meetings, roles, delegation), any resistance or conflict and how you resolved it.]');

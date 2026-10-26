@@ -17,6 +17,7 @@ import { QI, DATA_STORY } from "./qi-constants.js";
 import { STARTER_PROJECTS, applyStarterProject, starterCardHtml, OP_DEF_TEMPLATES } from "./idea-bank.js";
 import { coachAim, coachHtml } from "./aim-coach.js";
 import { nextStep } from "./next-step.js";
+import { renderRaci, raciTableHTML, ensureRaci } from "./raci.js";
 import { stakeholderQuadrant, layoutStakeholders, fishboneSVG, fishboneProblem, ganttSummaryHTML, processFlowHTML } from "./diagrams.js";
 
 // ==========================================
@@ -1443,6 +1444,8 @@ export function renderTeam() {
             `}
         `;
     }
+
+    renderRaci();
     
     if (logContainer) {
         const logs = d.leadershipLogs || [];
@@ -3183,6 +3186,13 @@ export function renderFullProject() {
                                 </div>
                             `).join('')}
                         </div>
+                        ${(() => {
+                            const rc = ensureRaci(d);
+                            if (!rc.tasks.length || !rc.people.length) return '';
+                            return `<h3 class="font-bold text-slate-700 text-sm mt-5 mb-2">Who does what (RACI chart)</h3>
+                                <p class="text-xs text-slate-500 mb-2">R Responsible (does the work) · A Accountable (owns it and signs it off) · C Consulted (asked first) · I Informed (told after)${rc.agreed ? ` · Last agreed with the team ${escapeHtml(formatUkDate(rc.agreed))}` : ''}</p>
+                                ${raciTableHTML(d, { compact: true })}`;
+                        })()}
                     </section>
                 ` : ''}
                 

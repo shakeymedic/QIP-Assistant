@@ -28,6 +28,7 @@ import "./hints.js";
 import { QI } from "./qi-constants.js";
 import "./modal-a11y.js";
 import { showPageBanner } from "./page-banners.js";
+import "./raci.js"; // RACI chart on Team & Leadership
 import "./step-helpers.js"; // one-tap starters: timeline draft, survey templates, team roles, stakeholders, actions
 import { impossibleValueMessage } from "./data-entry.js";
 import { SUPERVISOR_INVITES, LEAD_INVITES, readInvites, writeInvite, deleteInvite, stillListed, syncProjectInvites } from "./invites.js";
