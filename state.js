@@ -112,6 +112,7 @@ export const emptyProject = {
     },
     stakeholders: [],
     teamMembers: [],
+    raci: { people: [], tasks: [], agreed: '' },
     charter: {
         preparedBy: '',
         date: '',
@@ -491,6 +492,31 @@ export function getDemoData() {
             { name: 'Patients and families', role: 'Receive care; give feedback', organisation: 'Public', x: 65, y: 20 },
             { name: 'Estates', role: 'Space for trolleys', organisation: 'Trust', x: 15, y: 25 }
         ],
+        raci: {
+            people: [
+                { id: 'rp_lead', memberId: '1', name: 'Alex Morgan', role: 'Project lead' },
+                { id: 'rp_nurse', memberId: '2', name: 'Sam Patel', role: 'Sepsis champion' },
+                { id: 'rp_sponsor', memberId: '3', name: 'Dr Priya Shah', role: 'Consultant sponsor' },
+                { id: 'rp_pharm', memberId: '4', name: 'Jordan Lee', role: 'PGD lead' },
+                { id: 'rp_data', memberId: '5', name: 'Chris Evans', role: 'Data and IT' },
+                { id: 'rp_ct', memberId: '6', name: 'Taylor Brooks', role: 'Data collection' },
+                { id: 'rp_cl', name: 'ED clinical lead', role: 'Approves changes in the department' },
+                { id: 'rp_mc', name: 'Medicines committee', role: 'Approves the PGD' }
+            ],
+            tasks: [
+                { id: 'rt1', phase: 'Set up', task: 'Agree the aim and scope', cells: { rp_lead: 'R', rp_sponsor: 'A', rp_nurse: 'C', rp_pharm: 'C', rp_cl: 'I' } },
+                { id: 'rt2', phase: 'Set up', task: 'Register the project with the Trust audit / QI team', cells: { rp_lead: 'R', rp_sponsor: 'A' } },
+                { id: 'rt3', phase: 'Set up', task: 'Agree the data plan and collect baseline data', cells: { rp_lead: 'A', rp_data: 'R', rp_ct: 'R', rp_nurse: 'C' } },
+                { id: 'rt4', phase: 'Diagnose', task: 'Run the process mapping / fishbone session', cells: { rp_lead: 'A', rp_nurse: 'R', rp_ct: 'R', rp_pharm: 'C', rp_sponsor: 'I' } },
+                { id: 'rt5', phase: 'Test changes', task: 'Design and stock the sepsis trolley', cells: { rp_nurse: 'A', rp_lead: 'R', rp_ct: 'R', rp_pharm: 'C' } },
+                { id: 'rt6', phase: 'Test changes', task: 'Write and approve the antibiotic PGD', cells: { rp_pharm: 'R', rp_mc: 'A', rp_sponsor: 'C', rp_nurse: 'C', rp_cl: 'I' } },
+                { id: 'rt7', phase: 'Test changes', task: 'Build the EPR sepsis prompt', cells: { rp_data: 'R', rp_lead: 'A', rp_nurse: 'C', rp_cl: 'I' } },
+                { id: 'rt8', phase: 'Test changes', task: 'Collect and chart the data every week', cells: { rp_lead: 'A', rp_ct: 'R', rp_data: 'R', rp_sponsor: 'I', rp_nurse: 'I' } },
+                { id: 'rt9', phase: 'Sustain & share', task: 'Present the results at ED governance', cells: { rp_lead: 'R', rp_cl: 'A', rp_sponsor: 'C', rp_nurse: 'C' } },
+                { id: 'rt10', phase: 'Sustain & share', task: 'Hand over: named owner and sustainability plan', cells: { rp_lead: 'R', rp_sponsor: 'A', rp_nurse: 'R', rp_ct: 'C', rp_cl: 'I' } }
+            ],
+            agreed: '2025-06-09'
+        },
         leadershipLogs: [
             { date: '2025-05-19', note: 'Agreed scope and sponsorship with the ED clinical lead; registered the project with the audit and QI team.' },
             { date: '2025-06-09', note: 'Ran a process-mapping session with nurses, junior doctors and pharmacy.' },

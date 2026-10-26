@@ -13,6 +13,6 @@ module.exports = {
         }
       }
     },
-    "content": ["./a3-export.js", "./ai-review.js", "./ai.js", "./app.js", "./audit-log.js", "./charts.js", "./config.js", "./data-entry.js", "./diagrams.js", "./emqiat-shared.js", "./emqiat.js", "./export-center.js", "./export.js", "./green-calculator.js", "./index.html", "./invites.js", "./kaizen-export.js", "./learn.js", "./measures.js", "./onboarding.js", "./patient-tracker.js", "./project-metrics.js", "./qip-lead.js", "./renderers.js", "./scripts/smoke-test.js", "./state.js", "./step-helpers.js", "./supervisor.js", "./surveys.js", "./sw.js", "./utils.js"],
+    "content": ["./a3-export.js", "./ai-review.js", "./ai.js", "./app.js", "./audit-log.js", "./charts.js", "./config.js", "./data-entry.js", "./diagrams.js", "./emqiat-shared.js", "./emqiat.js", "./export-center.js", "./export.js", "./green-calculator.js", "./index.html", "./invites.js", "./kaizen-export.js", "./learn.js", "./measures.js", "./onboarding.js", "./patient-tracker.js", "./project-metrics.js", "./qip-lead.js", "./raci.js", "./renderers.js", "./scripts/smoke-test.js", "./state.js", "./step-helpers.js", "./supervisor.js", "./surveys.js", "./sw.js", "./utils.js"],
     "safelist": []
   };

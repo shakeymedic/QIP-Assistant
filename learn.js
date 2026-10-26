@@ -924,7 +924,39 @@ function tabPeople() {
         '<div class="mt-3 flex flex-wrap gap-3">' + appLink('team', 'Team & Leadership') + appLink('stakeholders', 'Stakeholders') + '</div>'
     );
 
-    return '<div class="space-y-6">' + ten + kotter + psych + adoption + resistance + '</div>';
+    var raci = card(
+        sectionHead('grid-3x3', 'RACI chart: who does what', 'indigo') +
+        '<p class="text-sm text-slate-600 leading-relaxed mb-3">A RACI chart lists the project\'s tasks, decisions and milestones down the side and the people or groups across the top. Each square says how that person is involved in that task. It is a project-management tool: it makes roles clear, shows gaps and duplication, and helps the people around the project understand how they will be involved.</p>' +
+        '<div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">' +
+        [
+            ['R', 'Responsible', 'Does the work. More than one person can be Responsible.', 'bg-indigo-50 border-indigo-100', 'bg-indigo-600'],
+            ['A', 'Accountable', 'Owns the task and gives final approval. Normally one person per task.', 'bg-rose-50 border-rose-100', 'bg-rose-600'],
+            ['C', 'Consulted', 'Asked for advice before decisions or actions. Two-way. Use sparingly: long consultation lists slow decisions.', 'bg-amber-50 border-amber-100', 'bg-amber-600'],
+            ['I', 'Informed', 'Kept up to date on progress or outcomes. One-way. Affected, but not doing the work or deciding.', 'bg-slate-50 border-slate-200', 'bg-slate-600']
+        ].map(function(x) {
+            return '<div class="' + x[3] + ' rounded-lg p-3 border flex gap-2"><span class="w-6 h-6 rounded-full ' + x[4] + ' text-white text-xs font-bold flex items-center justify-center flex-shrink-0">' + x[0] + '</span><div><div class="font-bold text-xs text-slate-800">' + x[1] + '</div><p class="text-xs text-slate-600 leading-relaxed mt-0.5">' + x[2] + '</p></div></div>';
+        }).join('') +
+        '</div>' +
+        '<div class="font-semibold text-xs text-slate-700 mb-1">How to build one</div>' +
+        bullets('indigo', [
+            'List the people, groups or roles: sponsor, project lead, team members, stakeholders, experts, governance groups',
+            'List the tasks, decisions and milestones, grouped by stage',
+            'Assign R, A, C or I. Check every task has at least one R and exactly one A, and that C and I are proportionate',
+            'Go through the draft with the team and key stakeholders: is ownership clear, are there gaps, are too many people involved in decisions?',
+            'Treat it as a living document: review it when roles, stakeholders, scope or governance change'
+        ]) +
+        '<div class="font-semibold text-xs text-slate-700 mt-3 mb-1">In a trainee ED project</div>' +
+        bullets('indigo', [
+            'The consultant sponsor is often Accountable for decisions that change department practice; you are usually Responsible for running the project',
+            'A change to medicines (a PGD, an order set) is normally signed off by a Trust committee, not by the project team; check your local governance',
+            'If your name is in the R column for almost every task, the project will stop when you rotate. Share the doing early',
+            'A RACI agreed with the team is useful evidence when you write about leadership, teamwork and project management in your EM QIAT reflections'
+        ]) +
+        '<div class="mt-3 flex flex-wrap gap-3">' + appLink('team', 'Open the RACI chart on Team & Leadership') + '</div>' +
+        source('NHS Education for Scotland, Quality Improvement Zone: RACI matrix (definitions, the one-Accountable and at-least-one-Responsible checks, and the five steps). Safer Care Victoria QI Toolkit, Tool 21: RASCI matrix (adds "Supporting"; also advises limiting Consulted). The ED-specific advice is this app\'s.', 'https://learn.nes.nhs.scot/39904')
+    );
+
+    return '<div class="space-y-6">' + ten + kotter + raci + psych + adoption + resistance + '</div>';
 }
 
 // ─── Tab: Sustain & spread ────────────────────────────────────────────────────
@@ -1385,6 +1417,7 @@ function tabGlossary() {
         ['Process Map', 'A flow diagram of the steps a patient actually goes through, drawn with the people who do the work. Shows waits, loops and failure points; usually the quickest way to find the drivers.'],
         ['Process Measure', 'Tracks whether the change you implemented is actually being carried out. Bridges the gap between your intervention and the outcome. e.g. % of patients screened with sepsis tool (process) → % treated within 1hr (outcome).'],
         ['QIAT', 'EM Quality Improvement Assessment Tool. The annual form on risr/advance (2025 update, v7) summarising all your QI activity for the year: PDP, QI education, project involvement, QI Journey stages and reflections, completed before ARCP and reviewed by a supervisor or assessor.'],
+        ['RACI chart', 'A grid of project tasks against people, marking who is Responsible (does the work), Accountable (owns it and signs it off; one per task), Consulted (asked first) and Informed (told afterwards). A project-management tool for making roles clear; this app has one on Team & Leadership. NHS Education for Scotland\'s QI Zone describes how to build one.'],
         ['RCEM National QIP', 'An annual national quality improvement programme run by RCEM for participating Type 1 EDs. Three topics per year. Provides standardised data collection and national benchmarking.'],
         ['Run Chart', 'A graph of data plotted over time with the median line marked. Non-random patterns (a shift of ' + QI.RUN_SHIFT + ' or more points on one side of the median, a trend of ' + QI.RUN_TREND + ' or more, an astronomical point) indicate genuine change. The standard plotting tool for QI data.'],
         ['SMART Aim', 'Specific, Measurable, Achievable, Relevant, Time-bound. The required format for your QIP aim statement. "To improve sepsis care" is not SMART; "To increase antibiotic administration within 60 minutes from 45% to 80% by the end of the rotation" is.'],

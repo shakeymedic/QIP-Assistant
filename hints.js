@@ -222,6 +222,12 @@ export const HINTS = {
         what: 'A dated record of leadership moments: meetings, negotiations, presentations, handling resistance. It is strong evidence for the leadership parts of the QIAT.',
         examples: ['2 Oct 2025: joint meeting with microbiology and pharmacy about nurse-initiated antibiotics; agreed a balancing measure and a three-month review.']
     },
+    'who does what': {
+        title: 'RACI chart',
+        what: 'A grid of the project\'s tasks against the people involved. R = Responsible (does the work; can be more than one). A = Accountable (owns it and signs it off; one per task). C = Consulted (asked before; two-way). I = Informed (told after; one-way). It shows gaps and overlaps before they cause trouble.',
+        tips: ['Every task needs at least one R and exactly one A.', 'Keep C and I to the people who really need them; long consultation lists slow decisions.', 'Draw it up with the team, not alone: the discussion is the point.', 'Review it when someone joins or leaves, or the scope changes.', 'If one person is R for nearly everything, the project stops when they rotate.'],
+        examples: ['Approve the sepsis PGD: A = ED clinical lead, R = ED pharmacist, C = microbiology, I = nursing team.']
+    },
     'stakeholder matrix': {
         title: 'Stakeholder power/interest matrix',
         what: 'Plots everyone affected by the project by their power (influence over it) and interest (how much it affects them). High power, high interest: manage closely. High power, low interest: keep satisfied. Low power, high interest: keep informed. Low power, low interest: monitor.',
