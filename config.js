@@ -21,9 +21,9 @@ try {
     db = initializeFirestore(app, {
         localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
     });
-    console.log('✅ Firebase initialized successfully');
+    console.log('✅ Firebase initialised successfully');
 } catch (error) {
-    console.error('❌ Firebase initialization error:', error);
+    console.error('❌ Firebase initialisation error:', error);
 }
 
 // Helper function to check Firebase status

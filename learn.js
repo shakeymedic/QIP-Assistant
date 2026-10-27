@@ -969,7 +969,7 @@ function tabSustain() {
         '<div class="bg-emerald-50 rounded-xl p-3 border border-emerald-100"><div class="font-bold text-xs text-emerald-800 mb-2 uppercase tracking-wide">Process</div>' +
         bullets('emerald', ['Credibility of the benefits', 'Benefits beyond helping patients', 'Effectiveness of the system to monitor progress', 'Adaptability of the improved process']) + '</div>' +
         '<div class="bg-teal-50 rounded-xl p-3 border border-teal-100"><div class="font-bold text-xs text-teal-800 mb-2 uppercase tracking-wide">Staff</div>' +
-        bullets('teal', ['Staff involvement and training to sustain the process', 'Staff behaviours toward sustaining the change', 'Senior leadership engagement and support', 'Clinical leadership engagement and support']) + '</div>' +
+        bullets('teal', ['Staff involvement and training to sustain the process', 'Staff behaviours towards sustaining the change', 'Senior leadership engagement and support', 'Clinical leadership engagement and support']) + '</div>' +
         '<div class="bg-cyan-50 rounded-xl p-3 border border-cyan-100"><div class="font-bold text-xs text-cyan-800 mb-2 uppercase tracking-wide">Organisation</div>' +
         bullets('cyan', ['Fit with the organisation\'s strategic aims and culture', 'Infrastructure for sustainability']) + '</div>' +
         '</div>' +

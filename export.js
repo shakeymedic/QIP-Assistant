@@ -307,7 +307,7 @@ export async function exportPPTX() {
             valign: 'top',
             autoPage: true
         });
-        slide.addText("Summarised for slide space — see the Full Report PDF (Export Center) for each cycle written out in full.", {
+        slide.addText("Summarised for slide space — see the Full Report PDF (Export Centre) for each cycle written out in full.", {
             x: 0.5, y: 6.9, w: 9, fontSize: 8, italic: true, color: "94A3B8"
         });
     }
