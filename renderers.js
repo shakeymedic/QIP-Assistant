@@ -823,7 +823,7 @@ export function renderChecklist() {
             <div class="space-y-3 mb-4">
                 <p class="text-xs text-slate-500 bg-slate-50 p-3 rounded-lg border border-slate-200">Complete the HRA Decision Tool online, then answer these questions. Your answers determine whether this is service evaluation (no ethics needed) or research (ethics required).</p>
                 ${[{
-                    key: 'q1', label: 'Is the primary purpose to generate new generalizable knowledge (research), or to evaluate/improve a local service?',
+                    key: 'q1', label: 'Is the primary purpose to generate new generalisable knowledge (research), or to evaluate/improve a local service?',
                     hint: 'If evaluating/improving local service → likely Service Evaluation'
                 }, {
                     key: 'q2', label: 'Are participants randomised or given an intervention outside normal care?',
@@ -1940,7 +1940,7 @@ export function renderPDSA() {
                                     </div>
                                     ${idea.description ? `<p class="text-xs text-slate-500 mt-1 leading-relaxed">${escapeHtml(idea.description)}</p>` : ''}
 
-                                    <!-- Progress bar toward 3-cycle excellence threshold -->
+                                    <!-- Progress bar towards 3-cycle excellence threshold -->
                                     <div class="mt-2 flex items-center gap-2">
                                         <div class="flex-1 bg-slate-100 rounded-full h-1.5 overflow-hidden">
                                             <div class="h-1.5 rounded-full transition-all duration-500 ${cycleCount >= 3 ? 'bg-emerald-500' : 'bg-rcem-purple'}" style="width:${progressPct}%"></div>
