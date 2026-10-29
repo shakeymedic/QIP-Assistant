@@ -3769,7 +3769,7 @@ window.showRoleAuditLog = async function() {
                 <div class="p-8 bg-red-50 rounded-xl border border-red-200 text-center">
                     <i data-lucide="alert-circle" class="w-8 h-8 mx-auto text-red-500 mb-3"></i>
                     <h3 class="font-bold text-red-700 mb-1">Could not load the audit log</h3>
-                    <p class="text-slate-500 text-sm">This usually means the Firestore security rules for roleAuditLog / projectAccessLog haven't been added yet — see the comment at the top of audit-log.js for the exact rules to add.</p>
+                    <p class="text-slate-500 text-sm">This usually means the database rules in firestore.rules (in the repository) haven't been published in the Firebase console yet.</p>
                 </div>`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
             return;
@@ -3777,6 +3777,7 @@ window.showRoleAuditLog = async function() {
 
         const roleRows = roleEvents || [];
         const accessRows = accessEvents || [];
+        const approvals = await fetchLeadApprovals();
         const supervisorClaims = roleRows.filter(r => r.role === 'supervisor' && r.action === 'added').length;
         const leadClaims = roleRows.filter(r => r.role === 'qip_lead' && r.action === 'added').length;
 
@@ -3796,6 +3797,8 @@ window.showRoleAuditLog = async function() {
                 </div>
             </div>
 
+            ${leadApprovalsHTML(approvals)}
+
             <h3 class="font-bold text-slate-800 mb-2">Role claims (registration + Settings)</h3>
             <div class="overflow-x-auto mb-8">
                 <table class="w-full text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
@@ -3808,7 +3811,7 @@ window.showRoleAuditLog = async function() {
                             <td class="p-2 whitespace-nowrap">${r.createdAtIso ? new Date(r.createdAtIso).toLocaleString('en-GB') : '?'}</td>
                             <td class="p-2">${escapeHtml(r.email || r.uid || '?')}</td>
                             <td class="p-2 font-semibold">${escapeHtml(r.role || '?')}</td>
-                            <td class="p-2">${r.action === 'added' ? '<span class="text-emerald-600 font-semibold">Added</span>' : '<span class="text-red-500 font-semibold">Removed</span>'}</td>
+                            <td class="p-2">${({ added: '<span class="text-emerald-600 font-semibold">Added</span>', approved: '<span class="text-indigo-600 font-semibold">Approved by admin</span>', revoked: '<span class="text-red-500 font-semibold">Approval revoked</span>' })[r.action] || '<span class="text-red-500 font-semibold">Removed</span>'}</td>
                             <td class="p-2 text-slate-400">${escapeHtml(r.source || '?')}</td>
                         </tr>`).join('')}
                     </tbody>
@@ -3839,6 +3842,99 @@ window.showRoleAuditLog = async function() {
     } catch (e) {
         console.error('[Audit] showRoleAuditLog error:', e);
         listEl.innerHTML = `<div class="p-8 bg-red-50 rounded-xl border border-red-200 text-center text-red-600 text-sm">${escapeHtml(e.message)}</div>`;
+    }
+};
+
+// ─── QIP Lead approvals (Master Admin) ───────────────────────────────────────
+// Claiming the QIP Lead role is self-service and only shows the view. The
+// department-wide list of every project needs approval: the database rules
+// allow it only when deptQIPLeads/{uid} exists, which only the master admin
+// can write. These buttons replace adding account IDs by hand in the console.
+async function fetchLeadApprovals() {
+    const out = { claimed: [], approved: {}, error: null };
+    try {
+        const [usersSnap, leadsSnap] = await Promise.all([
+            getDocs(collection(db, 'qipUsers')),
+            getDocs(collection(db, 'deptQIPLeads'))
+        ]);
+        leadsSnap.forEach(d => { out.approved[d.id] = d.data() || {}; });
+        usersSnap.forEach(d => {
+            const u = d.data() || {};
+            if ((u.roles || []).includes('qip_lead') || out.approved[d.id]) {
+                out.claimed.push({ uid: d.id, email: u.email || '', displayName: u.displayName || '' });
+            }
+        });
+        // Approved accounts whose profile is missing still need a Revoke button.
+        Object.keys(out.approved).forEach(uid => {
+            if (!out.claimed.some(c => c.uid === uid)) out.claimed.push({ uid, email: out.approved[uid].email || '', displayName: out.approved[uid].displayName || '' });
+        });
+    } catch (e) {
+        console.warn('[Approvals] could not load QIP Lead approvals:', e);
+        out.error = e;
+    }
+    return out;
+}
+
+function leadApprovalsHTML(a) {
+    const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can claim the QIP Lead role. Only accounts you approve here can see every project in the department; the others still see projects a trainee has added them to.</p>';
+    if (a.error) {
+        return `<h3 class="font-bold text-slate-800 mb-2">QIP Lead approvals</h3>${intro}
+            <div class="p-4 mb-8 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">Could not load approvals. This usually means the database rules in firestore.rules (in the repository) have not been published in the Firebase console yet.</div>`;
+    }
+    const rows = a.claimed.slice().sort((x, y) => (!!a.approved[x.uid] - !!a.approved[y.uid]) || (x.email || '').localeCompare(y.email || ''));
+    return `<h3 class="font-bold text-slate-800 mb-2">QIP Lead approvals</h3>${intro}
+        <div class="overflow-x-auto mb-8">
+            <table class="w-full text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
+                <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
+                    <tr><th class="p-2 text-left">Name</th><th class="p-2 text-left">Email</th><th class="p-2 text-left">Account ID</th><th class="p-2 text-left">Department-wide view</th><th class="p-2"></th></tr>
+                </thead>
+                <tbody>
+                    ${rows.length === 0 ? '<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No account has claimed the QIP Lead role yet.</td></tr>' : rows.map(r => {
+                        const ok = !!a.approved[r.uid];
+                        return `<tr class="border-t border-slate-100 ${ok ? '' : 'bg-amber-50'}">
+                            <td class="p-2">${escapeHtml(r.displayName || '—')}</td>
+                            <td class="p-2">${escapeHtml(r.email || '—')}</td>
+                            <td class="p-2 font-mono text-[10px] text-slate-400 break-all">${escapeHtml(r.uid)}</td>
+                            <td class="p-2">${ok ? `<span class="text-emerald-600 font-semibold">Approved</span>${a.approved[r.uid].approvedAt ? ' <span class="text-slate-400">' + escapeHtml(formatUkDate(String(a.approved[r.uid].approvedAt).slice(0, 10)) || '') + '</span>' : ''}` : '<span class="text-amber-700 font-semibold">Waiting for approval</span>'}</td>
+                            <td class="p-2 text-right whitespace-nowrap">${ok
+                                ? `<button type="button" onclick="window.setLeadApproval(${jsArg(r.uid)}, false)" class="text-xs font-bold text-red-600 hover:text-red-700 underline">Revoke</button>`
+                                : `<button type="button" onclick="window.setLeadApproval(${jsArg(r.uid)}, true)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Approve</button>`}</td>
+                        </tr>`;
+                    }).join('')}
+                </tbody>
+            </table>
+        </div>`;
+}
+
+window.setLeadApproval = async function(uid, approve) {
+    if (!state.isMasterAdmin || !db || !uid) return;
+    try {
+        const uSnap = await getDoc(doc(db, 'qipUsers', uid)).catch(() => null);
+        const u = uSnap && uSnap.exists() ? uSnap.data() : {};
+        if (approve) {
+            await setDoc(doc(db, 'deptQIPLeads', uid), {
+                email: u.email || '',
+                displayName: u.displayName || '',
+                approvedAt: new Date().toISOString()
+            });
+        } else {
+            await deleteDoc(doc(db, 'deptQIPLeads', uid));
+        }
+        logRoleAuditEvent(db, {
+            uid,
+            email: u.email || '',
+            displayName: u.displayName || '',
+            role: 'qip_lead',
+            action: approve ? 'approved' : 'revoked',
+            source: 'admin'
+        });
+        showToast(approve ? 'Approved: they will see every project the next time they open the QIP Lead view.' : 'Approval removed: they now see only projects shared with them.', 'success');
+        window.showRoleAuditLog();
+    } catch (e) {
+        console.warn('[Approvals] could not save:', e);
+        showToast(e?.code === 'permission-denied'
+            ? 'Not saved: publish the rules in firestore.rules in the Firebase console first.'
+            : 'Could not save the approval. Check your connection and try again.', 'error');
     }
 };
 

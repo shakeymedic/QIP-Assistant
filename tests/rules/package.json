@@ -1,0 +1,14 @@
+{
+  "name": "qip-assist-rules-tests",
+  "private": true,
+  "description": "firestore.rules tested in the Firebase Firestore emulator (CI job 'Firestore rules'). Kept out of the site, which has no build step.",
+  "type": "module",
+  "scripts": {
+    "test": "cp ../../firestore.rules firestore.rules && firebase emulators:exec --only firestore --project demo-qipassist --config firebase.json \"node --test rules.test.mjs\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "5.0.2",
+    "firebase": "12.19.0",
+    "firebase-tools": "15.32.0"
+  }
+}

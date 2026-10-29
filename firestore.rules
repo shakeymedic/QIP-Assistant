@@ -1,0 +1,191 @@
+rules_version = '2';
+
+// ===============================================================
+// QIP Assist: Firestore security rules (Firebase project rcem-qip-app)
+//
+// This file is the source of truth for the rules. Publishing is manual:
+// Firebase console -> Firestore Database -> Rules -> paste this whole
+// file -> Publish. Merging or deploying the site does NOT change them.
+// tests/rules checks every rule in the Firestore emulator first.
+//
+// ===============================================================
+// Assumed data model
+// ===============================================================
+//
+// users/{uid}/projects/{projectId}  - one QIP. Written by its owner
+//   (the whole document). An invited supervisor may change only the
+//   sign-off fields inside `assessment` (see SUPERVISOR_FIELDS below).
+//   Fields used here: supervisors: [{email, addedAt}],
+//   qipLeads: [{email, addedAt}], visibility.hideFromDeptQIPLead: bool.
+//
+// qipUsers/{uid}  - profile: email, displayName, lastLogin, createdAt,
+//   roles: list of 'trainee' | 'supervisor' | 'qip_lead' | ... .
+//   The roles are self-selected and grant NO data access by themselves.
+//
+// deptQIPLeads/{uid}  - an approved Departmental QIP Lead. Exists =
+//   approved. Written only by the master admin (the Approve button in
+//   the Admin audit page). Fields: email, displayName, approvedAt.
+//
+// supervisorInvites/{email}/invites/{ownerUid}_{projectId}
+// qipLeadInvites/{email}/invites/{ownerUid}_{projectId}
+//   - one invite per project (invites.js). Fields: email, ownerUid,
+//   projectId, projectTitle, traineeName, traineeEmail, addedAt.
+//   Created and removed only by the project's owner, read by the
+//   invited email.
+// supervisorInvites/{email}, qipLeadInvites/{email}  - the OLD shared
+//   lists ({projects: [...]}). Still read, never written any more.
+//
+// roleAuditLog/{id}, projectAccessLog/{id}  - append-only audit trail
+//   (audit-log.js). Created by the signed-in person the entry is about
+//   (or by the master admin, for approvals), read only by the master admin.
+//
+// Anything not matched below is denied.
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----------------------------------------------
+    function signedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+    // A single hard-coded admin, as before.
+    function isMasterAdmin() {
+      return signedIn() && request.auth.token.email == 'emevidence999@gmail.com';
+    }
+    function isApprovedQIPLead() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/deptQIPLeads/$(request.auth.uid));
+    }
+    function myEmail() {
+      return signedIn() && request.auth.token.email is string
+        ? request.auth.token.email.lower() : '';
+    }
+    function optionalString(data, field, maxLen) {
+      return !(field in data) || (data[field] is string && data[field].size() <= maxLen);
+    }
+
+    // ---- QIP projects ------------------------------------------
+    // The only fields a supervisor may write, all inside `assessment`.
+    function supervisorFields() {
+      return ['supervisorComments', 'signedOff', 'signedOffBy', 'signedOffByUid',
+              'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'lastSupervisorActivityAt'];
+    }
+    function isInvitedSupervisor(uid, projectId) {
+      return signedIn() && exists(/databases/$(database)/documents/supervisorInvites/$(myEmail())/invites/$(uid + '_' + projectId));
+    }
+    function onlySupervisorFieldsChange() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assessment'])
+        && request.resource.data.assessment is map
+        && request.resource.data.assessment.diff(resource.data.get('assessment', {}))
+             .affectedKeys().hasOnly(supervisorFields())
+        && optionalString(request.resource.data.assessment, 'supervisorComments', 20000);
+    }
+
+    match /users/{uid}/projects/{projectId} {
+      // The owner keeps full control of their own projects. (No schema
+      // check: a project is one large document the whole app edits.)
+      allow read, write: if isOwner(uid);
+      // A share link opens one project by its exact path without signing
+      // in. Listing someone else's projects is still refused.
+      allow get: if true;
+      // An invited supervisor saves comments and the SLO 11 sign-off.
+      allow update: if isInvitedSupervisor(uid, projectId) && onlySupervisorFieldsChange();
+    }
+
+    // The master admin and approved QIP Leads see every project
+    // (collection-group query in the Admin and QIP Lead views).
+    match /{path=**}/projects/{projectId} {
+      allow read: if isMasterAdmin() || isApprovedQIPLead();
+    }
+
+    // ---- Profiles ---------------------------------------------
+    function isValidProfile(data) {
+      return optionalString(data, 'email', 320)
+        && optionalString(data, 'displayName', 200)
+        && optionalString(data, 'lastLogin', 40)
+        && optionalString(data, 'createdAt', 40)
+        && (!('roles' in data) || (data.roles is list && data.roles.size() <= 10));
+    }
+    match /qipUsers/{uid} {
+      allow read: if isOwner(uid) || isMasterAdmin() || isApprovedQIPLead();
+      allow create, update: if isOwner(uid) && isValidProfile(request.resource.data);
+      allow delete: if isOwner(uid);
+    }
+
+    // ---- Approved QIP Leads (the Approve button) -----------------
+    match /deptQIPLeads/{uid} {
+      allow get: if isOwner(uid) || isMasterAdmin();
+      allow list: if isMasterAdmin();
+      allow create, update: if isMasterAdmin()
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'approvedAt'])
+        && optionalString(request.resource.data, 'email', 320)
+        && optionalString(request.resource.data, 'displayName', 200)
+        && optionalString(request.resource.data, 'approvedAt', 40);
+      allow delete: if isMasterAdmin();
+    }
+
+    // ---- Invites ------------------------------------------------
+    function isValidInvite(email, inviteId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['email', 'ownerUid', 'projectId', 'projectTitle', 'traineeName', 'traineeEmail', 'addedAt'])
+        && d.ownerUid == request.auth.uid
+        && d.email == email
+        && d.projectId is string && d.projectId.size() <= 100
+        && inviteId == d.ownerUid + '_' + d.projectId
+        && optionalString(d, 'projectTitle', 300)
+        && optionalString(d, 'traineeName', 200)
+        && optionalString(d, 'traineeEmail', 320)
+        && optionalString(d, 'addedAt', 40);
+    }
+    match /{kind}/{email}/invites/{inviteId} {
+      allow read: if (kind == 'supervisorInvites' || kind == 'qipLeadInvites')
+        && (myEmail() == email || (resource != null && isOwner(resource.data.ownerUid)));
+      allow create, update: if (kind == 'supervisorInvites' || kind == 'qipLeadInvites')
+        && signedIn() && isValidInvite(email, inviteId);
+      // The ID starts with the owner's account ID, so this works even
+      // when the invite is already gone.
+      allow delete: if (kind == 'supervisorInvites' || kind == 'qipLeadInvites')
+        && signedIn() && inviteId.matches('^' + request.auth.uid + '_.+');
+    }
+    // The old shared lists: still readable by the invited email, but no
+    // longer writable (any signed-in account could overwrite them).
+    match /supervisorInvites/{email} {
+      allow get: if myEmail() == email;
+    }
+    match /qipLeadInvites/{email} {
+      allow get: if myEmail() == email;
+    }
+
+    // ---- Audit trail (append-only) --------------------------------
+    match /roleAuditLog/{id} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'action', 'source', 'createdAtIso', 'createdAt'])
+        // The admin logs approvals against the lead's account ID.
+        && (request.resource.data.uid == request.auth.uid || isMasterAdmin())
+        && request.resource.data.action in ['added', 'removed', 'approved', 'revoked']
+        && optionalString(request.resource.data, 'email', 320)
+        && optionalString(request.resource.data, 'displayName', 200)
+        && optionalString(request.resource.data, 'role', 40)
+        && optionalString(request.resource.data, 'source', 40)
+        && optionalString(request.resource.data, 'createdAtIso', 40);
+      allow read: if isMasterAdmin();
+    }
+    match /projectAccessLog/{id} {
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['viewerUid', 'viewerEmail', 'viaRole', 'ownerUid', 'projectId', 'projectTitle', 'action', 'createdAtIso', 'createdAt'])
+        && request.resource.data.viewerUid == request.auth.uid
+        && optionalString(request.resource.data, 'viewerEmail', 320)
+        && optionalString(request.resource.data, 'viaRole', 40)
+        && optionalString(request.resource.data, 'ownerUid', 128)
+        && optionalString(request.resource.data, 'projectId', 100)
+        && optionalString(request.resource.data, 'projectTitle', 300)
+        && optionalString(request.resource.data, 'action', 40)
+        && optionalString(request.resource.data, 'createdAtIso', 40);
+      allow read: if isMasterAdmin();
+    }
+  }
+}
