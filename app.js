@@ -2226,7 +2226,8 @@ if (auth) {
                 if (adminBar) adminBar.classList.remove('hidden');
                 // Push content down so admin bar doesn't overlap nav
                 const appContainer = document.getElementById('app-container');
-                if (appContainer) appContainer.style.marginTop = '32px';
+                // (the bar wraps onto more lines on a phone, so use its real height)
+                if (appContainer) appContainer.style.marginTop = ((adminBar?.offsetHeight) || 32) + 'px';
                 // Show Admin Dashboard button in sidebar, relabel Switch Project
                 const adminHomeBtn = document.getElementById('sidebar-admin-home');
                 if (adminHomeBtn) adminHomeBtn.classList.remove('hidden');
@@ -3649,17 +3650,20 @@ async function loadMasterAdminDashboard() {
 
         if (totalProjects === 0) {
             listEl.innerHTML = `
+                <div id="admin-lead-requests"></div>
                 <div class="text-center p-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-300">
                     <i data-lucide="inbox" class="w-10 h-10 mx-auto text-slate-300 mb-3"></i>
                     <h3 class="font-bold text-slate-600 mb-1">No Projects Found</h3>
                     <p class="text-slate-400 text-sm">No users have created QIP projects yet.</p>
                 </div>`;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+            refreshLeadRequestCount();
             return;
         }
 
         // Render — grouped by user
         let html = `
+            <div id="admin-lead-requests"></div>
             <div class="mb-6 grid grid-cols-3 gap-4">
                 <div class="bg-rcem-purple text-white rounded-xl p-4 text-center">
                     <div class="text-2xl font-bold">${totalProjects}</div>
@@ -3728,6 +3732,7 @@ async function loadMasterAdminDashboard() {
 
         listEl.innerHTML = html;
         if (typeof lucide !== 'undefined') lucide.createIcons();
+        refreshLeadRequestCount();
 
     } catch (e) {
         console.error('[Admin] loadMasterAdminDashboard error:', e);
@@ -3753,6 +3758,7 @@ window.showRoleAuditLog = async function() {
     const listEl = document.getElementById('project-list');
     if (!listEl) return;
     document.getElementById('admin-bar-audit-btn')?.classList.add('hidden');
+    document.getElementById('admin-bar-lead-requests-btn')?.classList.add('hidden');
     document.getElementById('admin-bar-projects-btn')?.classList.remove('hidden');
 
     const h1 = document.querySelector('#view-projects header h1');
@@ -3903,6 +3909,29 @@ async function fetchLeadApprovals() {
     return out;
 }
 
+// The number of QIP Lead claims still waiting for approval, shown on the
+// admin bar button and as a banner at the top of the Admin dashboard.
+async function refreshLeadRequestCount() {
+    if (!state.isMasterAdmin) return;
+    const a = await fetchLeadApprovals();
+    const waiting = a.error ? 0 : a.claimed.filter(c => !a.approved[c.uid]).length;
+    const badge = document.getElementById('admin-lead-requests-count');
+    if (badge) {
+        badge.textContent = String(waiting);
+        badge.classList.toggle('hidden', waiting === 0);
+    }
+    const banner = document.getElementById('admin-lead-requests');
+    if (!banner) return;
+    banner.innerHTML = waiting === 0 ? '' : `
+        <div class="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
+            <div class="flex-1 text-sm text-amber-900">
+                <span class="font-bold">${waiting} QIP Lead request${waiting !== 1 ? 's' : ''} waiting for approval.</span>
+                Approved leads can see every project in the department.
+            </div>
+            <button type="button" onclick="window.showRoleAuditLog()" class="bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-lg whitespace-nowrap">Review requests</button>
+        </div>`;
+}
+
 function leadApprovalsHTML(a) {
     const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can claim the QIP Lead role. Only accounts you approve here can see every project in the department; the others still see projects a trainee has added them to.</p>';
     if (a.error) {
@@ -3956,6 +3985,7 @@ window.setLeadApproval = async function(uid, approve) {
             action: approve ? 'approved' : 'revoked',
             source: 'admin'
         });
+        refreshLeadRequestCount();
         showToast(approve ? 'Approved: they will see every project the next time they open the QIP Lead view.' : 'Approval removed: they now see only projects shared with them.', 'success');
         window.showRoleAuditLog();
     } catch (e) {
@@ -3977,6 +4007,7 @@ window.setAdminMode = function(mode) {
 
 window.showMasterAdminProjects = function() {
     document.getElementById('admin-bar-audit-btn')?.classList.remove('hidden');
+    document.getElementById('admin-bar-lead-requests-btn')?.classList.remove('hidden');
     document.getElementById('admin-bar-projects-btn')?.classList.add('hidden');
     loadMasterAdminDashboard();
 };
