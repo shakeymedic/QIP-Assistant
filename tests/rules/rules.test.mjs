@@ -149,6 +149,13 @@ test('the audit trail can be written by the person it is about and read only by 
   await assertSucceeds(getDocs(collection(admin(), 'projectAccessLog')));
 });
 
+test('both admin accounts get the admin view; a look-alike email does not', async () => {
+  await seed(PROJECT, project);
+  await assertSucceeds(getDocs(collectionGroup(as('admin2', 'jaketurner2503@gmail.com'), 'projects')));
+  await assertSucceeds(setDoc(doc(as('admin2', 'jaketurner2503@gmail.com'), 'deptQIPLeads/lead'), { email: 'lead@nhs.net', approvedAt: '2026-10-29' }));
+  await assertFails(getDocs(collectionGroup(as('fake', 'jaketurner2503@gmail.com.evil.com'), 'projects')));
+});
+
 test('collections from other apps are closed', async () => {
   for (const path of ['sessions/s1', 'stationAggregates/a1', 'stationReports/r1', 'paired_sessions/ABC234', 'ai_markings/m1', 'users/trainee', 'users/trainee/notes/n1']) {
     await assertFails(setDoc(doc(trainee(), path), { x: 1 }), path);
