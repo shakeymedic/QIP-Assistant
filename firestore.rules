@@ -52,9 +52,9 @@ service cloud.firestore {
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
-    // A single hard-coded admin, as before.
+    // The master admin accounts (keep in step with ADMIN_EMAILS in app.js).
     function isMasterAdmin() {
-      return signedIn() && request.auth.token.email == 'emevidence999@gmail.com';
+      return signedIn() && request.auth.token.email in ['emevidence999@gmail.com', 'jaketurner2503@gmail.com'];
     }
     function isApprovedQIPLead() {
       return signedIn()

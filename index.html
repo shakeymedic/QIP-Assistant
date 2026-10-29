@@ -44,6 +44,7 @@
         <span id="admin-project-count" class="bg-white/20 text-white px-2 py-0.5 rounded-full ml-2 text-[11px] border border-white/30"></span>
         <button id="admin-bar-audit-btn" onclick="window.showRoleAuditLog()" class="ml-2 underline hover:text-red-100 font-bold">View Role &amp; Access Audit Log</button>
         <button id="admin-bar-projects-btn" onclick="window.showMasterAdminProjects()" class="hidden ml-2 underline hover:text-red-100 font-bold">Back to All Projects</button>
+        <button id="admin-bar-own-btn" onclick="window.setAdminMode('own')" class="ml-2 underline hover:text-red-100 font-bold">Switch to my own projects</button>
     </div>
 
     <div id="offline-indicator" class="hidden fixed top-0 left-0 right-0 bg-amber-500 text-white text-center py-1 text-xs font-bold z-[80]">
@@ -436,6 +437,9 @@
                     <!-- Role-specific home buttons — shown/hidden by JS based on the roles a person has -->
                     <button type="button" id="sidebar-admin-home" onclick="window.returnToProjects()" class="hidden w-full flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
                         <i data-lucide="eye" class="w-3.5 h-3.5"></i> Admin Dashboard
+                    </button>
+                    <button type="button" id="sidebar-admin-switch" onclick="window.setAdminMode('admin')" class="hidden w-full flex items-center gap-2 bg-red-700 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
+                        <i data-lucide="shield" class="w-3.5 h-3.5"></i> Switch to Admin view
                     </button>
                     <button type="button" id="sidebar-lead-home" onclick="window.showQIPLeadDashboard()" class="hidden w-full flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold mb-1.5">
                         <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 flex-shrink-0"></i> <span id="sidebar-lead-home-label">QIP Lead Overview</span>

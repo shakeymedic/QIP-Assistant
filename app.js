@@ -40,7 +40,8 @@ import "./measures.js"; // multi-measure management (self-registers window.addMe
 import "./export-center.js"; // unified Export Center (self-registers window.openExportCenter etc.)
 
 // ─── Master Admin ───────────────────────────────────────────────────────
-const ADMIN_EMAIL = 'emevidence999@gmail.com';
+// Master admin accounts. Keep in step with isMasterAdmin() in firestore.rules.
+const ADMIN_EMAILS = ['emevidence999@gmail.com', 'jaketurner2503@gmail.com'];
 
 // ─── Project data migration ───────────────────────────────────────────────────
 function migrateProjectData(d) {
@@ -432,6 +433,7 @@ state.qipLeadProjects = [];
 
 // Master Admin runtime state
 state.isMasterAdmin = false;
+state.isAdminAccount = false; // signed in with one of ADMIN_EMAILS (may be working on own projects)
 state.adminAllProjects = [];
 
 (function cleanURL() {
@@ -2197,7 +2199,11 @@ if (auth) {
 
         state.currentUser = user;
         if (user) {
-            state.isMasterAdmin = (user.email && user.email.toLowerCase() === ADMIN_EMAIL);
+            // An admin account opens the read-only Admin view unless it has
+            // switched to working on its own projects (remembered per device).
+            state.isAdminAccount = !!(user.email && ADMIN_EMAILS.includes(user.email.toLowerCase()));
+            state.isMasterAdmin = state.isAdminAccount && safeStorage.get('qip_admin_mode') !== 'own';
+            document.getElementById('sidebar-admin-switch')?.classList.toggle('hidden', !state.isAdminAccount || state.isMasterAdmin);
 
             document.getElementById('app-container').classList.remove('hidden');
             document.getElementById('app-sidebar').classList.add('lg:flex');
@@ -2252,6 +2258,8 @@ if (auth) {
             }
             // Reset admin state on logout
             state.isMasterAdmin = false;
+            state.isAdminAccount = false;
+            document.getElementById('sidebar-admin-switch')?.classList.add('hidden');
             const adminBar = document.getElementById('admin-bar');
             if (adminBar) adminBar.classList.add('hidden');
             const appContainer = document.getElementById('app-container');
@@ -3956,6 +3964,15 @@ window.setLeadApproval = async function(uid, approve) {
             ? 'Not saved: publish the rules in firestore.rules in the Firebase console first.'
             : 'Could not save the approval. Check your connection and try again.', 'error');
     }
+};
+
+// Admin accounts can also own QIPs: this switches between the read-only Admin
+// view and the normal app. A reload starts the chosen mode cleanly.
+window.setAdminMode = function(mode) {
+    if (!state.isAdminAccount) return;
+    if (mode === 'own') safeStorage.set('qip_admin_mode', 'own');
+    else safeStorage.remove('qip_admin_mode');
+    window.location.reload();
 };
 
 window.showMasterAdminProjects = function() {
