@@ -1281,9 +1281,63 @@ window.saveSpreadField = function(field, value) {
     d.checklist.spreadPlan[field] = value; if (window.saveData) window.saveData();
 };
 
+// "Don't show on startup" for the Quick Guide. Saved in this browser
+// (qip_howto_seen) and, when signed in, on the account (qipUsers/{uid}
+// howtoDismissed) so the choice follows the person to other browsers.
+// When signed in the account wins; this browser's copy is the fallback
+// for demo mode, offline, or a failed read.
+const HOWTO_SEEN_KEY = 'qip_howto_seen';
+// The sign-in profile save. Reading the profile while that write is still
+// pending returns only the fields being written, so wait for it first.
+let profileSaved = Promise.resolve();
+
+function canSaveHowtoToAccount() {
+    return !!(db && state.currentUser && !state.isDemoMode && state.currentUser.uid !== 'demo');
+}
+
+function saveHowtoDismissed(dismissed) {
+    if (dismissed) safeStorage.set(HOWTO_SEEN_KEY, '1');
+    else safeStorage.remove(HOWTO_SEEN_KEY);
+    if (!canSaveHowtoToAccount()) return;
+    setDoc(doc(db, 'qipUsers', state.currentUser.uid), { howtoDismissed: dismissed }, { merge: true })
+        .catch(e => console.warn('[QuickGuide] could not save to account:', e));
+}
+
+// Opens the Quick Guide on startup unless the person has turned it off.
+async function maybeAutoShowHowTo() {
+    if (window._howtoAutoShown) return;
+    window._howtoAutoShown = true;
+    const seenHere = !!safeStorage.get(HOWTO_SEEN_KEY);
+    let dismissed = seenHere;
+    if (canSaveHowtoToAccount()) {
+        try {
+            await profileSaved;
+            const snap = await getDoc(doc(db, 'qipUsers', state.currentUser.uid));
+            const saved = snap.exists() ? snap.data().howtoDismissed : undefined;
+            if (typeof saved === 'boolean') {
+                dismissed = saved;
+                if (saved) safeStorage.set(HOWTO_SEEN_KEY, '1');
+                else safeStorage.remove(HOWTO_SEEN_KEY);
+            } else if (seenHere) {
+                // Ticked in this browser before the choice was saved to accounts
+                saveHowtoDismissed(true);
+            }
+        } catch (e) {
+            console.warn('[QuickGuide] could not read account setting, using this browser\'s:', e);
+        }
+    }
+    if (!dismissed) setTimeout(() => window.showHowTo(), 800);
+}
+
 window.showHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (!m) return;
+    // Reflect the current choice, so unticking it turns the guide back on
+    const cb = document.getElementById('howto-dont-show');
+    if (cb) {
+        cb.checked = !!safeStorage.get(HOWTO_SEEN_KEY);
+        cb.dataset.wasChecked = cb.checked ? '1' : '';
+    }
     m.classList.remove('hidden');
     m.classList.add('flex');
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -1306,7 +1360,10 @@ window.closeHowTo = function() {
     const m = document.getElementById('howto-modal');
     if (m) { m.classList.add('hidden'); m.classList.remove('flex'); }
     const cb = document.getElementById('howto-dont-show');
-    if (cb && cb.checked) safeStorage.set('qip_howto_seen', '1');
+    if (cb && cb.checked !== !!cb.dataset.wasChecked) {
+        saveHowtoDismissed(cb.checked);
+        cb.dataset.wasChecked = cb.checked ? '1' : '';
+    }
 };
 
 window.returnToProjects = () => {
@@ -2241,7 +2298,7 @@ if (auth) {
                     // none here, and a blank would overwrite the name given at registration.
                     const profile = { email: user.email || '', lastLogin: new Date().toISOString() };
                     if (user.displayName) profile.displayName = user.displayName;
-                    setDoc(doc(db, 'qipUsers', user.uid), profile, { merge: true }).catch(e => console.warn('[Profile] auto-save:', e));
+                    profileSaved = setDoc(doc(db, 'qipUsers', user.uid), profile, { merge: true }).catch(e => console.warn('[Profile] auto-save:', e));
                 }
                 loadProjectList();
                 checkQIPLeadStatus(user);
@@ -2772,10 +2829,7 @@ async function loadProjectList() {
 
     // Auto-show How-To guide for first-time visitors, once per visit
     // (not again every time they come back to My Projects)
-    if (!safeStorage.get('qip_howto_seen') && !window._howtoAutoShown) {
-        window._howtoAutoShown = true;
-        setTimeout(() => window.showHowTo(), 800);
-    }
+    maybeAutoShowHowTo();
 
     const listEl = document.getElementById('project-list');
     

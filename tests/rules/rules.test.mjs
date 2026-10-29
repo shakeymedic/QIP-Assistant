@@ -125,6 +125,9 @@ test('a user keeps their own profile and roles; others cannot read it', async ()
   await assertFails(getDoc(doc(stranger(), 'qipUsers/lead')));
   await assertFails(setDoc(doc(stranger(), 'qipUsers/lead'), { roles: [] }, { merge: true }));
   await assertFails(setDoc(doc(lead(), 'qipUsers/lead'), { displayName: 'x'.repeat(201) }, { merge: true }));
+  // Quick Guide "Don't show on startup", saved on the account (app.js saveHowtoDismissed)
+  await assertSucceeds(setDoc(doc(lead(), 'qipUsers/lead'), { howtoDismissed: true }, { merge: true }));
+  await assertFails(setDoc(doc(stranger(), 'qipUsers/lead'), { howtoDismissed: false }, { merge: true }));
   await assertSucceeds(getDoc(doc(admin(), 'qipUsers/lead')));
 });
 
