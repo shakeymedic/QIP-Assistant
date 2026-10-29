@@ -1,0 +1,4 @@
+node_modules/
+*.log
+# copied from ../../firestore.rules by npm test
+firestore.rules

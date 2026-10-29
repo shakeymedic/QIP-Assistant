@@ -14,11 +14,10 @@
 // every write is wrapped so a permission-denied or offline error only warns
 // in the console, it never surfaces to the user or aborts the role/view action.
 //
-// Firestore security rules needed (add via the Firebase console — this repo
-// has no rules file to edit programmatically):
-//   match /roleAuditLog/{id}    { allow create: if request.auth != null; allow read: if <isMasterAdmin>; }
-//   match /projectAccessLog/{id}{ allow create: if request.auth != null; allow read: if <isMasterAdmin>; }
-// (no update/delete for either — it's an append-only audit trail)
+// The rules for both collections are in firestore.rules (create by the person
+// the entry is about, read by the master admin, no update or delete: it's an
+// append-only audit trail). A share-link view by someone not signed in can't
+// be logged, because the rules don't accept writes without an account.
 
 export async function logRoleAuditEvent(db, entry) {
     if (!db) return;
@@ -29,8 +28,8 @@ export async function logRoleAuditEvent(db, entry) {
             email: entry.email || '',
             displayName: entry.displayName || '',
             role: entry.role || '',
-            action: entry.action || 'added', // 'added' | 'removed'
-            source: entry.source || 'unknown', // 'registration' | 'settings'
+            action: entry.action || 'added', // 'added' | 'removed' | 'approved' | 'revoked' (admin)
+            source: entry.source || 'unknown', // 'registration' | 'settings' | 'admin'
             createdAtIso: new Date().toISOString(),
             createdAt: serverTimestamp(),
         });

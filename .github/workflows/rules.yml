@@ -1,0 +1,28 @@
+# firestore.rules in the real Firestore emulator (tests/rules). Runs whenever the rules or their tests change.
+name: Firestore rules
+on:
+  push:
+    branches: [main]
+    paths: ['firestore.rules', 'tests/rules/**', '.github/workflows/rules.yml']
+  pull_request:
+    paths: ['firestore.rules', 'tests/rules/**', '.github/workflows/rules.yml']
+  workflow_dispatch:
+jobs:
+  rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: tests/rules/package-lock.json
+      - name: Install
+        working-directory: tests/rules
+        run: npm ci
+      - name: Test the rules in the emulator
+        working-directory: tests/rules
+        run: npm test
