@@ -2240,9 +2240,16 @@ if (auth) {
                 loadProjectList();
                 checkQIPLeadStatus(user);
                 checkSupervisorStatus();
+                // The installed app's "New Project" shortcut (manifest.json) opens /?action=new
+                if (takeStartupParam('action') === 'new') setTimeout(() => window.createNewProject(), 300);
             }
         } else {
             document.getElementById('auth-screen').classList.remove('hidden');
+            // The installed app's "Demo Mode" shortcut (manifest.json) opens /?demo=true
+            if (takeStartupParam('demo') === 'true') {
+                const demoBtn = document.getElementById('demo-auth-btn');
+                if (demoBtn) demoBtn.click();
+            }
             // Reset admin state on logout
             state.isMasterAdmin = false;
             const adminBar = document.getElementById('admin-bar');
@@ -2251,6 +2258,19 @@ if (auth) {
             if (appContainer) appContainer.style.marginTop = '';
         }
     });
+}
+
+// Reads a one-off start-up parameter from the address (the home-screen shortcuts in
+// manifest.json use them) and removes it, so a reload or sign-out does not act on it again.
+function takeStartupParam(name) {
+    try {
+        const url = new URL(window.location.href);
+        if (!url.searchParams.has(name)) return null;
+        const value = url.searchParams.get(name);
+        url.searchParams.delete(name);
+        window.history.replaceState({}, document.title, url.pathname + url.search + url.hash);
+        return value;
+    } catch (e) { return null; }
 }
 
 async function checkShareLink(viewerUser) {
