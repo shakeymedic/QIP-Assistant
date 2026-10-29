@@ -1,6 +1,6 @@
 {
-    "name": "RCEM QIP Assistant",
-    "short_name": "QIP Assistant",
+    "name": "QIP Assist",
+    "short_name": "QIP Assist",
     "description": "Professional Quality Improvement Portfolio tool for Emergency Medicine clinicians",
     "start_url": "/",
     "display": "standalone",

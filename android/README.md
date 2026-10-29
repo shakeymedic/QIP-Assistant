@@ -45,7 +45,7 @@ Package name: `org.emevidence.qipassist`. Once published on Play it cannot chang
 
 ## Play Console answers
 
-Prepared from what the site does (checked 25 October 2026). Jake must confirm them before submitting, because
+Prepared from what the site does (checked 25 October 2026; App access, content rating and the smaller forms added 29 October 2026). Jake must confirm them before submitting, because
 the developer is responsible for their accuracy. The app is a Trusted Web Activity, so what the site collects
 counts as the app's collection.
 
@@ -61,11 +61,28 @@ counts as the app's collection.
   - **Shared:** none. Firebase and Netlify are service providers. Optional AI features send text from the
     device to Google under the user's own API key, not to us.
   - Encrypted in transit: yes. Users can request deletion: yes.
-- **App access:** "All or some functionality is restricted". Give Google a reviewer account (email and password)
-  with instructions; demo mode on the sign-in screen also shows every feature without an account.
-- **Ads:** none. **Target audience:** 18 and over.
+- **App access:** "All or some functionality is restricted". Add one set of instructions:
+  - Name: `Saved projects, supervisor and QIP lead views`
+  - Username / password: a reviewer account Jake creates (see below). Email and password, not Google sign-in, so
+    it needs no one-time code and works from any country.
+  - Any other instructions: `Tap "Try Demo Mode" on the sign-in screen to see every page with a sample project and
+    no account. To see saving, sign in with email and password using the details above: the account is set up as a
+    trainee with one sample project and also has the supervisor role, so "Supervisor Overview" shows a project
+    shared with it.`
+  - Making the reviewer account: on the site, create an account with email and password using an address you
+    control (used only for this) and a long password; choose the Trainee and Supervisor roles; create one project
+    from a starter; then from a second account (your own) add the reviewer's email as supervisor on a project. Never
+    delete or change it while the app is on Play. No real patient data in either project.
+- **Ads:** none. **Advertising ID:** no (the app does not declare the AD_ID permission and has no ad or analytics
+  SDK). **Target audience:** 18 and over (doctors in training and their supervisors); not designed for children.
+- **Content rating:** answer the questionnaire as a reference/productivity app with no violence, sexual content,
+  gambling or drugs. Users can type free text that other people see (a trainee's project is visible to the
+  supervisors they add), so answer **Yes** to "users can interact or exchange content" if asked, and say that sharing
+  is only with people the user chooses. No location sharing, no purchases.
+- **News app:** no. **Government app:** no. **Financial features:** none.
 - **Health apps declaration:** Medical: education and training for clinicians (quality improvement portfolio).
   Not a medical device. No patient-identifiable data should be entered (the privacy notice says so).
+- **Store listing:** text and graphics rules are in [play-listing.md](play-listing.md).
 - **In-app products:** none. **Target API level:** 36. **16 KB page size:** not affected, no native code.
 - **Play Integrity API:** not usable: the site, not the app, talks to Firebase, and a Trusted Web Activity's
   page can't call the Integrity API. The matching control is Firebase App Check for web, not set up yet.
