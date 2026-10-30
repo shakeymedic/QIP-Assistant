@@ -275,6 +275,23 @@ function renderLeadCards() {
     if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [grid] });
 }
 
+// The banner shown to a QIP Lead who can't see the department-wide view yet,
+// worded by where their request has got to (role-requests.js).
+function leadRequestHeading(req) {
+    if (req && req.status === 'rejected') return 'The administrator has not approved the department-wide view for your account';
+    if (req) return 'Your request for the department-wide view is waiting for the administrator';
+    return "The department-wide view isn't switched on for your account yet";
+}
+
+function leadRequestText(req) {
+    if (req && req.status === 'rejected') return 'You can still see projects a trainee has added you to. If you think this is a mistake, update your details and ask again.';
+    if (req) {
+        const d = String(req.updatedAtIso || req.createdAtIso || '').slice(0, 10);
+        return `You sent your details${d ? ' on ' + escapeHtml(d.split('-').reverse().join('/')) : ''}. Until the request is approved you can only see projects a trainee has added you to.`;
+    }
+    return "Your account has the QIP Lead role, but it hasn't been approved to see every QIP in the department, so you can only see projects a trainee has added you to. To ask for it, send the administrator your details (name, job title, hospital).";
+}
+
 export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
     if (!container) return;
     leadLast = { container, projects: leadProjects || [], opts };
@@ -327,11 +344,11 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                     <div class="flex items-start gap-3">
                         <i data-lucide="lock" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
                         <div class="min-w-0">
-                            <p class="font-bold">The department-wide view isn't switched on for your account yet</p>
-                            <p class="mt-1">Your account has the QIP Lead role, but it hasn't been approved to see every QIP in the department, so you can only see projects a trainee has added you to. To see them all, ask the app administrator to approve your account and send them your account ID:</p>
+                            <p class="font-bold">${leadRequestHeading(opts.request)}</p>
+                            <p class="mt-1">${leadRequestText(opts.request)}</p>
                             <div class="mt-2 flex items-center gap-2 flex-wrap">
-                                <code class="bg-white border border-amber-200 rounded px-2 py-1 text-xs break-all">${escapeHtml(opts.uid || '')}</code>
-                                <button type="button" onclick="navigator.clipboard && navigator.clipboard.writeText(${escapeHtml(JSON.stringify(opts.uid || ''))}).then(() => window.showToast && window.showToast('Account ID copied', 'success'))" class="text-xs font-bold text-amber-800 underline">Copy</button>
+                                <button type="button" onclick="window.openMyRoleRequest('qip_lead')" class="bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">${!opts.request ? 'Send my details to the administrator' : opts.request.status === 'rejected' ? 'Update my details and ask again' : 'Update my details'}</button>
+                                <span class="text-[11px] text-amber-800">Account ID: <code class="bg-white border border-amber-200 rounded px-1 break-all">${escapeHtml(opts.uid || '')}</code></span>
                             </div>
                         </div>
                     </div>

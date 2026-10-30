@@ -28,7 +28,7 @@ export async function logRoleAuditEvent(db, entry) {
             email: entry.email || '',
             displayName: entry.displayName || '',
             role: entry.role || '',
-            action: entry.action || 'added', // 'added' | 'removed' | 'approved' | 'revoked' (admin)
+            action: entry.action || 'added', // 'added' | 'removed' | 'approved' | 'rejected' | 'revoked' (admin)
             source: entry.source || 'unknown', // 'registration' | 'settings' | 'admin'
             createdAtIso: new Date().toISOString(),
             createdAt: serverTimestamp(),

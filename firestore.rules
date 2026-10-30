@@ -35,6 +35,12 @@ rules_version = '2';
 // supervisorInvites/{email}, qipLeadInvites/{email}  - the OLD shared
 //   lists ({projects: [...]}). Still read, never written any more.
 //
+// roleRequests/{uid}_{role}  - someone asking for the 'supervisor' or
+//   'qip_lead' role, with their details (role-requests.js). Written by that
+//   person, always as status 'pending'; the master admin approves or rejects
+//   it (status 'approved' | 'rejected', decidedAtIso, decidedByEmail) and is
+//   the only one who can list them.
+//
 // roleAuditLog/{id}, projectAccessLog/{id}  - append-only audit trail
 //   (audit-log.js). Created by the signed-in person the entry is about
 //   (or by the master admin, for approvals), read only by the master admin.
@@ -128,6 +134,57 @@ service cloud.firestore {
       allow delete: if isMasterAdmin();
     }
 
+    // ---- Role requests (Supervisor / QIP Lead details) ------------
+    function requestFields() {
+      return ['uid', 'email', 'role', 'status', 'fullName', 'jobTitle', 'hospital', 'organisation',
+              'department', 'regNumber', 'workEmail', 'phone', 'reason', 'createdAtIso', 'updatedAtIso'];
+    }
+    function requiredString(data, field, maxLen) {
+      return field in data && data[field] is string && data[field].size() > 0 && data[field].size() <= maxLen;
+    }
+    function requestStringsOk(d) {
+      return optionalString(d, 'email', 320)
+        && optionalString(d, 'fullName', 200) && optionalString(d, 'jobTitle', 200)
+        && optionalString(d, 'hospital', 200) && optionalString(d, 'organisation', 200)
+        && optionalString(d, 'department', 200) && optionalString(d, 'regNumber', 40)
+        && optionalString(d, 'workEmail', 320) && optionalString(d, 'phone', 40)
+        && optionalString(d, 'reason', 1000)
+        && optionalString(d, 'createdAtIso', 40) && optionalString(d, 'updatedAtIso', 40);
+    }
+    function isOwnRequestId(reqId) {
+      return signedIn()
+        && (reqId == request.auth.uid + '_supervisor' || reqId == request.auth.uid + '_qip_lead');
+    }
+    match /roleRequests/{reqId} {
+      allow get: if isOwnRequestId(reqId) || isMasterAdmin();
+      allow list: if isMasterAdmin();
+      // The person asking: their own request only, always back to waiting,
+      // with the three required details filled in.
+      allow create, update: if isOwnRequestId(reqId)
+        && request.resource.data.keys().hasOnly(requestFields())
+        && request.resource.data.uid == request.auth.uid
+        && reqId == request.auth.uid + '_' + request.resource.data.role
+        && request.resource.data.status == 'pending'
+        && (!('email' in request.resource.data) || request.resource.data.email == request.auth.token.email)
+        && requiredString(request.resource.data, 'fullName', 200)
+        && requiredString(request.resource.data, 'jobTitle', 200)
+        && requiredString(request.resource.data, 'hospital', 200)
+        && requestStringsOk(request.resource.data);
+      // The master admin: approve, reject or undo. Also creates a 'rejected'
+      // record for an old QIP Lead claim made before details were collected.
+      allow create, update: if isMasterAdmin()
+        && request.resource.data.keys().hasOnly(requestFields().concat(['decidedAtIso', 'decidedByEmail']))
+        && request.resource.data.role in ['supervisor', 'qip_lead']
+        && request.resource.data.uid is string
+        && reqId == request.resource.data.uid + '_' + request.resource.data.role
+        && request.resource.data.status in ['pending', 'approved', 'rejected']
+        && requestStringsOk(request.resource.data)
+        && optionalString(request.resource.data, 'decidedAtIso', 40)
+        && optionalString(request.resource.data, 'decidedByEmail', 320);
+      // Removing the role withdraws the request.
+      allow delete: if isOwnRequestId(reqId) || isMasterAdmin();
+    }
+
     // ---- Invites ------------------------------------------------
     function isValidInvite(email, inviteId) {
       let d = request.resource.data;
@@ -166,7 +223,7 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'action', 'source', 'createdAtIso', 'createdAt'])
         // The admin logs approvals against the lead's account ID.
         && (request.resource.data.uid == request.auth.uid || isMasterAdmin())
-        && request.resource.data.action in ['added', 'removed', 'approved', 'revoked']
+        && request.resource.data.action in ['added', 'removed', 'approved', 'rejected', 'revoked']
         && optionalString(request.resource.data, 'email', 320)
         && optionalString(request.resource.data, 'displayName', 200)
         && optionalString(request.resource.data, 'role', 40)

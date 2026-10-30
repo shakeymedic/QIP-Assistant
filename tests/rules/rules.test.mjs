@@ -165,3 +165,42 @@ test('collections from other apps are closed', async () => {
   }
   await assertFails(getDocs(collection(nobody(), 'stationReports')));
 });
+
+// ---- role requests (Supervisor / QIP Lead details) ---------------------------------------------
+const details = (uid, role, extra = {}) => ({
+  uid, role, email: `${uid}@nhs.net`, status: 'pending', fullName: 'Dr L', jobTitle: 'EM Consultant', hospital: 'QEHB',
+  organisation: 'UHB', department: 'ED', regNumber: '1234567', workEmail: '', phone: '', reason: '',
+  createdAtIso: '2026-10-30T08:00:00Z', updatedAtIso: '2026-10-30T08:00:00Z', ...extra
+});
+
+test('someone asking for a role saves, reads, updates and withdraws their own request', async () => {
+  await assertSucceeds(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead')));
+  await assertSucceeds(setDoc(doc(sup(), 'roleRequests/sup_supervisor'), details('sup', 'supervisor')));
+  await assertSucceeds(getDoc(doc(lead(), 'roleRequests/lead_qip_lead')));
+  await assertSucceeds(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { hospital: 'Heartlands' })));
+  await assertSucceeds(deleteDoc(doc(lead(), 'roleRequests/lead_qip_lead')));
+});
+
+test('a request cannot approve itself, skip the details, use someone else\'s ID or carry extra fields', async () => {
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { status: 'approved' })));
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { hospital: '' })));
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { email: 'someone@else.net' })));
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { decidedAtIso: '2026-10-30' })));
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_trainee'), details('lead', 'trainee')));
+  await assertFails(setDoc(doc(stranger(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead')));
+  await assertFails(setDoc(doc(lead(), 'roleRequests/lead_supervisor'), details('lead', 'qip_lead')));
+});
+
+test('only the admin lists, approves and rejects requests; others cannot read them', async () => {
+  await seed('roleRequests/lead_qip_lead', details('lead', 'qip_lead'));
+  await assertFails(getDocs(collection(lead(), 'roleRequests')));
+  await assertFails(getDoc(doc(stranger(), 'roleRequests/lead_qip_lead')));
+  await assertSucceeds(getDocs(collection(admin(), 'roleRequests')));
+  await assertSucceeds(setDoc(doc(admin(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { status: 'rejected', decidedAtIso: '2026-10-30T09:00:00Z', decidedByEmail: ADMIN })));
+  await assertSucceeds(setDoc(doc(admin(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { status: 'approved', decidedAtIso: '2026-10-30T09:00:00Z', decidedByEmail: ADMIN })));
+  // An old claim with no details can still be rejected.
+  await assertSucceeds(setDoc(doc(admin(), 'roleRequests/old_qip_lead'), { uid: 'old', role: 'qip_lead', email: 'old@nhs.net', fullName: '', status: 'rejected', decidedAtIso: '2026-10-30T09:00:00Z', decidedByEmail: ADMIN }));
+  await assertFails(setDoc(doc(admin(), 'roleRequests/old_qip_lead'), { uid: 'old', role: 'qip_lead', status: 'deleted' }));
+  await assertFails(setDoc(doc(stranger(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { status: 'rejected' })));
+  await assertSucceeds(addDoc(collection(admin(), 'roleAuditLog'), { uid: 'lead', email: 'lead@nhs.net', displayName: 'Dr L', role: 'qip_lead', action: 'rejected', source: 'admin', createdAtIso: '2026-10-30T09:00:00Z', createdAt: serverTimestamp() }));
+});
