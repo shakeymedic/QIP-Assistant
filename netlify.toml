@@ -1,0 +1,5 @@
+# The site itself has no build step: Netlify publishes the files as they are.
+# This only tells Netlify where the serverless functions live
+# (role-request-notify emails the administrator about role requests).
+[functions]
+  directory = "netlify/functions"

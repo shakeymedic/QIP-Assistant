@@ -24,6 +24,7 @@ import { exportToA3 } from "./a3-export.js";
 import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
+import { REQUEST_ROLES, ROLE_NAMES, openRoleRequestForm, getMyRoleRequest, withdrawRoleRequest, fetchRoleRequests, decideRoleRequest, requestDetailsHTML } from "./role-requests.js";
 import "./hints.js";
 import { QI } from "./qi-constants.js";
 import "./modal-a11y.js";
@@ -2519,6 +2520,7 @@ async function checkQIPLeadStatus(user) {
         state.qipLeadProjects = projects;
         state.qipLeadHasRole = hasLeadRole;
         state.qipLeadDeptDenied = deptViewDenied;
+        state.qipLeadRequest = hasLeadRole && deptViewDenied ? await getMyRoleRequest(db, user.uid, 'qip_lead') : null;
         state.isQIPLead = hasLeadRole || projects.length > 0;
         state._leadRefreshedAt = new Date().toISOString();
 
@@ -2654,9 +2656,26 @@ window.addAccountRole = async function(role) {
         });
         showToast('Role added', 'success');
         await window.refreshRoleOverview(role === 'qip_lead' ? 'lead' : 'supervisor', { silent: true });
+        askForRoleDetails(state.currentUser, [role]);
     } catch (e) {
         showToast('Failed to add the role: ' + e.message, 'error');
     }
+};
+
+// Supervisor and QIP Lead are self-selected, so the administrator asked to be
+// told who is asking: this opens the details form (role-requests.js), which
+// also emails the administrator once that is set up.
+function askForRoleDetails(user, roles) {
+    const wanted = (roles || []).filter(r => REQUEST_ROLES.includes(r));
+    if (!wanted.length || !user || !db || state.isDemoMode || state.isAdminAccount) return;
+    openRoleRequestForm(db, user, wanted, sent => {
+        if (sent && wanted.includes('qip_lead')) window.refreshRoleOverview('lead', { silent: true });
+    });
+}
+
+// "Send my details" / "Update my details" on the QIP Lead view.
+window.openMyRoleRequest = function(role) {
+    askForRoleDetails(state.currentUser, [role]);
 };
 
 function decorateRoleOverview(container, kind) {
@@ -2672,6 +2691,7 @@ function renderRoleOverview(kind) {
         renderQIPLeadDashboard(container, state.qipLeadProjects || [], {
             hasRole: !!state.qipLeadHasRole,
             deptDenied: !!state.qipLeadDeptDenied,
+            request: state.qipLeadRequest || null,
             uid: state.currentUser?.uid || '',
             refreshing: !!state._leadRefreshing,
             refreshedAt: state._leadRefreshedAt
@@ -3581,10 +3601,12 @@ window.submitRegister = async function() {
 
     setButtonLoading(submitBtn, true, 'Creating account...');
     try {
+        const roles = [..._regSelectedRoles];
         const cred = await createUserWithEmailAndPassword(auth, email, password);
         await saveUserProfileToFirestore(cred.user.uid, email, name);
         // Sign-in has already checked roles, possibly before they were saved — check again.
         refreshRoleNavAfterRegistration(cred.user);
+        askForRoleDetails(cred.user, roles);
         // onAuthStateChanged will fire and load the app
         const reg = document.getElementById('register-screen');
         if (reg) reg.classList.add('hidden');
@@ -3612,9 +3634,11 @@ window.registerWithGoogle = async function() {
     try {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
+        const roles = [..._regSelectedRoles];
         const cred = await signInWithPopup(auth, provider);
         await saveUserProfileToFirestore(cred.user.uid, cred.user.email, cred.user.displayName || '');
         refreshRoleNavAfterRegistration(cred.user);
+        askForRoleDetails(cred.user, roles);
         const reg = document.getElementById('register-screen');
         if (reg) reg.classList.add('hidden');
         showToast('Account created with Google! Welcome.', 'success');
@@ -3899,7 +3923,7 @@ window.showRoleAuditLog = async function() {
                             <td class="p-2 whitespace-nowrap">${r.createdAtIso ? new Date(r.createdAtIso).toLocaleString('en-GB') : '?'}</td>
                             <td class="p-2">${escapeHtml(r.email || r.uid || '?')}</td>
                             <td class="p-2 font-semibold">${escapeHtml(r.role || '?')}</td>
-                            <td class="p-2">${({ added: '<span class="text-emerald-600 font-semibold">Added</span>', approved: '<span class="text-indigo-600 font-semibold">Approved by admin</span>', revoked: '<span class="text-red-500 font-semibold">Approval revoked</span>' })[r.action] || '<span class="text-red-500 font-semibold">Removed</span>'}</td>
+                            <td class="p-2">${({ added: '<span class="text-emerald-600 font-semibold">Added</span>', approved: '<span class="text-indigo-600 font-semibold">Approved by admin</span>', revoked: '<span class="text-red-500 font-semibold">Approval revoked</span>', rejected: '<span class="text-red-500 font-semibold">Rejected by admin</span>' })[r.action] || '<span class="text-red-500 font-semibold">Removed</span>'}</td>
                             <td class="p-2 text-slate-400">${escapeHtml(r.source || '?')}</td>
                         </tr>`).join('')}
                     </tbody>
@@ -3933,42 +3957,68 @@ window.showRoleAuditLog = async function() {
     }
 };
 
-// ─── QIP Lead approvals (Master Admin) ───────────────────────────────────────
-// Claiming the QIP Lead role is self-service and only shows the view. The
-// department-wide list of every project needs approval: the database rules
-// allow it only when deptQIPLeads/{uid} exists, which only the master admin
-// can write. These buttons replace adding account IDs by hand in the console.
+// ─── Role requests: QIP Lead and Clinical Supervisor (Master Admin) ──────────
+// Anyone can tick these roles. When they do, they are asked for their details
+// (role-requests.js), which land here for the administrator to approve or
+// reject. For a QIP Lead, approval switches on the department-wide view: the
+// database rules allow it only when deptQIPLeads/{uid} exists, which only the
+// master admin can write. A supervisor's role works without approval (they
+// only ever see projects a trainee adds them to), so approving or rejecting a
+// supervisor just records the decision and clears it from the list.
+// Rejected requests drop off the list into a folded "Rejected" section.
 async function fetchLeadApprovals() {
-    const out = { claimed: [], approved: {}, error: null };
+    const out = { rows: [], error: null };
     try {
-        const [usersSnap, leadsSnap] = await Promise.all([
+        const [usersSnap, leadsSnap, requests] = await Promise.all([
             getDocs(collection(db, 'qipUsers')),
-            getDocs(collection(db, 'deptQIPLeads'))
+            getDocs(collection(db, 'deptQIPLeads')),
+            fetchRoleRequests(db)
         ]);
-        leadsSnap.forEach(d => { out.approved[d.id] = d.data() || {}; });
-        usersSnap.forEach(d => {
-            const u = d.data() || {};
-            if ((u.roles || []).includes('qip_lead') || out.approved[d.id]) {
-                out.claimed.push({ uid: d.id, email: u.email || '', displayName: u.displayName || '' });
-            }
+        const approvedLeads = {};
+        leadsSnap.forEach(d => { approvedLeads[d.id] = d.data() || {}; });
+        const profiles = {};
+        usersSnap.forEach(d => { profiles[d.id] = d.data() || {}; });
+        const seen = new Set();
+        const add = (uid, role, req) => {
+            const key = uid + '_' + role;
+            if (seen.has(key)) return;
+            seen.add(key);
+            const p = profiles[uid] || approvedLeads[uid] || {};
+            const leadApproval = role === 'qip_lead' ? approvedLeads[uid] : null;
+            const status = leadApproval ? 'approved'
+                : req && req.status === 'rejected' ? 'rejected'
+                : req && req.status === 'approved' && role === 'supervisor' ? 'approved'
+                : 'pending';
+            out.rows.push({
+                uid, role, req, status,
+                name: (req && req.fullName) || p.displayName || '',
+                email: (req && req.email) || p.email || '',
+                askedAt: (req && (req.updatedAtIso || req.createdAtIso)) || '',
+                approvedAt: leadApproval ? leadApproval.approvedAt : (req && req.status === 'approved' ? req.decidedAtIso : '')
+            });
+        };
+        Object.entries(requests).forEach(([id, r]) => {
+            if (r && r.uid && REQUEST_ROLES.includes(r.role)) add(r.uid, r.role, r);
         });
-        // Approved accounts whose profile is missing still need a Revoke button.
-        Object.keys(out.approved).forEach(uid => {
-            if (!out.claimed.some(c => c.uid === uid)) out.claimed.push({ uid, email: out.approved[uid].email || '', displayName: out.approved[uid].displayName || '' });
+        // QIP Lead claims made before details were collected, and approved
+        // leads with no request, still need Approve / Reject / Revoke.
+        Object.entries(profiles).forEach(([uid, u]) => {
+            if ((u.roles || []).includes('qip_lead')) add(uid, 'qip_lead', null);
         });
+        Object.keys(approvedLeads).forEach(uid => add(uid, 'qip_lead', null));
     } catch (e) {
-        console.warn('[Approvals] could not load QIP Lead approvals:', e);
+        console.warn('[Approvals] could not load role requests:', e);
         out.error = e;
     }
     return out;
 }
 
-// The number of QIP Lead claims still waiting for approval, shown on the
-// admin bar button and as a banner at the top of the Admin dashboard.
+// The number of requests still waiting for a decision, shown on the admin bar
+// button and as a banner at the top of the Admin dashboard.
 async function refreshLeadRequestCount() {
     if (!state.isMasterAdmin) return;
     const a = await fetchLeadApprovals();
-    const waiting = a.error ? 0 : a.claimed.filter(c => !a.approved[c.uid]).length;
+    const waiting = a.error ? 0 : a.rows.filter(r => r.status === 'pending').length;
     const badge = document.getElementById('admin-lead-requests-count');
     if (badge) {
         badge.textContent = String(waiting);
@@ -3979,74 +4029,109 @@ async function refreshLeadRequestCount() {
     banner.innerHTML = waiting === 0 ? '' : `
         <div class="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
             <div class="flex-1 text-sm text-amber-900">
-                <span class="font-bold">${waiting} QIP Lead request${waiting !== 1 ? 's' : ''} waiting for approval.</span>
-                Approved leads can see every project in the department.
+                <span class="font-bold">${waiting} role request${waiting !== 1 ? 's' : ''} waiting for a decision.</span>
+                Approved QIP Leads can see every project in the department.
             </div>
             <button type="button" onclick="window.showRoleAuditLog()" class="bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-lg whitespace-nowrap">Review requests</button>
         </div>`;
 }
 
 function leadApprovalsHTML(a) {
-    const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can claim the QIP Lead role. Only accounts you approve here can see every project in the department; the others still see projects a trainee has added them to.</p>';
+    const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can tick the QIP Lead or Clinical Supervisor role, and is then asked for their details. Approving a QIP Lead lets them see every project in the department. A supervisor only ever sees projects a trainee adds them to, so approving or rejecting one just clears it from this list. Rejected requests disappear from the list (they are kept in the folded section at the bottom in case you need to undo).</p>';
     if (a.error) {
-        return `<h3 class="font-bold text-slate-800 mb-2">QIP Lead approvals</h3>${intro}
-            <div class="p-4 mb-8 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">Could not load approvals. This usually means the database rules in firestore.rules (in the repository) have not been published in the Firebase console yet.</div>`;
+        return `<h3 class="font-bold text-slate-800 mb-2">Role requests</h3>${intro}
+            <div class="p-4 mb-8 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">Could not load the requests. This usually means the database rules in firestore.rules (in the repository) have not been published in the Firebase console yet.</div>`;
     }
-    const rows = a.claimed.slice().sort((x, y) => (!!a.approved[x.uid] - !!a.approved[y.uid]) || (x.email || '').localeCompare(y.email || ''));
-    return `<h3 class="font-bold text-slate-800 mb-2">QIP Lead approvals</h3>${intro}
-        <div class="overflow-x-auto mb-8">
+    const byDate = (x, y) => (y.askedAt || '').localeCompare(x.askedAt || '') || (x.email || '').localeCompare(y.email || '');
+    const pending = a.rows.filter(r => r.status === 'pending').sort(byDate);
+    const approved = a.rows.filter(r => r.status === 'approved').sort(byDate);
+    const rejected = a.rows.filter(r => r.status === 'rejected').sort(byDate);
+    const roleChip = role => role === 'qip_lead'
+        ? '<span class="inline-block bg-indigo-100 text-indigo-700 font-semibold px-2 py-0.5 rounded-full">QIP Lead</span>'
+        : '<span class="inline-block bg-teal-100 text-teal-700 font-semibold px-2 py-0.5 rounded-full">Supervisor</span>';
+    const when = iso => iso ? escapeHtml(formatUkDate(String(iso).slice(0, 10)) || '') : '';
+    const who = r => `<div class="font-semibold text-slate-800">${escapeHtml(r.name || '—')}</div>
+        <div class="text-slate-500 break-all">${escapeHtml(r.email || '—')}</div>
+        <div class="font-mono text-[10px] text-slate-400 break-all">${escapeHtml(r.uid)}</div>`;
+    const btn = (label, uid, role, action, cls) =>
+        `<button type="button" onclick="window.decideRoleRequest(${jsArg(uid)}, ${jsArg(role)}, ${jsArg(action)})" class="${cls}">${label}</button>`;
+    const approveBtn = r => btn('Approve', r.uid, r.role, 'approve', 'bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg');
+    const rejectBtn = r => btn('Reject', r.uid, r.role, 'reject', 'bg-white border border-red-300 text-red-600 hover:bg-red-50 text-xs font-bold px-3 py-1.5 rounded-lg');
+    const table = (rows, empty, actions, statusCell) => `
+        <div class="overflow-x-auto mb-4">
             <table class="w-full text-xs bg-white rounded-xl border border-slate-200 overflow-hidden">
                 <thead class="bg-slate-50 text-slate-500 uppercase text-[10px]">
-                    <tr><th class="p-2 text-left">Name</th><th class="p-2 text-left">Email</th><th class="p-2 text-left">Account ID</th><th class="p-2 text-left">Department-wide view</th><th class="p-2"></th></tr>
+                    <tr><th class="p-2 text-left">Who</th><th class="p-2 text-left">Asked for</th><th class="p-2 text-left">Their details</th><th class="p-2 text-left">${statusCell ? 'Decision' : 'Sent'}</th><th class="p-2"></th></tr>
                 </thead>
                 <tbody>
-                    ${rows.length === 0 ? '<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">No account has claimed the QIP Lead role yet.</td></tr>' : rows.map(r => {
-                        const ok = !!a.approved[r.uid];
-                        return `<tr class="border-t border-slate-100 ${ok ? '' : 'bg-amber-50'}">
-                            <td class="p-2">${escapeHtml(r.displayName || '—')}</td>
-                            <td class="p-2">${escapeHtml(r.email || '—')}</td>
-                            <td class="p-2 font-mono text-[10px] text-slate-400 break-all">${escapeHtml(r.uid)}</td>
-                            <td class="p-2">${ok ? `<span class="text-emerald-600 font-semibold">Approved</span>${a.approved[r.uid].approvedAt ? ' <span class="text-slate-400">' + escapeHtml(formatUkDate(String(a.approved[r.uid].approvedAt).slice(0, 10)) || '') + '</span>' : ''}` : '<span class="text-amber-700 font-semibold">Waiting for approval</span>'}</td>
-                            <td class="p-2 text-right whitespace-nowrap">${ok
-                                ? `<button type="button" onclick="window.setLeadApproval(${jsArg(r.uid)}, false)" class="text-xs font-bold text-red-600 hover:text-red-700 underline">Revoke</button>`
-                                : `<button type="button" onclick="window.setLeadApproval(${jsArg(r.uid)}, true)" class="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg">Approve</button>`}</td>
-                        </tr>`;
-                    }).join('')}
+                    ${rows.length === 0 ? `<tr><td colspan="5" class="p-4 text-center text-slate-400 italic">${empty}</td></tr>` : rows.map(r => `
+                    <tr class="border-t border-slate-100 align-top">
+                        <td class="p-2">${who(r)}</td>
+                        <td class="p-2 whitespace-nowrap">${roleChip(r.role)}</td>
+                        <td class="p-2 space-y-0.5">${requestDetailsHTML(r.req)}</td>
+                        <td class="p-2 whitespace-nowrap">${statusCell ? statusCell(r) : when(r.askedAt)}</td>
+                        <td class="p-2 text-right whitespace-nowrap space-x-1">${actions(r)}</td>
+                    </tr>`).join('')}
                 </tbody>
             </table>
         </div>`;
+    return `<h3 class="font-bold text-slate-800 mb-2">Role requests</h3>${intro}
+        <h4 class="font-semibold text-amber-800 text-sm mt-3 mb-1">Waiting for a decision (${pending.length})</h4>
+        ${table(pending, 'Nothing waiting.', r => approveBtn(r) + rejectBtn(r))}
+        <h4 class="font-semibold text-emerald-700 text-sm mt-3 mb-1">Approved (${approved.length})</h4>
+        ${table(approved, 'No approved requests yet.',
+            r => r.role === 'qip_lead' ? btn('Revoke', r.uid, r.role, 'reject', 'text-xs font-bold text-red-600 hover:text-red-700 underline') : '',
+            r => `<span class="text-emerald-600 font-semibold">Approved</span> <span class="text-slate-400">${when(r.approvedAt)}</span>`)}
+        <details class="mb-8">
+            <summary class="cursor-pointer text-sm font-semibold text-slate-500 mt-3 mb-1">Rejected or revoked (${rejected.length})</summary>
+            ${table(rejected, 'None.',
+                r => btn('Undo', r.uid, r.role, 'undo', 'text-xs font-bold text-slate-600 hover:text-slate-800 underline'),
+                r => `<span class="text-red-500 font-semibold">Rejected</span> <span class="text-slate-400">${when(r.req && r.req.decidedAtIso)}</span>`)}
+        </details>`;
 }
 
-window.setLeadApproval = async function(uid, approve) {
-    if (!state.isMasterAdmin || !db || !uid) return;
+// action: 'approve' | 'reject' (also Revoke for an approved lead) | 'undo'
+// (back to waiting). Approving a QIP Lead writes deptQIPLeads/{uid};
+// rejecting or revoking one removes it.
+window.decideRoleRequest = async function(uid, role, action) {
+    if (!state.isMasterAdmin || !db || !uid || !REQUEST_ROLES.includes(role)) return;
     try {
         const uSnap = await getDoc(doc(db, 'qipUsers', uid)).catch(() => null);
         const u = uSnap && uSnap.exists() ? uSnap.data() : {};
-        if (approve) {
-            await setDoc(doc(db, 'deptQIPLeads', uid), {
-                email: u.email || '',
-                displayName: u.displayName || '',
-                approvedAt: new Date().toISOString()
-            });
-        } else {
-            await deleteDoc(doc(db, 'deptQIPLeads', uid));
+        const req = await getDoc(doc(db, 'roleRequests', `${uid}_${role}`)).then(s => s.exists() ? s.data() : null).catch(() => null);
+        const email = (req && req.email) || u.email || '';
+        const displayName = (req && req.fullName) || u.displayName || '';
+        const status = action === 'approve' ? 'approved' : action === 'reject' ? 'rejected' : 'pending';
+        const wasApproved = role === 'qip_lead'
+            && await getDoc(doc(db, 'deptQIPLeads', uid)).then(s => s.exists()).catch(() => false);
+        if (role === 'qip_lead') {
+            if (action === 'approve') {
+                await setDoc(doc(db, 'deptQIPLeads', uid), { email, displayName, approvedAt: new Date().toISOString() });
+            } else {
+                await deleteDoc(doc(db, 'deptQIPLeads', uid));
+            }
         }
-        logRoleAuditEvent(db, {
-            uid,
-            email: u.email || '',
-            displayName: u.displayName || '',
-            role: 'qip_lead',
-            action: approve ? 'approved' : 'revoked',
-            source: 'admin'
-        });
+        await decideRoleRequest(db, uid, role, status, state.currentUser?.email || '', { email, displayName });
+        if (action !== 'undo') {
+            logRoleAuditEvent(db, {
+                uid, email, displayName, role,
+                action: action === 'approve' ? 'approved' : wasApproved ? 'revoked' : 'rejected',
+                source: 'admin'
+            });
+        }
         refreshLeadRequestCount();
-        showToast(approve ? 'Approved: they will see every project the next time they open the QIP Lead view.' : 'Approval removed: they now see only projects shared with them.', 'success');
+        const name = ROLE_NAMES[role];
+        showToast(action === 'approve'
+            ? (role === 'qip_lead' ? 'Approved: they will see every project the next time they open the QIP Lead view.' : `${name} request approved.`)
+            : action === 'reject'
+            ? (role === 'qip_lead' ? `${wasApproved ? 'Revoked' : 'Rejected'}: removed from the list. They see only projects a trainee has shared with them.` : `${name} request rejected and removed from the list.`)
+            : 'Moved back to waiting for a decision.', 'success');
         window.showRoleAuditLog();
     } catch (e) {
         console.warn('[Approvals] could not save:', e);
         showToast(e?.code === 'permission-denied'
             ? 'Not saved: publish the rules in firestore.rules in the Firebase console first.'
-            : 'Could not save the approval. Check your connection and try again.', 'error');
+            : 'Could not save the decision. Check your connection and try again.', 'error');
     }
 };
 
@@ -4191,6 +4276,11 @@ window.toggleSettingsRole = async function(role, btnEl) {
             action: wasActive ? 'removed' : 'added',
             source: 'settings'
         });
+
+        // Adding Supervisor / QIP Lead asks for the person's details; removing
+        // it withdraws the request so it leaves the administrator's list.
+        if (wasActive) withdrawRoleRequest(db, state.currentUser.uid, role);
+        else askForRoleDetails(state.currentUser, [role]);
 
         // Refresh the role list UI
         await loadRolesIntoSettings();
