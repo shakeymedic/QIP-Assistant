@@ -12,7 +12,7 @@ but it must also say that RCEM has not produced or endorsed it (Play's impersona
 
 ## App details
 
-- **App name** (30 characters max): `QIP Assist: Quality Improvement` (30)
+- **App name** (30 characters max): `QIP Assist: QI Projects` (23; renamed in Play Console 30 Oct 2026)
 - **Category:** Medical. **Tags:** pick the closest to "Medical education" and "Productivity". **Contains ads:** no. **Free.**
 - **Contact email:** hello@emevidence.org. **Website:** https://wmebemqipassist.netlify.app
 - **Privacy policy:** https://wmebemqipassist.netlify.app/privacy.html
