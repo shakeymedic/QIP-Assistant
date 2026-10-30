@@ -4,7 +4,10 @@
     "target": {
       "namespace": "android_app",
       "package_name": "org.emevidence.qipassist",
-      "sha256_cert_fingerprints": []
+      "sha256_cert_fingerprints": [
+        "66:53:E4:9C:32:62:5A:1A:B7:FD:BF:34:6E:53:83:1D:2C:B6:2B:90:ED:50:68:89:F9:0B:89:55:7D:51:D1:84",
+        "C1:E8:63:12:51:5F:BF:70:5C:6E:AA:96:ED:F2:8E:B0:36:80:63:83:7E:85:6C:0C:C0:1E:3A:D5:63:17:CB:7C"
+      ]
     }
   }
 ]
