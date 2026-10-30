@@ -3,3 +3,9 @@
 # (role-request-notify emails the administrator about role requests).
 [functions]
   directory = "netlify/functions"
+
+# The Firebase web API key in config.js and the function is public by design
+# (it identifies the project; access is controlled by Firebase Auth and the
+# Firestore rules), so Netlify's secret scan must not fail the deploy on it.
+[build.environment]
+  SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI"
