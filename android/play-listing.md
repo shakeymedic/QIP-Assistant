@@ -14,7 +14,7 @@ but it must also say that RCEM has not produced or endorsed it (Play's impersona
 
 - **App name** (30 characters max): `QIP Assist: Quality Improvement` (30)
 - **Category:** Medical. **Tags:** pick the closest to "Medical education" and "Productivity". **Contains ads:** no. **Free.**
-- **Contact email:** emevidence999@gmail.com. **Website:** https://wmebemqipassist.netlify.app
+- **Contact email:** hello@emevidence.org. **Website:** https://wmebemqipassist.netlify.app
 - **Privacy policy:** https://wmebemqipassist.netlify.app/privacy.html
 
 ## Short description (80 characters max)
