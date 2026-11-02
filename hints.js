@@ -130,7 +130,7 @@ export const HINTS = {
     'reference list': {
         title: 'Reference list',
         what: `The sources you used, with one line on why each matters. ${QI.REFERENCES_MIN} good references is a sensible minimum; ${QI.REFERENCES_GOOD} or more for a higher-trainee project.`,
-        examples: ['National Institute for Health and Care Excellence. Suspected sepsis: recognition, diagnosis and early management (NG51). Key point: antibiotics within one hour for people at high risk.']
+        examples: ['National Institute for Health and Care Excellence. Suspected sepsis in people aged 16 or over: recognition, assessment and early management (NG253). Key point: IV antibiotics within one hour for people at high risk, with risk based on NEWS2.']
     },
     'additional notes / narrative': {
         title: 'Literature narrative',
