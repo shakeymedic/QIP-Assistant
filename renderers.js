@@ -4340,7 +4340,7 @@ window.showExample = function(section) {
                     <div class="bg-slate-50 p-2 rounded"><strong>Specific:</strong> adults with red-flag sepsis; IV antibiotics within 60 minutes of triage</div>
                     <div class="bg-slate-50 p-2 rounded"><strong>Measurable:</strong> weekly % from the EPR (median 42% → 90%)</div>
                     <div class="bg-slate-50 p-2 rounded"><strong>Achievable:</strong> agreed with the team after the baseline review showed fixable causes</div>
-                    <div class="bg-slate-50 p-2 rounded"><strong>Relevant:</strong> national guidance (NICE NG51) recommends antibiotics within one hour for people at high risk</div>
+                    <div class="bg-slate-50 p-2 rounded"><strong>Relevant:</strong> national guidance (NICE NG253) recommends IV antibiotics within one hour for adults at high risk</div>
                     <div class="bg-slate-50 p-2 rounded col-span-2"><strong>Time-bound:</strong> by 31 May 2026 (about 12 months)</div>
                 </div>
             </div>`
