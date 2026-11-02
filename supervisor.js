@@ -301,7 +301,7 @@ export function renderSupervisorDashboard() {
             : `<div class="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded text-sm flex items-start gap-3">
                     <i data-lucide="clock" class="w-5 h-5 shrink-0 mt-0.5"></i>
                     <div><strong>Not yet signed off.</strong> ${isOwner
-                        ? 'Your supervisor signs off from their own account. Add their email under <button onclick="window.openGlobalSettings && window.openGlobalSettings()" class="underline font-semibold">Settings → Project access</button>, then they can review this form and sign off.'
+                        ? 'Your supervisor signs off from their own account. Add their email in the <strong>Your supervisors</strong> box below, then they can review this form and sign off.'
                         : 'Only the trainee\'s named Clinical or Educational Supervisor can sign off this project.'}</div>
                </div>`;
         reviewSection = `
@@ -309,6 +309,7 @@ export function renderSupervisorDashboard() {
                 <h3 class="font-bold text-blue-800 mb-3">Supervisor Review</h3>
                 ${comments}
                 <div class="border-t border-blue-200 pt-4 mt-4">${status}</div>
+                ${isOwner ? '<div id="slo11-supervisors" class="border-t border-blue-200 pt-4 mt-4"></div>' : ''}
             </div>`;
     }
 
@@ -329,11 +330,45 @@ export function renderSupervisorDashboard() {
     const emqiatContainer = document.getElementById('emqiat-form-container');
     if (emqiatContainer) renderEMQIATForm(emqiatContainer, { readOnly: !isOwner });
 
+    if (isOwner) renderSignOffSupervisors();
+
     // The QIP Lead management panel manages the trainee's own invites, so it is
     // only shown on the trainee's own project.
     if (isOwner && typeof window.renderQIPLeadPanelFn === 'function') {
         window.renderQIPLeadPanelFn();
     }
+}
+
+// "Your supervisors" box on the trainee's own SLO 11 Sign-off page: the same
+// list as Settings → Project access, so a trainee can add the supervisor who
+// will sign off without hunting through Settings. Does nothing when the box
+// isn't on screen.
+export function renderSignOffSupervisors() {
+    const box = document.getElementById('slo11-supervisors');
+    if (!box) return;
+    const supervisors = state.projectData?.supervisors || [];
+    const list = supervisors.length === 0
+        ? '<p class="text-xs text-slate-500 italic">No supervisor added yet.</p>'
+        : supervisors.map((s, i) => `
+            <div class="flex items-center justify-between bg-white border border-teal-100 rounded-lg px-3 py-1.5">
+                <span class="text-sm text-slate-700 font-medium break-all">${escapeHtml(String(s.email || s))}</span>
+                <button onclick="window.removeSettingsSupervisor(${i})" class="text-slate-400 hover:text-red-500 ml-2 p-1" title="Remove" aria-label="Remove ${escapeHtml(String(s.email || s))}">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>`).join('');
+    box.innerHTML = `
+        <h4 class="font-bold text-blue-800 mb-1 flex items-center gap-2"><i data-lucide="user-plus" class="w-4 h-4"></i> Your supervisors</h4>
+        <p class="text-xs text-slate-600 mb-3">Add your Clinical or Educational Supervisor's email. They see this project and can sign it off when they sign in to QIP Assist with that email. No email is sent, so let them know.</p>
+        <div class="flex flex-col sm:flex-row gap-2 mb-3">
+            <label for="slo11-supervisor-email" class="sr-only">Supervisor's email</label>
+            <input id="slo11-supervisor-email" type="email" placeholder="supervisor@nhs.net" onkeydown="if(event.key==='Enter'){event.preventDefault();window.addSupervisorFromSignOff();}"
+                class="flex-1 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-300"/>
+            <button onclick="window.addSupervisorFromSignOff()" class="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center justify-center gap-1">
+                <i data-lucide="plus" class="w-4 h-4"></i> Add supervisor
+            </button>
+        </div>
+        <div class="space-y-1">${list}</div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
 // Persists the SLO 11 assessment via the dedicated assessment-only write path,

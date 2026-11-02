@@ -21,7 +21,7 @@ import { exportPPTX, printPoster, printPosterOnly } from "./export.js";
 import { startOnboarding } from "./onboarding.js";
 import { exportToKaizen } from "./kaizen-export.js";
 import { exportToA3 } from "./a3-export.js";
-import { renderSupervisorDashboard, renderSupervisorOverview } from "./supervisor.js";
+import { renderSupervisorDashboard, renderSupervisorOverview, renderSignOffSupervisors } from "./supervisor.js";
 import { getQIPLeadProjects, addQIPLeadToProject, removeQIPLeadFromProject, renderQIPLeadPanel, renderQIPLeadDashboard } from "./qip-lead.js";
 import { logRoleAuditEvent, logProjectAccessEvent } from "./audit-log.js";
 import { REQUEST_ROLES, ROLE_NAMES, openRoleRequestForm, getMyRoleRequest, withdrawRoleRequest, fetchRoleRequests, decideRoleRequest, requestDetailsHTML } from "./role-requests.js";
@@ -1492,6 +1492,7 @@ window.openGlobalSettings = () => {
         accessSection.classList.toggle('hidden', !show);
         if (show) loadProjectAccessIntoSettings();
     }
+    document.getElementById('project-access-admin-note')?.classList.toggle('hidden', !(state.isMasterAdmin && state.currentUser));
     const modal = document.getElementById('global-settings-modal');
     if (modal) modal.classList.remove('hidden');
     // Load current roles for logged-in normal users
@@ -4336,19 +4337,20 @@ function loadProjectAccessIntoSettings() {
     if (typeof lucide !== 'undefined') lucide.createIcons();
 }
 
-window.addSupervisorFromSettings = async function() {
-    const input = document.getElementById('settings-supervisor-email');
-    const email = (input?.value || '').trim().toLowerCase();
+// Shared by Settings → Project access and the box on the SLO 11 Sign-off page.
+// Returns true once the supervisor is listed on the project.
+async function addSupervisorByEmail(rawEmail) {
+    const email = String(rawEmail || '').trim().toLowerCase();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        showToast('Please enter a valid email address', 'error'); return;
+        showToast('Please enter a valid email address', 'error'); return false;
     }
     if (!state.projectData || !state.currentProjectId || !state.currentUser) {
-        showToast('No project loaded', 'error'); return;
+        showToast('No project loaded', 'error'); return false;
     }
-    if (!canManageAccess()) return;
+    if (!canManageAccess()) return false;
     if (!state.projectData.supervisors) state.projectData.supervisors = [];
     if (state.projectData.supervisors.some(s => (s.email || s) === email)) {
-        showToast('That email is already listed as a supervisor', 'info'); return;
+        showToast('That email is already listed as a supervisor', 'info'); return false;
     }
 
     // Write the invite so the supervisor sees this project when they sign in
@@ -4365,15 +4367,34 @@ window.addSupervisorFromSettings = async function() {
     } catch (e) {
         console.warn('[Access] supervisor invite write failed:', e);
         showToast("Couldn't add that supervisor — please check your connection and try again.", 'error');
-        return;
+        return false;
     }
 
     state.projectData.supervisors.push({ email, addedAt: new Date().toISOString() });
     window.saveData();
-    if (input) input.value = '';
     loadProjectAccessIntoSettings();
     // No email is sent — the supervisor sees the project when they sign in.
     showToast(`Supervisor added. ${email} will see this project when they sign in with that email.`, 'success');
+    return true;
+}
+
+// Re-draw the supervisor box on the SLO 11 Sign-off page (does nothing if
+// that page isn't on screen), so it shows the change straight away.
+function refreshSignOffPageIfOpen() {
+    renderSignOffSupervisors();
+}
+
+window.addSupervisorFromSettings = async function() {
+    const input = document.getElementById('settings-supervisor-email');
+    if (await addSupervisorByEmail(input?.value)) {
+        if (input) input.value = '';
+        refreshSignOffPageIfOpen();
+    }
+};
+
+window.addSupervisorFromSignOff = async function() {
+    const input = document.getElementById('slo11-supervisor-email');
+    if (await addSupervisorByEmail(input?.value)) refreshSignOffPageIfOpen();
 };
 
 window.removeSettingsSupervisor = async function(index) {
@@ -4387,6 +4408,7 @@ window.removeSettingsSupervisor = async function(index) {
     await deleteInvite(db, SUPERVISOR_INVITES, removed.email || removed, state.currentUser?.uid, state.currentProjectId);
     window.saveData();
     loadProjectAccessIntoSettings();
+    refreshSignOffPageIfOpen();
     showToast('Supervisor removed', 'info');
 };
 
