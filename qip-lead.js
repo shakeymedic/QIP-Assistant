@@ -339,6 +339,7 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                     </div>
                 </div>
 
+                ${typeof window.emailVerifyBannerHtml === 'function' ? window.emailVerifyBannerHtml() : ''}
                 ${opts.hasRole && opts.deptDenied ? `
                 <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-sm text-amber-900" role="status">
                     <div class="flex items-start gap-3">

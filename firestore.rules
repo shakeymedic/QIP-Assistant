@@ -13,8 +13,10 @@ rules_version = '2';
 // ===============================================================
 //
 // users/{uid}/projects/{projectId}  - one QIP. Written by its owner
-//   (the whole document). An invited supervisor may change only the
-//   sign-off fields inside `assessment` (see SUPERVISOR_FIELDS below).
+//   (the whole document) except the supervisor's sign-off fields inside
+//   `assessment`, which only an invited supervisor may change (see
+//   supervisorFields / signOffFields below). Email addresses (admin,
+//   invites) only count once verified (token email_verified).
 //   Fields used here: supervisors: [{email, addedAt}],
 //   qipLeads: [{email, addedAt}], visibility.hideFromDeptQIPLead: bool.
 //
@@ -58,16 +60,22 @@ service cloud.firestore {
     function isOwner(uid) {
       return signedIn() && request.auth.uid == uid;
     }
+    // An email address only counts once it is proved: Google accounts are, and
+    // email + password accounts are after clicking the link the app sends.
+    // Without this, anyone could register an unclaimed address with a password.
+    function emailVerified() {
+      return signedIn() && request.auth.token.get('email_verified', false) == true;
+    }
     // The master admin accounts (keep in step with ADMIN_EMAILS in app.js).
     function isMasterAdmin() {
-      return signedIn() && request.auth.token.email in ['emevidence999@gmail.com', 'jaketurner2503@gmail.com'];
+      return emailVerified() && request.auth.token.email in ['emevidence999@gmail.com', 'jaketurner2503@gmail.com'];
     }
     function isApprovedQIPLead() {
       return signedIn()
         && exists(/databases/$(database)/documents/deptQIPLeads/$(request.auth.uid));
     }
     function myEmail() {
-      return signedIn() && request.auth.token.email is string
+      return emailVerified() && request.auth.token.email is string
         ? request.auth.token.email.lower() : '';
     }
     function optionalString(data, field, maxLen) {
@@ -81,7 +89,7 @@ service cloud.firestore {
               'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'lastSupervisorActivityAt'];
     }
     function isInvitedSupervisor(uid, projectId) {
-      return signedIn() && exists(/databases/$(database)/documents/supervisorInvites/$(myEmail())/invites/$(uid + '_' + projectId));
+      return signedIn() && request.auth.uid != uid && myEmail() != '' && exists(/databases/$(database)/documents/supervisorInvites/$(myEmail())/invites/$(uid + '_' + projectId));
     }
     function onlySupervisorFieldsChange() {
       return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['assessment'])
@@ -91,10 +99,27 @@ service cloud.firestore {
         && optionalString(request.resource.data.assessment, 'supervisorComments', 20000);
     }
 
+    // The sign-off is the supervisor's: the owner can't set or change it.
+    function signOffFields() {
+      return ['signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'supervisorComments'];
+    }
+    function ownerLeavesSignOffAlone() {
+      let before = resource.data.get('assessment', {});
+      let after = request.resource.data.get('assessment', {});
+      return after is map
+        && after.diff(before is map ? before : {}).affectedKeys().hasAny(signOffFields()) == false;
+    }
+    function notSignedOffAtCreation() {
+      return request.resource.data.get('assessment', {}).get('signedOff', false) != true;
+    }
+
     match /users/{uid}/projects/{projectId} {
-      // The owner keeps full control of their own projects. (No schema
-      // check: a project is one large document the whole app edits.)
-      allow read, write: if isOwner(uid);
+      // The owner keeps full control of their own projects, except the
+      // supervisor's sign-off. (No schema check: a project is one large
+      // document the whole app edits.)
+      allow read, delete: if isOwner(uid);
+      allow create: if isOwner(uid) && notSignedOffAtCreation();
+      allow update: if isOwner(uid) && ownerLeavesSignOffAlone();
       // A share link opens one project by its exact path without signing
       // in. Listing someone else's projects is still refused.
       allow get: if true;
@@ -221,8 +246,12 @@ service cloud.firestore {
     match /roleAuditLog/{id} {
       allow create: if signedIn()
         && request.resource.data.keys().hasOnly(['uid', 'email', 'displayName', 'role', 'action', 'source', 'createdAtIso', 'createdAt'])
-        // The admin logs approvals against the lead's account ID.
-        && (request.resource.data.uid == request.auth.uid || isMasterAdmin())
+        // Only the admin logs approvals (against the lead's account ID);
+        // anyone else can only log their own role being added or removed.
+        && (isMasterAdmin()
+            || (request.resource.data.uid == request.auth.uid
+                && request.resource.data.action in ['added', 'removed']
+                && request.resource.data.get('source', '') != 'admin'))
         && request.resource.data.action in ['added', 'removed', 'approved', 'rejected', 'revoked']
         && optionalString(request.resource.data, 'email', 320)
         && optionalString(request.resource.data, 'displayName', 200)

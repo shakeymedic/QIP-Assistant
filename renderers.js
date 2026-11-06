@@ -583,10 +583,10 @@ function renderMeasureRoleCoverage(d, c) {
             status = 'No tracked measure linked yet';
             statusClass = 'text-amber-700 bg-amber-50 border-amber-200';
         } else if (!cov.hasData) {
-            status = 'Linked to "' + cov.names.join(', ') + '" but no data points yet';
+            status = 'Linked to "' + escapeHtml(cov.names.join(', ')) + '" but no data points yet';
             statusClass = 'text-amber-700 bg-amber-50 border-amber-200';
         } else {
-            status = 'Tracked via "' + cov.names.join(', ') + '"';
+            status = 'Tracked via "' + escapeHtml(cov.names.join(', ')) + '"';
             statusClass = 'text-emerald-700 bg-emerald-50 border-emerald-200';
         }
         return '<div class="flex items-center gap-2 text-xs px-3 py-2 rounded-lg border ' + statusClass + '">' +
@@ -1980,9 +1980,9 @@ export function renderPDSA() {
                                     <div class="px-5 py-3 flex flex-wrap sm:flex-nowrap items-center gap-x-3 gap-y-1 cursor-pointer hover:bg-slate-50 transition-colors" onclick="document.getElementById('cycle-body-${pfx}').classList.toggle('hidden'); this.querySelector('.cycle-chevron').classList.toggle('rotate-180')">
                                         <span class="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-bold flex-shrink-0">${cycleIdx + 1}</span>
                                         <span class="flex-1 min-w-[8rem] font-medium text-sm text-slate-700 truncate">${escapeHtml(p.title || 'Cycle ' + (cycleIdx + 1))}</span>
-                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${sCls}">${p.status || 'planning'}</span>
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${sCls}">${escapeHtml(p.status || 'planning')}</span>
                                         ${p.startDate || p.start ? `<span class="text-xs text-slate-400">${formatDate(p.startDate || p.start)}</span>` : ''}
-                                        ${autoDec ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${dCls}">${autoDec}</span>` : ''}
+                                        ${autoDec ? `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${dCls}">${escapeHtml(autoDec)}</span>` : ''}
                                         <i data-lucide="chevron-down" class="w-4 h-4 text-slate-300 cycle-chevron transition-transform flex-shrink-0"></i>
                                         <button onclick="event.stopPropagation(); window.deleteCycleFromIdea(${ideaIdx}, ${cycleIdx})" class="p-1 text-slate-300 hover:text-red-400 transition-colors rounded flex-shrink-0" title="Delete cycle">
                                             <i data-lucide="x" class="w-3.5 h-3.5"></i>
