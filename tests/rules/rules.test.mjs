@@ -18,7 +18,7 @@ before(async () => {
 after(async () => { if (env) await env.cleanup(); });
 beforeEach(async () => { await env.clearFirestore(); });
 
-const as = (uid, email) => env.authenticatedContext(uid, { email }).firestore();
+const as = (uid, email, verified = true) => env.authenticatedContext(uid, { email, email_verified: verified }).firestore();
 const trainee = () => as('trainee', 'trainee@nhs.net');
 const sup = () => as('sup', 'sup@nhs.net');
 const lead = () => as('lead', 'lead@nhs.net');
@@ -203,4 +203,49 @@ test('only the admin lists, approves and rejects requests; others cannot read th
   await assertFails(setDoc(doc(admin(), 'roleRequests/old_qip_lead'), { uid: 'old', role: 'qip_lead', status: 'deleted' }));
   await assertFails(setDoc(doc(stranger(), 'roleRequests/lead_qip_lead'), details('lead', 'qip_lead', { status: 'rejected' })));
   await assertSucceeds(addDoc(collection(admin(), 'roleAuditLog'), { uid: 'lead', email: 'lead@nhs.net', displayName: 'Dr L', role: 'qip_lead', action: 'rejected', source: 'admin', createdAtIso: '2026-10-30T09:00:00Z', createdAt: serverTimestamp() }));
+});
+
+// ---- stress test 6 Nov 2026 ---------------------------------------------------------------------
+test('an unproved (email + password, not yet verified) address is not the admin or a supervisor', async () => {
+  await seed(PROJECT, project);
+  await seed('supervisorInvites/sup@nhs.net/invites/trainee_p1', invite('sup@nhs.net'));
+  const fakeAdmin = as('attacker', ADMIN, false);
+  await assertFails(getDocs(collectionGroup(fakeAdmin, 'projects')));
+  await assertFails(setDoc(doc(fakeAdmin, 'deptQIPLeads/attacker'), { email: 'a@a.net', approvedAt: '2026-11-06' }));
+  const fakeSup = as('attacker2', 'sup@nhs.net', false);
+  await assertFails(getDocs(collection(fakeSup, 'supervisorInvites/sup@nhs.net/invites')));
+  await assertFails(setDoc(doc(fakeSup, PROJECT), { assessment: { signedOff: true, signedOffBy: 'Dr Fake' } }, { merge: true }));
+  // Once proved, the same address works.
+  await assertSucceeds(getDocs(collection(sup(), 'supervisorInvites/sup@nhs.net/invites')));
+});
+
+test('a trainee cannot sign off (or un-sign) their own project, but still saves everything else', async () => {
+  await seed(PROJECT, { ...project, assessment: { traineeSeenAt: '2026-10-01', signedOff: false, signedOffBy: '', supervisorComments: '' } });
+  await assertFails(setDoc(doc(trainee(), PROJECT), { assessment: { signedOff: true, signedOffBy: 'Dr Real Consultant' } }, { merge: true }));
+  await assertFails(setDoc(doc(trainee(), PROJECT), { assessment: { supervisorComments: 'Excellent' } }, { merge: true }));
+  await assertSucceeds(setDoc(doc(trainee(), PROJECT), { meta: { title: 'Renamed' }, assessment: { traineeSeenAt: '2026-11-06' } }, { merge: true }));
+  // A full rewrite (restore from backup) must carry the sign-off over unchanged.
+  await assertSucceeds(setDoc(doc(trainee(), PROJECT), { meta: { title: 'Restored' }, assessment: { traineeSeenAt: 'x', signedOff: false, signedOffBy: '', supervisorComments: '' } }));
+  await assertFails(setDoc(doc(trainee(), PROJECT), { meta: { title: 'Restored' } }));
+  // Signed off by the supervisor: the trainee can't undo it either.
+  await seed('supervisorInvites/sup@nhs.net/invites/trainee_p1', invite('sup@nhs.net'));
+  await assertSucceeds(setDoc(doc(sup(), PROJECT), { assessment: { signedOff: true, signedOffBy: 'Dr S' } }, { merge: true }));
+  await assertFails(setDoc(doc(trainee(), PROJECT), { assessment: { signedOff: false } }, { merge: true }));
+  // New projects can't start signed off; a normal new project can.
+  await assertFails(setDoc(doc(trainee(), 'users/trainee/projects/p2'), { meta: { title: 'x' }, assessment: { signedOff: true } }));
+  await assertSucceeds(setDoc(doc(trainee(), 'users/trainee/projects/p3'), { meta: { title: 'x' }, assessment: { signedOff: false, signedOffBy: '', supervisorComments: '' } }));
+  await assertSucceeds(deleteDoc(doc(trainee(), 'users/trainee/projects/p3')));
+});
+
+test('a trainee who invites their own address as supervisor still cannot sign off', async () => {
+  await seed(PROJECT, project);
+  await seed('supervisorInvites/trainee@nhs.net/invites/trainee_p1', invite('trainee@nhs.net'));
+  await assertFails(setDoc(doc(trainee(), PROJECT), { assessment: { signedOff: true } }, { merge: true }));
+});
+
+test('only the admin can write approval entries in the role audit log', async () => {
+  await assertFails(addDoc(collection(stranger(), 'roleAuditLog'), { uid: 'stranger', role: 'qip_lead', action: 'approved', source: 'admin' }));
+  await assertFails(addDoc(collection(stranger(), 'roleAuditLog'), { uid: 'stranger', role: 'qip_lead', action: 'added', source: 'admin' }));
+  await assertSucceeds(addDoc(collection(stranger(), 'roleAuditLog'), { uid: 'stranger', role: 'qip_lead', action: 'added', source: 'settings' }));
+  await assertSucceeds(addDoc(collection(admin(), 'roleAuditLog'), { uid: 'lead', role: 'qip_lead', action: 'approved', source: 'admin' }));
 });

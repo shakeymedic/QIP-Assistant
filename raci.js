@@ -270,8 +270,8 @@ export function raciTableHTML(d, { edit = false, checks = null, compact = false 
                     const label = `${t.task || 'Task'}, ${p.name}: ${meta ? meta.word : 'no role'}`;
                     const cls = `${cellSize} rounded-lg border font-bold flex items-center justify-center mx-auto ${meta ? meta.cls : 'bg-white border-dashed border-slate-200 text-slate-300'}`;
                     return `<td class="px-1 py-1.5 text-center">${edit
-                        ? `<button onclick="window.raciCycle(${ti}, '${escapeHtml(p.id)}')" data-raci-cell="${ti}:${escapeHtml(p.id)}" class="${cls} hover:ring-2 hover:ring-indigo-300" aria-label="${escapeHtml(label)}. Tap to change." title="${escapeHtml(label)}">${v || '·'}</button>`
-                        : `<span class="${cls}" title="${escapeHtml(label)}">${v ? v : '<span class="sr-only">none</span>'}</span>`}</td>`;
+                        ? `<button onclick="window.raciCycle(${ti}, '${escapeHtml(p.id)}')" data-raci-cell="${ti}:${escapeHtml(p.id)}" class="${cls} hover:ring-2 hover:ring-indigo-300" aria-label="${escapeHtml(label)}. Tap to change." title="${escapeHtml(label)}">${v ? escapeHtml(v) : '·'}</button>`
+                        : `<span class="${cls}" title="${escapeHtml(label)}">${v ? escapeHtml(v) : '<span class="sr-only">none</span>'}</span>`}</td>`;
                 }).join('')}
             </tr>`;
         }).join('')}

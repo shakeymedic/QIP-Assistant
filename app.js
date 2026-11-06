@@ -1,5 +1,5 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { state, emptyProject, getDemoData, getDemoCohort, safeStorage } from "./state.js";
 import { escapeHtml, jsArg, updateOnlineStatus, showToast } from "./utils.js";
@@ -273,6 +273,7 @@ function stableJson(v) {
 
 function leaveProjectContext() {
     flushPendingSave();
+    state._serverBase = null;
     if (window.unsubscribeProject) { window.unsubscribeProject(); window.unsubscribeProject = null; }
     state.currentProjectId = null;
     state.projectData = null;
@@ -1134,8 +1135,18 @@ window.takeProjectSnapshot = function(label) {
     d.snapshots.push({ id: Date.now().toString(), label: snapLabel, timestamp: new Date().toISOString(),
         data: JSON.parse(JSON.stringify({ checklist: d.checklist, changeIdeas: d.changeIdeas, pdsa: d.pdsa, chartData: d.chartData,
             measures: d.measures, activeMeasureId: d.activeMeasureId })) }); // measures/activeMeasureId captured so multi-measure projects restore fully, not just the active measure
+    // Snapshots live inside the project, which can't pass 1 MiB. Drop the
+    // oldest ones to stay well under; if even one won't fit, don't keep it.
+    let dropped = 0;
+    while (d.snapshots.length > 1 && projectBytes(d) > SNAPSHOT_BUDGET) { d.snapshots.shift(); dropped++; }
+    if (projectBytes(d) > SNAPSHOT_BUDGET) {
+        d.snapshots.pop();
+        showToast('This project is too big for snapshots. Use Export → backup file instead.', 'error');
+        if (window.saveData) window.saveData();
+        return;
+    }
     if (window.saveData) window.saveData();
-    showToast('Snapshot saved: ' + snapLabel, 'success');
+    showToast('Snapshot saved: ' + snapLabel + (dropped ? ` (oldest ${dropped} removed to stay under the size limit)` : ''), 'success');
 };
 window.showSnapshotHistory = function() {
     const d = state.projectData; if (!d) return;
@@ -1442,11 +1453,14 @@ window.importProjectFromFile = async function(input) {
                 // Keep who has access to this project, whatever the file says.
                 const keep = { supervisors: state.projectData?.supervisors, qipLeads: state.projectData?.qipLeads, visibility: state.projectData?.visibility };
                 Object.keys(keep).forEach(k => { if (keep[k] !== undefined) json[k] = keep[k]; else delete json[k]; });
+                // ...and the sign-off as it stands now, not the one in the file.
+                keepSupervisorFields(state.projectData, json);
                 const data = normaliseProjectData(json);
                 try {
                     // A full write (not a merge), so fields removed in the file are removed here too.
                     await setDoc(doc(db, `users/${ownerUid}/projects`, projectId), JSON.parse(JSON.stringify(data)));
                     state.projectData = data;
+                    setServerBase(data);
                     resetHistory(state.projectData);
                     const header = document.getElementById('project-header-title');
                     if (header) header.textContent = data.meta?.title || 'QIP';
@@ -1466,7 +1480,7 @@ window.importProjectFromFile = async function(input) {
     delete json.supervisors;
     delete json.qipLeads;
     if (json.assessment && typeof json.assessment === 'object') {
-        ['signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate'].forEach(k => delete json.assessment[k]);
+        SUPERVISOR_ASSESSMENT_FIELDS.forEach(k => delete json.assessment[k]);
     }
     try {
         const docRef = await addDoc(collection(db, `users/${state.currentUser.uid}/projects`), JSON.parse(JSON.stringify(json)));
@@ -1957,7 +1971,14 @@ window.saveData = async function(skipHistory = false) {
         const ownerUid = (state.isSupervisorViewing && state.supervisorTargetUid)
             ? state.supervisorTargetUid
             : state.currentUser.uid;
-        await setDoc(doc(db, 'users/' + ownerUid + '/projects', state.currentProjectId), state.projectData, { merge: true });
+        // The owner's save never carries the supervisor's sign-off fields (see
+        // withoutSupervisorFields); the merge leaves the saved ones as they are.
+        const supervising = !!(state.isSupervisorViewing && state.supervisorTargetUid);
+        const { payload, keys } = supervising ? { payload: state.projectData, keys: null } : changedFieldsForSave(state.projectData);
+        if (!keys || keys.length) {
+            await setDoc(doc(db, 'users/' + ownerUid + '/projects', state.currentProjectId), JSON.parse(JSON.stringify(payload)), { merge: true });
+            if (keys && state._serverBase) keys.forEach(k => { state._serverBase[k] = JSON.stringify(payload[k]); });
+        }
         
         const s = document.getElementById('save-status');
         if(s) { 
@@ -1982,7 +2003,7 @@ window.saveData = async function(skipHistory = false) {
             }
         }
     } catch (e) {
-        showToast("Save failed: " + e.message, "error");
+        showToast(saveErrorMessage(e), "error");
     }
 };
 
@@ -2000,8 +2021,7 @@ window.saveSupervisorAssessment = async function() {
         // and writing our (possibly older) copy of it would resurrect their badge.
         const a = state.projectData.assessment || {};
         const supervisorFields = {};
-        ['supervisorComments', 'signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'lastSupervisorActivityAt']
-            .forEach(k => { if (a[k] !== undefined) supervisorFields[k] = a[k]; });
+        SUPERVISOR_ASSESSMENT_FIELDS.forEach(k => { if (a[k] !== undefined) supervisorFields[k] = a[k]; });
         await setDoc(
             doc(db, 'users/' + state.supervisorTargetUid + '/projects', state.currentProjectId),
             { assessment: supervisorFields },
@@ -2071,6 +2091,62 @@ window.quickAddDataPoint = async function() {
 // Undo history holds the states *before* each save. saveData() runs after the
 // edit has already been applied, so the pre-edit state is kept separately in
 // state._historyBase and pushed only when the project has actually changed.
+// The SLO 11 sign-off fields belong to the supervisor. The trainee's own saves
+// leave them out, so an offline edit, an Undo or an older copy of the project
+// can never wipe (or fake) a sign-off. firestore.rules enforces the same.
+const SUPERVISOR_ASSESSMENT_FIELDS = ['supervisorComments', 'signedOff', 'signedOffBy', 'signedOffByUid', 'signedOffByEmail', 'signedOffGmc', 'signedOffDate', 'lastSupervisorActivityAt'];
+function withoutSupervisorFields(data) {
+    if (!data || !data.assessment || typeof data.assessment !== 'object') return data;
+    const assessment = { ...data.assessment };
+    SUPERVISOR_ASSESSMENT_FIELDS.forEach(k => delete assessment[k]);
+    return { ...data, assessment };
+}
+// Copies the sign-off fields from `from` (what is on screen now) into `to`.
+function keepSupervisorFields(from, to) {
+    if (!to) return to;
+    const src = (from && from.assessment) || {};
+    if (!to.assessment || typeof to.assessment !== 'object') to.assessment = {};
+    SUPERVISOR_ASSESSMENT_FIELDS.forEach(k => {
+        if (src[k] !== undefined) to.assessment[k] = src[k]; else delete to.assessment[k];
+    });
+    return to;
+}
+
+// What the database holds for the open project, one JSON string per top-level
+// field. The owner's save sends only the fields that differ from it, so two
+// devices editing different parts of a project at once don't overwrite each
+// other's work (a whole-document save used to wipe the other device's edit).
+function setServerBase(data) {
+    const base = {};
+    const clean = withoutSupervisorFields(data) || {};
+    Object.keys(clean).forEach(k => { base[k] = JSON.stringify(clean[k]); });
+    state._serverBase = base;
+}
+function changedFieldsForSave(data) {
+    const clean = withoutSupervisorFields(data) || {};
+    const base = state._serverBase;
+    if (!base) return { payload: clean, keys: Object.keys(clean) };
+    const payload = {};
+    Object.keys(clean).forEach(k => {
+        const json = JSON.stringify(clean[k]);
+        if (json !== undefined && base[k] !== json) payload[k] = clean[k];
+    });
+    return { payload, keys: Object.keys(payload) };
+}
+
+// Firestore keeps each project in one document of at most 1 MiB.
+const SNAPSHOT_BUDGET = 800 * 1024; // leave room for the project to keep growing
+function projectBytes(data) {
+    try { return new Blob([JSON.stringify(data)]).size; } catch (e) { return JSON.stringify(data).length; }
+}
+function saveErrorMessage(e) {
+    const msg = (e && e.message) || String(e);
+    if (/maximum entity size|exceeds the maximum|too large/i.test(msg)) {
+        return 'Not saved: this project has reached the database size limit (1 MB). Delete old snapshots (History) or export a backup, then try again.';
+    }
+    return 'Save failed: ' + msg;
+}
+
 function resetHistory(data) {
     state.historyStack = [];
     state.redoStack = [];
@@ -2098,7 +2174,8 @@ window.undo = () => {
     if (state.historyStack.length === 0) return;
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
-    state.projectData = JSON.parse(prevState);
+    // Undo never takes back a supervisor's sign-off that arrived meanwhile.
+    state.projectData = keepSupervisorFields(state.projectData, JSON.parse(prevState));
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -2115,7 +2192,7 @@ window.redo = () => {
     if (state.redoStack.length === 0 || state.isReadOnly || !state.projectData) return;
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
-    state.projectData = JSON.parse(nextState);
+    state.projectData = keepSupervisorFields(state.projectData, JSON.parse(nextState));
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -3088,9 +3165,11 @@ window.openProject = (id) => {
                 const incoming = normaliseProjectData(doc.data());
                 if (stableJson(incoming) === stableJson(state.projectData)) return;
                 state.projectData = incoming;
+                setServerBase(incoming);
                 state._historyBase = JSON.stringify(incoming);
             } else {
                 state.projectData = normaliseProjectData(doc.data());
+                setServerBase(doc.data());
                 resetHistory(state.projectData);
             }
             
@@ -3604,6 +3683,9 @@ window.submitRegister = async function() {
     try {
         const roles = [..._regSelectedRoles];
         const cred = await createUserWithEmailAndPassword(auth, email, password);
+        // Supervisor and QIP Lead invites are matched by email, so the address
+        // has to be proved before they open (firestore.rules checks email_verified).
+        sendEmailVerification(cred.user).catch(e => console.warn('[Register] verification email:', e));
         await saveUserProfileToFirestore(cred.user.uid, email, name);
         // Sign-in has already checked roles, possibly before they were saved — check again.
         refreshRoleNavAfterRegistration(cred.user);
@@ -4512,6 +4594,50 @@ async function checkSupervisorStatus() {
 
 // Called from sidebar, nav, or the projects-page banner to show the Supervisor Overview dashboard
 window.showSupervisorOverview = function() { openRoleOverview('supervisor'); };
+
+// ─── Email check for supervisor / QIP Lead invites ──────────────────────────
+// Invites are matched by email, so an account made with email + password must
+// prove the address first (Google accounts already have). Until then the
+// database refuses invites, and the overviews show this box.
+window.emailVerifyBannerHtml = function() {
+    const u = state.currentUser;
+    if (!u || state.isDemoMode || u.emailVerified) return '';
+    return `
+        <div class="bg-amber-50 border border-amber-300 text-amber-900 rounded-xl p-4 mb-4 text-sm">
+            <p class="font-bold mb-1">Confirm your email address to see projects shared with you</p>
+            <p class="mb-3">Trainees share projects with an email address, so we need to know <strong>${escapeHtml(u.email || '')}</strong> is yours. We have sent you a link; check your junk folder too.</p>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="window.sendVerifyEmail()" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-3 py-2 rounded-lg">Send the link again</button>
+                <button onclick="window.recheckEmailVerified()" class="bg-white border border-amber-300 hover:bg-amber-100 text-amber-900 text-xs font-bold px-3 py-2 rounded-lg">I've clicked the link</button>
+            </div>
+        </div>`;
+};
+window.sendVerifyEmail = async function() {
+    if (!state.currentUser) return;
+    try {
+        await sendEmailVerification(state.currentUser);
+        showToast('Link sent to ' + state.currentUser.email, 'success');
+    } catch (e) {
+        showToast(e && e.code === 'auth/too-many-requests' ? 'A link was sent recently. Please wait a few minutes.' : 'Could not send the link: ' + (e.message || e), 'error');
+    }
+};
+window.recheckEmailVerified = async function() {
+    const u = state.currentUser;
+    if (!u) return;
+    try {
+        await u.reload();
+        if (!auth.currentUser || !auth.currentUser.emailVerified) { showToast('Not confirmed yet. Click the link in the email, then try again.', 'warning'); return; }
+        state.currentUser = auth.currentUser;
+        await auth.currentUser.getIdToken(true); // the database sees the new status
+        showToast('Email confirmed', 'success');
+        const shown = overviewContainer();
+        const kind = shown && !shown.classList.contains('hidden') ? shown.dataset.overview : null;
+        if (kind) await window.refreshRoleOverview(kind, { silent: true });
+        else await checkSupervisorStatus();
+    } catch (e) {
+        showToast('Could not check: ' + (e.message || e), 'error');
+    }
+};
 
 // Shared setup when a supervisor opens one of their supervised projects.
 // Always loads a fresh copy so the supervisor reviews the trainee's latest work.

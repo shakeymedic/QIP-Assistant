@@ -141,6 +141,7 @@ export function renderSupervisorOverview(container, supervisedProjects, opts = {
                     </div>` : ''}
                 </div>
 
+                ${typeof window.emailVerifyBannerHtml === 'function' ? window.emailVerifyBannerHtml() : ''}
                 ${total ? `
                 <div class="bg-white rounded-2xl border border-slate-200 p-3 mb-4 flex flex-col md:flex-row gap-3 md:items-center">
                     <div class="relative flex-1">
