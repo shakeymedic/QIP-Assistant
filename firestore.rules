@@ -74,6 +74,10 @@ service cloud.firestore {
       return signedIn()
         && exists(/databases/$(database)/documents/deptQIPLeads/$(request.auth.uid));
     }
+    // The department an approved QIP Lead covers ('' if none set yet).
+    function leadDepartment() {
+      return get(/databases/$(database)/documents/deptQIPLeads/$(request.auth.uid)).data.get('department', '');
+    }
     function myEmail() {
       return emailVerified() && request.auth.token.email is string
         ? request.auth.token.email.lower() : '';
@@ -109,6 +113,18 @@ service cloud.firestore {
       return after is map
         && after.diff(before is map ? before : {}).affectedKeys().hasAny(signOffFields()) == false;
     }
+    function shareLinkOn() {
+      return resource.data.get('sharing', {}).get('linkOff', false) != true;
+    }
+    function isInvitedLead(uid, projectId) {
+      return signedIn() && myEmail() != '' && exists(/databases/$(database)/documents/qipLeadInvites/$(myEmail())/invites/$(uid + '_' + projectId));
+    }
+    function leadSeesInDepartment() {
+      return isApprovedQIPLead()
+        && leadDepartment() != ''
+        && resource.data.department == leadDepartment()
+        && resource.data.visibility.hideFromDeptQIPLead == false;
+    }
     function notSignedOffAtCreation() {
       return request.resource.data.get('assessment', {}).get('signedOff', false) != true;
     }
@@ -121,16 +137,24 @@ service cloud.firestore {
       allow create: if isOwner(uid) && notSignedOffAtCreation();
       allow update: if isOwner(uid) && ownerLeavesSignOffAlone();
       // A share link opens one project by its exact path without signing
-      // in. Listing someone else's projects is still refused.
-      allow get: if true;
+      // in, unless the owner has switched the link off. Invited supervisors
+      // and QIP Leads (and the admin / the department's lead) can always
+      // open it. Listing someone else's projects is still refused.
+      allow get: if shareLinkOn()
+        || isInvitedSupervisor(uid, projectId)
+        || isInvitedLead(uid, projectId)
+        || isMasterAdmin()
+        || leadSeesInDepartment();
       // An invited supervisor saves comments and the SLO 11 sign-off.
       allow update: if isInvitedSupervisor(uid, projectId) && onlySupervisorFieldsChange();
     }
 
-    // The master admin and approved QIP Leads see every project
-    // (collection-group query in the Admin and QIP Lead views).
+    // The master admin sees every project. An approved QIP Lead sees the
+    // projects in their own department that the owner has not hidden
+    // (collection-group query in the Admin and QIP Lead views; the lead's
+    // query must ask for department == theirs and hideFromDeptQIPLead == false).
     match /{path=**}/projects/{projectId} {
-      allow read: if isMasterAdmin() || isApprovedQIPLead();
+      allow read: if isMasterAdmin() || leadSeesInDepartment();
     }
 
     // ---- Profiles ---------------------------------------------
@@ -152,10 +176,23 @@ service cloud.firestore {
       allow get: if isOwner(uid) || isMasterAdmin();
       allow list: if isMasterAdmin();
       allow create, update: if isMasterAdmin()
-        && request.resource.data.keys().hasOnly(['email', 'displayName', 'approvedAt'])
+        && request.resource.data.keys().hasOnly(['email', 'displayName', 'approvedAt', 'department', 'departmentName'])
+        && optionalString(request.resource.data, 'department', 100)
+        && optionalString(request.resource.data, 'departmentName', 200)
         && optionalString(request.resource.data, 'email', 320)
         && optionalString(request.resource.data, 'displayName', 200)
         && optionalString(request.resource.data, 'approvedAt', 40);
+      allow delete: if isMasterAdmin();
+    }
+
+    // ---- Departments (EDs), kept by the admin --------------------
+    // Trainees pick one for each project; each approved QIP Lead covers one.
+    match /departments/{deptId} {
+      allow read: if signedIn();
+      allow create, update: if isMasterAdmin()
+        && request.resource.data.keys().hasOnly(['name', 'createdAtIso'])
+        && requiredString(request.resource.data, 'name', 200)
+        && optionalString(request.resource.data, 'createdAtIso', 40);
       allow delete: if isMasterAdmin();
     }
 
@@ -209,6 +246,20 @@ service cloud.firestore {
       // Removing the role withdraws the request.
       allow delete: if isOwnRequestId(reqId) || isMasterAdmin();
     }
+    // When the admin was last emailed about a request (netlify function
+    // role-request-notify writes it with the person's own token, as a server
+    // timestamp). At most one email per person per role per hour; it can only
+    // move forward, never be cleared.
+    match /roleRequestEmails/{reqId} {
+      allow get: if isOwnRequestId(reqId);
+      allow create: if isOwnRequestId(reqId)
+        && request.resource.data.keys().hasOnly(['sentAt'])
+        && request.resource.data.sentAt == request.time;
+      allow update: if isOwnRequestId(reqId)
+        && request.resource.data.keys().hasOnly(['sentAt'])
+        && request.resource.data.sentAt == request.time
+        && request.time > resource.data.sentAt + duration.value(1, 'h');
+    }
 
     // ---- Invites ------------------------------------------------
     function isValidInvite(email, inviteId) {
@@ -260,10 +311,21 @@ service cloud.firestore {
         && optionalString(request.resource.data, 'createdAtIso', 40);
       allow read: if isMasterAdmin();
     }
+    function projectSharedByLink(ownerUid, projectId) {
+      return ownerUid is string && projectId is string
+        && exists(/databases/$(database)/documents/users/$(ownerUid)/projects/$(projectId))
+        && get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(projectId)).data.get('sharing', {}).get('linkOff', false) != true;
+    }
     match /projectAccessLog/{id} {
-      allow create: if signedIn()
-        && request.resource.data.keys().hasOnly(['viewerUid', 'viewerEmail', 'viaRole', 'ownerUid', 'projectId', 'projectTitle', 'action', 'createdAtIso', 'createdAt'])
-        && request.resource.data.viewerUid == request.auth.uid
+      allow create: if request.resource.data.keys().hasOnly(['viewerUid', 'viewerEmail', 'viaRole', 'ownerUid', 'projectId', 'projectTitle', 'action', 'createdAtIso', 'createdAt'])
+        // Signed in: logged as themselves. Not signed in: only a share-link
+        // view of a project whose link is switched on.
+        && ((signedIn() && request.resource.data.viewerUid == request.auth.uid)
+            || (!signedIn()
+                && request.resource.data.viewerUid == '(unauthenticated)'
+                && request.resource.data.viaRole == 'share_link'
+                && request.resource.data.action == 'viewed'
+                && projectSharedByLink(request.resource.data.ownerUid, request.resource.data.projectId)))
         && optionalString(request.resource.data, 'viewerEmail', 320)
         && optionalString(request.resource.data, 'viaRole', 40)
         && optionalString(request.resource.data, 'ownerUid', 128)
@@ -271,7 +333,8 @@ service cloud.firestore {
         && optionalString(request.resource.data, 'projectTitle', 300)
         && optionalString(request.resource.data, 'action', 40)
         && optionalString(request.resource.data, 'createdAtIso', 40);
-      allow read: if isMasterAdmin();
+      // The owner sees who opened their projects (query by ownerUid).
+      allow read: if isMasterAdmin() || (signedIn() && resource.data.ownerUid == request.auth.uid);
     }
   }
 }

@@ -21,6 +21,12 @@ const ROLE_NAMES = { supervisor: 'Clinical Supervisor', qip_lead: 'Departmental 
 // A request is only emailed when it was saved in the last few minutes, so an
 // old request can't be re-sent over and over.
 const FRESH_MS = 10 * 60 * 1000;
+// And at most one email per person per role per hour: before sending, the
+// time is recorded in roleRequestEmails/{uid}_{role} as a server timestamp,
+// written with the person's own token. The database rules refuse that write
+// if the last one was less than an hour ago, and then nothing is sent. (The
+// limit lives in firestore.rules, so it holds however often this is called.)
+const FIRESTORE_DOCS = `projects/${FIREBASE_PROJECT}/databases/(default)/documents`;
 
 const reply = (status, body) => new Response(JSON.stringify(body), {
     status,
@@ -67,6 +73,24 @@ export default async (req) => {
     const savedAt = Date.parse(r.updatedAtIso || r.createdAtIso || '');
     if (r.status !== 'pending' || !savedAt || Date.now() - savedAt > FRESH_MS) {
         return reply(200, { sent: false, reason: 'Not a new request' });
+    }
+
+    // Claim this hour's email. Refused (403) means one was sent within the
+    // last hour.
+    const claim = await fetch(`https://firestore.googleapis.com/v1/${FIRESTORE_DOCS}:commit`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+            writes: [{
+                update: { name: `${FIRESTORE_DOCS}/roleRequestEmails/${account.localId}_${role}`, fields: {} },
+                updateTransforms: [{ fieldPath: 'sentAt', setToServerValue: 'REQUEST_TIME' }]
+            }]
+        })
+    });
+    if (claim.status === 403) return reply(200, { sent: false, reason: 'Already emailed in the last hour' });
+    if (!claim.ok) {
+        console.warn('Could not record the email time', claim.status, (await claim.text()).slice(0, 300));
+        return reply(502, { sent: false, reason: 'Could not check when the administrator was last emailed' });
     }
 
     const v = s => (s && String(s).trim()) || '-';

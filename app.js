@@ -1,8 +1,8 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion, query, where } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { state, emptyProject, getDemoData, getDemoCohort, safeStorage } from "./state.js";
-import { escapeHtml, jsArg, updateOnlineStatus, showToast } from "./utils.js";
+import { escapeHtml, jsArg, updateOnlineStatus, showToast, showInputModal } from "./utils.js";
 window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
 import { callAI } from "./ai.js";
 
@@ -1451,8 +1451,7 @@ window.importProjectFromFile = async function(input) {
             `Replace everything in "${title}" with the contents of ${file.name}? This overwrites the current version. Export a backup first if you might want it back.`,
             async () => {
                 // Keep who has access to this project, whatever the file says.
-                const keep = { supervisors: state.projectData?.supervisors, qipLeads: state.projectData?.qipLeads, visibility: state.projectData?.visibility };
-                Object.keys(keep).forEach(k => { if (keep[k] !== undefined) json[k] = keep[k]; else delete json[k]; });
+                keepAccessFields(state.projectData, json);
                 // ...and the sign-off as it stands now, not the one in the file.
                 keepSupervisorFields(state.projectData, json);
                 const data = normaliseProjectData(json);
@@ -2102,6 +2101,19 @@ function withoutSupervisorFields(data) {
     return { ...data, assessment };
 }
 // Copies the sign-off fields from `from` (what is on screen now) into `to`.
+// Who can see a project (supervisors, QIP Leads, department, hide-from-lead,
+// share link) is a setting, not part of the work: Undo, Redo and restoring a
+// file keep it as it is now. Otherwise Undo could quietly switch a share link
+// back on or move the project back into a department.
+const ACCESS_FIELDS = ['supervisors', 'qipLeads', 'visibility', 'department', 'departmentName', 'sharing'];
+function keepAccessFields(from, to) {
+    if (!to) return to;
+    ACCESS_FIELDS.forEach(k => {
+        if (from && from[k] !== undefined) to[k] = JSON.parse(JSON.stringify(from[k])); else delete to[k];
+    });
+    return to;
+}
+
 function keepSupervisorFields(from, to) {
     if (!to) return to;
     const src = (from && from.assessment) || {};
@@ -2175,7 +2187,7 @@ window.undo = () => {
     state.redoStack.push(JSON.stringify(state.projectData));
     const prevState = state.historyStack.pop();
     // Undo never takes back a supervisor's sign-off that arrived meanwhile.
-    state.projectData = keepSupervisorFields(state.projectData, JSON.parse(prevState));
+    state.projectData = keepAccessFields(state.projectData, keepSupervisorFields(state.projectData, JSON.parse(prevState)));
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -2192,7 +2204,7 @@ window.redo = () => {
     if (state.redoStack.length === 0 || state.isReadOnly || !state.projectData) return;
     state.historyStack.push(JSON.stringify(state.projectData));
     const nextState = state.redoStack.pop();
-    state.projectData = keepSupervisorFields(state.projectData, JSON.parse(nextState));
+    state.projectData = keepAccessFields(state.projectData, keepSupervisorFields(state.projectData, JSON.parse(nextState)));
     migrateProjectData(state.projectData); // re-sync chartData/chartSettings <-> measures[] references, lost during JSON round-trip
     state._historyBase = JSON.stringify(state.projectData);
     let currentView = document.querySelector('.view-section:not(.hidden)');
@@ -2418,6 +2430,20 @@ function takeStartupParam(name) {
     } catch (e) { return null; }
 }
 
+// Replaces the empty project list with a plain explanation when a share
+// link cannot be opened (switched off, deleted, or offline).
+function showShareLinkProblem(heading, text) {
+    const inner = document.getElementById('project-list-inner');
+    if (!inner) return;
+    inner.innerHTML = `<div class="max-w-xl mx-auto mt-10 bg-white border border-slate-200 rounded-2xl p-6 text-center shadow-sm" role="alert">
+        <i data-lucide="link-2-off" class="w-10 h-10 mx-auto text-slate-400 mb-3"></i>
+        <h1 class="text-xl font-bold text-slate-800">${escapeHtml(heading)}</h1>
+        <p class="text-sm text-slate-600 mt-2">${escapeHtml(text)}</p>
+        <a href="${escapeHtml(window.location.pathname)}" class="inline-block mt-4 bg-rcem-purple text-white text-sm font-bold px-4 py-2 rounded-lg">Go to QIP Assistant</a>
+    </div>`;
+    if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [inner] });
+}
+
 async function checkShareLink(viewerUser) {
     const urlParams = new URLSearchParams(window.location.search);
     const sharePid = urlParams.get('share');
@@ -2466,9 +2492,14 @@ async function checkShareLink(viewerUser) {
                 });
             } else {
                 showToast("Shared project not found.", "error");
+                showShareLinkProblem('This shared project could not be found', 'It may have been deleted, or the link was copied incompletely. Ask the person who sent it for a new link.');
             }
         } catch (e) {
-            showToast("Could not load shared project.", "error");
+            const off = e?.code === 'permission-denied';
+            showToast(off ? "This share link has been switched off by the project's owner." : "Could not load shared project.", "error");
+            showShareLinkProblem(off ? 'This share link has been switched off' : 'Could not load the shared project',
+                off ? "The project's owner has stopped this link working. If you are their supervisor or QIP Lead, sign in to see the projects shared with you, or ask them for access."
+                    : 'Check your connection and reload the page.');
         }
         return true;
     }
@@ -2476,10 +2507,17 @@ async function checkShareLink(viewerUser) {
 }
 
 // ─── Shared helpers for the QIP Lead / Supervisor overviews ─────────────────
-// A Departmental QIP Lead sees every QIP anyone has started (unless the owner
-// opted out), not just ones they were individually invited to.
-async function fetchAllProjectsEnriched() {
-    const snap = await getDocs(collectionGroup(db, 'projects'));
+// An approved Departmental QIP Lead sees the QIPs in their own department
+// (set by the administrator when approving them) that the owner has not
+// hidden. The database rules enforce both, so the query has to ask for
+// exactly that: department == theirs and hideFromDeptQIPLead == false.
+// (Needs the collection-group index on projects: department +
+// visibility.hideFromDeptQIPLead, see firestore.indexes.json.)
+async function fetchAllProjectsEnriched(department) {
+    if (!department) return [];
+    const snap = await getDocs(query(collectionGroup(db, 'projects'),
+        where('department', '==', department),
+        where('visibility.hideFromDeptQIPLead', '==', false)));
     const rows = [];
     const ownerUids = new Set();
     snap.forEach(docSnap => {
@@ -2564,22 +2602,41 @@ async function readUserRoles(user, label) {
 }
 
 // ─── QIP Lead ────────────────────────────────────────────────────────────────
+// The administrator's approval of this account as a QIP Lead, with the
+// department it covers ({ department, departmentName }), or null.
+async function readLeadApproval(uid) {
+    try {
+        const s = await getDoc(doc(db, 'deptQIPLeads', uid));
+        return s.exists() ? (s.data() || {}) : null;
+    } catch (e) {
+        return null;
+    }
+}
+
 async function loadQIPLeadProjects(user) {
     const hasLeadRole = (await readUserRoles(user, 'QIP Lead')).includes('qip_lead');
     const email = (user.email || '').toLowerCase();
     let projects = [];
     // The department-wide view is granted in the database rules only to
     // accounts the administrator has approved (the QIP Lead role itself is
-    // self-selected), so "permission denied" here means "not approved yet":
-    // the dashboard explains that instead of showing an error.
+    // self-selected), so no approval (or "permission denied") here means
+    // "not approved yet": the dashboard explains that instead of an error.
     let deptViewDenied = false;
+    let department = '', departmentName = '';
     if (hasLeadRole) {
-        try {
-            projects = await fetchAllProjectsEnriched();
-        } catch (allErr) {
-            console.warn('[QIPLead] Could not fetch all projects:', allErr);
-            if (allErr?.code === 'permission-denied') deptViewDenied = true;
-            else showToast('Could not load all QIP projects — check your connection and press Refresh.', 'error');
+        const approval = await readLeadApproval(user.uid);
+        if (!approval) deptViewDenied = true;
+        else {
+            department = approval.department || '';
+            departmentName = approval.departmentName || '';
+            try {
+                projects = await fetchAllProjectsEnriched(department);
+            } catch (allErr) {
+                console.warn('[QIPLead] Could not fetch department projects:', allErr);
+                if (allErr?.code === 'permission-denied') deptViewDenied = true;
+                else if (allErr?.code === 'failed-precondition') showToast('The department view needs a database index that has not been created yet. Please tell the administrator.', 'error');
+                else showToast('Could not load the department\'s QIP projects — check your connection and press Refresh.', 'error');
+            }
         }
     }
     // Individually-invited projects always show, including ones the owner has
@@ -2588,16 +2645,18 @@ async function loadQIPLeadProjects(user) {
     const have = new Set(projects.map(p => p.ownerUid + '/' + p.projectId));
     const missing = invited.filter(p => !have.has(p.ownerUid + '/' + p.projectId));
     if (missing.length) projects = projects.concat(await enrichInvitedProjects(missing, LEAD_INVITES, email));
-    return { hasLeadRole, deptViewDenied, projects: markOwn(projects) };
+    return { hasLeadRole, deptViewDenied, department, departmentName, projects: markOwn(projects) };
 }
 
 async function checkQIPLeadStatus(user) {
     if (!user?.uid || !user?.email || !db || state.isDemoMode) return;
     try {
-        const { hasLeadRole, deptViewDenied, projects } = await loadQIPLeadProjects(user);
+        const { hasLeadRole, deptViewDenied, department, departmentName, projects } = await loadQIPLeadProjects(user);
         state.qipLeadProjects = projects;
         state.qipLeadHasRole = hasLeadRole;
         state.qipLeadDeptDenied = deptViewDenied;
+        state.qipLeadDepartment = department;
+        state.qipLeadDepartmentName = departmentName;
         state.qipLeadRequest = hasLeadRole && deptViewDenied ? await getMyRoleRequest(db, user.uid, 'qip_lead') : null;
         state.isQIPLead = hasLeadRole || projects.length > 0;
         state._leadRefreshedAt = new Date().toISOString();
@@ -2624,8 +2683,10 @@ async function checkQIPLeadStatus(user) {
         if (badgeText) {
             badgeText.textContent = hasLeadRole && deptViewDenied
                 ? `QIP Lead — department-wide view awaiting approval; ${n} project${n !== 1 ? 's' : ''} shared with you`
+                : hasLeadRole && !department
+                ? `QIP Lead — the administrator has not set your department yet; ${n} project${n !== 1 ? 's' : ''} shared with you`
                 : hasLeadRole
-                ? (n > 0 ? `You can see ${n} QIP project${n !== 1 ? 's' : ''} across the department as Departmental QIP Lead` : 'Departmental QIP Lead — no QIP projects exist yet')
+                ? (n > 0 ? `You can see ${n} QIP project${n !== 1 ? 's' : ''} in ${departmentName || 'your department'} as Departmental QIP Lead` : `Departmental QIP Lead (${departmentName || 'your department'}) — no QIP projects yet`)
                 : `You have been added as QIP Lead on ${n} project${n !== 1 ? 's' : ''}`;
         }
         if (navBtn) navBtn.classList.remove('hidden');
@@ -2693,7 +2754,7 @@ function roleNoticeHTML(kind) {
         ? 'The QIP Lead view is a dashboard of the QI projects in your department: progress, stalled projects and sign-off status, with a CSV export for governance meetings.'
         : 'The Supervisor view lists the trainees who have added you as their supervisor, so you can browse their QIP read-only, add comments and sign off SLO 11 for ARCP.';
     const how = isLead
-        ? 'Trainees can also add you as QIP Lead on their project (Settings → Project access); those projects appear here even without the role. Seeing every project in the department needs the administrator to approve your account.'
+        ? 'Trainees can also add you as QIP Lead on their project (Settings → Project access); those projects appear here even without the role. Seeing the projects in your department needs the administrator to approve your account and set your department.'
         : 'Trainees add you by your email address in Settings → Project access on their project. Their projects then appear here automatically.';
     return `<div class="bg-white border border-slate-200 rounded-2xl p-5 mb-4 shadow-sm" role="status">
         <div class="flex items-start gap-3">
@@ -2769,6 +2830,8 @@ function renderRoleOverview(kind) {
         renderQIPLeadDashboard(container, state.qipLeadProjects || [], {
             hasRole: !!state.qipLeadHasRole,
             deptDenied: !!state.qipLeadDeptDenied,
+            department: state.qipLeadDepartment || '',
+            departmentName: state.qipLeadDepartmentName || '',
             request: state.qipLeadRequest || null,
             uid: state.currentUser?.uid || '',
             refreshing: !!state._leadRefreshing,
@@ -2872,14 +2935,121 @@ window.viewLeadProject = async function(idx) {
 window.returnFromLeadView = function() { openRoleOverview('lead'); };
 
 // ─── Add/Remove QIP Lead button handlers (called from supervisor view) ───────
-// Owner-controlled opt-out from the blanket Departmental QIP Lead view (see
-// fetchAllProjectsEnriched, which honours this flag).
+// Owner-controlled opt-out from their department's QIP Lead view. The
+// database rules enforce it (a lead's read is refused unless the flag is
+// exactly false), so it is always written as a true/false value.
 window.toggleHideFromDeptLead = function(hidden) {
-    if (!state.projectData) return;
-    if (!state.projectData.visibility) state.projectData.visibility = {};
+    if (!state.projectData || !canManageAccess()) return;
+    if (!state.projectData.visibility || typeof state.projectData.visibility !== 'object') state.projectData.visibility = {};
     state.projectData.visibility.hideFromDeptQIPLead = !!hidden;
     if (window.saveData) window.saveData();
-    showToast(hidden ? 'Project hidden from the blanket Departmental QIP Lead view' : 'Project visible to Departmental QIP Leads again', 'info');
+    showToast(hidden ? "Project hidden from your department's QIP Lead" : "Your department's QIP Lead can see this project again", 'info');
+};
+
+// ─── Departments (kept by the administrator) ─────────────────────────────────
+async function fetchDepartments() {
+    if (!db || state.isDemoMode) return [];
+    try {
+        const snap = await getDocs(collection(db, 'departments'));
+        const out = [];
+        snap.forEach(d => out.push({ id: d.id, name: (d.data() || {}).name || d.id }));
+        out.sort((a, b) => a.name.localeCompare(b.name, 'en-GB'));
+        state.departments = out;
+        return out;
+    } catch (e) {
+        console.warn('[Departments] could not load:', e);
+        return state.departments || [];
+    }
+}
+
+function departmentIdFor(name) {
+    const slug = String(name || '').toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'department';
+    return slug + '-' + Math.random().toString(36).slice(2, 6);
+}
+
+// Creates a department (admin only) and returns { id, name }.
+async function createDepartment(name) {
+    const clean = String(name || '').trim().slice(0, 200);
+    if (!clean) return null;
+    const existing = (await fetchDepartments()).find(d => d.name.toLowerCase() === clean.toLowerCase());
+    if (existing) return existing;
+    const id = departmentIdFor(clean);
+    await setDoc(doc(db, 'departments', id), { name: clean, createdAtIso: new Date().toISOString() });
+    state.departments = [...(state.departments || []), { id, name: clean }];
+    return { id, name: clean };
+}
+
+// Owner picks the department this project belongs to (Project access panel).
+window.setProjectDepartment = function(deptId) {
+    const d = state.projectData;
+    if (!d || !state.currentUser || !canManageAccess()) return;
+    const dept = (state.departments || []).find(x => x.id === deptId);
+    if (deptId && !dept) return;
+    if (deptId) { d.department = dept.id; d.departmentName = dept.name; }
+    else { delete d.department; delete d.departmentName; }
+    if (!d.visibility || typeof d.visibility !== 'object') d.visibility = {};
+    d.visibility.hideFromDeptQIPLead = d.visibility.hideFromDeptQIPLead === true;
+    if (window.saveData) window.saveData();
+    showToast(deptId
+        ? (d.visibility.hideFromDeptQIPLead ? `Department set to ${dept.name}. The project is still hidden from its QIP Lead.` : `Department set to ${dept.name}. Its approved QIP Lead can now see this project.`)
+        : 'Department cleared: no department QIP Lead can see this project.', 'success');
+};
+
+// Owner switches the share link on or off. Off stops every copy of the link
+// working at once (the database refuses the read); invitees keep access.
+window.setShareLinkOn = function(on) {
+    const d = state.projectData;
+    if (!d || !state.currentUser || !canManageAccess()) return;
+    d.sharing = { linkOff: !on };
+    if (window.saveData) window.saveData();
+    showToast(on ? 'Share link switched on: anyone with the link can view this project.' : 'Share link switched off: the link no longer opens this project.', on ? 'info' : 'success');
+};
+
+// Fills the department list and the "who has opened this project" list in
+// the Project access panel (qip-lead.js renderQIPLeadPanel).
+window.loadProjectAccessExtras = async function() {
+    const d = state.projectData;
+    if (!d || !state.currentUser || state.isDemoMode) {
+        const v = document.getElementById('project-access-views');
+        if (v) v.textContent = state.isDemoMode ? 'Not recorded in the demo.' : '';
+        return;
+    }
+    const ownerUid = state.currentUser.uid, projectId = state.currentProjectId;
+    const sel = document.getElementById('project-dept-select');
+    if (sel) {
+        const depts = await fetchDepartments();
+        const cur = state.projectData?.department || '';
+        const list = depts.slice();
+        if (cur && !list.some(x => x.id === cur)) list.push({ id: cur, name: (state.projectData.departmentName || cur) + ' (no longer listed)' });
+        sel.innerHTML = `<option value="">Not set: no department QIP Lead can see it</option>` +
+            list.map(x => `<option value="${escapeHtml(x.id)}" ${x.id === cur ? 'selected' : ''}>${escapeHtml(x.name)}</option>`).join('');
+        if (!depts.length) sel.insertAdjacentHTML('afterend', '<p class="text-xs text-amber-700 mt-2">No departments have been added yet. The administrator adds them when approving a QIP Lead.</p>');
+    }
+    const views = document.getElementById('project-access-views');
+    if (!views) return;
+    try {
+        const snap = await getDocs(query(collection(db, 'projectAccessLog'),
+            where('ownerUid', '==', ownerUid), where('projectId', '==', projectId)));
+        const rows = [];
+        snap.forEach(x => rows.push(x.data() || {}));
+        rows.sort((a, b) => String(b.createdAtIso || '').localeCompare(String(a.createdAtIso || '')));
+        if (state.currentProjectId !== projectId) return;
+        const roleName = r => ({ share_link: 'share link', supervisor: 'supervisor', qip_lead: 'QIP Lead' })[r] || r || '?';
+        const who = r => r.viewerUid === '(unauthenticated)' ? 'Someone not signed in' : (r.viewerEmail || 'Signed-in user');
+        views.innerHTML = rows.length === 0
+            ? '<p class="italic text-slate-400">Nobody else has opened this project yet.</p>'
+            : `<ul class="space-y-1 max-h-48 overflow-y-auto">${rows.slice(0, 50).map(r => `
+                <li class="flex flex-wrap gap-x-2 border-b border-slate-100 pb-1">
+                    <span class="text-slate-400 whitespace-nowrap">${r.createdAtIso ? escapeHtml(new Date(r.createdAtIso).toLocaleString('en-GB')) : '?'}</span>
+                    <span class="text-slate-700 break-all">${escapeHtml(who(r))}</span>
+                    <span class="text-slate-400">via ${escapeHtml(roleName(r.viaRole))}${r.action && r.action !== 'viewed' ? ' (' + escapeHtml(r.action) + ')' : ''}</span>
+                </li>`).join('')}</ul>${rows.length > 50 ? `<p class="mt-1 text-slate-400">Showing the latest 50 of ${rows.length}.</p>` : ''}`;
+    } catch (e) {
+        console.warn('[Access] could not load views:', e);
+        views.textContent = e?.code === 'permission-denied'
+            ? 'Could not load the list (the database rules may not have been updated yet).'
+            : 'Could not load the list. Check your connection.';
+    }
 };
 
 window.addQIPLeadBtn = async function() {
@@ -3431,8 +3601,12 @@ window.openDemoProject = () => {
 window.shareProject = () => {
     if(state.isDemoMode) { showToast("Cannot share demo projects.", "error"); return; }
     if (!state.currentProjectId || !state.currentUser || state.isReadOnly) { showToast("Open one of your own projects to share it.", "error"); return; }
+    if (state.projectData?.sharing?.linkOff === true) {
+        showToast("The share link is switched off for this project. Switch it on under Share link at the bottom of the SLO 11 Sign-off page first.", "error");
+        return;
+    }
     const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(state.currentProjectId)}&uid=${encodeURIComponent(state.currentUser.uid)}`;
-    const copied = () => showToast("Share Link copied — anyone with this link can view the project (view is logged).", "success");
+    const copied = () => showToast("Share Link copied — anyone with this link can view the project. Each view is logged, and you can switch the link off at the bottom of the SLO 11 Sign-off page.", "success");
     // Clipboard access can be refused (older browsers, some NHS desktops) — fall back to showing the link.
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(copied).catch(() => window.prompt('Copy this share link:', url));
     else window.prompt('Copy this share link:', url);
@@ -4077,7 +4251,9 @@ async function fetchLeadApprovals() {
                 name: (req && req.fullName) || p.displayName || '',
                 email: (req && req.email) || p.email || '',
                 askedAt: (req && (req.updatedAtIso || req.createdAtIso)) || '',
-                approvedAt: leadApproval ? leadApproval.approvedAt : (req && req.status === 'approved' ? req.decidedAtIso : '')
+                approvedAt: leadApproval ? leadApproval.approvedAt : (req && req.status === 'approved' ? req.decidedAtIso : ''),
+                department: leadApproval ? (leadApproval.department || '') : '',
+                departmentName: leadApproval ? (leadApproval.departmentName || '') : ''
             });
         };
         Object.entries(requests).forEach(([id, r]) => {
@@ -4113,14 +4289,14 @@ async function refreshLeadRequestCount() {
         <div class="mb-6 p-4 bg-amber-50 border border-amber-300 rounded-xl flex flex-col sm:flex-row sm:items-center gap-3">
             <div class="flex-1 text-sm text-amber-900">
                 <span class="font-bold">${waiting} role request${waiting !== 1 ? 's' : ''} waiting for a decision.</span>
-                Approved QIP Leads can see every project in the department.
+                An approved QIP Lead sees the projects in the department you choose for them.
             </div>
             <button type="button" onclick="window.showRoleAuditLog()" class="bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold px-4 py-2 rounded-lg whitespace-nowrap">Review requests</button>
         </div>`;
 }
 
 function leadApprovalsHTML(a) {
-    const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can tick the QIP Lead or Clinical Supervisor role, and is then asked for their details. Approving a QIP Lead lets them see every project in the department. A supervisor only ever sees projects a trainee adds them to, so approving or rejecting one just clears it from this list. Rejected requests disappear from the list (they are kept in the folded section at the bottom in case you need to undo).</p>';
+    const intro = '<p class="text-xs text-slate-500 mb-2">Anyone can tick the QIP Lead or Clinical Supervisor role, and is then asked for their details. Approving a QIP Lead asks you which department they cover; they then see the projects trainees have put in that department (unless a trainee hides theirs). A supervisor only ever sees projects a trainee adds them to, so approving or rejecting one just clears it from this list. Rejected requests disappear from the list (they are kept in the folded section at the bottom in case you need to undo).</p>';
     if (a.error) {
         return `<h3 class="font-bold text-slate-800 mb-2">Role requests</h3>${intro}
             <div class="p-4 mb-8 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-900">Could not load the requests. This usually means the database rules in firestore.rules (in the repository) have not been published in the Firebase console yet.</div>`;
@@ -4163,8 +4339,11 @@ function leadApprovalsHTML(a) {
         ${table(pending, 'Nothing waiting.', r => approveBtn(r) + rejectBtn(r))}
         <h4 class="font-semibold text-emerald-700 text-sm mt-3 mb-1">Approved (${approved.length})</h4>
         ${table(approved, 'No approved requests yet.',
-            r => r.role === 'qip_lead' ? btn('Revoke', r.uid, r.role, 'reject', 'text-xs font-bold text-red-600 hover:text-red-700 underline') : '',
-            r => `<span class="text-emerald-600 font-semibold">Approved</span> <span class="text-slate-400">${when(r.approvedAt)}</span>`)}
+            r => r.role === 'qip_lead'
+                ? `<button type="button" onclick="window.setLeadDepartment(${jsArg(r.uid)})" class="text-xs font-bold text-indigo-600 hover:text-indigo-700 underline">${r.department ? 'Change department' : 'Set department'}</button> ` + btn('Revoke', r.uid, r.role, 'reject', 'text-xs font-bold text-red-600 hover:text-red-700 underline')
+                : '',
+            r => `<span class="text-emerald-600 font-semibold">Approved</span> <span class="text-slate-400">${when(r.approvedAt)}</span>`
+                + (r.role === 'qip_lead' ? `<div class="mt-0.5">${r.department ? escapeHtml(r.departmentName || r.department) : '<span class="text-amber-700 font-semibold">No department set: sees nothing yet</span>'}</div>` : ''))}
         <details class="mb-8">
             <summary class="cursor-pointer text-sm font-semibold text-slate-500 mt-3 mb-1">Rejected or revoked (${rejected.length})</summary>
             ${table(rejected, 'None.',
@@ -4173,11 +4352,60 @@ function leadApprovalsHTML(a) {
         </details>`;
 }
 
+// Asks the admin which department a QIP Lead covers: pick one, or type a
+// new name to add it. Calls onChosen({ id, name }).
+async function chooseDepartment(title, suggestion, current, submitLabel, onChosen) {
+    const depts = await fetchDepartments();
+    const fields = [];
+    if (depts.length) fields.push({ id: 'dept', label: 'Department', type: 'select', value: current || '',
+        options: [{ value: '', label: '— Add a new department (type its name below) —' }, ...depts.map(d => ({ value: d.id, label: d.name }))] });
+    fields.push({ id: 'newName', label: depts.length ? 'Or a new department' : 'Department', placeholder: 'e.g. Emergency Department, Queen Elizabeth Hospital Birmingham',
+        hint: depts.length ? 'Only used when "Add a new department" is chosen above.' : 'No departments yet: this one will be added.', value: depts.length ? '' : (suggestion || '') });
+    showInputModal(title, fields, async (data) => {
+        try {
+            let chosen = data.dept ? depts.find(d => d.id === data.dept) : null;
+            if (!chosen) {
+                if (!data.newName) { showToast('Choose a department or type a new one.', 'error'); return; }
+                chosen = await createDepartment(data.newName);
+            }
+            if (chosen) await onChosen(chosen);
+        } catch (e) {
+            console.warn('[Departments] could not save:', e);
+            showToast(e?.code === 'permission-denied'
+                ? 'Not saved: publish the rules in firestore.rules in the Firebase console first.'
+                : 'Could not save the department. Check your connection and try again.', 'error');
+        }
+    }, submitLabel);
+}
+
+function requestedDepartmentHint(req) {
+    return req ? [req.department, req.hospital].map(x => (x || '').trim()).filter(Boolean).join(', ').slice(0, 200) : '';
+}
+
+// Sets or changes the department of an already-approved QIP Lead.
+window.setLeadDepartment = async function(uid) {
+    if (!state.isMasterAdmin || !db || !uid) return;
+    const cur = await getDoc(doc(db, 'deptQIPLeads', uid)).then(s => s.exists() ? s.data() : null).catch(() => null);
+    if (!cur) { showToast('That account is no longer an approved QIP Lead.', 'error'); return; }
+    const req = await getDoc(doc(db, 'roleRequests', `${uid}_qip_lead`)).then(s => s.exists() ? s.data() : null).catch(() => null);
+    chooseDepartment(`Department for ${cur.displayName || cur.email || 'this QIP Lead'}`, requestedDepartmentHint(req), cur.department || '', 'Save', async (dept) => {
+        await setDoc(doc(db, 'deptQIPLeads', uid), { ...cur, department: dept.id, departmentName: dept.name });
+        showToast(`Saved: they will see projects in ${dept.name} the next time they open the QIP Lead view.`, 'success');
+        window.showRoleAuditLog();
+    });
+};
+
 // action: 'approve' | 'reject' (also Revoke for an approved lead) | 'undo'
-// (back to waiting). Approving a QIP Lead writes deptQIPLeads/{uid};
-// rejecting or revoking one removes it.
-window.decideRoleRequest = async function(uid, role, action) {
+// (back to waiting). Approving a QIP Lead first asks which department they
+// cover, then writes deptQIPLeads/{uid}; rejecting or revoking one removes it.
+window.decideRoleRequest = async function(uid, role, action, dept) {
     if (!state.isMasterAdmin || !db || !uid || !REQUEST_ROLES.includes(role)) return;
+    if (role === 'qip_lead' && action === 'approve' && !dept) {
+        const req = await getDoc(doc(db, 'roleRequests', `${uid}_${role}`)).then(s => s.exists() ? s.data() : null).catch(() => null);
+        const who = (req && (req.fullName || req.email)) || 'this QIP Lead';
+        chooseDepartment(`Approve ${who}: which department?`, requestedDepartmentHint(req), '', 'Approve', chosen => window.decideRoleRequest(uid, role, action, chosen));
+        return;
+    }
     try {
         const uSnap = await getDoc(doc(db, 'qipUsers', uid)).catch(() => null);
         const u = uSnap && uSnap.exists() ? uSnap.data() : {};
@@ -4189,7 +4417,7 @@ window.decideRoleRequest = async function(uid, role, action) {
             && await getDoc(doc(db, 'deptQIPLeads', uid)).then(s => s.exists()).catch(() => false);
         if (role === 'qip_lead') {
             if (action === 'approve') {
-                await setDoc(doc(db, 'deptQIPLeads', uid), { email, displayName, approvedAt: new Date().toISOString() });
+                await setDoc(doc(db, 'deptQIPLeads', uid), { email, displayName, approvedAt: new Date().toISOString(), department: dept.id, departmentName: dept.name });
             } else {
                 await deleteDoc(doc(db, 'deptQIPLeads', uid));
             }
@@ -4205,7 +4433,7 @@ window.decideRoleRequest = async function(uid, role, action) {
         refreshLeadRequestCount();
         const name = ROLE_NAMES[role];
         showToast(action === 'approve'
-            ? (role === 'qip_lead' ? 'Approved: they will see every project the next time they open the QIP Lead view.' : `${name} request approved.`)
+            ? (role === 'qip_lead' ? `Approved: they will see projects in ${dept.name} the next time they open the QIP Lead view.` : `${name} request approved.`)
             : action === 'reject'
             ? (role === 'qip_lead' ? `${wasApproved ? 'Revoked' : 'Rejected'}: removed from the list. They see only projects a trainee has shared with them.` : `${name} request rejected and removed from the list.`)
             : 'Moved back to waiting for a decision.', 'success');

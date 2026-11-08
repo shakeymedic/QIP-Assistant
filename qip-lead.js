@@ -47,18 +47,48 @@ export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
     if (!container) return;
     const leads = state.projectData?.qipLeads || [];
     const hidden = !!(state.projectData?.visibility && state.projectData.visibility.hideFromDeptQIPLead === true);
+    const dept = state.projectData?.department || '';
+    const deptName = state.projectData?.departmentName || '';
+    const linkOn = !(state.projectData?.sharing && state.projectData.sharing.linkOff === true);
 
     container.innerHTML = `
+        <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+            <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <i data-lucide="building-2" class="w-4 h-4 text-slate-500"></i>
+                Your department
+            </h3>
+            <p class="text-xs text-slate-500 mb-3">Pick the emergency department this project belongs to. Only the Departmental QIP Lead the administrator has approved for that department can see it in their overview (unless you hide it below). If your department isn't listed, ask the administrator to add it.</p>
+            <label for="project-dept-select" class="sr-only">Department</label>
+            <select id="project-dept-select" onchange="window.setProjectDepartment(this.value)" class="w-full sm:w-auto max-w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                <option value="">${dept ? 'Loading…' : 'Not set: no department QIP Lead can see it'}</option>
+                ${dept ? `<option value="${escapeHtml(dept)}" selected>${escapeHtml(deptName || dept)}</option>` : ''}
+            </select>
+        </div>
+
         <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
             <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2">
                 <i data-lucide="eye-off" class="w-4 h-4 text-slate-500"></i>
                 Departmental QIP Lead Visibility
             </h3>
-            <p class="text-xs text-slate-500 mb-3">Anyone with the Departmental QIP Lead role can currently see every QIP project across every user, not just ones they were individually invited to. If you'd rather this project wasn't included in that blanket view, turn it off here — you can still add individual QIP Leads below regardless of this setting. All QIP Lead / Supervisor access to this project is logged for audit.</p>
+            <p class="text-xs text-slate-500 mb-3">The approved Departmental QIP Lead for your department can see this project in their overview. If you'd rather they didn't, hide it here: the database then refuses them, not just the screen. QIP Leads you add by email below still see it. All QIP Lead / Supervisor access to this project is logged for audit.</p>
             <label class="flex items-center gap-2 cursor-pointer text-sm">
                 <input type="checkbox" ${hidden ? 'checked' : ''} onchange="window.toggleHideFromDeptLead(this.checked)">
-                <span class="text-slate-700">Hide this project from the blanket Departmental QIP Lead view</span>
+                <span class="text-slate-700">Hide this project from my department's QIP Lead</span>
             </label>
+        </div>
+
+        <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
+            <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <i data-lucide="link" class="w-4 h-4 text-slate-500"></i>
+                Share link
+            </h3>
+            <p class="text-xs text-slate-500 mb-3">Anyone who has the share link can read the whole project without signing in. Switching it off stops every copy of the link working straight away; your supervisors and QIP Leads keep their access. Each time the link is opened it is logged below.</p>
+            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                <input id="share-link-toggle" type="checkbox" ${linkOn ? 'checked' : ''} onchange="window.setShareLinkOn(this.checked)">
+                <span class="text-slate-700">Let anyone with the share link view this project</span>
+            </label>
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-4 mb-2">Who has opened this project</h4>
+            <div id="project-access-views" class="text-xs text-slate-500">Loading…</div>
         </div>
 
         <div class="bg-white rounded-xl border border-slate-200 p-5">
@@ -95,6 +125,7 @@ export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
     `;
 
     if (typeof lucide !== 'undefined') lucide.createIcons();
+    if (typeof window.loadProjectAccessExtras === 'function') window.loadProjectAccessExtras();
 }
 
 // ─── Shared overview helpers (also used by supervisor.js) ─────────────────────
@@ -263,7 +294,7 @@ function renderLeadCards() {
         grid.innerHTML = `<div class="md:col-span-2 xl:col-span-3 bg-white rounded-2xl border border-slate-200 p-10 text-center">
             <i data-lucide="inbox" class="w-10 h-10 text-slate-300 mx-auto mb-3"></i>
             <p class="text-slate-600 font-semibold">No QIP projects to show yet</p>
-            <p class="text-slate-400 text-sm mt-1">${leadLast.opts.hasRole ? 'Projects appear here as soon as trainees create them (unless they opt out of the department view).' : 'Projects appear here when a trainee adds you as their QIP Lead.'}</p>
+            <p class="text-slate-400 text-sm mt-1">${leadLast.opts.hasRole && leadLast.opts.department ? 'Projects appear here when trainees choose your department on their project (unless they hide it from the department view).' : 'Projects appear here when a trainee adds you as their QIP Lead.'}</p>
         </div>`;
     } else if (!rows.length) {
         grid.innerHTML = `<div class="md:col-span-2 xl:col-span-3 bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500">
@@ -289,7 +320,7 @@ function leadRequestText(req) {
         const d = String(req.updatedAtIso || req.createdAtIso || '').slice(0, 10);
         return `You sent your details${d ? ' on ' + escapeHtml(d.split('-').reverse().join('/')) : ''}. Until the request is approved you can only see projects a trainee has added you to.`;
     }
-    return "Your account has the QIP Lead role, but it hasn't been approved to see every QIP in the department, so you can only see projects a trainee has added you to. To ask for it, send the administrator your details (name, job title, hospital).";
+    return "Your account has the QIP Lead role, but it hasn't been approved to see the QIPs in your department, so you can only see projects a trainee has added you to. To ask for it, send the administrator your details (name, job title, hospital).";
 }
 
 export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
@@ -317,7 +348,7 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                             <div>
                                 <div class="text-xs font-bold uppercase tracking-widest text-indigo-300 mb-1">Departmental QIP Lead Portal</div>
                                 <h1 class="text-2xl font-bold">QIP Supervision Dashboard</h1>
-                                <p class="text-indigo-200 text-sm mt-1">${total} QIP project${total !== 1 ? 's' : ''} ${opts.hasRole && !opts.deptDenied ? 'across the department' : 'shared with you'}</p>
+                                <p class="text-indigo-200 text-sm mt-1">${total} QIP project${total !== 1 ? 's' : ''} ${opts.hasRole && !opts.deptDenied && opts.department ? 'in ' + escapeHtml(opts.departmentName || 'your department') : 'shared with you'}</p>
                             </div>
                         </div>
                         <div class="flex items-center gap-2">
@@ -352,6 +383,14 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                                 <span class="text-[11px] text-amber-800">Account ID: <code class="bg-white border border-amber-200 rounded px-1 break-all">${escapeHtml(opts.uid || '')}</code></span>
                             </div>
                         </div>
+                    </div>
+                </div>` : ''}
+                ${opts.hasRole && !opts.deptDenied && !opts.department ? `
+                <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 text-sm text-amber-900 flex items-start gap-3" role="status">
+                    <i data-lucide="building-2" class="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5"></i>
+                    <div class="min-w-0">
+                        <p class="font-bold">Your department hasn't been set yet</p>
+                        <p class="mt-1">You are approved as a QIP Lead, but the administrator still needs to say which department you cover. Until then you only see projects a trainee has added you to.</p>
                     </div>
                 </div>` : ''}
                 <div class="bg-white rounded-2xl border border-slate-200 p-3 mb-4 flex flex-col md:flex-row gap-3 md:items-center">

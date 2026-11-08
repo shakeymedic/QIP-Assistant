@@ -6,7 +6,7 @@
 import { test, before, after, beforeEach } from 'node:test';
 import fs from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, deleteDoc, addDoc, collection, collectionGroup, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, addDoc, collection, collectionGroup, getDocs, serverTimestamp, query, where } from 'firebase/firestore';
 
 const RULES = fs.readFileSync(process.env.RULES_FILE || new URL('../../firestore.rules', import.meta.url), 'utf8');
 const ADMIN = 'emevidence999@gmail.com';
@@ -53,16 +53,124 @@ test('nobody else can edit or delete a project', async () => {
   await assertFails(setDoc(doc(nobody(), PROJECT), { meta: { title: 'x' } }, { merge: true }));
 });
 
-test('the department-wide view needs the admin or an approved QIP Lead', async () => {
-  await seed(PROJECT, project);
+// The query the QIP Lead view runs (fetchAllProjectsEnriched in app.js).
+const deptQuery = (db, dept) => query(collectionGroup(db, 'projects'), where('department', '==', dept), where('visibility.hideFromDeptQIPLead', '==', false));
+const inDept = (dept, hidden = false) => ({ ...project, department: dept, departmentName: 'ED ' + dept, visibility: { hideFromDeptQIPLead: hidden } });
+
+test('the department view needs the admin or an approved QIP Lead with that department', async () => {
+  await seed(PROJECT, inDept('qeh'));
   await seed('qipUsers/lead', { email: 'lead@nhs.net', roles: ['qip_lead'] });
   await assertSucceeds(getDocs(collectionGroup(admin(), 'projects')));
   // Claiming the role is not enough...
-  await assertFails(getDocs(collectionGroup(lead(), 'projects')));
-  // ...approval is.
+  await assertFails(getDocs(deptQuery(lead(), 'qeh')));
+  // ...nor is approval without a department...
   await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29' });
-  await assertSucceeds(getDocs(collectionGroup(lead(), 'projects')));
+  await assertFails(getDocs(deptQuery(lead(), 'qeh')));
+  // ...approval with the department is.
+  await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh', departmentName: 'QEH ED' });
+  await assertSucceeds(getDocs(deptQuery(lead(), 'qeh')));
   await assertSucceeds(getDoc(doc(lead(), 'qipUsers/trainee')));
+});
+
+test('a QIP Lead sees only their own department, and never a hidden project', async () => {
+  await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh', departmentName: 'QEH ED' });
+  await seed(PROJECT, inDept('qeh'));
+  await seed('users/other/projects/p2', inDept('bhh'));
+  await seed('users/hider/projects/p3', inDept('qeh', true));
+  await seed('users/old/projects/p4', project); // made before departments: no department
+  // The whole collection, another department, or including hidden ones: refused.
+  await assertFails(getDocs(collectionGroup(lead(), 'projects')));
+  await assertFails(getDocs(deptQuery(lead(), 'bhh')));
+  await assertFails(getDocs(query(collectionGroup(lead(), 'projects'), where('department', '==', 'qeh'))));
+  // The app's own query returns just the one visible project in their department.
+  const snap = await assertSucceeds(getDocs(deptQuery(lead(), 'qeh')));
+  if (snap.size !== 1 || snap.docs[0].ref.path !== PROJECT) throw new Error('expected only ' + PROJECT + ', got ' + snap.docs.map(d => d.ref.path));
+  // Opening one directly (with the share link off, so only the rules for leads apply):
+  // their department yes, others no.
+  await seed(PROJECT, { ...inDept('qeh'), sharing: { linkOff: true } });
+  await assertSucceeds(getDoc(doc(lead(), PROJECT)));
+  await seed('users/other/projects/p2', { ...inDept('bhh'), sharing: { linkOff: true } });
+  await seed('users/hider/projects/p3', { ...inDept('qeh', true), sharing: { linkOff: true } });
+  await assertFails(getDoc(doc(lead(), 'users/other/projects/p2')));
+  await assertFails(getDoc(doc(lead(), 'users/hider/projects/p3')));
+  // A lead the trainee invited by email still sees a hidden project.
+  await seed('qipLeadInvites/lead@nhs.net/invites/hider_p3', { ...invite('lead@nhs.net'), ownerUid: 'hider', projectId: 'p3' });
+  await assertSucceeds(getDoc(doc(lead(), 'users/hider/projects/p3')));
+});
+
+test('only the admin adds departments and sets a lead\'s department; anyone signed in can list them', async () => {
+  await assertSucceeds(setDoc(doc(admin(), 'departments/qeh'), { name: 'QEH ED', createdAtIso: '2026-11-08T10:00:00Z' }));
+  await assertFails(setDoc(doc(trainee(), 'departments/fake'), { name: 'Fake ED' }));
+  await assertFails(setDoc(doc(admin(), 'departments/bad'), { name: 'Bad', extra: 1 }));
+  await assertFails(setDoc(doc(admin(), 'departments/empty'), { name: '' }));
+  await assertSucceeds(getDocs(collection(trainee(), 'departments')));
+  await assertFails(getDocs(collection(nobody(), 'departments')));
+  await assertSucceeds(setDoc(doc(admin(), 'deptQIPLeads/lead'), { email: 'lead@nhs.net', displayName: 'Dr L', approvedAt: '2026-11-08', department: 'qeh', departmentName: 'QEH ED' }));
+  await assertFails(setDoc(doc(lead(), 'deptQIPLeads/lead'), { email: 'lead@nhs.net', approvedAt: '2026-11-08', department: 'bhh' }));
+  await assertFails(deleteDoc(doc(trainee(), 'departments/qeh')));
+  await assertSucceeds(deleteDoc(doc(admin(), 'departments/qeh')));
+});
+
+// ---- share link on / off and logging -----------------------------------------------------------
+test('switching the share link off stops it working; invitees, the admin and the lead keep access', async () => {
+  await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh' });
+  await seed(PROJECT, { ...inDept('qeh'), sharing: { linkOff: false } });
+  await assertSucceeds(getDoc(doc(nobody(), PROJECT)));
+  await assertSucceeds(getDoc(doc(stranger(), PROJECT)));
+  // The owner switches it off (a normal save).
+  await assertSucceeds(setDoc(doc(trainee(), PROJECT), { sharing: { linkOff: true } }, { merge: true }));
+  await assertFails(getDoc(doc(nobody(), PROJECT)));
+  await assertFails(getDoc(doc(stranger(), PROJECT)));
+  await assertSucceeds(getDoc(doc(trainee(), PROJECT)));
+  await assertSucceeds(getDoc(doc(admin(), PROJECT)));
+  await assertSucceeds(getDoc(doc(lead(), PROJECT)));
+  await seed('supervisorInvites/sup@nhs.net/invites/trainee_p1', invite('sup@nhs.net'));
+  await assertSucceeds(getDoc(doc(sup(), PROJECT)));
+  // An unverified address cannot claim the invite.
+  await assertFails(getDoc(doc(as('sup', 'sup@nhs.net', false), PROJECT)));
+  // Nobody else can switch it back on.
+  await assertFails(setDoc(doc(stranger(), PROJECT), { sharing: { linkOff: false } }, { merge: true }));
+});
+
+const shareView = (over = {}) => ({ viewerUid: '(unauthenticated)', viewerEmail: '(unauthenticated)', viaRole: 'share_link', ownerUid: 'trainee', projectId: 'p1', projectTitle: 'Sepsis QIP', action: 'viewed', createdAtIso: '2026-11-08T10:00:00Z', createdAt: serverTimestamp(), ...over });
+
+test('a share-link view by someone not signed in is logged, and the owner can read their own log', async () => {
+  await seed(PROJECT, project);
+  await assertSucceeds(addDoc(collection(nobody(), 'projectAccessLog'), shareView()));
+  // Not signed in: cannot pretend to be someone, use another route, or log a project with no live link.
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ viewerUid: 'sup' })));
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ viaRole: 'supervisor' })));
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ projectId: 'nope' })));
+  await seed('users/trainee/projects/p9', { ...project, sharing: { linkOff: true } });
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ projectId: 'p9' })));
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ extra: 'x' })));
+  // The owner reads the views of their project with the query the app uses...
+  const q = db => query(collection(db, 'projectAccessLog'), where('ownerUid', '==', 'trainee'), where('projectId', '==', 'p1'));
+  const snap = await assertSucceeds(getDocs(q(trainee())));
+  if (snap.size !== 1) throw new Error('expected 1 view, got ' + snap.size);
+  // ...nobody else can, and the owner cannot read other people's.
+  await assertFails(getDocs(q(stranger())));
+  await assertFails(getDocs(q(nobody())));
+  await assertFails(getDocs(collection(trainee(), 'projectAccessLog')));
+  await assertSucceeds(getDocs(collection(admin(), 'projectAccessLog')));
+});
+
+// ---- role-request email limit (netlify/functions/role-request-notify.mjs) ----------------------
+test('the administrator is emailed about a request at most once an hour', async () => {
+  const id = 'roleRequestEmails/lead_qip_lead';
+  await assertSucceeds(setDoc(doc(lead(), id), { sentAt: serverTimestamp() }));
+  // Again straight away: refused, so the function sends nothing.
+  await assertFails(setDoc(doc(lead(), id), { sentAt: serverTimestamp() }));
+  // A made-up time, extra fields, someone else's ID, or deleting it to reset: refused.
+  await assertFails(setDoc(doc(lead(), 'roleRequestEmails/lead_supervisor'), { sentAt: new Date('2020-01-01') }));
+  await assertFails(setDoc(doc(lead(), 'roleRequestEmails/lead_supervisor'), { sentAt: serverTimestamp(), x: 1 }));
+  await assertFails(setDoc(doc(stranger(), 'roleRequestEmails/lead_supervisor'), { sentAt: serverTimestamp() }));
+  await assertFails(deleteDoc(doc(lead(), id)));
+  await assertSucceeds(getDoc(doc(lead(), id)));
+  await assertFails(getDoc(doc(stranger(), id)));
+  // Over an hour later it is allowed again.
+  await seed(id, { sentAt: new Date(Date.now() - 61 * 60 * 1000) });
+  await assertSucceeds(setDoc(doc(lead(), id), { sentAt: serverTimestamp() }));
 });
 
 // ---- supervisor sign-off -----------------------------------------------------------------------
