@@ -16,8 +16,11 @@
 //
 // The rules for both collections are in firestore.rules (create by the person
 // the entry is about, read by the master admin, no update or delete: it's an
-// append-only audit trail). A share-link view by someone not signed in can't
-// be logged, because the rules don't accept writes without an account.
+// append-only audit trail). A share-link view by someone not signed in is
+// logged as '(unauthenticated)': the rules accept that one entry without an
+// account, only for a project whose share link is switched on. The project's
+// owner can read the entries about their own projects (Share link box on the
+// SLO 11 Sign-off page).
 
 export async function logRoleAuditEvent(db, entry) {
     if (!db) return;
