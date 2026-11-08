@@ -2,7 +2,7 @@
 // every logged version string below derives from this constant, so the two can
 // never drift out of sync the way they previously did (constant said v3.24.0,
 // the install/load log lines still said v3.15.17/v3.15.19).
-const SW_VERSION = 'v3.48.0';
+const SW_VERSION = 'v3.49.0';
 const CACHE_NAME = `rcem-qip-${SW_VERSION}`;
 const STATIC_CACHE = `rcem-qip-static-${SW_VERSION}`;
 const DYNAMIC_CACHE = `rcem-qip-dynamic-${SW_VERSION}`;
@@ -48,12 +48,13 @@ const STATIC_ASSETS = [
     '/modal-a11y.js',
     '/role-requests.js',
     '/styles.css',
+    '/tailwind.bundle.css',
+    '/privacy.html',
     '/manifest.json',
     '/logo.png'
 ];
 
 const CDN_ASSETS = [
-    'https://cdn.tailwindcss.com',
     'https://unpkg.com/lucide@1.59.0/dist/umd/lucide.min.js',
     'https://cdn.jsdelivr.net/npm/chart.js@4.5.1',
     'https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js',
@@ -62,8 +63,22 @@ const CDN_ASSETS = [
     'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js',
     'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.css',
     'https://cdn.jsdelivr.net/npm/driver.js@1.0.1/dist/driver.js.iife.js',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap'
+    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap',
+    // The Firebase SDK the app imports. Without these stored, a phone with no signal
+    // relied on the browser's own cache to start the app at all.
+    'https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js',
+    'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js',
+    'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js'
 ];
+
+// Files from Google's servers that never change (versioned Firebase SDK files, Google Fonts)
+// and so are safe to keep. Everything else on those hosts is live data and is never cached.
+function isStaticGoogleFile(url) {
+    if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) return true;
+    if (url.hostname === 'fonts.googleapis.com' && url.pathname.startsWith('/css')) return true;
+    if (url.hostname === 'fonts.gstatic.com') return true;
+    return false;
+}
 
 async function trimCache(cacheName, maxItems) {
     const cache = await caches.open(cacheName);
@@ -85,7 +100,9 @@ self.addEventListener('install', (event) => {
                     console.warn('[SW] Some static assets failed to cache:', err);
                 });
             }),
-            caches.open(DYNAMIC_CACHE).then((cache) => {
+            // Kept with the app's own files, not in the trimmed dynamic cache, so they are never
+            // evicted while the app is in use.
+            caches.open(STATIC_CACHE).then((cache) => {
                 console.log('[SW] Caching CDN assets');
                 return Promise.allSettled(
                     CDN_ASSETS.map(url => 
@@ -140,6 +157,24 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
+    if (isStaticGoogleFile(url)) {
+        // Stored copy first (works offline), refreshed in the background.
+        event.respondWith(
+            caches.open(STATIC_CACHE).then((cache) => cache.match(request).then((hit) => {
+                const network = fetch(request).then((response) => {
+                    if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone());
+                    return response;
+                });
+                if (hit) {
+                    event.waitUntil(network.catch(() => {}));
+                    return hit;
+                }
+                return network;
+            }))
+        );
+        return;
+    }
+
     if (url.hostname.includes('firebaseio.com') || 
         url.hostname.includes('googleapis.com') ||
         url.hostname.includes('firebase') ||
