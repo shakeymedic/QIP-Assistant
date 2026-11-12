@@ -113,8 +113,10 @@ service cloud.firestore {
       return after is map
         && after.diff(before is map ? before : {}).affectedKeys().hasAny(signOffFields()) == false;
     }
+    // Off unless the owner has switched it on: a project with no 'sharing'
+    // field (every new project) is not readable by link.
     function shareLinkOn() {
-      return resource.data.get('sharing', {}).get('linkOff', false) != true;
+      return resource.data.get('sharing', {}).get('linkOff', true) == false;
     }
     function isInvitedLead(uid, projectId) {
       return signedIn() && myEmail() != '' && exists(/databases/$(database)/documents/qipLeadInvites/$(myEmail())/invites/$(uid + '_' + projectId));
@@ -137,7 +139,7 @@ service cloud.firestore {
       allow create: if isOwner(uid) && notSignedOffAtCreation();
       allow update: if isOwner(uid) && ownerLeavesSignOffAlone();
       // A share link opens one project by its exact path without signing
-      // in, unless the owner has switched the link off. Invited supervisors
+      // in, but only once the owner has switched the link on. Invited supervisors
       // and QIP Leads (and the admin / the department's lead) can always
       // open it. Listing someone else's projects is still refused.
       allow get: if shareLinkOn()
@@ -314,7 +316,7 @@ service cloud.firestore {
     function projectSharedByLink(ownerUid, projectId) {
       return ownerUid is string && projectId is string
         && exists(/databases/$(database)/documents/users/$(ownerUid)/projects/$(projectId))
-        && get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(projectId)).data.get('sharing', {}).get('linkOff', false) != true;
+        && get(/databases/$(database)/documents/users/$(ownerUid)/projects/$(projectId)).data.get('sharing', {}).get('linkOff', true) == false;
     }
     match /projectAccessLog/{id} {
       allow create: if request.resource.data.keys().hasOnly(['viewerUid', 'viewerEmail', 'viaRole', 'ownerUid', 'projectId', 'projectTitle', 'action', 'createdAtIso', 'createdAt'])

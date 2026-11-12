@@ -39,8 +39,8 @@ test('a trainee creates, edits, lists and deletes their own projects', async () 
   await assertSucceeds(deleteDoc(doc(trainee(), PROJECT)));
 });
 
-test('a share link opens one project without signing in, but nobody can list them', async () => {
-  await seed(PROJECT, project);
+test('a share link that is switched on opens one project without signing in, but nobody can list them', async () => {
+  await seed(PROJECT, { ...project, sharing: { linkOff: false } });
   await assertSucceeds(getDoc(doc(nobody(), PROJECT)));
   await assertFails(getDocs(collection(nobody(), 'users/trainee/projects')));
   await assertFails(getDocs(collection(stranger(), 'users/trainee/projects')));
@@ -112,6 +112,17 @@ test('only the admin adds departments and sets a lead\'s department; anyone sign
 });
 
 // ---- share link on / off and logging -----------------------------------------------------------
+test('the share link is off until the owner switches it on', async () => {
+  await seed(PROJECT, project);
+  await assertFails(getDoc(doc(nobody(), PROJECT)));
+  await assertFails(getDoc(doc(stranger(), PROJECT)));
+  await seed(PROJECT, { ...project, sharing: {} });
+  await assertFails(getDoc(doc(nobody(), PROJECT)));
+  await assertSucceeds(setDoc(doc(trainee(), PROJECT), { sharing: { linkOff: false } }, { merge: true }));
+  await assertSucceeds(getDoc(doc(nobody(), PROJECT)));
+  await assertSucceeds(getDoc(doc(stranger(), PROJECT)));
+});
+
 test('switching the share link off stops it working; invitees, the admin and the lead keep access', async () => {
   await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh' });
   await seed(PROJECT, { ...inDept('qeh'), sharing: { linkOff: false } });
@@ -135,7 +146,10 @@ test('switching the share link off stops it working; invitees, the admin and the
 const shareView = (over = {}) => ({ viewerUid: '(unauthenticated)', viewerEmail: '(unauthenticated)', viaRole: 'share_link', ownerUid: 'trainee', projectId: 'p1', projectTitle: 'Sepsis QIP', action: 'viewed', createdAtIso: '2026-11-08T10:00:00Z', createdAt: serverTimestamp(), ...over });
 
 test('a share-link view by someone not signed in is logged, and the owner can read their own log', async () => {
+  // A project whose link was never switched on cannot be logged as viewed by link.
   await seed(PROJECT, project);
+  await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView()));
+  await seed(PROJECT, { ...project, sharing: { linkOff: false } });
   await assertSucceeds(addDoc(collection(nobody(), 'projectAccessLog'), shareView()));
   // Not signed in: cannot pretend to be someone, use another route, or log a project with no live link.
   await assertFails(addDoc(collection(nobody(), 'projectAccessLog'), shareView({ viewerUid: 'sup' })));
