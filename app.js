@@ -2496,9 +2496,9 @@ async function checkShareLink(viewerUser) {
             }
         } catch (e) {
             const off = e?.code === 'permission-denied';
-            showToast(off ? "This share link has been switched off by the project's owner." : "Could not load shared project.", "error");
-            showShareLinkProblem(off ? 'This share link has been switched off' : 'Could not load the shared project',
-                off ? "The project's owner has stopped this link working. If you are their supervisor or QIP Lead, sign in to see the projects shared with you, or ask them for access."
+            showToast(off ? "This share link is switched off." : "Could not load shared project.", "error");
+            showShareLinkProblem(off ? 'This share link is switched off' : 'Could not load the shared project',
+                off ? "The project's owner has not switched this link on, or has switched it off. If you are their supervisor or QIP Lead, sign in to see the projects shared with you, or ask them for access."
                     : 'Check your connection and reload the page.');
         }
         return true;
@@ -2995,7 +2995,8 @@ window.setProjectDepartment = function(deptId) {
         : 'Department cleared: no department QIP Lead can see this project.', 'success');
 };
 
-// Owner switches the share link on or off. Off stops every copy of the link
+// Owner switches the share link on or off. It is off until the owner switches
+// it on (sharing.linkOff === false). Off stops every copy of the link
 // working at once (the database refuses the read); invitees keep access.
 window.setShareLinkOn = function(on) {
     const d = state.projectData;
@@ -3601,8 +3602,8 @@ window.openDemoProject = () => {
 window.shareProject = () => {
     if(state.isDemoMode) { showToast("Cannot share demo projects.", "error"); return; }
     if (!state.currentProjectId || !state.currentUser || state.isReadOnly) { showToast("Open one of your own projects to share it.", "error"); return; }
-    if (state.projectData?.sharing?.linkOff === true) {
-        showToast("The share link is switched off for this project. Switch it on under Share link at the bottom of the SLO 11 Sign-off page first.", "error");
+    if (state.projectData?.sharing?.linkOff !== false) {
+        showToast("The share link is switched off for this project. To let anyone with the link view it, switch it on under Share link at the bottom of the SLO 11 Sign-off page first.", "error");
         return;
     }
     const url = `${window.location.origin}${window.location.pathname}?share=${encodeURIComponent(state.currentProjectId)}&uid=${encodeURIComponent(state.currentUser.uid)}`;

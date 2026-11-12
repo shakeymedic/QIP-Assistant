@@ -49,7 +49,8 @@ export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
     const hidden = !!(state.projectData?.visibility && state.projectData.visibility.hideFromDeptQIPLead === true);
     const dept = state.projectData?.department || '';
     const deptName = state.projectData?.departmentName || '';
-    const linkOn = !(state.projectData?.sharing && state.projectData.sharing.linkOff === true);
+    // Off by default: on only once the owner has switched it on.
+    const linkOn = !!(state.projectData?.sharing && state.projectData.sharing.linkOff === false);
 
     container.innerHTML = `
         <div class="bg-white rounded-xl border border-slate-200 p-5 mb-4">
@@ -82,7 +83,7 @@ export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
                 <i data-lucide="link" class="w-4 h-4 text-slate-500"></i>
                 Share link
             </h3>
-            <p class="text-xs text-slate-500 mb-3">Anyone who has the share link can read the whole project without signing in. Switching it off stops every copy of the link working straight away; your supervisors and QIP Leads keep their access. Each time the link is opened it is logged below.</p>
+            <p class="text-xs text-slate-500 mb-3">The share link is off until you switch it on here. While it is on, anyone who has the link can read the whole project without signing in. Switching it off stops every copy of the link working straight away; your supervisors and QIP Leads keep their access. Each time the link is opened it is logged below.</p>
             <label class="flex items-center gap-2 cursor-pointer text-sm">
                 <input id="share-link-toggle" type="checkbox" ${linkOn ? 'checked' : ''} onchange="window.setShareLinkOn(this.checked)">
                 <span class="text-slate-700">Let anyone with the share link view this project</span>
