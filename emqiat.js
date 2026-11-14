@@ -250,7 +250,7 @@ export function renderEMQIATForm(container, opts = {}) {
                 ${readOnly ? readOnlyBlock(questionHeading(P.involvedInProject), e.involvedInProject === 'yes' ? 'Yes' : e.involvedInProject === 'no' ? 'No' : '') : `
                 <div class="mb-5" id="emqiat-q-involvedInProject">
                     <label class="text-sm block mb-1">${questionHeading(P.involvedInProject)}</label>
-                    <select onchange="window.saveEmqiatFormField('involvedInProject', this.value)" class="w-full sm:w-64 border border-slate-300 rounded-lg p-2 text-sm">
+                    <select aria-label="Have you been involved in a QI project this year?" onchange="window.saveEmqiatFormField('involvedInProject', this.value)" class="w-full sm:w-64 border border-slate-300 rounded-lg p-2 text-sm">
                         <option value="" ${!e.involvedInProject ? 'selected' : ''}>— Select —</option>
                         <option value="yes" ${e.involvedInProject === 'yes' ? 'selected' : ''}>Yes</option>
                         <option value="no" ${e.involvedInProject === 'no' ? 'selected' : ''}>No</option>

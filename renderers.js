@@ -531,14 +531,14 @@ function renderMeasureDefinitionBlock(d, c) {
     const plan = d.dataPlan || {};
     const kind = c.outcomeKind || '';
     const kinds = [['percentage', 'Percentage'], ['time', 'Time (minutes/hours)'], ['count', 'Count or rate']];
-    const planField = (key, label, ph, type = 'text') => `<div><label class="block text-[11px] font-bold text-slate-500 mb-1">${label}</label><input type="${type}" value="${escapeHtml(plan[key] || '')}" onchange="window.saveDataPlanField('${key}', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="${escapeHtml(ph)}"></div>`;
+    const planField = (key, label, ph, type = 'text') => `<div><label class="block text-[11px] font-bold text-slate-500 mb-1">${label}</label><input type="${type}" aria-label="${escapeHtml(label)}" value="${escapeHtml(plan[key] || '')}" onchange="window.saveDataPlanField('${key}', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm" placeholder="${escapeHtml(ph)}"></div>`;
     return `
         <div class="mt-4 border-t border-slate-100 pt-4 space-y-4">
             <div>
                 <div class="flex flex-wrap items-center gap-3 mb-1">
                     <label class="block text-sm font-medium text-slate-700">Operational definition <span class="text-xs text-slate-400 font-normal">what exactly counts, so anyone would collect it the same way</span></label>
                     <span class="text-xs text-slate-500 ml-auto">Outcome measure is a:</span>
-                    <select onchange="window.setOutcomeKind(this.value)" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
+                    <select aria-label="Kind of outcome measure" onchange="window.setOutcomeKind(this.value)" class="text-xs p-1.5 border border-slate-300 rounded bg-white">
                         <option value="" ${kind ? '' : 'selected'}>Choose…</option>
                         ${kinds.map(([v, l]) => `<option value="${v}" ${kind === v ? 'selected' : ''}>${l}</option>`).join('')}
                     </select>
@@ -553,7 +553,7 @@ function renderMeasureDefinitionBlock(d, c) {
                     ${planField('source', 'Where the data comes from', 'e.g. EPR sepsis flag and drug chart')}
                     ${planField('collector', 'Who collects it', 'e.g. me, with the audit department\'s weekly extract')}
                     <div><label class="block text-[11px] font-bold text-slate-500 mb-1">How often</label>
-                        <select onchange="window.saveDataPlanField('cadence', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
+                        <select aria-label="How often you will collect data" onchange="window.saveDataPlanField('cadence', this.value)" class="w-full p-2 border border-slate-300 rounded text-sm bg-white">
                             ${['', 'daily', 'weekly', 'fortnightly', 'monthly'].map(v => `<option value="${v}" ${(plan.cadence || '') === v ? 'selected' : ''}>${v ? v[0].toUpperCase() + v.slice(1) : 'Choose…'}</option>`).join('')}
                         </select></div>
                     ${planField('sample', 'Sample per point', 'e.g. first ' + QI.SAMPLE_PER_POINT + ' eligible patients each week')}
@@ -1032,15 +1032,15 @@ export function renderChecklist() {
                                 const rpn = (parseInt(row.likelihood)||1) * (parseInt(row.severity)||1) * (parseInt(row.detectability)||1);
                                 const rpnClass = rpn >= 50 ? 'bg-red-100 text-red-700 font-bold' : rpn >= 20 ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-green-100 text-green-700 font-bold';
                                 return `<tr>
-                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.step||'')}" onchange="window.updateFMEARow(${i},'step',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Step..."/></td>
-                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.failureMode||'')}" onchange="window.updateFMEARow(${i},'failureMode',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="What could go wrong?"/></td>
-                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.effect||'')}" onchange="window.updateFMEARow(${i},'effect',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Impact..."/></td>
-                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.likelihood||1}" onchange="window.updateFMEARow(${i},'likelihood',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
-                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.severity||1}" onchange="window.updateFMEARow(${i},'severity',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
-                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" value="${row.detectability||1}" onchange="window.updateFMEARow(${i},'detectability',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
-                                    <td class="border border-slate-200 px-1 py-1 text-center"><span class="px-2 py-1 rounded ${rpnClass}">${rpn}</span></td>
-                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.mitigation||'')}" onchange="window.updateFMEARow(${i},'mitigation',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Action to reduce risk..."/></td>
-                                    <td class="border border-slate-200 px-1 py-1 text-center"><button onclick="window.deleteFMEARow(${i})" class="text-red-400 hover:text-red-600 p-1" title="Delete row"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.step||'')}" aria-label="Process step (row ${i + 1})" onchange="window.updateFMEARow(${i},'step',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Step..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.failureMode||'')}" aria-label="Failure mode (row ${i + 1})" onchange="window.updateFMEARow(${i},'failureMode',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="What could go wrong?"/></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.effect||'')}" aria-label="Effect (row ${i + 1})" onchange="window.updateFMEARow(${i},'effect',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Impact..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" data-fmea="likelihood" aria-label="Likelihood, 1 to 5 (row ${i + 1})" value="${row.likelihood||1}" onchange="window.updateFMEARow(${i},'likelihood',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" data-fmea="severity" aria-label="Severity, 1 to 5 (row ${i + 1})" value="${row.severity||1}" onchange="window.updateFMEARow(${i},'severity',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><input type="number" min="1" max="5" data-fmea="detectability" aria-label="Detectability, 1 to 5 (row ${i + 1})" value="${row.detectability||1}" onchange="window.updateFMEARow(${i},'detectability',this.value)" class="w-10 p-1 text-xs text-center border border-slate-200 rounded"/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><span class="rpn-badge px-2 py-1 rounded ${rpnClass}">${rpn}</span></td>
+                                    <td class="border border-slate-200 px-1 py-1"><input type="text" value="${escapeHtml(row.mitigation||'')}" aria-label="Mitigation (row ${i + 1})" onchange="window.updateFMEARow(${i},'mitigation',this.value)" class="w-full p-1 text-xs border-0 focus:ring-1 focus:ring-rcem-purple rounded" placeholder="Action to reduce risk..."/></td>
+                                    <td class="border border-slate-200 px-1 py-1 text-center"><button onclick="window.deleteFMEARow(${i})" class="text-red-400 hover:text-red-600 p-1" title="Delete row" aria-label="Delete row ${i + 1}"><i data-lucide="trash-2" class="w-3 h-3"></i></button></td>
                                 </tr>`;
                             }).join('')}
                         </tbody>
@@ -1483,7 +1483,7 @@ export function renderTeam() {
                                         <td class="px-4 py-3 text-sm font-mono text-slate-600">${formatDate(l.date)}</td>
                                         <td class="px-4 py-3 text-sm text-slate-600">${escapeHtml(l.note || '')}</td>
                                         <td class="px-4 py-3 text-right">
-                                            <button onclick="window.deleteLeadershipLog(${i})" class="text-slate-300 hover:text-red-500">
+                                            <button onclick="window.deleteLeadershipLog(${i})" aria-label="Delete this log entry" title="Delete" class="text-slate-400 hover:text-red-500">
                                                 <i data-lucide="trash-2" class="w-4 h-4"></i>
                                             </button>
                                         </td>
@@ -1842,7 +1842,7 @@ export function renderPDSA() {
                     ${driverChanges.length > 0 ? `
                     <div>
                         <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Linked Driver Change <span class="font-normal text-slate-400">(optional)</span></label>
-                        <select id="ci-new-driver" class="w-full p-2 border rounded text-sm">
+                        <select id="ci-new-driver" aria-label="Driver this change idea addresses" class="w-full p-2 border rounded text-sm">
                             <option value="">— Select from driver diagram —</option>
                             ${driverChanges.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('')}
                         </select>
@@ -1927,7 +1927,7 @@ export function renderPDSA() {
                                             class="font-bold text-slate-800 bg-transparent border-0 border-b-2 border-transparent hover:border-slate-300 focus:border-rcem-purple outline-none transition-colors flex-1 min-w-[10rem] text-sm"
                                             placeholder="Change idea title">
                                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${statusCls}">
-                                            <select onchange="window.updateChangeIdea(${ideaIdx}, 'status', this.value)"
+                                            <select aria-label="Status of this change idea" onchange="window.updateChangeIdea(${ideaIdx}, 'status', this.value)"
                                                 class="bg-transparent border-0 outline-none text-xs font-bold cursor-pointer">
                                                 <option value="active" ${idea.status==='active'?'selected':''}>Active</option>
                                                 <option value="planning" ${idea.status==='planning'?'selected':''}>Planning</option>
@@ -1995,7 +1995,7 @@ export function renderPDSA() {
                                         <div class="grid grid-cols-3 gap-2 mb-3 mt-1">
                                             <div>
                                                 <label class="text-[10px] font-bold uppercase text-slate-400 mb-0.5 block">Status</label>
-                                                <select onchange="window.updateCycleInIdea(${ideaIdx}, ${cycleIdx}, 'status', this.value)"
+                                                <select aria-label="Status of this PDSA cycle" onchange="window.updateCycleInIdea(${ideaIdx}, ${cycleIdx}, 'status', this.value)"
                                                     class="w-full p-1.5 border rounded text-xs">
                                                     <option value="planning" ${p.status==='planning'?'selected':''}>Planning</option>
                                                     <option value="doing" ${p.status==='doing'?'selected':''}>Doing</option>
@@ -2785,7 +2785,7 @@ export function renderActionPlan() {
             </div>
         </header>
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-            ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow(${jsArg(row.id)})" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
+            ${d.actionPlan.length ? `<div class="overflow-x-auto"><table class="w-full min-w-[1120px] text-sm"><thead class="bg-slate-50"><tr class="text-xs text-slate-500 uppercase"><th class="px-3 py-3 text-left w-[18%]">Objective</th><th class="px-3 py-3 text-left w-[23%]">Action</th><th class="px-3 py-3 text-left w-[13%]">By Whom</th><th class="px-3 py-3 text-left w-[12%]">By When</th><th class="px-3 py-3 text-left w-[20%]">Possible Issues</th><th class="px-3 py-3 text-left w-[12%]">Status</th><th class="px-2 py-3"></th></tr></thead><tbody class="divide-y divide-slate-100">${d.actionPlan.map((row, index) => `<tr class="align-top hover:bg-slate-50"><td class="p-1.5"><textarea aria-label="Objective" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'objective', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Objective">${escapeHtml(row.objective || '')}</textarea></td><td class="p-1.5"><textarea aria-label="Action" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'action', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[50px]" placeholder="Action">${escapeHtml(row.action || '')}</textarea>${changeIdeas.length ? `<select aria-label="Linked change idea" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'changeIdeaId', this.value || null)" class="w-full mt-1.5 p-1.5 border border-slate-200 rounded text-xs text-slate-600"><option value="">Link a change idea (optional)</option>${changeIdeas.map(idea => `<option value="${escapeHtml(idea.id || '')}" ${row.changeIdeaId === idea.id ? 'selected' : ''}>${escapeHtml(idea.title || 'Untitled change idea')}</option>`).join('')}</select>` : ''}</td><td class="p-1.5"><input aria-label="By whom" value="${escapeHtml(row.byWhom || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhom', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm" placeholder="Owner"></td><td class="p-1.5"><input type="date" aria-label="By when" value="${escapeHtml(row.byWhen || '')}" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'byWhen', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm"></td><td class="p-1.5"><textarea aria-label="Possible issues" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'possibleIssues', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm min-h-[72px]" placeholder="Risks, blockers, dependencies">${escapeHtml(row.possibleIssues || '')}</textarea></td><td class="p-1.5"><select aria-label="Status" onchange="window.updateActionPlanRow(${jsArg(row.id)}, 'status', this.value)" class="w-full p-2 border border-slate-200 rounded text-sm">${statusOptions.map(([value, label]) => `<option value="${value}" ${row.status === value ? 'selected' : ''}>${label}</option>`).join('')}</select></td><td class="p-1.5 text-center"><button onclick="window.deleteActionPlanRow(${jsArg(row.id)})" class="text-slate-300 hover:text-red-500 p-2" title="Delete action"><i data-lucide="trash-2" class="w-4 h-4"></i></button></td></tr>`).join('')}</tbody></table></div>` : `<div class="p-12 text-center"><i data-lucide="list-checks" class="w-14 h-14 text-slate-300 mx-auto mb-3"></i><h3 class="font-bold text-slate-700 mb-1">No actions yet</h3><p class="text-sm text-slate-500 mb-4">Add an action to record what will be done, by whom and by when.</p><button onclick="window.addActionPlanRow()" class="bg-rcem-purple text-white px-4 py-2 rounded-lg text-sm font-medium">Add first action</button></div>`}
         </div>
     `;
     if (typeof lucide !== 'undefined') lucide.createIcons();
@@ -3475,7 +3475,7 @@ export function renderFullProject() {
 
             <footer class="bg-slate-50 px-8 py-4 rounded-b-xl border-t border-slate-200 print:bg-white">
                 <div class="flex justify-between items-center text-xs text-slate-500">
-                    <span>Generated by RCEM QIP Assistant</span>
+                    <span>Generated by QIP Assist (EM Evidence)</span>
                     <span>${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</span>
                 </div>
             </footer>
@@ -3546,8 +3546,8 @@ function renderAbstractForm(d) {
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
             <div class="flex justify-between items-start mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-800">RCEM Abstract (QIAT / ASC Format)</h2>
-                    <p class="text-slate-500 text-sm">Structured for RCEM Annual Scientific Conference submission — 250 words total</p>
+                    <h2 class="text-xl font-bold text-slate-800">Conference abstract</h2>
+                    <p class="text-slate-500 text-sm">Background, methods, results and conclusions in 250 words. Check the word limit and headings of the conference you are submitting to.</p>
                 </div>
                 <button onclick="window.copyReport('abstract')" class="bg-rcem-purple text-white px-4 py-2 rounded-lg flex items-center gap-2">
                     <i data-lucide="copy" class="w-4 h-4"></i> Copy All
@@ -3570,7 +3570,7 @@ function renderAbstractForm(d) {
                     return `
                     <div class="border border-${s.color}-200 rounded-xl overflow-hidden">
                         <div class="bg-${s.color}-50 px-4 py-2 flex justify-between items-center">
-                            <label class="text-xs font-bold text-${s.color}-700 uppercase tracking-wider">${s.label}</label>
+                            <label for="${s.id}" class="text-xs font-bold text-${s.color}-700 uppercase tracking-wider">${s.label}</label>
                             <div class="flex items-center gap-2">
                                 <span class="text-xs text-slate-400">${s.hint}</span>
                                 <span class="text-xs font-mono ${wCount > 80 ? 'text-amber-600' : 'text-slate-400'}" id="wc-${s.id}">${wCount}w</span>
@@ -3588,8 +3588,8 @@ function renderAbstractForm(d) {
             <div class="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
                 <h4 class="font-bold text-blue-800 text-sm mb-2">Submission Tips</h4>
                 <ul class="text-sm text-blue-700 space-y-1">
-                    <li>• <strong>250 words total</strong> across all four sections for RCEM ASC format</li>
-                    <li>• <strong>Background</strong> should reference the RCEM clinical standard being addressed</li>
+                    <li>• <strong>250 words total</strong> across all four sections is a common limit; conferences differ, so check the call for abstracts</li>
+                    <li>• <strong>Background</strong> should name the standard or guideline you measured against</li>
                     <li>• <strong>Results</strong> should include your run chart signals and % improvement</li>
                     <li>• Edit each section directly — changes are saved automatically</li>
                 </ul>
@@ -3603,8 +3603,8 @@ function renderReportForm(d) {
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
             <div class="flex justify-between items-start mb-6">
                 <div>
-                    <h2 class="text-xl font-bold text-slate-800">RCEM Report Format</h2>
-                    <p class="text-slate-500 text-sm">Structured format for RCEM QIP submission</p>
+                    <h2 class="text-xl font-bold text-slate-800">Project report</h2>
+                    <p class="text-slate-500 text-sm">A structure for a departmental report, presentation or poster. It is not assessed: the EM QIAT form on SLO 11 Sign-off is.</p>
                 </div>
                 <div class="flex gap-2">
                     <button onclick="window.exportPPTX()" class="bg-amber-500 text-white px-4 py-2 rounded-lg flex items-center gap-2">

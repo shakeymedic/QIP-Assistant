@@ -40,7 +40,7 @@ export function renderPatientTracker(projectData, saveDataFunc) {
             </div>
             <div class="bg-white p-4 rounded border border-slate-200">
                 <h4 class="font-bold text-slate-700 mb-3">Log New Feedback</h4>
-                <input type="date" id="pf-date" class="w-full border border-slate-300 rounded p-2 mb-2">
+                <input type="date" id="pf-date" aria-label="Date of the feedback" class="w-full border border-slate-300 rounded p-2 mb-2">
                 <textarea id="pf-feedback" class="w-full border border-slate-300 rounded p-2 mb-2" placeholder="Enter patient suggestion or complaint (no names, dates of birth or NHS numbers)..."></textarea>
                 <textarea id="pf-action" class="w-full border border-slate-300 rounded p-2 mb-2" placeholder="Enter the action you took..."></textarea>
                 <input type="text" id="pf-pdsa" class="w-full border border-slate-300 rounded p-2 mb-3" placeholder="Which PDSA cycle does this map to? (e.g. Cycle 2)">

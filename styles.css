@@ -798,3 +798,28 @@ h1 button.qip-hint-btn, h2 button.qip-hint-btn { width: 18px !important; }
 @media (hover: none) {
     [class*="group-hover:opacity-100"] { opacity: 1 !important; }
 }
+
+/* ── Contrast (WCAG AA 4.5:1 for small text) ─────────────────────────────── */
+/* Sidebar group headings, their numbers and the version line were slate-500/600
+   on the dark sidebar (2.4 to 3.8:1). */
+#app-sidebar .nav-group-header,
+#app-sidebar .nav-group-header .text-slate-600,
+#app-sidebar #app-version-badge { color: #94a3b8; }
+#app-sidebar .nav-group-header:hover { color: #e2e8f0; }
+/* Small grey text on the pale grey chips and tab bars was 4.3:1. */
+.bg-slate-100 .text-slate-500, .bg-slate-100.text-slate-500 { color: #475569; }
+/* White text on the teal Supervisor Overview button and on amber and green
+   buttons was 2.1 to 3.8:1: one shade darker, same hue. */
+#app-sidebar #sidebar-supervisor-home:not(.role-btn-inactive) { background-color: #0f766e; }
+button.bg-amber-500.text-white { background-color: #b45309; }
+button.bg-amber-500.text-white:hover { background-color: #92400e; }
+button.bg-emerald-600.text-white, button.bg-emerald-500.text-white, label.bg-emerald-500.text-white { background-color: #047857; }
+button.bg-emerald-600.text-white:hover, button.bg-emerald-500.text-white:hover, label.bg-emerald-500.text-white:hover { background-color: #065f46; }
+#demo-watermark { background-color: #b45309; }
+
+@media (max-width: 768px) {
+    /* A tick box or radio button stays beside its wording (the blanket
+       .flex.gap-2 wrap rule above pushed the wording onto the next line). */
+    label.flex { flex-wrap: nowrap !important; }
+    label.flex > input[type="radio"], label.flex > input[type="checkbox"] { flex-shrink: 0; }
+}

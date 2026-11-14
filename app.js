@@ -1,6 +1,6 @@
 import { auth, db, getFirebaseStatus } from "./config.js";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, sendEmailVerification } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion, query, where } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { doc, setDoc, getDocs, collection, collectionGroup, onSnapshot, addDoc, deleteDoc, getDoc, arrayUnion, query, where, deleteField, FieldPath } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { state, emptyProject, getDemoData, getDemoCohort, safeStorage } from "./state.js";
 import { escapeHtml, jsArg, updateOnlineStatus, showToast, showInputModal } from "./utils.js";
 window.showToast = showToast; // expose for non-module files (e.g. patient-tracker.js)
@@ -1274,16 +1274,26 @@ window.deleteFMEARow = function(idx) {
 };
 window.updateFMEARow = function(idx, field, value) {
     const d = state.projectData; if (!d?.fmea?.[idx]) return;
-    d.fmea[idx][field] = value;
     if (['likelihood','severity','detectability'].includes(field)) {
+        // Scores run 1 to 5: keep a typed 0, 9 or blank inside the scale.
+        const n = Math.min(5, Math.max(1, Math.round(Number(value)) || 1));
         const row = d.fmea[idx];
-        const rpn = (row.likelihood||1) * (row.severity||1) * (row.detectability||1);
-        const el = document.querySelector(`#fmea-table-body tr:nth-child(${idx+1}) .rpn-badge`);
-        if (el) {
-            el.textContent = rpn;
-            el.className = 'rpn-badge px-2 py-0.5 rounded ' + (rpn>=50 ? 'bg-red-100 text-red-800 font-black' : rpn>=20 ? 'bg-amber-100 text-amber-800 font-bold' : 'bg-emerald-100 text-emerald-800');
+        row[field] = n;
+        // Update this row in place (a full redraw would drop the cursor while
+        // tabbing along the scores), so the RPN and its colour follow at once.
+        const tr = document.querySelector(`#fmea-body tr:nth-child(${idx + 1})`);
+        const input = tr?.querySelector(`input[data-fmea="${field}"]`);
+        if (input && String(input.value) !== String(n)) input.value = n;
+        const badge = tr?.querySelector('.rpn-badge');
+        if (badge) {
+            const rpn = (parseInt(row.likelihood) || 1) * (parseInt(row.severity) || 1) * (parseInt(row.detectability) || 1);
+            badge.textContent = rpn;
+            badge.className = 'rpn-badge px-2 py-1 rounded ' + (rpn >= 50 ? 'bg-red-100 text-red-700 font-bold' : rpn >= 20 ? 'bg-amber-100 text-amber-700 font-bold' : 'bg-green-100 text-green-700 font-bold');
         }
+        if (window.saveData) window.saveData();
+        return;
     }
+    d.fmea[idx][field] = value;
     if (window.saveData) window.saveData();
 };
 // Spread planner helper
@@ -1478,6 +1488,7 @@ window.importProjectFromFile = async function(input) {
     // project, so they are not copied: re-add supervisors/leads in Settings.
     delete json.supervisors;
     delete json.qipLeads;
+    delete json.sharing; // a new project's share link always starts switched off
     if (json.assessment && typeof json.assessment === 'object') {
         SUPERVISOR_ASSESSMENT_FIELDS.forEach(k => delete json.assessment[k]);
     }
@@ -1973,10 +1984,31 @@ window.saveData = async function(skipHistory = false) {
         // The owner's save never carries the supervisor's sign-off fields (see
         // withoutSupervisorFields); the merge leaves the saved ones as they are.
         const supervising = !!(state.isSupervisorViewing && state.supervisorTargetUid);
-        const { payload, keys } = supervising ? { payload: state.projectData, keys: null } : changedFieldsForSave(state.projectData);
-        if (!keys || keys.length) {
-            await setDoc(doc(db, 'users/' + ownerUid + '/projects', state.currentProjectId), JSON.parse(JSON.stringify(payload)), { merge: true });
-            if (keys && state._serverBase) keys.forEach(k => { state._serverBase[k] = JSON.stringify(payload[k]); });
+        const ref = doc(db, 'users/' + ownerUid + '/projects', state.currentProjectId);
+        if (supervising) {
+            await setDoc(ref, JSON.parse(JSON.stringify(state.projectData)), { merge: true });
+        } else {
+            // Only what changed is sent, down to the field inside a section, and
+            // each of those replaces the saved value outright. Anything no longer
+            // in the project is removed. (A plain merge kept whatever was missing
+            // from the new copy, so clearing the department, an Undo or a
+            // restored snapshot could leave old entries behind in the database.)
+            const { sets, dels, keys, clean } = changedFieldsForSave(state.projectData);
+            if (sets.length || dels.length) {
+                const body = {};
+                const put = (path, value) => {
+                    if (path.length === 1) body[path[0]] = value;
+                    else { if (!body[path[0]] || typeof body[path[0]] !== 'object') body[path[0]] = {}; body[path[0]][path[1]] = value; }
+                };
+                sets.forEach(([path, value]) => put(path, value));
+                dels.forEach(path => put(path, deleteField()));
+                const fields = [...sets.map(x => x[0]), ...dels].map(path => new FieldPath(...path));
+                await setDoc(ref, body, { mergeFields: fields });
+                if (state._serverBase) {
+                    keys.forEach(k => { state._serverBase[k] = JSON.stringify(clean[k]); });
+                    dels.forEach(path => { if (path.length === 1) delete state._serverBase[path[0]]; });
+                }
+            }
         }
         
         const s = document.getElementById('save-status');
@@ -2137,13 +2169,35 @@ function setServerBase(data) {
 function changedFieldsForSave(data) {
     const clean = withoutSupervisorFields(data) || {};
     const base = state._serverBase;
-    if (!base) return { payload: clean, keys: Object.keys(clean) };
-    const payload = {};
+    const isMap = v => !!v && typeof v === 'object' && !Array.isArray(v);
+    const sets = [];   // [path, value]: path is [section] or [section, field]
+    const dels = [];   // paths to remove
+    const keys = [];   // sections that changed
     Object.keys(clean).forEach(k => {
+        if (!k) return;
         const json = JSON.stringify(clean[k]);
-        if (json !== undefined && base[k] !== json) payload[k] = clean[k];
+        if (json === undefined || (base && base[k] === json)) return;
+        keys.push(k);
+        const now = JSON.parse(json);
+        let before;
+        try { before = base && base[k] !== undefined ? JSON.parse(base[k]) : undefined; } catch (e) { before = undefined; }
+        // A section that is a set of named fields (checklist, meta, charter...)
+        // is saved field by field, so a phone and a laptop editing different
+        // boxes on the same page keep both edits. `assessment` is always saved
+        // this way and never has fields removed: the sign-off inside it belongs
+        // to the supervisor and is never sent from here.
+        if (isMap(now) && (k === 'assessment' || isMap(before))) {
+            const prev = isMap(before) ? before : {};
+            Object.keys(now).forEach(sub => { if (sub && JSON.stringify(now[sub]) !== JSON.stringify(prev[sub])) sets.push([[k, sub], now[sub]]); });
+            if (k !== 'assessment') Object.keys(prev).forEach(sub => { if (sub && !(sub in now)) dels.push([k, sub]); });
+        } else {
+            sets.push([[k], now]);
+        }
     });
-    return { payload, keys: Object.keys(payload) };
+    // Sections the database still holds but the project no longer has (for
+    // example an entry taken back by Undo).
+    if (base) Object.keys(base).forEach(k => { if (k && k !== 'assessment' && JSON.stringify(clean[k]) === undefined) dels.push([k]); });
+    return { sets, dels, keys, clean };
 }
 
 // Firestore keeps each project in one document of at most 1 MiB.
@@ -2439,7 +2493,7 @@ function showShareLinkProblem(heading, text) {
         <i data-lucide="link-2-off" class="w-10 h-10 mx-auto text-slate-400 mb-3"></i>
         <h1 class="text-xl font-bold text-slate-800">${escapeHtml(heading)}</h1>
         <p class="text-sm text-slate-600 mt-2">${escapeHtml(text)}</p>
-        <a href="${escapeHtml(window.location.pathname)}" class="inline-block mt-4 bg-rcem-purple text-white text-sm font-bold px-4 py-2 rounded-lg">Go to QIP Assistant</a>
+        <a href="${escapeHtml(window.location.pathname)}" class="inline-block mt-4 bg-rcem-purple text-white text-sm font-bold px-4 py-2 rounded-lg">Go to QIP Assist</a>
     </div>`;
     if (typeof lucide !== 'undefined') lucide.createIcons({ nodes: [inner] });
 }
@@ -3293,6 +3347,16 @@ window.deleteProject = async (id) => {
         btn.textContent = 'Deleting\u2026';
         try {
             await deleteDoc(doc(db, `users/${state.currentUser.uid}/projects`, id));
+            // The invites that showed this project to its supervisors and QIP
+            // Leads hold its title and the trainee's name and email: remove
+            // them too, so nothing about a deleted project is left behind.
+            if (data) {
+                const emailOf = x => (x && typeof x === 'object' ? x.email : x);
+                await Promise.allSettled([
+                    ...(data.supervisors || []).map(x => emailOf(x) && deleteInvite(db, SUPERVISOR_INVITES, emailOf(x), state.currentUser.uid, id)),
+                    ...(data.qipLeads || []).map(x => emailOf(x) && deleteInvite(db, LEAD_INVITES, emailOf(x), state.currentUser.uid, id))
+                ]);
+            }
             close();
             loadProjectList();
             showToast(backedUp ? 'Project deleted. Your backup is in Downloads.' : 'Project deleted', 'info');

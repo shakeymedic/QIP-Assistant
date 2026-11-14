@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // scripts/smoke-test.js
 //
-// Minimal, dependency-free regression check for the QIP Assistant static site.
+// Minimal, dependency-free regression check for the QIP Assist static site.
 // This project has no build step and no automated tests, so this is a cheap
 // safety net to catch the exact bug classes that have bitten it before:
 //   - a plain JS syntax error shipped to production (happened to learn.js)
@@ -171,7 +171,7 @@ function checkJsonFiles() {
     });
 }
 
-console.log('Running QIP Assistant smoke tests...\n');
+console.log('Running QIP Assist smoke tests...\n');
 checkSyntax();
 checkServiceWorkerAssets();
 checkExportCharset();
