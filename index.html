@@ -9,7 +9,7 @@
     
     <link rel="manifest" href="manifest.json">
     <link rel="icon" href="./logo.png" type="image/png">
-    <link rel="apple-touch-icon" href="./logo.png">
+    <link rel="apple-touch-icon" href="./icon-192-maskable.png">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -64,9 +64,9 @@
     <div id="auth-screen" class="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-rcem-purple to-indigo-900 p-4">
         <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
             <div class="text-center mb-8">
-                <img src="./logo.png" alt="Emergency Medicine Evidence Logo" class="h-16 mx-auto mb-4">
-                <h1 class="text-2xl font-bold text-slate-800">QIP Assistant</h1>
-                <p class="text-slate-500 text-sm mt-1">Gold Standard Quality Improvement Tool</p>
+                <img src="./logo.png" alt="EM Evidence logo" class="h-16 mx-auto mb-4">
+                <h1 class="text-2xl font-bold text-slate-800">QIP Assist</h1>
+                <p class="text-slate-500 text-sm mt-1">Quality improvement projects for emergency medicine, by EM Evidence</p>
             </div>
             
             <div id="auth-error" class="hidden bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm"></div>
@@ -282,7 +282,7 @@
     <div id="app-container" class="hidden flex flex-col h-screen">
         
         <div class="lg:hidden bg-slate-900 text-white p-3 flex justify-between items-center z-30 no-print">
-            <span class="font-bold">QIP Assistant</span>
+            <span class="font-bold">QIP Assist</span>
             <button id="mobile-menu-btn" aria-label="Open Navigation Menu" aria-expanded="false" aria-controls="app-sidebar" class="p-2.5 -m-2 rounded hover:bg-white/10"><i data-lucide="menu"></i></button>
         </div>
 
@@ -290,10 +290,10 @@
             
             <aside id="app-sidebar" class="hidden w-64 bg-slate-900 text-white flex-col h-full fixed lg:static z-20 shadow-2xl no-print transition-all duration-300">
                 <div class="px-4 py-3 border-b border-white/10 flex items-center gap-3">
-                    <img src="./logo.png" alt="Emergency Medicine Evidence logo" class="h-9 w-9 object-contain flex-shrink-0">
+                    <img src="./logo.png" alt="EM Evidence logo" class="h-9 w-9 object-contain flex-shrink-0">
                     <div class="min-w-0">
-                        <h1 class="font-bold text-base leading-tight tracking-tight">QIP Assistant</h1>
-                        <p class="text-[11px] text-slate-400 leading-tight">RCEM quality improvement</p>
+                        <h1 class="font-bold text-base leading-tight tracking-tight">QIP Assist</h1>
+                        <p class="text-[11px] text-slate-400 leading-tight">by EM Evidence</p>
                     </div>
                     <button type="button" id="mobile-menu-close" onclick="window.closeMobileMenu()" aria-label="Close menu" class="lg:hidden ml-auto p-2.5 -mr-2 rounded hover:bg-white/10 text-slate-300 hover:text-white">
                         <i data-lucide="x" class="w-5 h-5"></i>
@@ -816,7 +816,7 @@
                                         <div class="grid grid-cols-2 gap-2">
                                             <div>
                                                 <label class="block text-xs text-slate-500 mb-1">Date</label>
-                                                <input type="date" id="quick-add-date" class="w-full p-1.5 border border-slate-300 rounded text-xs" value="">
+                                                <input type="date" id="quick-add-date" aria-label="Date of the data point" class="w-full p-1.5 border border-slate-300 rounded text-xs" value="">
                                             </div>
                                             <div>
                                                 <label class="block text-xs text-slate-500 mb-1">Value</label>
@@ -825,7 +825,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs text-slate-500 mb-1">Phase</label>
-                                            <select id="quick-add-phase" class="w-full p-1.5 border border-slate-300 rounded text-xs">
+                                            <select id="quick-add-phase" aria-label="Phase for the data point" class="w-full p-1.5 border border-slate-300 rounded text-xs">
                                                 <option value="Baseline" selected>Baseline</option>
                                                 <option value="PDSA 1">PDSA 1</option>
                                                 <option value="PDSA 2">PDSA 2</option>
@@ -847,11 +847,11 @@
                                     </h3>
                                     <div id="arcp-countdown-display"></div>
                                     <div class="mt-3 flex gap-2 items-center">
-                                        <input type="date" id="arcp-date-input" class="flex-1 p-1.5 border border-slate-300 rounded text-xs" onchange="window.saveARCPDate(this.value)">
+                                        <input type="date" id="arcp-date-input" aria-label="ARCP date" class="flex-1 p-1.5 border border-slate-300 rounded text-xs" onchange="window.saveARCPDate(this.value)">
                                         <span class="text-xs text-slate-400">ARCP date</span>
                                     </div>
                                     <div class="mt-2 flex gap-2 items-center">
-                                        <input type="date" id="rotation-end-input" class="flex-1 p-1.5 border border-slate-300 rounded text-xs" onchange="window.saveRotationEnd(this.value)">
+                                        <input type="date" id="rotation-end-input" aria-label="Date your rotation ends" class="flex-1 p-1.5 border border-slate-300 rounded text-xs" onchange="window.saveRotationEnd(this.value)">
                                         <span class="text-xs text-slate-400">Rotation ends</span>
                                     </div>
                                 </div>
@@ -1142,8 +1142,8 @@
                                 </h1>
                             </div>
                             <div class="flex bg-slate-100 p-1 rounded-lg max-w-full overflow-x-auto">
-                                <button aria-label="View RCEM Abstract Format" onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Abstract</button>
-                                <button aria-label="View RCEM Report Format" onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">RCEM Report</button>
+                                <button onclick="window.switchPublishMode('abstract')" id="btn-mode-abstract" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">Conference abstract</button>
+                                <button onclick="window.switchPublishMode('report')" id="btn-mode-report" class="px-3 py-1 text-sm font-bold rounded hover:bg-white hover:shadow-sm transition-all">Project report</button>
                             </div>
                         </header>
                         <div id="publish-content"></div>
@@ -1796,7 +1796,7 @@
                     <div class="flex items-center gap-3">
                         <img src="./logo.png" alt="Logo" class="h-10 flex-shrink-0">
                         <div>
-                            <h2 class="text-lg font-bold leading-tight">QIP Assistant — Quick Guide</h2>
+                            <h2 class="text-lg font-bold leading-tight">QIP Assist — Quick Guide</h2>
                             <p class="text-indigo-200 text-xs mt-0.5">Everything you need to complete your QIP</p>
                         </div>
                     </div>
@@ -1972,7 +1972,7 @@
             bar.setAttribute('role', 'status');
             bar.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:9999;display:flex;align-items:center;gap:12px;flex-wrap:wrap;justify-content:center;max-width:calc(100% - 32px);background:#2d2e83;color:#fff;padding:10px 14px;border-radius:12px;box-shadow:0 8px 24px rgba(15,23,42,.25);font:500 14px/1.4 Inter,system-ui,sans-serif';
             const msg = document.createElement('span');
-            msg.textContent = 'A new version of QIP Assistant is ready.';
+            msg.textContent = 'A new version of QIP Assist is ready.';
             const btn = document.createElement('button');
             btn.type = 'button';
             btn.textContent = 'Reload now';

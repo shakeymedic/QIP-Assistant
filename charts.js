@@ -381,7 +381,7 @@ function renderDriverVisual(container, enableInteraction = false) {
                     }
 
                     card.innerHTML = `
-                        <textarea 
+                        <textarea aria-label="${escapeHtml(col.title || 'Driver')} ${itemIdx + 1}"
                             class="w-full bg-transparent border-none focus:ring-0 p-0 resize-none text-sm leading-relaxed overflow-hidden outline-none" 
                             oninput="this.style.height = ''; this.style.height = this.scrollHeight + 'px'"
                             onchange="window.updateDriver('${col.type}', ${itemIdx}, this.value)">${escapeHtml(item)}</textarea>

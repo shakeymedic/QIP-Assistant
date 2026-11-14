@@ -48,7 +48,7 @@ export function renderSurveys() {
                             <input type="text" value="${escapeHtml(survey.title)}" onchange="window.updateSurveyTitle(${jsArg(survey.id)}, this.value)" class="w-full text-xl font-bold text-slate-800 bg-transparent border-none focus:ring-0 p-0 hover:bg-slate-50 rounded" placeholder="Survey Title">
                             <p class="text-xs text-slate-400 mt-1">${survey.responses ? survey.responses.length : 0} responses recorded</p>
                         </div>
-                        <button onclick="window.deleteSurvey(${jsArg(survey.id)})" class="text-slate-400 hover:text-red-500 p-2 rounded hover:bg-red-50 transition-colors">
+                        <button onclick="window.deleteSurvey(${jsArg(survey.id)})" aria-label="Delete this survey" title="Delete survey" class="text-slate-400 hover:text-red-500 p-2 rounded hover:bg-red-50 transition-colors">
                             <i data-lucide="trash-2" class="w-5 h-5"></i>
                         </button>
                     </div>

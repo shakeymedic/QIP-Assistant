@@ -2,7 +2,7 @@
 // every logged version string below derives from this constant, so the two can
 // never drift out of sync the way they previously did (constant said v3.24.0,
 // the install/load log lines still said v3.15.17/v3.15.19).
-const SW_VERSION = 'v3.51.0';
+const SW_VERSION = 'v3.52.0';
 const CACHE_NAME = `rcem-qip-${SW_VERSION}`;
 const STATIC_CACHE = `rcem-qip-static-${SW_VERSION}`;
 const DYNAMIC_CACHE = `rcem-qip-dynamic-${SW_VERSION}`;
@@ -50,8 +50,12 @@ const STATIC_ASSETS = [
     '/styles.css',
     '/tailwind.bundle.css',
     '/privacy.html',
+    '/delete-account.html',
     '/manifest.json',
-    '/logo.png'
+    '/logo.png',
+    '/icon-192.png',
+    '/icon-192-maskable.png',
+    '/icon-512-maskable.png'
 ];
 
 const CDN_ASSETS = [
@@ -96,9 +100,11 @@ self.addEventListener('install', (event) => {
         Promise.all([
             caches.open(STATIC_CACHE).then((cache) => {
                 console.log('[SW] Caching static assets');
-                return cache.addAll(STATIC_ASSETS).catch(err => {
-                    console.warn('[SW] Some static assets failed to cache:', err);
-                });
+                // One at a time: addAll() stores nothing at all if a single file
+                // fails, which would leave the app unable to open offline.
+                return Promise.allSettled(STATIC_ASSETS.map(url =>
+                    cache.add(url).catch(err => console.warn(`[SW] Failed to cache ${url}:`, err))
+                ));
             }),
             // Kept with the app's own files, not in the trimmed dynamic cache, so they are never
             // evicted while the app is in use.
@@ -199,14 +205,22 @@ self.addEventListener('fetch', (event) => {
                     }
                     return response;
                 })
-                .catch(() => {
-                    return caches.match('/index.html');
+                .catch(async () => {
+                    // Offline: the stored copy of that page (the privacy notice and
+                    // the delete-account page are also reached as /privacy and
+                    // /delete-account), otherwise the app itself.
+                    return (await caches.match(request, { ignoreSearch: true }))
+                        || (await caches.match(url.pathname.replace(/\/$/, '') + '.html'))
+                        || caches.match('/index.html');
                 })
         );
         return;
     }
     
-    if (STATIC_ASSETS.some(asset => url.pathname.endsWith(asset.replace('/', '')))) {
+    // The app's own files: stored copy first, refreshed in the background.
+    // (This used to match every request, because '/' in the list became '' and
+    // every address ends with ''.)
+    if (url.origin === self.location.origin && STATIC_ASSETS.includes(url.pathname)) {
         event.respondWith(
             caches.match(request)
                 .then((cachedResponse) => {
@@ -294,9 +308,9 @@ self.addEventListener('push', (event) => {
     if (event.data) {
         const data = event.data.json();
         const options = {
-            body: data.body || 'QIP Assistant notification',
-            icon: 'https://wmebemqipassist.netlify.app/logo.png',
-            badge: 'https://wmebemqipassist.netlify.app/logo.png',
+            body: data.body || 'QIP Assist notification',
+            icon: '/logo.png',
+            badge: '/logo.png',
             vibrate: [100, 50, 100],
             data: {
                 dateOfArrival: Date.now(),
@@ -305,7 +319,7 @@ self.addEventListener('push', (event) => {
         };
         
         event.waitUntil(
-            self.registration.showNotification(data.title || 'RCEM QIP Assistant', options)
+            self.registration.showNotification(data.title || 'QIP Assist', options)
         );
     }
 });

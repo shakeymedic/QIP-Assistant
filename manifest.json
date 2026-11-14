@@ -1,25 +1,17 @@
 {
     "name": "QIP Assist",
     "short_name": "QIP Assist",
-    "description": "Professional Quality Improvement Portfolio tool for Emergency Medicine clinicians",
+    "description": "Plan, measure and write up a quality improvement project in emergency medicine. By EM Evidence.",
     "start_url": "/",
     "display": "standalone",
     "background_color": "#1e293b",
     "theme_color": "#2d2e83",
     "orientation": "any",
     "icons": [
-        {
-            "src": "./logo.png",
-            "sizes": "192x192",
-            "type": "image/png",
-            "purpose": "any maskable"
-        },
-        {
-            "src": "./logo.png",
-            "sizes": "512x512",
-            "type": "image/png",
-            "purpose": "any maskable"
-        }
+        { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+        { "src": "./logo.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+        { "src": "./icon-192-maskable.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+        { "src": "./icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
     ],
     "categories": ["medical", "productivity", "education"],
     "lang": "en-GB",
@@ -32,14 +24,14 @@
             "short_name": "New",
             "description": "Create a new QIP project",
             "url": "/?action=new",
-            "icons": [{ "src": "./logo.png", "sizes": "96x96" }]
+            "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
         },
         {
             "name": "Demo Mode",
             "short_name": "Demo",
             "description": "Explore with sample data",
             "url": "/?demo=true",
-            "icons": [{ "src": "./logo.png", "sizes": "96x96" }]
+            "icons": [{ "src": "./icon-192.png", "sizes": "192x192" }]
         }
     ]
 }

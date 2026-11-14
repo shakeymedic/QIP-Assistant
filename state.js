@@ -459,10 +459,10 @@ export function getDemoData() {
             rootCause: 'No mechanism (such as a PGD) for trained nurses to give the first dose without waiting for a prescriber.'
         },
         fmea: [
-            { step: 'Sepsis screen at triage', failureMode: 'Red flag missed', effect: 'Treatment delayed', likelihood: 6, severity: 9, detectability: 5, mitigation: 'EPR prompt for NEWS2 5+ or any red flag (PDSA 4)' },
-            { step: 'Gather equipment', failureMode: 'Kit not found or out of stock', effect: 'Delay of 10–20 minutes', likelihood: 7, severity: 6, detectability: 3, mitigation: 'Sepsis trolley with daily check list (PDSA 2)' },
-            { step: 'Prescribe first dose', failureMode: 'No prescriber available', effect: 'Delay of 30+ minutes', likelihood: 8, severity: 8, detectability: 4, mitigation: 'Nurse PGD for the first dose (PDSA 3)' },
-            { step: 'Give antibiotic', failureMode: 'Wrong antibiotic for allergy', effect: 'Patient harm', likelihood: 2, severity: 9, detectability: 3, mitigation: 'Allergy check built into PGD and order set; pharmacy review' }
+            { step: 'Sepsis screen at triage', failureMode: 'Red flag missed', effect: 'Treatment delayed', likelihood: 3, severity: 5, detectability: 3, mitigation: 'EPR prompt for NEWS2 5+ or any red flag (PDSA 4)' },
+            { step: 'Gather equipment', failureMode: 'Kit not found or out of stock', effect: 'Delay of 10–20 minutes', likelihood: 4, severity: 3, detectability: 2, mitigation: 'Sepsis trolley with daily check list (PDSA 2)' },
+            { step: 'Prescribe first dose', failureMode: 'No prescriber available', effect: 'Delay of 30+ minutes', likelihood: 4, severity: 4, detectability: 3, mitigation: 'Nurse PGD for the first dose (PDSA 3)' },
+            { step: 'Give antibiotic', failureMode: 'Wrong antibiotic for allergy', effect: 'Patient harm', likelihood: 1, severity: 5, detectability: 2, mitigation: 'Allergy check built into PGD and order set; pharmacy review' }
         ],
         changeIdeas,
         pdsa: changeIdeas.flatMap(ci => ci.pdsaCycles),

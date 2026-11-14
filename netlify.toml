@@ -9,3 +9,12 @@
 # Firestore rules), so Netlify's secret scan must not fail the deploy on it.
 [build.environment]
   SECRETS_SCAN_SMART_DETECTION_OMIT_VALUES = "AIzaSyBdu73Xb8xf4tJU4RLhJ82ANhLMI9eu0gI"
+
+# Two low-risk security headers for every file: browsers must not guess a
+# file's type, and links to other sites only ever pass on the site's address,
+# never the page address (a share link's address identifies the project).
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
