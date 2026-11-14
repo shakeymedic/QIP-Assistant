@@ -3965,12 +3965,23 @@ export function startTour(_retried) {
         showToast("Guided tour unavailable — check your internet connection and try again.", "info");
         return;
     }
+    // Every step points at a sidebar item. On a phone the sidebar is a closed
+    // drawer, and a collapsed group hides its items, so the highlight landed on
+    // an invisible 0×0 box in the corner. Open the drawer and expand the groups
+    // first, and close the drawer again when the tour ends.
+    const sidebar = document.getElementById('app-sidebar');
+    const openedDrawer = !!sidebar && sidebar.offsetParent === null && typeof window.openMobileMenu === 'function';
+    if (openedDrawer) window.openMobileMenu();
+    if (typeof window.toggleNavGroup === 'function') {
+        ['plan', 'diagnose', 'test', 'manage', 'review'].forEach(g => window.toggleNavGroup(g, true, false));
+    }
     try {
         const driverObj = driverFactory({
             showProgress: true,
             animate: true,
             overlayColor: '#1e1b4b',
             popoverClass: 'qip-tour-popover',
+            onDestroyed: () => { if (openedDrawer && typeof window.closeMobileMenu === 'function') window.closeMobileMenu(); },
             steps: [
                 { element: '#nav-dashboard',     popover: { title: '📊 Dashboard',           description: 'Your project at a glance — progress score, chart preview, team summary and portfolio readiness.' }},
                 { element: '#nav-checklist',     popover: { title: '📋 Define & Measure',     description: 'Start here. Write your problem statement, set a SMART aim, define measures, and complete your evidence & ethics review.' }},
