@@ -18,3 +18,35 @@
   [headers.values]
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    # Only QIP Assist itself and emevidence.org (whose tool viewer shows the
+    # app in a frame) may embed it. Any other site trying to frame it is blocked.
+    Content-Security-Policy = "frame-ancestors 'self' https://emevidence.org https://www.emevidence.org"
+
+# Development files that the app never loads are not served to the public.
+# They hold no secrets (the database rules are enforced by Firebase, not by
+# keeping them private); this is tidiness.
+[[redirects]]
+  from = "/firestore.rules"
+  to = "/404.html"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/firestore.indexes.json"
+  to = "/404.html"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/tests/*"
+  to = "/404.html"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/android/*"
+  to = "/404.html"
+  status = 404
+  force = true
+[[redirects]]
+  from = "/scripts/*"
+  to = "/404.html"
+  status = 404
+  force = true
