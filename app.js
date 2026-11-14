@@ -2308,7 +2308,7 @@ function getAuthErrorDetails(error) {
             errorDetails.suggestion = 'reset';
             break;
         case 'auth/weak-password':
-            errorDetails.message = 'Password is too weak. Use at least 6 characters.';
+            errorDetails.message = 'Password is too weak. Use at least 8 characters.';
             errorDetails.field = 'password';
             break;
         case 'auth/missing-password':
@@ -2328,6 +2328,10 @@ function getAuthErrorDetails(error) {
             errorDetails.message = 'Too many failed attempts. Please wait before trying again.';
             errorDetails.type = 'warning';
             errorDetails.suggestion = 'wait';
+            break;
+        case 'auth/popup-blocked':
+            errorDetails.message = 'Your browser blocked the Google sign-in window. Allow pop-ups for this site and try again, or use your email and password.';
+            errorDetails.type = 'warning';
             break;
         case 'auth/network-request-failed':
             errorDetails.message = 'Network error. Please check your internet connection.';
@@ -2732,6 +2736,9 @@ async function checkQIPLeadStatus(user) {
         safeStorage.set('rcem_is_qip_lead', '1');
 
         const n = projects.length;
+        // An unconfirmed email can't read invites (firestore.rules), so "0 shared" may just mean "not confirmed yet"
+        const unverified = !!(state.currentUser && !state.isDemoMode && !state.currentUser.emailVerified);
+        const verifyNote = unverified ? ' (confirm your email address to see shared projects)' : '';
         const badgeText = document.getElementById('qip-lead-badge-text');
         if (badge) badge.classList.remove('hidden');
         if (badgeText) {
@@ -2742,6 +2749,7 @@ async function checkQIPLeadStatus(user) {
                 : hasLeadRole
                 ? (n > 0 ? `You can see ${n} QIP project${n !== 1 ? 's' : ''} in ${departmentName || 'your department'} as Departmental QIP Lead` : `Departmental QIP Lead (${departmentName || 'your department'}) — no QIP projects yet`)
                 : `You have been added as QIP Lead on ${n} project${n !== 1 ? 's' : ''}`;
+            if (n === 0) badgeText.textContent += verifyNote;
         }
         if (navBtn) navBtn.classList.remove('hidden');
         if (leadHomeBtn) leadHomeBtn.classList.remove('hidden');
@@ -3912,8 +3920,8 @@ window.submitRegister = async function() {
         if (errEl) { errEl.textContent = 'Please enter a valid email address.'; errEl.classList.remove('hidden'); }
         return;
     }
-    if (!password || password.length < 6) {
-        if (errEl) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); }
+    if (!password || password.length < 8) {
+        if (errEl) { errEl.textContent = 'Password must be at least 8 characters.'; errEl.classList.remove('hidden'); }
         return;
     }
     if (errEl) errEl.classList.add('hidden');
@@ -4872,7 +4880,8 @@ async function checkSupervisorStatus() {
         if (badgeText) {
             badgeText.textContent = enriched.length > 0
                 ? `You are supervising ${enriched.length} QIP project${enriched.length !== 1 ? 's' : ''}` + (pending ? ` — ${pending} awaiting sign-off` : ' — all signed off')
-                : 'Clinical Supervisor — no projects have been shared with you yet';
+                : 'Clinical Supervisor — no projects have been shared with you yet'
+                    + ((state.currentUser && !state.isDemoMode && !state.currentUser.emailVerified) ? ' (confirm your email address to see shared projects)' : '');
         }
         if (navBtn) navBtn.classList.remove('hidden');
         if (supHomeBtn) supHomeBtn.classList.remove('hidden');
