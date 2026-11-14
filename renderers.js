@@ -3965,24 +3965,36 @@ export function startTour(_retried) {
         showToast("Guided tour unavailable — check your internet connection and try again.", "info");
         return;
     }
+    // Every step points at a sidebar item. On a phone the sidebar is a closed
+    // drawer, and a collapsed group hides its items, so the highlight landed on
+    // an invisible 0×0 box in the corner. Open the drawer and expand the groups
+    // first, and close the drawer again when the tour ends.
+    const sidebar = document.getElementById('app-sidebar');
+    const openedDrawer = !!sidebar && sidebar.offsetParent === null && typeof window.openMobileMenu === 'function';
+    if (openedDrawer) window.openMobileMenu();
+    if (typeof window.toggleNavGroup === 'function') {
+        ['plan', 'diagnose', 'test', 'manage', 'review'].forEach(g => window.toggleNavGroup(g, true, false));
+    }
+    // Steps follow the sidebar from top to bottom.
     try {
         const driverObj = driverFactory({
             showProgress: true,
             animate: true,
             overlayColor: '#1e1b4b',
             popoverClass: 'qip-tour-popover',
+            onDestroyed: () => { if (openedDrawer && typeof window.closeMobileMenu === 'function') window.closeMobileMenu(); },
             steps: [
                 { element: '#nav-dashboard',     popover: { title: '📊 Dashboard',           description: 'Your project at a glance — progress score, chart preview, team summary and portfolio readiness.' }},
                 { element: '#nav-checklist',     popover: { title: '📋 Define & Measure',     description: 'Start here. Write your problem statement, set a SMART aim, define measures, and complete your evidence & ethics review.' }},
-                { element: '#nav-tools',         popover: { title: '🔧 Diagnosis Tools',      description: 'Fishbone diagram, Driver diagram, and 5-Whys analysis to identify and understand root causes.' }},
-                { element: '#nav-data',          popover: { title: '📈 Data & SPC',      description: 'Add data points and track your measure over time. SPC rules are applied automatically to detect improvement signals.' }},
-                { element: '#nav-pdsa',          popover: { title: '🔄 PDSA Cycles',          description: 'Log each Plan-Do-Study-Act cycle with predictions, outcomes and learning. Cycles annotate directly on your run chart.' }},
                 { element: '#nav-team',          popover: { title: '👥 Team & Leadership',                 description: 'Record team members, their roles and your specific contributions. Required for ARCP portfolio evidence.' }},
                 { element: '#nav-stakeholders',  popover: { title: '🗣️ Stakeholders',         description: 'Map stakeholders by power and interest. Track engagement strategies.' }},
-                { element: '#nav-gantt',         popover: { title: '📅 Timeline',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
+                { element: '#nav-tools',         popover: { title: '🔧 Diagnosis Tools',      description: 'Fishbone diagram, Driver diagram, and 5-Whys analysis to identify and understand root causes.' }},
                 { element: '#nav-surveys',       popover: { title: '📝 Surveys & Feedback',              description: 'Log and analyse patient or staff feedback to support your change package.' }},
+                { element: '#nav-data',          popover: { title: '📈 Data & SPC',      description: 'Add data points and track your measure over time. SPC rules are applied automatically to detect improvement signals.' }},
+                { element: '#nav-pdsa',          popover: { title: '🔄 PDSA Cycles',          description: 'Log each Plan-Do-Study-Act cycle with predictions, outcomes and learning. Cycles annotate directly on your run chart.' }},
+                { element: '#nav-gantt',         popover: { title: '📅 Timeline',          description: 'Set milestones and deadlines. Drag to adjust, export for reports.' }},
                 { element: '#nav-supervisor',    popover: { title: '🏆 SLO 11 Sign-off',  description: 'Check SLO11 sign-off criteria. See exactly what evidence is complete and what still needs work.' }},
-                { element: '#nav-publish',       popover: { title: '🚀 Publication',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, QIP poster, or EM QIAT portfolio PDF for risr/advance.' }}
+                { element: '#nav-publish',       popover: { title: '🚀 Publication',     description: 'Export a full portfolio-ready PowerPoint, RCEM abstract, A3 one-page summary or EM QIAT portfolio PDF for risr/advance.' }}
             ]
         });
         driverObj.drive();
