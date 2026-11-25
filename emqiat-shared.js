@@ -454,18 +454,18 @@ export function assessEmqiat(data) {
 
     const scored = items.filter(i => !i.optional);
     const strong = scored.filter(i => i.status === 'strong').length;
-    return { items, strong, total: scored.length, started, finalYear, higher, rcem: rcemDescriptors(data, { higher, ovText, ticked }) };
+    return { items, strong, total: scored.length, started, finalYear, higher, rcem: rcemDescriptors(data, { higher, finalYear, ovText, ticked }) };
 }
 
 // ── RCEM grade descriptors ───────────────────────────────────────────────────
-// Descriptors RCEM gives for grading a Higher-training QIAT (satisfactory/good
-// vs excellent), from its QIAT how-to guide and 2025 SLO11 guidance. Each is
-// matched against the trainee's written answers and, where possible, the
-// project's own data. A match means the evidence is written down, not that
-// the assessor will agree it meets the standard.
+// The "Standard required" tables in RCEM's SLO 11 guidance (November 2025):
+// what is satisfactory/good and what is excellent by the end of ACCS,
+// Intermediate and Higher training, quoted as written. Each is matched against
+// the trainee's written answers and, where possible, the project's own data. A
+// match means the evidence is written down, not that the assessor will agree
+// it meets the standard.
 export const RCEM_SOURCES = [
     ['RCEM: SLO 11 \u2013 Quality Improvement Guidance and QIAT Support (Nov 2025)', 'https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf'],
-    ['RCEM: The QI Assessment \u2013 A How-To Guide (v4, 2022; older \u2014 read the 2025 guidance first)', 'https://rcemcurriculum.co.uk/wp-content/uploads/2022/09/Generic-QIAT-How-to-Guide-v4.pdf'],
     ['RCEM Quality Improvement Guide (2022)', 'https://rcem.ac.uk/wp-content/uploads/2022/09/RCEM_Quality_Improvement_Guide_2022_v4.pdf'],
     ['NES Quality Improvement Journey', QI_JOURNEY_URL]
 ];
@@ -488,34 +488,57 @@ function rcemDescriptors(data, ctx) {
     const all = [e.role, e.teamStakeholders, e.sharingResults, e.reflections, e.endOfTrainingJourney, ctx.ovText].join(' ');
     const t = (v, re) => re.test(String(v || ''));
     const staffGroups = (String(e.teamStakeholders || '').match(/consultant|nurs|sister|matron|hca|sho|registrar|pharm|manager|porter|\bit\b|staff|edp|acp|physician associate|housekeep|paramedic|radiograph|lab/gi) || []).length;
+    const journeyNamed = (v) => QI_JOURNEY_ITEMS.filter(([, l]) => t(v, new RegExp(l.split(' ')[0].replace('&', ''), 'i'))).length;
+    const LEADS = /\b(led|lead|leading|chaired|delegated|negotiat|persuad|motivat|coordinat|facilitat)\w*/i;
+    const regional = { ok: t(e.sharingResults, /\b(regional|national|conference|rcem|international|poster|abstract|published|publication)\b/i), text: 'Presented at a regional or national meeting (3.4 and upload at 3.5)', quote: 'Presentation of QI project at regional or national meeting' };
+    const innovation = { ok: t(all, /\b(innovat|novel|first time|new approach|persever|persist|despite|overcame|won over)\w*/i) && t(all, /\b(led|lead|chaired|motivat|delegat)\w*/i), text: 'Evidence of innovation, QI team leadership or perseverance in making change (3.2, 4.2)', quote: 'Evidence of innovation/QI team leadership/perseverance in making change' };
 
-    if (!ctx.higher) {
+    if (ctx.higher) {
+        const methods = (String(all).match(/driver diagram|fishbone|process map|pareto|pdsa|run chart|\bspc\b|stakeholder (map|analysis)|fmea|lean|survey|5 whys|human factors|co-design/gi) || []).map(m => m.toLowerCase());
+        const satisfactory = [
+            { ok: e.involvedInProject === 'yes' && t(e.role, /\b(led|lead|leading|chaired|project lead)\b/i) && words(e.reflections) >= 120 && t(e.reflections, /learn|realis|understand|taught me/i) && t(e.reflections, /differently|next time|would|in future/i), text: 'A QI project you led on (3.2), with mature reflection on the experience and conduct of the project (4.2)', quote: 'Evidence of a QI project that the trainee has led on with mature reflection on the experience and conduct of the project' },
+            { ok: staffGroups >= 3 && journeyNamed(e.role) >= 3 && t(e.role, LEADS), text: 'Multi-disciplinary working (3.3) and an account of the QI methods used and leadership skills deployed (3.2)', quote: 'Evidence of multi-disciplinary working and satisfactory account of the QI methods used and leadership skills deployed' }
+        ];
+        if (ctx.finalYear) satisfactory.push({ ok: words(e.endOfTrainingJourney) >= 150 && t(e.endOfTrainingJourney, /\b(st[1-7]|accs|core|intermediate|f[12]|earlier|previous|first year|foundation)\b/i), text: 'Final year: a summary of your development journey in QI and leadership across the whole of EM training, with specific examples (4.4)', quote: 'Summary of the development journey in QI and leadership throughout the entirety of EM training, with reference to specific examples' });
         return {
-            stage: 'other',
+            stage: 'higher', label: 'End of Higher training', satisfactory,
+            excellent: [
+                { ok: new Set(methods).size >= 3, text: 'Several different QI methods, chosen to fit the problem, named in your answers (3.1, 3.2)', quote: 'Evidence of using diverse QI methodologies which are tailored to the specific problem being addressed' },
+                regional,
+                innovation,
+                { ok: t(all, /\b(QI lead|improvement programme|QI programme|QI forum|QI (group|committee|team)|governance (lead|group|committee)|strateg\w+)\b/i), text: 'A part in running or shaping your department\'s improvement programme', quote: 'Contribution to the strategic leadership of the department improvement programme' },
+                { ok: t(`${e.qiEducationInvolvement || ''} ${e.qiEducationLearning || ''}`, /\b(coach\w*|mentor\w*|leadership (course|programme|module|training|development)|EMLeaders|EM Leaders|QSIR|PGCert|masters|fellowship|improvement (advisor|coach|practitioner))\b/i), text: 'Higher-level QI learning, such as leadership or coaching (2.1, 2.2)', quote: 'Evidence of higher-level QI learning e.g. leadership, coaching' }
+            ]
+        };
+    }
+
+    const formStage = String(e.stageOfTraining || '');
+    if (data.meta?.trainingStage === 'intermediate' || (!data.meta?.trainingStage && /intermediate|\bst3\b/i.test(formStage))) {
+        return {
+            stage: 'intermediate', label: 'End of Intermediate training',
             satisfactory: [
-                { ok: e.involvedInProject === 'yes' || words(e.qiEducationInvolvement) >= 30, text: 'Participation in QI activity this year', quote: 'ACCS: records participation in QI activity' },
-                { ok: words(e.reflections) >= 80 && t(e.reflections, /learn|realis|understand/i), text: 'Basic understanding of key QI principles, with reflection', quote: 'a basic understanding of key QI principles, reflection' },
-                { ok: staffGroups >= 2, text: 'Appreciation of the team-based nature of QI', quote: 'appreciation of the team-based nature of QI work' },
-                { ok: t(ctx.ovText, /median|run chart|data|baseline/i) && t(ctx.ovText, /result|improv|change/i), text: 'Intermediate: data analysis and an evaluation of change', quote: 'Intermediate: a project requiring data analysis and an evaluation of change' }
+                { ok: e.involvedInProject === 'yes' && ctx.ticked.length >= 1 && journeyNamed(e.role) >= 1, text: 'Taking part in a QI project, linked to the QI Journey stages you chose to develop (3.2, 4.1)', quote: 'Evidence of participation in a QI project that is clearly linked to the sections of the QI journey in which they have chosen to develop' },
+                { ok: staffGroups >= 2 && words(e.reflections) >= 80 && t(e.reflections, /learn|realis|understand/i), text: 'Multi-disciplinary working (3.3), an account of the QI methods and reflection on how the project went (4.2)', quote: 'Evidence of multi-disciplinary working and satisfactory account of the QI methods and reflection on the conduct of the project' }
             ],
-            excellent: []
+            excellent: [
+                { ok: projectShowsImprovement(data) && t(ctx.ovText, /\d/), text: 'Significant improvement in clinical care, shown on your run chart (a shift or trend) and quoted with numbers in 3.1', quote: 'High quality QI project leading to significant improvement in clinical care' },
+                regional,
+                innovation
+            ]
         };
     }
 
     return {
-        stage: 'higher',
+        stage: 'accs', label: (data.meta?.trainingStage === 'accs' || /accs|\b[cs]t[12]\b/i.test(formStage)) ? 'End of ACCS' : 'End of ACCS (set your training stage in Settings if this is not you)',
+        anyOne: true,
         satisfactory: [
-            { ok: e.involvedInProject === 'yes' && t(e.role, /\b(led|lead|leading|chaired|project lead)\b/i), text: 'A QI project you led (to be completed by the end of training)', quote: 'a project that the trainee has led on, with completion of the project by the end of training' },
-            { ok: words(e.reflections) >= 120 && t(e.reflections, /learn|realis|understand|taught me/i) && t(e.reflections, /differently|next time|would|in future/i), text: 'Mature reflection on the experience and conduct of the project (4.2)', quote: 'mature reflection on the experience and conduct of the project' },
-            { ok: staffGroups >= 3, text: 'Evidence of multi-disciplinary working (3.3)', quote: 'evidence of multi-disciplinary working' },
-            { ok: QI_JOURNEY_ITEMS.filter(([, l]) => t(e.role, new RegExp(l.split(' ')[0].replace('&', ''), 'i'))).length >= 3 && t(e.role, /\b(led|lead|chaired|delegated|negotiat|persuad|motivat|coordinat|facilitat)\w*/i), text: 'An account of the QI methods used and leadership skills deployed (3.2)', quote: 'satisfactory account of the QI methods used and leadership skills deployed' },
-            { ok: t(e.teamStakeholders, /engag|meeting|consult|feedback|survey|brief/i) && (ctx.ticked.includes('Implement') || t(ctx.ovText, /implement|embedded|adopted|standard/i)) && t(ctx.ovText, /median|run chart|data|monitor/i), text: 'Stakeholder engagement, implementation of change and monitoring of impact', quote: 'a quality improvement project, including engagement with stakeholders, implementation of change and monitoring of impact' }
+            { ok: e.involvedInProject === 'yes', text: 'Involved in at least one project this year: audit or re-audit, service evaluation, process improvement, guideline development, or patient safety or experience improvement (3.0, 3.1)', quote: 'Satisfactory engagement with quality improvement activities including Involvement in at least one project in each year of training' },
+            { ok: t(e.sharingResults, /\b(meeting|governance|audit|present\w*|teaching|departmental)\b/i), text: 'Presented at a local QI meeting (3.4)', quote: 'Presentation at local QI meeting' },
+            { ok: words(e.qiEducationInvolvement) >= 15 || (data.emqiat?.educationLog || []).length >= 1, text: 'QI education suited to early training, such as e-learning, a training day or a QI course (2.1)', quote: 'Evidence of engaging in QI educational activity commensurate with early training e.g., e-learning, training day, QI course' }
         ],
         excellent: [
-            { ok: t(e.sharingResults, /\b(regional|national|conference|rcem|international|poster|abstract|published|publication)\b/i), text: 'Presented at a regional or national meeting (3.4 and upload at 3.5)', quote: 'presentation of QI project at regional or national meeting' },
-            { ok: projectShowsImprovement(data) && t(ctx.ovText, /\d/), text: 'Significant improvement in clinical care, shown on your run chart (a shift or trend) and quoted with numbers in 3.1', quote: 'high quality QI project leading to significant improvement in clinical care' },
-            { ok: t(all, /\b(innovat|novel|first time|new approach|persever|persist|despite|overcame|won over)\w*/i) && t(all, /\b(led|lead|chaired|motivat|delegat)\w*/i), text: 'Evidence of innovation, QI team leadership or perseverance in making change (3.2, 4.2)', quote: 'evidence of innovation/QI team leadership/perseverance in making change' },
-            { ok: t(all, /\b(another|other|second|neighbouring|sister) (hospital|site|trust|department|ed|area|project)|spread (to|across)|rolled out|adopted (by|at|in)|more than one (project|setting)\b/i), text: 'Learning taken to more than one project or setting, e.g. spread to another department or hospital', quote: 'presentation of the findings and actions from more than one project or in more than one setting; translation of findings and learning into another area of practice or another hospital' }
+            { ok: t(all, /\b(another|other|second|two|both|more than one) (project|audit|setting|meeting|department|hospital|site)s?\b/i), text: 'Presented the findings and actions from more than one project, or in more than one setting (3.4)', quote: 'Presentation of the findings and actions from more than one project or in more than one setting' },
+            { ok: t(all, /\b(another|other|second|neighbouring|sister) (hospital|site|trust|department|ed|area)|spread (to|across)|rolled out|adopted (by|at|in)\b/i), text: 'Took the findings and learning from one audit into another area of practice or another hospital', quote: 'Demonstrates translation of findings and learning from one audit into another area of practice or another hospital' }
         ]
     };
 }

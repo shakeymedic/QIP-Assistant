@@ -256,7 +256,7 @@ function tabRCEM() {
         '<div class="flex items-center gap-2 mb-2">' +
         '<span class="bg-purple-600 text-white text-xs font-bold px-2 py-1 rounded-full">Higher</span></div>' +
         '<ul class="text-xs text-purple-800 space-y-1.5 leading-relaxed">' +
-        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Lead a QIP from initiation to completion</li>' +
+        '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Lead on a QI project (RCEM quotes the Academy: trainees do not need to design, lead and project-manage an entire project to meet the curriculum)</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span>Demonstrate safety culture leadership</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Satisfactory:</strong> lead a project, with multidisciplinary working and mature reflection on the QI methods and leadership used</li>' +
         '<li class="flex gap-1.5"><span class="text-purple-500 font-bold mt-0.5">•</span><strong>Excellent:</strong> diverse QI methods tailored to the problem, regional or national presentation, innovation or perseverance, strategic contribution to the department\'s improvement programme</li>' +
@@ -274,12 +274,9 @@ function tabRCEM() {
             infoBox('emerald',
                 '<div class="font-bold text-sm text-emerald-800 mb-2 flex items-center gap-2"><i data-lucide="check-circle" class="w-4 h-4"></i>Key Capabilities (Higher)</div>' +
                 '<ul class="text-xs text-emerald-700 space-y-1">' +
-                '<li>• Drive a culture of safety, openness, and learning from error</li>' +
-                '<li>• Critically appraise and apply QI methodology</li>' +
-                '<li>• Lead multidisciplinary QI projects with measurable impact</li>' +
-                '<li>• Apply clinical governance, audit, and patient safety frameworks</li>' +
-                '<li>• Sustain improvements beyond the initial project cycle</li>' +
-                '<li>• Present findings at departmental or regional level</li>' +
+                '<li>• Key Capability 1: be able to provide clinical leadership on effective Quality Improvement work</li>' +
+                '<li>• Key Capability 2: be able to support and develop a culture of departmental safety and good clinical governance</li>' +
+                '<li class="text-emerald-600">These are the two Higher SLO 11 key capabilities as worded on the EM QIAT form. By the end of Higher training you need evidence to at least a satisfactory standard for both.</li>' +
                 '</ul>'
             ) +
             infoBox('amber',
@@ -299,28 +296,27 @@ function tabRCEM() {
 
     var arcp =
         card(
-            sectionHead('layers', 'ARCP Requirements by Stage', 'blue') +
+            sectionHead('layers', 'The standard RCEM describes for each stage', 'blue') +
             '<div class="overflow-x-auto">' +
             '<table class="w-full text-xs border-collapse">' +
             '<thead><tr class="bg-slate-50">' +
-            '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700">Stage</th>' +
-            '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700">Minimum Evidence</th>' +
-            '<th class="text-left p-2.5 border border-slate-200 font-bold text-emerald-700">For Excellent</th>' +
+            '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700">By the end of</th>' +
+            '<th class="text-left p-2.5 border border-slate-200 font-bold text-slate-700">Satisfactory / good</th>' +
+            '<th class="text-left p-2.5 border border-slate-200 font-bold text-emerald-700">Excellent</th>' +
             '</tr></thead><tbody>' +
             '<tr><td class="p-2.5 border border-slate-200 font-medium">ACCS</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Contribution to departmental project; reflection; QIAT submitted</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Active role with documented impact; patient safety reflection</td></tr>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Satisfactory engagement with QI activities, including involvement in at least one project in each year of training (audit or re-audit, service evaluation, process improvement, guideline development, patient safety or experience improvement); and/or presentation at a local QI meeting; and/or QI education suited to early training (e-learning, a training day, a QI course)</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Presenting the findings and actions from more than one project or in more than one setting; and/or taking the findings and learning from one audit into another area of practice or another hospital</td></tr>' +
             '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Intermediate</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Participation in a QI project linked to the QI Journey stages you chose; multidisciplinary working; reflection on the methods; QIAT completed</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Run chart; stakeholder engagement; results presented to the department</td></tr>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">Participation in a QI project that is clearly linked to the sections of the QI Journey you chose to develop; and multidisciplinary working, with a satisfactory account of the QI methods and reflection on the conduct of the project</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">As for satisfactory, plus: a high quality QI project leading to significant improvement in clinical care; and/or presenting it at a regional or national meeting; and/or innovation, QI team leadership or perseverance in making change</td></tr>' +
             '<tr><td class="p-2.5 border border-slate-200 font-medium">Higher</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Lead a QI project with mature reflection; multidisciplinary working; account of the QI methods and leadership skills used</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">Interdisciplinary team; SPC charts; governance involvement; spread plan</td></tr>' +
-            '<tr class="bg-slate-50"><td class="p-2.5 border border-slate-200 font-medium">Final year (pre-CCT)</td>' +
-            '<td class="p-2.5 border border-slate-200 text-slate-600">As for Higher, plus a summary of your QI and leadership development across the whole of EM training, with specific examples; QIAT completed</td>' +
-            '<td class="p-2.5 border border-slate-200 text-emerald-700"><strong>Diverse QI methods tailored to the problem; regional or national presentation; innovation, team leadership or perseverance; contribution to the department\'s improvement strategy; higher-level QI learning such as coaching</strong></td></tr>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">A QI project you have led on, with mature reflection on the experience and conduct of the project; and multidisciplinary working, with a satisfactory account of the QI methods used and leadership skills deployed. In the final year, also a summary of your development journey in QI and leadership across the whole of EM training, with specific examples</td>' +
+            '<td class="p-2.5 border border-slate-200 text-slate-600">As for satisfactory, plus any of: diverse QI methods tailored to the problem; presenting the project at a regional or national meeting; innovation, QI team leadership or perseverance in making change; contributing to the strategic leadership of the department improvement programme; higher-level QI learning such as leadership or coaching</td></tr>' +
             '</tbody></table></div>' +
-            '<p class="text-[11px] text-slate-400 mt-2 sm:hidden">Swipe the table sideways to see all three columns.</p>',
+            '<p class="text-[11px] text-slate-400 mt-2 sm:hidden">Swipe the table sideways to see all three columns.</p>' +
+            '<p class="text-xs text-slate-600 mt-3 leading-relaxed">Your Educational Supervisor gives the final rating after reviewing your EM QIAT, and it is looked at with your other SLOs at ARCP. A trained departmental QI lead can support that review.</p>' +
+            source('RCEM, SLO 11: Quality Improvement Guidance and QIAT Support for Emergency Medicine Training (November 2025), "Standard required" tables. Wording shortened slightly; read the guidance for the exact text.', 'https://rcem.ac.uk/wp-content/uploads/2025/11/SLO11-Participate-in-and-promote-activity-to-improve-the-quality-and-safety-of-patient-care.pdf'),
             'mb-6'
         );
 
@@ -592,7 +588,7 @@ function tabMethods() {
 
     var otherApproaches = card(
         sectionHead('layers', 'Other improvement approaches you will hear about', 'teal') +
-        '<p class="text-sm text-slate-600 mb-3 leading-relaxed">The Model for Improvement is what RCEM expects for a trainee QIP, but EDs also use these. Knowing the words helps when the Trust improvement team talks to you, and the EM QIAT "excellent" descriptor rewards choosing methods that fit the problem.</p>' +
+        '<p class="text-sm text-slate-600 mb-3 leading-relaxed">This app, like most NHS QI teaching, is built around the Model for Improvement, but EDs also use these. Knowing the words helps when the Trust improvement team talks to you, and RCEM\'s "excellent" descriptor for Higher training includes using diverse QI methods tailored to the problem.</p>' +
         '<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">' +
         [
             ['Lean', 'Removes waste and waiting from a process by mapping the flow and fixing the steps that add no value. Process mapping, 5S (sort, set in order, shine, standardise, sustain) and visual management come from Lean. Good for flow problems: time to triage, time to CT, discharge delays.'],
@@ -770,7 +766,7 @@ function tabCharts() {
         '<div class="bg-red-50 border border-red-200 rounded-xl p-3"><div class="font-bold text-sm text-red-800 mb-1">Unusual point</div><p class="text-xs text-red-700 leading-relaxed">An "astronomical" point, obviously far from the rest. Not a statistical test: it is a prompt to find out what happened that week before you draw any conclusion.</p></div>' +
         '</div>' +
         infoBox('slate',
-            '<p class="text-xs text-slate-700"><strong>What the app does not check:</strong> Perla\'s fourth rule, "too few or too many runs" (crossings of the median), which needs a lookup table. Anhøj and Olesen\'s simulation study found that the shift and trend rules carry most of the information, and that the exact thresholds matter less than applying them consistently and in advance. The thresholds above are the Perla ones; do not move them after you have seen the data.</p>' +
+            '<p class="text-xs text-slate-700"><strong>What the app does not check:</strong> Perla\'s fourth rule, "too few or too many runs" (crossings of the median), which needs a lookup table. Anhøj and Olesen\'s simulation study found that the shift and crossings rules do the work of detecting a real change, and that the trend rule adds very little. So treat a trend with no shift as a weak signal, and give most weight to a shift. The thresholds above are the Perla ones; do not move them after you have seen the data.</p>' +
             source('Perla 2011 (above); Anhøj J, Olesen AV. Run charts revisited: a simulation study of run chart rules for detection of non-random variation in health care processes. PLoS One 2014;9:e113825 (PMID 25423037).', pubmed('25423037'))
         )
     );
@@ -848,7 +844,7 @@ function tabPeople() {
 
     var kotter = card(
         sectionHead('footprints', 'Kotter\'s eight steps, translated for an ED project', 'blue') +
-        '<p class="text-sm text-slate-600 leading-relaxed mb-3">Kotter\'s 1995 model of organisational change is the one most often quoted in QI teaching and in the EM QIAT "leadership" descriptors. The steps, with what each looks like for a trainee QIP:</p>' +
+        '<p class="text-sm text-slate-600 leading-relaxed mb-3">Kotter\'s 1995 model of organisational change is the one most often quoted in QI teaching, and RCEM lists it among its SLO 11 resources. The steps, with what each looks like for a trainee QIP:</p>' +
         '<div class="space-y-2">' +
         [
             ['Establish a sense of urgency', 'Share the baseline chart and one real case at the governance meeting.'],
@@ -999,7 +995,7 @@ function tabSustain() {
 
     var spread = card(
         sectionHead('share-2', 'Spread: the IHI framework', 'violet') +
-        '<p class="text-sm text-slate-600 leading-relaxed mb-3">Spread is taking a change that worked in one place to other places. The IHI Framework for Spread names seven components. For a trainee project, "spread" usually means the second ED in the Trust, or the acute medical unit; the EM QIAT "excellent" level rewards a credible plan more than a completed roll-out.</p>' +
+        '<p class="text-sm text-slate-600 leading-relaxed mb-3">Spread is taking a change that worked in one place to other places. The IHI Framework for Spread names seven components. For a trainee project, "spread" usually means the second ED in the Trust, or the acute medical unit; within one rotation a credible, written plan is a realistic goal.</p>' +
         '<div class="flex flex-wrap gap-2 mb-3">' +
         ['Leadership', 'Set-up', 'Better ideas', 'Communication', 'Social system', 'Measurement and feedback', 'Knowledge management'].map(function(x) {
             return '<span class="bg-violet-50 border border-violet-200 text-violet-800 text-xs font-semibold px-2.5 py-1 rounded-full">' + x + '</span>';
@@ -1018,8 +1014,8 @@ function tabSustain() {
         sectionHead('book-open', 'What the research says', 'slate') +
         bullets('slate', [
             'Lennox, Maher and Reed reviewed 62 sustainability approaches and found most share the same constructs: monitoring, leadership, staff involvement, fit with the organisation and adapting the change over time. There is no single validated tool; using one consistently matters more than which one.',
-            'Knudsen and colleagues\' review of published QI reports found many report improvement but few report whether it lasted or spread, which is why a follow-up measurement after handover is worth more than another PDSA cycle.',
-            'Shah (BMJ 2020) argues for moving from one-off projects to improvement as "the way we work", which is what the EM QIAT\'s question about your department\'s improvement programme is getting at.'
+            'Knudsen and colleagues reviewed 120 published PDSA projects: 98% reported improvement, but only 27% had set a specific, numerical aim and reached it, and 4% followed all four key features of the method. A reported improvement is not the same as a demonstrated one, so keep measuring after handover.',
+            'Shah (BMJ 2020) argues for moving from one-off projects to improvement as "the way we work", which is what RCEM\'s "excellent" descriptor for Higher training, contributing to the strategic leadership of the department improvement programme, is getting at.'
         ]) +
         '<div class="text-[11px] text-slate-400 mt-3 leading-snug space-y-0.5">' +
         '<div><span class="font-semibold text-slate-500">Sources:</span> <a class="underline" target="_blank" rel="noopener" href="' + pubmed('29426341') + '">Lennox L, Maher L, Reed J. Implement Sci 2018;13:27 (PMID 29426341)</a>; ' +
@@ -1093,7 +1089,7 @@ function tabEthics() {
         '<div class="space-y-3">' +
         stepBox(1, 'emerald', 'Find the route', 'Most Trusts have a clinical audit or quality improvement office with a one-page registration form. Your sponsor or the ED audit lead knows it; the Trust intranet usually has it under Clinical Governance.') +
         stepBox(2, 'emerald', 'Fill it in from the app', 'The form asks for the aim, the standard or driver, the measures, the sample, the dates and the supervisor. All of these are on Define & Measure and the Charter; export the charter PDF if the office wants an attachment.') +
-        stepBox(3, 'emerald', 'Record the reference number', 'Put it in the Ethics & Governance section. The EM QIAT and any abstract will ask for it.') +
+        stepBox(3, 'emerald', 'Record the reference number', 'Put it in the Ethics & Governance section. Abstracts and journals usually ask for it, and it is worth quoting in your EM QIAT project overview.') +
         stepBox(4, 'emerald', 'Tell the people whose process you are measuring', 'A line at the nurses\' huddle and at the consultants\' meeting. It is courtesy, and it is the first stakeholder engagement entry in the Leadership log.') +
         '</div>' +
         '<div class="mt-3">' + appLink('checklist', 'Define & Measure → Ethics & Governance') + '</div>'
@@ -1231,7 +1227,7 @@ function tabFAQ() {
         ['I only have a before and an after figure. Can I still use the app?',
          '<p>Enter what you have, but the chart will not show a signal with two points, and assessors will ask the same question. If the EPR holds the historical data, pull it week by week to rebuild the baseline. If not, start weekly collection now and treat the "before" figure as context rather than as the baseline.</p>'],
         ['My change did not work. Is the project a failure?',
-         '<p>No. A documented prediction, a test, a result that did not match and a reasoned "abandon" or "adapt" decision is exactly what the EM QIAT is looking for in the Test and Study stages. The demo project\'s first cycle fails. What assessors mark down is a project with no cycles, or cycles with no learning written down.</p>'],
+         '<p>No. A documented prediction, a test, a result that did not match and a reasoned "abandon" or "adapt" decision is good evidence for the Testing Changes part of the QI Journey on the EM QIAT. The demo project\'s first cycle fails. What assessors mark down is a project with no cycles, or cycles with no learning written down.</p>'],
         ['Can I use the RCEM national QIP as my project?',
          '<p>As the foundation, yes: the national data collection is a ready-made baseline and a departmental sponsor. For the EM QIAT you then need your own change ideas and PDSA cycles around that topic, with your own measures over time. Taking part in data collection alone counts as participation, not as leading a project.</p>'],
         ['Do I need a consultant sponsor?',
@@ -1239,7 +1235,7 @@ function tabFAQ() {
         ['How many data points do I need?',
          '<p>' + QI.BASELINE_MIN + ' to ' + QI.BASELINE_TARGET + ' baseline points before the first change, then keep going at the same cadence. The run-chart rules start to mean something at about ten points; SPC limits are provisional below ' + QI.SPC_MIN + '. Each point can be a small sample (' + QI.SAMPLE_PER_POINT + ' consecutive eligible patients is typical) as long as the sample is taken the same way every time.</p>'],
         ['Does a clinical audit count?',
-         '<p>An audit and re-audit is a legitimate piece of QI evidence and fits the Define and Measure stages of the QI Journey. It becomes a QIP when the re-audit is replaced by a series of small tests of change measured over time. If you are starting from an audit, keep its data as the baseline and add PDSA cycles.</p>'],
+         '<p>An audit and re-audit is a legitimate piece of QI evidence (RCEM lists it for SLO 11) and fits the Understanding Systems and Measurement parts of the QI Journey. It becomes a QIP when the re-audit is replaced by a series of small tests of change measured over time. If you are starting from an audit, keep its data as the baseline and add PDSA cycles.</p>'],
         ['What is the difference between a process measure and an outcome measure?',
          '<p>The outcome measure is the thing you want to be better for the patient (antibiotics within an hour). The process measure checks whether the change you made is actually happening (the trolley is stocked; the PGD was used). If the process measure moves and the outcome does not, the change is being done but is not the right change. If the outcome moves and the process does not, something else caused it.</p>'],
         ['What should I write in a PDSA prediction?',
@@ -1249,13 +1245,13 @@ function tabFAQ() {
         ['Can I put patient details in the app?',
          '<p>No. The app is for the project: aim, measures, weekly figures, cycles, team, reflections. Keep anything identifiable on Trust systems and use study numbers if you need to link records. See Audit, QI or research? for the Caldicott summary.</p>'],
         ['Can my co-trainee and I share one project?',
-         '<p>Yes. Share the project from Settings; both of you can edit, and the supervisor can be given a read-only link. For the EM QIAT each of you describes your own role and reflections; the form asks about your involvement, not the project\'s result.</p>'],
+         '<p>Yes, but only the account that created a project can edit it. Agree who keeps the project in the app; the other person can read it through the share link (switched on at the bottom of SLO 11 Sign-off), or you can pass a copy across with the full project backup in the Export Centre, which the other person imports. For the EM QIAT each of you describes your own role and reflections; the form asks about your involvement, not the project\'s result.</p>'],
         ['What does the EM QIAT actually assess?',
          '<p>Your QI PDP for the year, QI education you did, the project or projects you were involved in and your role, which QI Journey stages you gained experience in, reflections on methods, team and leadership, and next year\'s PDP. It is one form a year, completed before ARCP. Leading a project every year is not required. There is no separate written report; the form is the assessed output.</p>'],
         ['Does using the AI review mean the work is not mine?',
          '<p>The AI tools in this app comment on what you wrote and suggest wording; the design, the data and the decisions are yours. Treat its output like a supervisor\'s margin notes: read it, keep what is right, and never paste a suggestion you cannot defend. Say in the EM QIAT reflection what tools you used if your supervisor asks.</p>'],
         ['I have rotated and the project is unfinished. What do I write?',
-         '<p>Write what was done, what the chart shows so far, what the next cycle would be and who now owns it. Produce the handover note from the dashboard and give it to the owner and the sponsor. The EM QIAT asks which stages you gained experience in, so an honest "Define, Measure, Diagnose and one Test cycle" is a valid year.</p>']
+         '<p>Write what was done, what the chart shows so far, what the next cycle would be and who now owns it. Produce the handover note from the dashboard and give it to the owner and the sponsor. The EM QIAT asks which stages you gained experience in, so an honest "Understanding Systems, Developing Aims, Measurement and one cycle of Testing Changes" is a valid year.</p>']
     ];
     return '<div class="space-y-3">' +
         '<div class="mb-2">' + sectionHead('help-circle', 'Questions trainees ask', 'slate') + '<p class="text-sm text-slate-500">Tap a question. Numbers in the answers are the ones the app uses throughout.</p></div>' +
@@ -1276,7 +1272,7 @@ function tabReading() {
         ['Method and measurement', 'emerald', [
             ['Perla RJ, Provost LP, Murray SK. The run chart. BMJ Qual Saf 2011;20:46–51', 'The rules this app uses for shifts and trends, with worked examples.', pubmed('21228075')],
             ['Benneyan JC, Lloyd RC, Plsek PE. Statistical process control as a tool for research and healthcare improvement. Qual Saf Health Care 2003;12:458–64', 'Why control limits, which chart for which data, and the common special-cause rules.', pubmed('14645763')],
-            ['Anhøj J, Olesen AV. Run charts revisited. PLoS One 2014;9:e113825', 'A simulation of how sensitive and specific the run-chart rules are; useful if someone challenges your thresholds.', pubmed('25423037')],
+            ['Anhøj J, Olesen AV. Run charts revisited. PLoS One 2014;9:e113825', 'A simulation of how well the run-chart rules detect real change: the shift and crossings rules work, the trend rule adds little.', pubmed('25423037')],
             ['Solberg LI, Mosser G, McDonald S. The three faces of performance measurement. Jt Comm J Qual Improv 1997;23:135–47', 'Improvement, accountability and research measurement are different jobs; this explains why you do not need a p-value.', pubmed('9103968')],
             ['Taylor MJ et al. Systematic review of the application of the plan-do-study-act method. BMJ Qual Saf 2014;23:290–8', 'How rarely PDSA is done as described, and what "done properly" means.', pubmed('24025320')],
             ['Reed JE, Card AJ. The problem with Plan-Do-Study-Act cycles. BMJ Qual Saf 2016;25:147–52', 'A sympathetic critique: PDSA is simple to describe and hard to do; the fix is rigour in prediction and learning.', pubmed('26700542')]
@@ -1405,7 +1401,7 @@ function tabGlossary() {
         ['Driver Diagram', 'A visual map connecting the project Aim to Primary Drivers (main categories), Secondary Drivers (specific contributing factors), and Change Ideas (interventions). The backbone of any well-structured QIP.'],
         ['FMEA', 'Failure Mode and Effects Analysis. A proactive risk assessment tool identifying what could go wrong with a proposed change, scored by Likelihood × Severity × Detectability to produce a Risk Priority Number (RPN).'],
         ['Fishbone Diagram', 'Also called an Ishikawa or cause-and-effect diagram. Organises potential root causes into categories (in this app: Patient, Staff, Equipment, Process, Environment, Management) to identify why a problem exists.'],
-        ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Shows the project was planned and managed, which the EM QIAT asks about in the leadership and project sections.'],
+        ['Gantt Chart', 'A project management timeline showing tasks, durations, dependencies, and responsible individuals. Shows the project was planned and managed, which is evidence for the Project Management & Communication part of the QI Journey.'],
         ['IHI Open School', 'The Institute for Healthcare Improvement\'s online education platform. Courses QI 101–103 cover the Model for Improvement, PDSA cycles and run chart interpretation. Most courses need a subscription; check whether your Trust or deanery provides one.'],
         ['Inter-Rater Reliability (Kappa)', 'Cohen\'s Kappa measures how much two or more assessors agree when independently rating the same thing, correcting for chance agreement. Relevant when a measure depends on subjective judgement, e.g. two clinicians independently scoring the same screening tool. Not built into this app\'s charts — calculate separately and report the value in your interpretation.'],
         ['Lean', 'An improvement approach that removes waste and waiting from a process by mapping the flow and fixing non-value steps. Process mapping, 5S and visual management come from Lean.'],
@@ -1424,7 +1420,7 @@ function tabGlossary() {
         ['SLO 11', 'Specialty Learning Outcome 11 in the RCEM 2021 Curriculum (updated Aug 2025). Covers Quality Improvement and Patient Safety. Evidenced each year through the EM QIAT form; leading a project every year is not mandatory.'],
         ['Special Cause Variation', 'A signal in your data (points outside control limits on an SPC chart, or non-random patterns on a run chart) indicating that something has genuinely changed the process — not just random noise.'],
         ['Spread', 'Taking a change that worked in one place to other wards, departments or sites. Different from sustainability (keeping it going where it started). The IHI Framework for Spread lists seven components.'],
-        ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. The EM QIAT asks what will happen to the project after you leave, so write one before you rotate.'],
+        ['Spread Plan', 'A structured plan for how a successful change will be rolled out beyond the initial test environment to the wider system. The EM QIAT project overview ends with next steps, so write one before you rotate.'],
         ['SQUIRE 2.0', 'Standards for Quality Improvement Reporting Excellence: the 18-item reporting guideline for improvement work, expected by most journals and a useful checklist for posters and talks.'],
         ['Stakeholder Forcefield Analysis', 'Identifies forces supporting and opposing your change, scored by strength. Helps plan your engagement strategy and gives you something concrete to describe in the EM QIAT team and stakeholder section.'],
         ['Standard work', 'The agreed, written, current best way of doing a task (a checklist, an order set, a trolley layout). Building a change into standard work is how it survives staff turnover.'],
@@ -1435,7 +1431,7 @@ function tabGlossary() {
         ['Handover', 'What you give your successor and sponsor when you rotate: the aim, measures, data plan, what was tested and decided, and who owns each change now. The app writes a one-page handover note from the project.'],
         ['Median', 'The middle value when the baseline points are put in order. Run charts use the median rather than the mean because a single unusual week does not drag it about.'],
         ['Operational Definition', 'Exactly what counts: numerator, denominator, who is excluded, where the figure comes from and when it is extracted, written so that anyone would collect the same number.'],
-        ['Registration', 'Telling your Trust audit, quality improvement or clinical governance department about the project before you look at patient records. It is the usual local permission for improvement work and gives you a reference number for the EM QIAT.'],
+        ['Registration', 'Telling your Trust audit, quality improvement or clinical governance department about the project before you look at patient records. It is the usual local permission for improvement work and gives you a reference number to quote in abstracts and reports.'],
         ['Sampling', 'Measuring a small, consistent slice each week (for example the first 20 eligible patients) instead of every case. Ten to twenty consecutive patients per point is enough for a run chart, provided the rule is the same every week.'],
         ['Service Evaluation', 'Work that asks "what standard does this service achieve?" using routine care and routine data. With clinical audit and QI it does not need research ethics approval, which is what the HRA decision tool confirms; local registration is still needed.'],
         ['Shift', QI.RUN_SHIFT + ' or more consecutive points on one side of the median on a run chart. The commonest sign that a change has moved the process. Points exactly on the median are skipped when counting.'],

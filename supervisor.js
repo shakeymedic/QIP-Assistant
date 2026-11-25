@@ -374,12 +374,18 @@ export function renderSignOffSupervisors() {
 
 // Persists the SLO 11 assessment via the dedicated assessment-only write path,
 // so a reviewing supervisor never writes the rest of the trainee's project.
-function persistAssessment() {
+// Resolves true only when the save went through. If it was refused (signed out,
+// access removed, comments too long...) the screen goes back to what is saved,
+// so it never shows a sign-off or comments that are not in the database.
+async function persistAssessment(before) {
     if (state.projectData && state.projectData.assessment) {
         state.projectData.assessment.lastSupervisorActivityAt = new Date().toISOString();
     }
-    return window.saveSupervisorAssessment();
+    const ok = await window.saveSupervisorAssessment();
+    if (!ok && before && state.projectData) state.projectData.assessment = JSON.parse(before);
+    return !!ok;
 }
+const assessmentCopy = () => JSON.stringify((state.projectData && state.projectData.assessment) || {});
 
 function requireSupervisor() {
     if (!state.isSupervisorViewing) {
@@ -392,8 +398,13 @@ function requireSupervisor() {
 window.saveSupervisorComments = async () => {
     if (!requireSupervisor()) return;
     const comments = document.getElementById('sup-comments')?.value || '';
+    if (comments.length > 20000) {
+        showToast(`Comments are too long to save (${comments.length.toLocaleString('en-GB')} characters; the limit is 20,000). Please shorten them.`, 'error');
+        return;
+    }
+    const before = assessmentCopy();
     state.projectData.assessment.supervisorComments = comments;
-    await persistAssessment();
+    if (!(await persistAssessment(before))) return;
     showToast('Supervisor comments saved.', 'success');
 };
 
@@ -412,6 +423,11 @@ window.signOffProject = () => {
     }
     // Keep any comments typed but not yet saved.
     const typed = document.getElementById('sup-comments');
+    if (typed && typed.value.length > 20000) {
+        showToast('Your comments are over the 20,000 character limit. Please shorten them before signing off.', 'error');
+        return;
+    }
+    const before = assessmentCopy();
     if (typed) state.projectData.assessment.supervisorComments = typed.value;
     const identity = state.currentUser.displayName || state.currentUser.email || 'Unknown account';
     window.showConfirmDialog(
@@ -424,7 +440,7 @@ window.signOffProject = () => {
             a.signedOffByEmail = state.currentUser.email || '';
             a.signedOffGmc = gmc;
             a.signedOffDate = new Date().toLocaleDateString('en-GB');
-            await persistAssessment();
+            if (!(await persistAssessment(before))) { renderSupervisorDashboard(); return; }
             logProjectAccessEvent(db, {
                 viewerUid: state.currentUser.uid,
                 viewerEmail: state.currentUser.email,
@@ -447,6 +463,7 @@ window.revokeSignOff = () => {
     window.showConfirmDialog(
         'Revoke this supervisor sign-off? The project will return to unsigned status.',
         async () => {
+            const before = assessmentCopy();
             const a = state.projectData.assessment;
             a.signedOff = false;
             a.signedOffBy = '';
@@ -454,7 +471,7 @@ window.revokeSignOff = () => {
             a.signedOffByEmail = '';
             a.signedOffGmc = '';
             a.signedOffDate = '';
-            await persistAssessment();
+            if (!(await persistAssessment(before))) { renderSupervisorDashboard(); return; }
             if (state.currentUser) {
                 logProjectAccessEvent(db, {
                     viewerUid: state.currentUser.uid,

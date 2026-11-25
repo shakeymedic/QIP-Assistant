@@ -97,7 +97,7 @@ export function renderQIPLeadPanel(container, db, ownerUid, projectId) {
                 <i data-lucide="users" class="w-4 h-4 text-indigo-500"></i>
                 Departmental QIP Leads
             </h3>
-            <p class="text-xs text-slate-500 mb-4">Add a Departmental QIP Lead by email. Use this to flag your project to a specific lead's attention, e.g. for sign-off.</p>
+            <p class="text-xs text-slate-500 mb-4">Add a Departmental QIP Lead by email. Use this to bring your project to a particular lead's attention, for example to ask for advice. They can view it but cannot sign it off: sign-off is done by your supervisor.</p>
 
             <div class="flex gap-2 mb-4">
                 <input id="qip-lead-email-input" type="email" placeholder="lead@hospital.nhs.uk"
@@ -329,8 +329,10 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
     leadLast = { container, projects: leadProjects || [], opts };
     const all = leadLast.projects;
     const total = all.length;
-    const active = all.filter(p => (p._pdsaCount || 0) > 0).length;
-    const ready = all.filter(p => (p._progress || 0) >= 75).length;
+    // Each tile counts exactly what its filter then lists.
+    const count = key => all.filter(LEAD_FILTERS.find(f => f.key === key).test).length;
+    const active = count('progress');
+    const ready = count('ready');
     const signed = all.filter(p => p._signedOff).length;
     const stalled = all.filter(isStalled).length;
     const stat = (n, label, filter, extra = '') => `
@@ -365,7 +367,7 @@ export function renderQIPLeadDashboard(container, leadProjects, opts = {}) {
                     <div class="mt-5 grid grid-cols-2 sm:grid-cols-5 gap-3">
                         ${stat(total, 'Total', 'all')}
                         ${stat(stalled, `Stalled ${STALLED_DAYS}+ days`, 'attention', stalled ? 'bg-amber-400/25' : '')}
-                        ${stat(active, 'PDSA started', 'progress')}
+                        ${stat(active, 'In progress', 'progress')}
                         ${stat(ready, 'Near ready (75%+)', 'ready')}
                         ${stat(signed, 'Signed off', 'signed')}
                     </div>

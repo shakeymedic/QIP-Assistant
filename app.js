@@ -328,7 +328,7 @@ const CLINICAL_TEMPLATES = [
         id: 'delirium-screening',
         title: 'Care of Older People: Delirium Screening',
         year: '2025–2026',
-        stage: 'ST4–ST6',
+        stage: 'Higher',
         color: 'blue',
         description: 'Improve 4AT delirium screening rates for patients aged 75+ presenting to the Emergency Department.',
         checklist: {
@@ -406,7 +406,7 @@ const CLINICAL_TEMPLATES = [
         year: 'Any',
         stage: 'All stages',
         color: 'slate',
-        description: 'Not doing one of the 5 national topics above? Use this generic starter for a locally-chosen QIP. It fills in example outcome/process/balancing measures for the most common data types (proportion, time-based, and count) so you can see the pattern, then edit every field to match your own topic.',
+        description: 'Not doing one of the topics above? Use this generic starter for a locally-chosen QIP. It fills in example outcome/process/balancing measures for the most common data types (proportion, time-based, and count) so you can see the pattern, then edit every field to match your own topic.',
         checklist: {
             problem_desc: '[Describe your local problem here] e.g. "Compliance with [local guideline/standard] is inconsistent in our department, leading to [patient impact]."',
             aim: '[Write your SMART aim here] e.g. "To improve [process] from X% to Y% for [patient group] by [date], as measured by [outcome measure]."',
@@ -774,8 +774,8 @@ window.showTemplatesModal = function() {
                         <div class="flex items-center gap-3">
                             <i data-lucide="layout-template" class="w-6 h-6"></i>
                             <div>
-                                <h2 class="text-lg font-bold">RCEM Clinical Templates</h2>
-                                <p class="text-xs text-amber-100">2025–2026 national QIP topics — pre-filled aims, measures & change ideas</p>
+                                <h2 class="text-lg font-bold">Clinical topic templates</h2>
+                                <p class="text-xs text-amber-100">Starters based on RCEM national QIP topics and common ED problems — pre-filled aims, measures & change ideas to edit</p>
                             </div>
                         </div>
                         <button onclick="document.getElementById('templates-modal').remove()" class="p-2 hover:bg-white/20 rounded-lg transition-colors">
@@ -990,12 +990,12 @@ window.showEMQIATModal = function() {
                 </div>
                 ${isHigher ? `
                 <div class="bg-white border border-emerald-200 rounded-xl p-5">
-                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-600"></i> CCT Journey Summary <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold ml-1">ST6 / CCT</span></h3>
+                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="graduation-cap" class="w-4 h-4 text-emerald-600"></i> CCT Journey Summary <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold ml-1">Final year</span></h3>
                     <p class="text-xs text-slate-500 mb-3">Required at final ARCP. Reflect on your development as an improvement leader throughout training and your vision for continued QI leadership as a consultant.</p>
                     <textarea onchange="window.saveEMQIATField('cctSummary', this.value)" class="w-full p-3 border border-slate-300 rounded-lg text-sm min-h-[150px]" placeholder="Reflect on your progression across training stages, key learning moments, how you have changed practice, and how you will embed QI as a consultant...">${escapeHtml(em.cctSummary||'')}</textarea>
                 </div>` : `
                 <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-                    <p class="text-xs text-slate-400"><i data-lucide="lock" class="w-3 h-3 inline mr-1"></i> CCT Journey Summary is available for Higher Specialty Trainees (ST4–ST6). Set your training stage in project settings.</p>
+                    <p class="text-xs text-slate-400"><i data-lucide="lock" class="w-3 h-3 inline mr-1"></i> CCT Journey Summary is available for Higher trainees. Set your training stage in project settings.</p>
                 </div>`}
             </div>
             <div class="flex-shrink-0 px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-between items-center">
@@ -1993,7 +1993,17 @@ window.saveData = async function(skipHistory = false) {
             // in the project is removed. (A plain merge kept whatever was missing
             // from the new copy, so clearing the department, an Undo or a
             // restored snapshot could leave old entries behind in the database.)
-            const { sets, dels, keys, clean } = changedFieldsForSave(state.projectData);
+            let changes = changedFieldsForSave(state.projectData);
+            // A real edit moves the "last updated" date, which is what the
+            // supervisor and QIP Lead views use for "last activity" and
+            // "stalled". (It used to be set once, when the project was made.)
+            if (!skipHistory && (changes.sets.length || changes.dels.length)) {
+                if (!state.projectData.meta || typeof state.projectData.meta !== 'object') state.projectData.meta = {};
+                state.projectData.meta.updated = new Date().toISOString();
+                state._historyBase = JSON.stringify(state.projectData); // the date alone is not an Undo step
+                changes = changedFieldsForSave(state.projectData);
+            }
+            const { sets, dels, keys, clean } = changes;
             if (sets.length || dels.length) {
                 const body = {};
                 const put = (path, value) => {
@@ -2044,9 +2054,10 @@ window.saveData = async function(skipHistory = false) {
 // field, never the trainee's checklist/PDSA/chart content, so browsing the rest of
 // the project in "View Full Project" mode stays genuinely read-only.
 window.saveSupervisorAssessment = async function() {
-    if (state.isDemoMode) { showToast('Demo: shown here only, nothing is saved.', 'info'); return; }
-    if (!state.isSupervisorViewing || !state.supervisorTargetUid || !state.currentProjectId || !state.projectData) return;
-    if (!db) { showToast("Database not connected. Changes not saved.", "warning"); return; }
+    // Returns true when saved (or shown in the demo), false when it was not.
+    if (state.isDemoMode) { showToast('Demo: shown here only, nothing is saved.', 'info'); return true; }
+    if (!state.isSupervisorViewing || !state.supervisorTargetUid || !state.currentProjectId || !state.projectData) return false;
+    if (!db) { showToast("Database not connected. Changes not saved.", "warning"); return false; }
     try {
         // Only the supervisor-owned fields: traineeSeenAt belongs to the trainee,
         // and writing our (possibly older) copy of it would resurrect their badge.
@@ -2081,8 +2092,10 @@ window.saveSupervisorAssessment = async function() {
             s.classList.add('text-emerald-600', 'flex', 'items-center', 'gap-1', 'text-xs', 'font-medium');
             if (typeof lucide !== 'undefined') lucide.createIcons();
         }
+        return true;
     } catch (e) {
-        showToast("Save failed: " + e.message, "error");
+        showToast(saveErrorMessage(e), "error");
+        return false;
     }
 };
 
@@ -2209,6 +2222,9 @@ function saveErrorMessage(e) {
     const msg = (e && e.message) || String(e);
     if (/maximum entity size|exceeds the maximum|too large/i.test(msg)) {
         return 'Not saved: this project has reached the database size limit (1 MB). Delete old snapshots (History) or export a backup, then try again.';
+    }
+    if ((e && e.code === 'permission-denied') || /permission/i.test(msg)) {
+        return 'Not saved: the database refused this change. Check that you are still signed in and still have access to this project.';
     }
     return 'Save failed: ' + msg;
 }
@@ -3397,16 +3413,40 @@ window.openProject = (id) => {
     
     let firstLoad = true; // navigate to dashboard only once data is ready
 
-    window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), (doc) => {
+    heldUpdate = null;
+    const applySnapshot = applyHeldUpdate = (doc) => {
         if (doc.exists()) {
             // After the first load, ignore the echo of this user's own save (and
             // any snapshot identical to what is on screen). Re-rendering for it
             // would throw away the cursor and anything typed but not yet saved,
             // and would swap state.projectData for a copy mid-edit.
             if (!firstLoad) {
-                if (doc.metadata && doc.metadata.hasPendingWrites) return;
+                // The echo of this user's own save. If an update from elsewhere
+                // is being held, this newer copy already contains it together
+                // with what was just saved, so it takes the held one's place
+                // (no later snapshot arrives once the save is confirmed).
+                const ownEcho = !!(doc.metadata && doc.metadata.hasPendingWrites);
+                if (ownEcho && !heldUpdate) return;
+                heldUpdate = null; // anything newer replaces an update that was being held
                 const incoming = normaliseProjectData(doc.data());
                 if (stableJson(incoming) === stableJson(state.projectData)) return;
+                // A change from elsewhere (a second device, or the supervisor
+                // saving comments) while this person is typing or has an edit
+                // waiting to save: hold it. Applying it now would redraw the
+                // page and lose their words. Their own save sends only the
+                // boxes they changed, and the database then sends back the
+                // combined project; if they change nothing, it is applied when
+                // they leave the box.
+                if (_saveDebounceTimer || isTypingInProject()) {
+                    heldUpdate = doc;
+                    if (!heldUpdateListening) {
+                        heldUpdateListening = true;
+                        document.addEventListener('focusout', () => setTimeout(() => {
+                            if (heldUpdate && applyHeldUpdate && !_saveDebounceTimer && !isTypingInProject()) { const d = heldUpdate; heldUpdate = null; applyHeldUpdate(d); }
+                        }, 0));
+                    }
+                    return;
+                }
                 state.projectData = incoming;
                 setServerBase(incoming);
                 state._historyBase = JSON.stringify(incoming);
@@ -3441,10 +3481,19 @@ window.openProject = (id) => {
                 }
             }
         }
-    }, (error) => {
+    };
+    window.unsubscribeProject = onSnapshot(doc(db, `users/${state.currentUser.uid}/projects`, id), applySnapshot, (error) => {
         showToast("Connection error: " + error.message, "error");
     });
 };
+// True while the cursor is in a box on one of the project pages.
+let heldUpdateListening = false;
+let heldUpdate = null;        // the latest update from elsewhere that is waiting
+let applyHeldUpdate = null;   // applies it to the project that is open now
+function isTypingInProject() {
+    const el = document.activeElement;
+    return !!(el && el.closest && el.closest('.view-section') && (el.matches('textarea, select, [contenteditable="true"]') || (el.matches('input') && !['button', 'submit', 'checkbox', 'radio', 'range'].includes(el.type))));
+}
 
 function initAuthHandlers() {
     const authForm = document.getElementById('auth-form');
@@ -3616,7 +3665,7 @@ function initAuthHandlers() {
     if(demoAuthBtn) {
         demoAuthBtn.onclick = () => {
             state.isDemoMode = true;
-            state.currentUser = { uid: 'demo', email: 'demo@rcem.ac.uk' };
+            state.currentUser = { uid: 'demo', email: 'demo@example.org' };
             
             const appContainer = document.getElementById('app-container');
             if(appContainer) appContainer.classList.remove('hidden');
@@ -4731,6 +4780,9 @@ async function addSupervisorByEmail(rawEmail) {
         showToast('No project loaded', 'error'); return false;
     }
     if (!canManageAccess()) return false;
+    if (email === String(state.currentUser.email || '').trim().toLowerCase()) {
+        showToast('That is your own email. A project cannot be signed off by its owner: add your supervisor\'s email instead.', 'error'); return false;
+    }
     if (!state.projectData.supervisors) state.projectData.supervisors = [];
     if (state.projectData.supervisors.some(s => (s.email || s) === email)) {
         showToast('That email is already listed as a supervisor', 'info'); return false;

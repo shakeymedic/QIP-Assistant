@@ -308,17 +308,18 @@ function rcemBlock(res) {
     return `
         <div class="grid grid-cols-1 ${r.excellent.length ? 'md:grid-cols-2' : ''} gap-2 mb-4">
             <div class="bg-white border border-slate-200 rounded-lg p-3">
-                <div class="text-sm font-bold text-slate-800 mb-2">${r.stage === 'higher' ? 'Higher training: satisfactory/good' : 'RCEM expectations for your stage'} <span class="text-xs font-normal text-slate-500">(${sat}/${r.satisfactory.length} evidenced)</span></div>
+                <div class="text-sm font-bold text-slate-800 mb-2">${escapeHtml(r.label)}: satisfactory/good <span class="text-xs font-normal text-slate-500">(${sat}/${r.satisfactory.length} evidenced)</span></div>
                 <ul class="space-y-1.5">${r.satisfactory.map(row).join('')}</ul>
+                ${r.anyOne ? `<p class="text-[10px] text-slate-400 mt-2">RCEM joins these with “and/or”: you do not need all three.</p>` : ''}
             </div>
             ${r.excellent.length ? `
             <div class="bg-white border ${exc === r.excellent.length ? 'border-emerald-300' : 'border-fuchsia-200'} rounded-lg p-3">
                 <div class="text-sm font-bold text-fuchsia-800 mb-2">What RCEM describes as excellent <span class="text-xs font-normal text-slate-500">(${exc}/${r.excellent.length} evidenced)</span></div>
                 <ul class="space-y-1.5">${r.excellent.map(row).join('')}</ul>
-                <p class="text-[10px] text-slate-400 mt-2">The more of these you can genuinely evidence, the stronger the case for excellent.</p>
+                <p class="text-[10px] text-slate-400 mt-2">RCEM joins these with “and/or”, on top of satisfactory/good. The more you can genuinely evidence, the stronger the case.</p>
             </div>` : ''}
         </div>
-        ${res.finalYear ? `<p class="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded p-2 mb-4">ST6: RCEM’s guidance says ST6 QIATs get a final sign-off from the regional QI panel after your educational supervisor, so write 3.1, 3.2 and 4.4 for a reader who doesn’t know your department.</p>` : ''}`;
+        <p class="text-[11px] text-indigo-700 bg-indigo-50 border border-indigo-100 rounded p-2 mb-4">RCEM’s November 2025 guidance says your Educational Supervisor gives the final rating after reviewing the EM QIAT, and it is looked at with your other SLOs at ARCP. It also quotes the Academy of Medical Royal Colleges: “trainees do not need to design, lead, and project manage entire QI projects to satisfy curriculum requirements”.</p>`;
 }
 
 export function refreshEmqiatChecks() {
@@ -375,7 +376,7 @@ export function refreshEmqiatChecks() {
                             </ul>
                         </div>`).join('')}
                 </div>
-                <p class="text-[11px] text-slate-500 mt-3">These checks follow the form’s questions and RCEM’s published QIAT descriptors. They look for the evidence being written down, not its quality, so they can’t guarantee a grade — that is your supervisor’s${res.finalYear ? ' (and, for ST6, the regional QI panel’s)' : ''} judgement. Write in your own words: assessors recognise generic or auto-generated text.</p>
+                <p class="text-[11px] text-slate-500 mt-3">These checks follow the form’s questions and RCEM’s published QIAT descriptors. They look for the evidence being written down, not its quality, so they can’t guarantee a grade — that is your supervisor’s judgement. Write in your own words: assessors recognise generic or auto-generated text.</p>
                 <p class="text-[11px] text-slate-400 mt-1">Sources: ${RCEM_SOURCES.map(([t, u]) => `<a href="${u}" target="_blank" rel="noopener" class="underline hover:text-slate-600">${escapeHtml(t)}</a>`).join(' · ')}</p>
             </div>
         </details>`;
@@ -550,6 +551,8 @@ window.aiStrengthenEmqiat = async function(path, btn) {
     if (!q || !slot) return;
     const current = document.getElementById(fieldId(path))?.value || '';
     const item = assessEmqiat(data).items.find(i => i.key === key);
+    const res0 = assessEmqiat(data);
+    const rcemStage = res0.rcem;
     const missing = item ? item.checks.filter(c => !c.ok).map(c => '- ' + c.text).join('\n') : '';
     const prompt = `You are helping an Emergency Medicine trainee write one answer on the RCEM EM QIAT (2025 Update) form.
 
@@ -561,9 +564,9 @@ ${current.trim() || '(empty)'}
 WHAT A STRONG ANSWER STILL NEEDS:
 ${missing || '- Already covers the essentials; tighten and improve clarity.'}
 
-WHAT RCEM LOOKS FOR (Higher training QIAT):
-- Satisfactory/good: a QI project the trainee led; mature reflection on the experience and conduct of the project; evidence of multi-disciplinary working; an account of the QI methods used and leadership skills deployed; stakeholder engagement, implementation of change and monitoring of impact.
-- Excellent: significant improvement in clinical care; presentation at a regional or national meeting; innovation, QI team leadership or perseverance in making change; findings and learning taken to more than one project or setting.
+WHAT RCEM LOOKS FOR (${rcemStage.label}, SLO 11 guidance November 2025):
+- Satisfactory/good: ${rcemStage.satisfactory.map(d => d.quote).join('; ')}.
+- Excellent (any of, in addition): ${rcemStage.excellent.map(d => d.quote).join('; ')}.
 Only claim these where the facts support them; otherwise add a [bracketed prompt].
 
 FACTS FROM THEIR PROJECT (the only facts you may use):

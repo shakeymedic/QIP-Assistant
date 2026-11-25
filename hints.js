@@ -272,7 +272,7 @@ export const HINTS = {
     },
     'prediction': {
         title: 'Prediction',
-        what: 'What you expect to happen and why, written before the test. Required for ARCP evidence: comparing results with the prediction is how you learn.',
+        what: 'What you expect to happen and why, written before the test. Comparing the results with the prediction is how you learn, and it is what makes a cycle a real test.',
         examples: ['We predict time from triage to antibiotics will fall by at least 15 minutes in bays 1–6, and the check will be done on at least 80% of days.']
     },
     'do': {
