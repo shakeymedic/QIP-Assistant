@@ -311,7 +311,7 @@ const CLINICAL_TEMPLATES = [
         year: '2025 — check 2026 status',
         stage: 'All stages',
         color: 'rose',
-        description: 'Risk assessment, safety planning, and early referral pathways for patients presenting with self-harm or suicidal ideation. Ran as an RCEM national QIP through 2025 (its final year); RCEM\u2019s 2026 national topics are Care of Older People, Adolescent Mental Health, and Time Critical Medications \u2014 double-check rcem.ac.uk/quality-improvement if you want this one to count as national-programme evidence rather than a locally-relevant topic.',
+        description: 'Risk assessment, safety planning, and early referral pathways for patients presenting with self-harm or suicidal ideation. Not one of RCEM\u2019s 2026 national topics, which are Care of Older People, Adolescent Mental Health, and Time Critical Medications \u2014 double-check rcem.ac.uk/quality-improvement if you want this one to count as national-programme evidence rather than a locally-relevant topic.',
         checklist: {
             problem_desc: 'Inconsistent risk assessment and safety planning documentation for patients presenting to the ED with self-harm or suicidal ideation.',
             aim: 'To improve compliance with RCEM self-harm standards by 30% within 12 months, ensuring all patients presenting with self-harm receive a documented risk assessment and safety plan before discharge.',
@@ -977,8 +977,8 @@ window.showEMQIATModal = function() {
                     </div>
                 </div>
                 <div class="bg-white border border-slate-200 rounded-xl p-5">
-                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4 text-amber-600"></i> Leadership Assessment — SLO 12 (LAT) <span class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold ml-1">August 2025 v1.5</span></h3>
-                    <p class="text-xs text-slate-500 mb-4">Document evidence of your leadership development across each domain. Completed by your Educational Supervisor in Part B.</p>
+                    <h3 class="font-bold text-slate-800 mb-1 flex items-center gap-2"><i data-lucide="award" class="w-4 h-4 text-amber-600"></i> Leadership notes (personal)</h3>
+                    <p class="text-xs text-slate-500 mb-4">Your own notes on how your leadership has developed, under five headings. This is not an official RCEM form: use it to gather examples for your portfolio.</p>
                     <div class="space-y-3">
                         ${LAT_DOMAINS.map(dom => `
                         <div class="border border-slate-100 rounded-lg p-4">

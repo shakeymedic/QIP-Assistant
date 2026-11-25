@@ -412,7 +412,8 @@ window.saveEmqiatFormField = function(path, value, typing) {
     }
     obj[parts[parts.length - 1]] = value;
     scheduleChecks();
-    if (typing) return; // saved on change/blur; keep typing smooth
+    // While typing, the save waits until the keys have been still for a
+    // moment, so a closed tab loses at most the last second or two.
     if (window.saveDataDebounced) window.saveDataDebounced();
     else if (window.saveData) window.saveData();
 };

@@ -382,3 +382,38 @@ test('only the admin can write approval entries in the role audit log', async ()
   await assertSucceeds(addDoc(collection(stranger(), 'roleAuditLog'), { uid: 'stranger', role: 'qip_lead', action: 'added', source: 'settings' }));
   await assertSucceeds(addDoc(collection(admin(), 'roleAuditLog'), { uid: 'lead', role: 'qip_lead', action: 'approved', source: 'admin' }));
 });
+
+// ---- follow-up to the 25 Nov 2026 review -------------------------------------------------------
+test('a sign-off can only name the supervisor who is signing; comments and revoke still work', async () => {
+  await seed(PROJECT, project);
+  await seed('supervisorInvites/sup@nhs.net/invites/trainee_p1', invite('sup@nhs.net'));
+  await seed('supervisorInvites/lead@nhs.net/invites/trainee_p1', invite('lead@nhs.net'));
+  // Someone else's user ID or email is refused.
+  await assertFails(setDoc(doc(sup(), PROJECT), { assessment: { signedOff: true, signedOffByUid: 'stranger', signedOffByEmail: 'sup@nhs.net' } }, { merge: true }));
+  await assertFails(setDoc(doc(sup(), PROJECT), { assessment: { signedOff: true, signedOffByUid: 'sup', signedOffByEmail: 'professor@nhs.net' } }, { merge: true }));
+  await assertSucceeds(setDoc(doc(sup(), PROJECT), { assessment: { signedOff: true, signedOffBy: 'Dr S', signedOffByUid: 'sup', signedOffByEmail: 'sup@nhs.net' } }, { merge: true }));
+  // A second invited supervisor adds comments without touching who signed...
+  await assertSucceeds(setDoc(doc(lead(), PROJECT), { assessment: { supervisorComments: 'Agreed' } }, { merge: true }));
+  // ...and can revoke (clears the fields).
+  await assertSucceeds(setDoc(doc(lead(), PROJECT), { assessment: { signedOff: false, signedOffBy: '', signedOffByUid: '', signedOffByEmail: '' } }, { merge: true }));
+});
+
+test('an access log row carries the viewer\'s own email or none', async () => {
+  const row = (email) => ({ viewerUid: 'sup', viewerEmail: email, viaRole: 'supervisor', ownerUid: 'trainee', projectId: 'p1', projectTitle: 'Sepsis QIP', action: 'viewed', createdAtIso: '2026-11-25T10:00:00Z', createdAt: serverTimestamp() });
+  await assertSucceeds(addDoc(collection(sup(), 'projectAccessLog'), row('sup@nhs.net')));
+  await assertSucceeds(addDoc(collection(sup(), 'projectAccessLog'), row('')));
+  await assertFails(addDoc(collection(sup(), 'projectAccessLog'), row('someone.else@nhs.net')));
+});
+
+test('a profile holds only the known fields, and a QIP Lead cannot list everyone', async () => {
+  await assertFails(setDoc(doc(trainee(), 'qipUsers/trainee'), { email: 'trainee@nhs.net', isAdmin: true }));
+  await assertSucceeds(setDoc(doc(trainee(), 'qipUsers/trainee'), { email: 'trainee@nhs.net', roles: ['trainee'] }));
+  await assertFails(setDoc(doc(trainee(), 'qipUsers/trainee'), { approved: true }, { merge: true }));
+  // An older profile with a field the app no longer uses can still be saved.
+  await seed('qipUsers/sup', { email: 'sup@nhs.net', legacyField: 'x' });
+  await assertSucceeds(setDoc(doc(sup(), 'qipUsers/sup'), { lastLogin: '2026-11-25T10:00:00Z' }, { merge: true }));
+  await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh', departmentName: 'QEH ED' });
+  await assertSucceeds(getDoc(doc(lead(), 'qipUsers/trainee')));
+  await assertFails(getDocs(collection(lead(), 'qipUsers')));
+  await assertSucceeds(getDocs(collection(admin(), 'qipUsers')));
+});
