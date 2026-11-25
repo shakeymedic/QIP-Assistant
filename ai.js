@@ -284,7 +284,7 @@ export async function generateAbstract(projectData) {
         : 'No data collected yet';
 
     const prompt = `
-        Generate a 250-word abstract for an RCEM conference submission based on this QIP data.
+        Generate an abstract of about 250 words for a conference submission based on this QIP data.
         
         Project Title: "${d.meta?.title || 'Untitled'}"
         Problem: "${cl.problem_desc || 'Not defined'}"
@@ -306,7 +306,7 @@ export async function generateAbstract(projectData) {
         Conclusion: (2-3 sentences)
         
         Rules:
-        Keep to exactly 250 words.
+        Keep to about 250 words, and no more than 250.
         Use British English.
         Be specific.
         Do NOT invent data that is not provided.

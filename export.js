@@ -467,7 +467,7 @@ export async function exportPPTX() {
     const hasAbstract = d.abstract_background || d.abstract_methods || d.abstract_results || d.abstract_conclusions;
     if (hasAbstract) {
         slide = pres.addSlide();
-        addHeader(slide, "Abstract (250 words)");
+        addHeader(slide, "Abstract");
         const sections = [
             { label: "Background",   text: d.abstract_background   || '', fill: "EFF6FF", border: "BFDBFE", x: 0.5,  y: 1.0 },
             { label: "Methods",      text: d.abstract_methods      || '', fill: "F0FDF4", border: "BBF7D0", x: 5.1,  y: 1.0 },

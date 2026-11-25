@@ -102,7 +102,19 @@ service cloud.firestore {
         && request.resource.data.assessment is map
         && request.resource.data.assessment.diff(resource.data.get('assessment', {}))
              .affectedKeys().hasOnly(supervisorFields())
-        && optionalString(request.resource.data.assessment, 'supervisorComments', 20000);
+        && optionalString(request.resource.data.assessment, 'supervisorComments', 20000)
+        && signOffNamesTheSigner();
+    }
+    // A sign-off carries the signer's own user ID and email: a supervisor
+    // can leave what is there, clear it (revoke) or put their own, never
+    // someone else's.
+    function signOffNamesTheSigner() {
+      let before = resource.data.get('assessment', {});
+      let after = request.resource.data.assessment;
+      let oldUid = before is map ? before.get('signedOffByUid', '') : '';
+      let oldEmail = before is map ? before.get('signedOffByEmail', '') : '';
+      return (after.get('signedOffByUid', '') == oldUid || after.get('signedOffByUid', '') in ['', request.auth.uid])
+        && (after.get('signedOffByEmail', '') == oldEmail || after.get('signedOffByEmail', '') in ['', request.auth.token.email]);
     }
 
     // The sign-off is the supervisor's: the owner can't set or change it.
@@ -169,9 +181,22 @@ service cloud.firestore {
         && optionalString(data, 'createdAt', 40)
         && (!('roles' in data) || (data.roles is list && data.roles.size() <= 10));
     }
+    // The only fields the app keeps on a profile.
+    function profileFields() {
+      return ['email', 'displayName', 'lastLogin', 'createdAt', 'roles', 'howtoDismissed'];
+    }
     match /qipUsers/{uid} {
-      allow read: if isOwner(uid) || isMasterAdmin() || isApprovedQIPLead();
-      allow create, update: if isOwner(uid) && isValidProfile(request.resource.data);
+      // An approved QIP Lead can look up one profile at a time (to show a
+      // trainee's name beside a project they can already see), but cannot
+      // list everyone.
+      allow get: if isOwner(uid) || isMasterAdmin() || isApprovedQIPLead();
+      allow list: if isMasterAdmin();
+      allow create: if isOwner(uid) && isValidProfile(request.resource.data)
+        && request.resource.data.keys().hasOnly(profileFields());
+      // Only the known fields can be added or changed (an older profile may
+      // still hold others; those are left as they are).
+      allow update: if isOwner(uid) && isValidProfile(request.resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(profileFields());
       allow delete: if isOwner(uid);
     }
 
@@ -324,7 +349,8 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly(['viewerUid', 'viewerEmail', 'viaRole', 'ownerUid', 'projectId', 'projectTitle', 'action', 'createdAtIso', 'createdAt'])
         // Signed in: logged as themselves. Not signed in: only a share-link
         // view of a project whose link is switched on.
-        && ((signedIn() && request.resource.data.viewerUid == request.auth.uid)
+        && ((signedIn() && request.resource.data.viewerUid == request.auth.uid
+                && request.resource.data.get('viewerEmail', '') in ['', request.auth.token.get('email', '')])
             || (!signedIn()
                 && request.resource.data.viewerUid == '(unauthenticated)'
                 && request.resource.data.viaRole == 'share_link'
