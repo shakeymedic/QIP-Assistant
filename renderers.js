@@ -249,7 +249,7 @@ function updatePortfolioReadiness() {
                 </div>
                 <div>
                     <div class="text-sm font-bold text-slate-800">${headline}</div>
-                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place for ${isHigher ? 'higher' : 'ACCS'} training. ${qiat.started ? `EM QIAT: ${qiat.strong} of ${qiat.total} sections strong.` : 'EM QIAT form not started yet.'}</div>
+                    <div class="text-xs text-slate-500">${metCount} of ${criteria.length} key project elements in place${isHigher ? ' for Higher training' : ''}. ${qiat.started ? `EM QIAT: ${qiat.strong} of ${qiat.total} sections strong.` : 'EM QIAT form not started yet.'}</div>
                 </div>
             </div>
             <div class="space-y-2">
@@ -1748,7 +1748,7 @@ export function renderAllPDSACycles() {
         return bd.localeCompare(ad);
     });
 
-    const statusColors = { active: 'bg-emerald-100 text-emerald-700', planning: 'bg-blue-100 text-blue-700', completed: 'bg-slate-100 text-slate-600', abandoned: 'bg-red-100 text-red-700' };
+    const statusColors = { planning: 'bg-blue-100 text-blue-700', doing: 'bg-emerald-100 text-emerald-700', studying: 'bg-amber-100 text-amber-700', acting: 'bg-purple-100 text-purple-700', complete: 'bg-slate-100 text-slate-600', abandoned: 'bg-red-100 text-red-700' };
 
     container.innerHTML = `
         <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -3986,7 +3986,7 @@ export function startTour(_retried) {
             steps: [
                 { element: '#nav-dashboard',     popover: { title: '📊 Dashboard',           description: 'Your project at a glance — progress score, chart preview, team summary and portfolio readiness.' }},
                 { element: '#nav-checklist',     popover: { title: '📋 Define & Measure',     description: 'Start here. Write your problem statement, set a SMART aim, define measures, and complete your evidence & ethics review.' }},
-                { element: '#nav-team',          popover: { title: '👥 Team & Leadership',                 description: 'Record team members, their roles and your specific contributions. Required for ARCP portfolio evidence.' }},
+                { element: '#nav-team',          popover: { title: '👥 Team & Leadership',                 description: 'Record team members, their roles and your specific contributions. The EM QIAT asks about team working and your own role.' }},
                 { element: '#nav-stakeholders',  popover: { title: '🗣️ Stakeholders',         description: 'Map stakeholders by power and interest. Track engagement strategies.' }},
                 { element: '#nav-tools',         popover: { title: '🔧 Diagnosis Tools',      description: 'Fishbone diagram, Driver diagram, and 5-Whys analysis to identify and understand root causes.' }},
                 { element: '#nav-surveys',       popover: { title: '📝 Surveys & Feedback',              description: 'Log and analyse patient or staff feedback to support your change package.' }},

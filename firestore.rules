@@ -70,8 +70,10 @@ service cloud.firestore {
     function isMasterAdmin() {
       return emailVerified() && request.auth.token.email in ['emevidence999@gmail.com', 'jaketurner2503@gmail.com'];
     }
+    // Approval is given to an email address, so it only counts once that
+    // address is proved (see emailVerified above).
     function isApprovedQIPLead() {
-      return signedIn()
+      return emailVerified()
         && exists(/databases/$(database)/documents/deptQIPLeads/$(request.auth.uid));
     }
     // The department an approved QIP Lead covers ('' if none set yet).

@@ -72,6 +72,17 @@ test('the department view needs the admin or an approved QIP Lead with that depa
   await assertSucceeds(getDoc(doc(lead(), 'qipUsers/trainee')));
 });
 
+test('an approved QIP Lead whose email is not yet confirmed sees nothing', async () => {
+  // Approval is given to an email address. Anyone can register an address they do
+  // not own with a password, so the approval must not count until it is confirmed.
+  await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh', departmentName: 'QEH ED' });
+  await seed(PROJECT, inDept('qeh'));
+  const unconfirmed = as('lead', 'lead@nhs.net', false);
+  await assertFails(getDocs(deptQuery(unconfirmed, 'qeh')));
+  await assertFails(getDoc(doc(unconfirmed, PROJECT)));
+  await assertSucceeds(getDocs(deptQuery(lead(), 'qeh')));
+});
+
 test('a QIP Lead sees only their own department, and never a hidden project', async () => {
   await seed('deptQIPLeads/lead', { email: 'lead@nhs.net', approvedAt: '2026-10-29', department: 'qeh', departmentName: 'QEH ED' });
   await seed(PROJECT, inDept('qeh'));
